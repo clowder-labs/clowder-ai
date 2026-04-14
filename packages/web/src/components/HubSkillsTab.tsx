@@ -53,6 +53,7 @@ const PAGE_SIZE = 24;
 const SEARCH_DEBOUNCE_MS = 300;
 const INSTALL_SUCCESS_TITLE = '安装成功';
 const INSTALL_FAILURE_TITLE = '安装失败';
+const CATEGORY_TAB_PRIORITY = ['办公套件'];
 
 const CATEGORY_MAP: Record<string, string> = {
   'ai-intelligence': 'AI 智能',
@@ -66,6 +67,20 @@ const CATEGORY_MAP: Record<string, string> = {
 
 function normalizeCategory(cat: string): string {
   return CATEGORY_MAP[cat] ?? cat;
+}
+
+function sortCategoryTabs(categories: string[]): string[] {
+  const unique = [...new Set(categories)];
+  return unique.sort((left, right) => {
+    const leftIndex = CATEGORY_TAB_PRIORITY.indexOf(left);
+    const rightIndex = CATEGORY_TAB_PRIORITY.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    return left.localeCompare(right, 'zh-CN');
+  });
 }
 
 function resolveCategoryParam(category: string): string | null {
@@ -218,7 +233,7 @@ export function HubSkillsTab() {
       const res = await apiFetch('/api/skills/categories');
       if (res.ok) {
         const data = (await res.json()) as { categories: string[] };
-        setCategories(data.categories.map(normalizeCategory));
+        setCategories(sortCategoryTabs(data.categories.map(normalizeCategory)));
       }
     } catch {
       // ignore error

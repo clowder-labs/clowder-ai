@@ -23,6 +23,7 @@ const SKILL_SEARCH_PLACEHOLDER = '请输入名称或描述搜索';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
+const CATEGORY_TAB_PRIORITY = ['办公套件'];
 export interface SelectedSkillSummary {
   skillName: string;
   avatarUrl?: string | null;
@@ -32,6 +33,21 @@ function sourceToLabel(source: string): string {
   if (source === 'builtin') return '内置技能';
   if (source === 'external') return '用户添加技能';
   return '其他';
+}
+
+function sortCategoryTabs(categories: string[]): string[] {
+  return [...categories].sort((left, right) => {
+    const leftIndex = CATEGORY_TAB_PRIORITY.indexOf(left);
+    const rightIndex = CATEGORY_TAB_PRIORITY.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    if (left === UNCATEGORIZED) return 1;
+    if (right === UNCATEGORIZED) return -1;
+    return left.localeCompare(right, 'zh-CN');
+  });
 }
 
 export function HubCapabilityTab({
@@ -165,8 +181,7 @@ export function HubCapabilityTab({
   const categoryTabs = useMemo(() => {
     const tabs = [ALL_CATEGORY];
     const categories = Array.from(categoryCounts.keys());
-    const ordered = categories.filter((category) => category !== UNCATEGORIZED);
-    if (categories.includes(UNCATEGORIZED)) ordered.push(UNCATEGORIZED);
+    const ordered = sortCategoryTabs(categories);
     tabs.push(...ordered);
     return tabs;
   }, [categoryCounts]);
