@@ -11,7 +11,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
+import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -68,11 +68,12 @@ export interface MultiMentionRouteDeps {
       threadId: string,
       content: string,
       catId?: string,
-      richBlocks?: Array<{ kind: string; [key: string]: unknown }>,
+      richBlocks?: RichBlock[],
       threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
       origin?: 'callback' | 'agent' | 'system',
       triggerMessageId?: string,
     ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
   };
   router: AgentRouter;
   invocationRecordStore: IInvocationRecordStore;
@@ -426,6 +427,7 @@ async function flushResult(
   if (outboundHook) {
     try {
       await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback');
+      await outboundHook.notifyDeliveryBatchDone?.(threadId, true);
     } catch (err) {
       log.warn({ err, threadId, requestId }, '[F086] Multi-mention outbound delivery failed');
     }

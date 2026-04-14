@@ -98,6 +98,7 @@ export interface CallbackRoutesOptions {
       origin?: 'callback' | 'agent' | 'system',
       triggerMessageId?: string,
     ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
   };
 }
 
@@ -676,6 +677,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           'callback',
           validatedReplyTo,
         )
+        .then(() => opts.outboundHook?.notifyDeliveryBatchDone?.(effectiveThreadId, true))
         .catch((err: unknown) => {
           app.log.error({ err, threadId: effectiveThreadId }, '[callbacks/post-message] Outbound delivery failed');
         });

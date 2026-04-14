@@ -37,6 +37,10 @@ describe('deliverOutboundFromWeb (F088 ISSUE-15)', () => {
       async deliver(threadId, content, catId, richBlocks, threadMeta) {
         deliverCalls.push({ threadId, content, catId, richBlocks, threadMeta });
       },
+      async notifyDeliveryBatchDone(threadId, chainDone) {
+        streamCalls.batchDone = streamCalls.batchDone ?? [];
+        streamCalls.batchDone.push({ threadId, chainDone });
+      },
     };
 
     mockStreamingHook = {
@@ -139,6 +143,27 @@ describe('deliverOutboundFromWeb (F088 ISSUE-15)', () => {
     assert.equal(streamCalls.end[0].text, 'hi');
     assert.equal(streamCalls.cleanup.length, 1);
     assert.equal(streamCalls.cleanup[0].threadId, 't-1');
+    assert.deepEqual(streamCalls.batchDone, [{ threadId: 't-1', chainDone: true }]);
+  });
+
+  it('prefers outbound batch-done notification over streaming hook', async () => {
+    const streamingBatchDoneCalls = [];
+    const opts = makeOpts({
+      outboundHook: mockOutboundHook,
+      streamingHook: {
+        ...mockStreamingHook,
+        async notifyDeliveryBatchDone(threadId, chainDone) {
+          streamingBatchDoneCalls.push({ threadId, chainDone });
+        },
+      },
+    });
+    const turns = [{ catId: 'opus', textParts: ['hi'] }];
+    const ctx = { failed: false, errors: [] };
+
+    await deliverOutboundFromWeb('t-1', 'opus', 'inv-1', ['hi'], turns, ctx, undefined, opts, noopLog());
+
+    assert.deepEqual(streamCalls.batchDone, [{ threadId: 't-1', chainDone: true }]);
+    assert.deepEqual(streamingBatchDoneCalls, []);
   });
 
   it('cleans up placeholders even when no outbound hook (stream-only)', async () => {

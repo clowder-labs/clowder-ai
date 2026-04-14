@@ -137,12 +137,19 @@ function createMockInvocationTracker() {
 
 function createMockOutboundHook() {
   const deliveries = [];
+  const batchDoneCalls = [];
   return {
     async deliver(threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId) {
       deliveries.push({ threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId });
     },
+    async notifyDeliveryBatchDone(threadId, chainDone) {
+      batchDoneCalls.push({ threadId, chainDone });
+    },
     getDeliveries() {
       return deliveries;
+    },
+    getBatchDoneCalls() {
+      return batchDoneCalls;
     },
   };
 }
@@ -260,6 +267,7 @@ describe('Multi-Mention Routes', () => {
     assert.equal(deliveries[0].origin, 'callback');
     assert.ok(deliveries[0].content.includes('共识总结结果汇总'));
     assert.ok(deliveries[0].content.includes('Codex says hello'));
+    assert.deepEqual(mockOutboundHook.getBatchDoneCalls(), [{ threadId: 'thread-1', chainDone: true }]);
   });
 
   test('rejects invalid callback credentials', async () => {
