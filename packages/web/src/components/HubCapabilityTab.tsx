@@ -194,6 +194,13 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
+  // 当 sourceOptions 不再包含当前 activeSource 时重置为全部来源
+  useEffect(() => {
+    if (activeSource !== ALL_SOURCES && !sourceOptions.includes(activeSource)) {
+      setActiveSource(ALL_SOURCES);
+    }
+  }, [activeSource, sourceOptions]);
+
   const handleCategoryChange = useCallback((category: string) => {
     setSearchQuery('');
     setActiveCategory(category);
