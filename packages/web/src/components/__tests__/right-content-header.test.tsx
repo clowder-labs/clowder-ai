@@ -152,7 +152,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(latestPost).toBeTruthy();
     const requestInit = latestPost?.[1] as RequestInit | undefined;
     return JSON.parse(String(requestInit?.body ?? '{}')) as {
-      data?: { contactId?: string; answers?: Array<{ questionId: string }> };
+      data?: { contactId?: string; w3account?: string; answers?: Array<{ questionId: string }> };
     };
   }
 
@@ -882,7 +882,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(getLatestPostAnswers()[1]?.questionId).toBe('question_2');
   });
 
-  it('uses the current domainId as feedback contactId when submitting', async () => {
+  it('uses the current domainId as feedback w3account when submitting', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -916,7 +916,7 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
     await flush();
 
-    expect(getLatestPostBody().data?.contactId).toBe('domain-1');
+    expect(getLatestPostBody().data?.w3account).toBe('domain-1');
   });
 
   it('shows an inline error only when other issue is selected without input', async () => {
