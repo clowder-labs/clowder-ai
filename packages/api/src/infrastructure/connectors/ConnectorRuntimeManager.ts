@@ -457,11 +457,13 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       : [];
     if (adminOpenIds.length === 0) return;
 
-    const alreadyConfigured = await this.permissionStore.hasAdminConfig('feishu');
+    // F152: Use owner userId for multi-user isolation
+    const userId = this.ownerUserIdState.current;
+    const alreadyConfigured = await this.permissionStore.hasAdminConfig(userId, 'feishu');
     if (!alreadyConfigured) {
-      await this.permissionStore.setAdminOpenIds('feishu', adminOpenIds);
+      await this.permissionStore.setAdminOpenIds(userId, 'feishu', adminOpenIds);
       this.log.info(
-        { adminCount: adminOpenIds.length },
+        { adminCount: adminOpenIds.length, userId },
         '[ConnectorGateway] Feishu admin open_ids seeded from env (first boot)',
       );
       return;
@@ -568,10 +570,10 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
           chatName = await feishu.resolveChatName(parsed.chatId).catch(() => undefined);
         }
       }
-      const sender =
-        parsed.chatType === 'group' && parsed.senderId !== 'unknown'
-          ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
-          : undefined;
+      // F152: Pass sender for both P2P and group (needed for whitelist check + /myid command)
+      const sender = parsed.senderId !== 'unknown'
+        ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
+        : undefined;
 
       return this.connectorRouter.route(
         'feishu',
