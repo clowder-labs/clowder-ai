@@ -359,16 +359,6 @@ function ThreadModeChatContainer({
   const seenAuthRequestIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    const pending = consumePendingNewThreadSend(threadId);
-    if (!pending) return;
-    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
-
-    consumedPendingRequestIdsRef.current.add(pending.requestId);
-    scrollToBottom('smooth');
-    handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
-  }, [consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
-
-  useEffect(() => {
     const handler = (event: Event) => {
       const menu = (event as CustomEvent<{ menu?: 'skills' }>).detail?.menu;
       if (menu === 'skills') setSidebarMenu('skills');
@@ -585,7 +575,38 @@ function ThreadModeChatContainer({
     return [...ids];
   }, [threads, splitPaneThreadIds]);
 
-  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+  const { cancelInvocation, awaitThreadRoom = async () => 'timed_out' as const } = useSocket(
+    socketCallbacks,
+    threadId,
+    watchedThreadIds,
+  );
+
+  useEffect(() => {
+    const pending = consumePendingNewThreadSend(threadId);
+    if (!pending) return;
+    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
+
+    consumedPendingRequestIdsRef.current.add(pending.requestId);
+    scrollToBottom('smooth');
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await awaitThreadRoom(threadId);
+      } catch (error) {
+        console.warn('[chat] awaitThreadRoom failed, continuing with best-effort send', {
+          threadId,
+          error,
+        });
+      }
+      if (cancelled) return;
+      handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitThreadRoom, consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
 
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
