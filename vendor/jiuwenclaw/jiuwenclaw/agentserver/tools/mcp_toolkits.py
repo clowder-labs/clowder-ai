@@ -10,7 +10,11 @@ import os
 from openjiuwen.core.foundation.tool import Tool, McpServerConfig
 
 from jiuwenclaw.agentserver.tools.command_tools import mcp_exec_command
-from jiuwenclaw.agentserver.tools.search_tools import mcp_free_search, mcp_paid_search
+from jiuwenclaw.agentserver.tools.search_tools import (
+    mcp_free_search,
+    mcp_paid_search,
+    petal_search_credentials_configured,
+)
 from jiuwenclaw.agentserver.tools.web_fetch_tools import mcp_fetch_webpage
 
 
@@ -214,12 +218,14 @@ def create_mcp_tool(config_str: str) -> McpServerConfig:
 
 
 def _has_paid_search_api_key() -> bool:
-    """Check if any paid search API key is configured."""
-    return any([
-        os.environ.get("PERPLEXITY_API_KEY"),
-        os.environ.get("SERPER_API_KEY"),
-        os.environ.get("JINA_API_KEY"),
-    ])
+    """Check if any paid search backend is configured (third-party keys or Petal via LLM env)."""
+    return any(
+        [
+            os.environ.get("PERPLEXITY_API_KEY"),
+            os.environ.get("SERPER_API_KEY"),
+            os.environ.get("JINA_API_KEY"),
+        ]
+    ) or petal_search_credentials_configured()
 
 
 def get_mcp_tools() -> list[Tool]:

@@ -669,21 +669,31 @@ def _principle_prompt(language: str) -> str:
         return file_content
     if language == "zh":
         return """## 执行任务的原则
+            - **直接进入正题** 少说「好的」「很乐意」，直接开始做事。
+            - **先想再做** 接到任务后先理清思路，想清楚步骤再执行，避免盲目行动。
+            - **办事严谨** 做事牢靠是获得信任的关键，不要让用户后悔使用你。
+            - **尽量不拒绝** 尽量满足用户的合理请求。只有在涉及违法、有害、侵犯他人权益或超出你能力范围时，才明确说明原因并拒绝。
+            - **隐私守护** 永远守护用户的隐私，除非用户明确要求分享。
 
-- **直接进入正题** 少说「好的」「很乐意」，直接开始做事。
-- **先想再做** 接到任务后先理清思路，想清楚步骤再执行，避免盲目行动。
-- **办事严谨** 做事牢靠是获得信任的关键，不要让用户后悔使用你。
-- **尽量不拒绝** 尽量满足用户的合理请求。只有在涉及违法、有害、侵犯他人权益或超出你能力范围时，才明确说明原因并拒绝。
-- **隐私守护** 永远守护用户的隐私，除非用户明确要求分享。
-"""
+            ## 输出规范
+            - **避免重复** 不要重复表达相同的意思，每个想法只说一次。
+            - **简洁明了** 不要用不同的措辞反复说同一件事。
+            - **思考过程** 思考时直接说出计划，不要反复确认或重新表述。
+            - **等待状态** 在等待任务完成时，只说一次"等待中"，不要重复。
+            """
     return """## Execution Principles
-
-- **Get straight to the point** Skip "Sure", "Happy to help"—just start doing the work.
-- **Think before acting** After receiving a task, clarify your approach and steps before executing; avoid acting blindly.
-- **Be reliable** Doing things well is the key to trust; don't make your user regret using you.
-- **Try not to refuse** Fulfill reasonable requests whenever possible. Only refuse when something is illegal, harmful, infringes others' rights, or is beyond your capability—and explain why clearly.
-- **Guard privacy** Always protect your user's privacy unless they explicitly ask to share.
-"""
+            - **Get straight to the point** Skip "Sure", "Happy to help"—just start doing the work.
+            - **Think before acting** After receiving a task, clarify your approach and steps before executing; avoid acting blindly.
+            - **Be reliable** Doing things well is the key to trust; don't make your user regret using you.
+            - **Try not to refuse** Fulfill reasonable requests whenever possible. Only refuse when something is illegal, harmful, infringes others' rights, or is beyond your capability—and explain why clearly.
+            - **Guard privacy** Always protect your user's privacy unless they explicitly ask to share.
+            
+            ## Output Guidelines
+            - **Avoid repetition** Do not express the same idea multiple times; state each thought only once.
+            - **Be concise and clear** Do not restate the same thing in different words.
+            - **Thinking process** When thinking, directly state the plan; do not repeatedly confirm or rephrase.
+            - **Waiting state** While waiting for a task to complete, say "waiting" only once; do not repeat.
+            """
 
 
 def _todo_prompt(language: str) -> str:
@@ -967,7 +977,7 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
     Args:
         mode: plan or agent
         language: language for system prompt
-        channel: channel
+        channel: channel id or session prefix (e.g. web, feishu, cron, __cron__ from scheduler)
         workspace_dir: per-request workspace override (jiuwenclaw is a long-running sidecar;
                        the env-var-based WORKSPACE_DIR is set once at startup and can be stale)
 
@@ -983,7 +993,9 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
     system_prompt += _skills_prompt(language) + '\n'
     system_prompt += _tool_prompt(mode, language) + '\n'
     system_prompt += _workspace_prompt(language, workspace_dir=ws) + '\n'
-    if channel == "corn":
+    # Cron runs: session_id is "cron_..." (build_user_prompt uses that prefix); scheduler sets channel_id "__cron__".
+    _is_cron_channel = (channel or "").strip() in ("cron", "__cron__")
+    if _is_cron_channel:
         system_prompt += _memory_prompt(language, is_cron=True) + '\n'
     else:
         system_prompt += _memory_prompt(language, is_cron=False) + '\n'

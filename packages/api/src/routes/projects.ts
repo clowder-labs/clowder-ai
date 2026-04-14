@@ -33,6 +33,18 @@ const WINDOWS_PICK_DIRECTORY_SCRIPT = [
   '}',
 ].join('; ');
 
+const WINDOWS_LIST_DIRECTORY_ATTRIBUTES_SCRIPT = [
+  '$dirPath = $env:OFFICE_CLAW_DIRECTORY_ATTRIBUTES_PATH',
+  'if (-not $dirPath) { throw "Missing OFFICE_CLAW_DIRECTORY_ATTRIBUTES_PATH" }',
+  '$items = Get-ChildItem -LiteralPath $dirPath -Force -Directory | Select-Object Name, Attributes',
+  '$result = @()',
+  'foreach ($item in $items) {',
+  '  $attrs = @($item.Attributes.ToString().Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })',
+  '  $result += [pscustomobject]@{ name = $item.Name; attributes = $attrs }',
+  '}',
+  'if ($result.Count -eq 0) { Write-Output "[]" } else { $result | ConvertTo-Json -Compress }',
+].join('; ');
+
 export type PickDirectoryResult =
   | { status: 'picked'; path: string }
   | { status: 'cancelled' }
@@ -132,6 +144,121 @@ export interface ProjectEntry {
   isDirectory: boolean;
 }
 
+export function shouldHideProjectBrowseEntry(
+  name: string,
+  platformName = process.platform,
+  options?: { isHidden?: boolean; isSystem?: boolean },
+): boolean {
+  if (!name) return true;
+  if (name.startsWith('.')) return true;
+  if (name === 'node_modules') return true;
+  if (platformName === 'win32' && (options?.isHidden || options?.isSystem)) return true;
+  return false;
+}
+
+interface WindowsDirectoryAttributeRecord {
+  name: string;
+  attributes: string[];
+}
+
+export function parseWindowsDirectoryAttributesPayload(payload: string): WindowsDirectoryAttributeRecord[] {
+  const trimmed = payload.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as
+      | { name?: unknown; attributes?: unknown }
+      | Array<{ name?: unknown; attributes?: unknown }>;
+    const records = Array.isArray(parsed) ? parsed : [parsed];
+    return records
+      .map((record) => {
+        const name = typeof record?.name === 'string' ? record.name : '';
+        const attrs = Array.isArray(record?.attributes)
+          ? record.attributes.filter((value): value is string => typeof value === 'string').map((value) => value.trim())
+          : [];
+        return { name, attributes: attrs.filter(Boolean) };
+      })
+      .filter((record) => record.name);
+  } catch {
+    return [];
+  }
+}
+
+export async function listWindowsHiddenSystemEntryNames(
+  dirPath: string,
+  platformName = process.platform,
+): Promise<Set<string>> {
+  if (platformName !== 'win32') return new Set();
+
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-Command', WINDOWS_LIST_DIRECTORY_ATTRIBUTES_SCRIPT],
+      {
+        timeout: 10_000,
+        env: {
+          ...process.env,
+          OFFICE_CLAW_DIRECTORY_ATTRIBUTES_PATH: dirPath,
+        },
+      },
+    );
+    const hiddenNames = new Set<string>();
+    for (const record of parseWindowsDirectoryAttributesPayload(stdout)) {
+      const attributes = new Set(record.attributes);
+      if (
+        shouldHideProjectBrowseEntry(record.name, platformName, {
+          isHidden: attributes.has('Hidden'),
+          isSystem: attributes.has('System'),
+        })
+      ) {
+        hiddenNames.add(record.name);
+      }
+    }
+    return hiddenNames;
+  } catch {
+    return new Set();
+  }
+}
+
+export let _listWindowsHiddenSystemEntryNamesImpl: (dirPath: string) => Promise<Set<string>> = (dirPath) =>
+  listWindowsHiddenSystemEntryNames(dirPath);
+export function setListWindowsHiddenSystemEntryNamesImpl(fn: (dirPath: string) => Promise<Set<string>>): void {
+  _listWindowsHiddenSystemEntryNamesImpl = fn;
+}
+
+export async function listWindowsDriveRoots(platformName = process.platform): Promise<ProjectEntry[]> {
+  if (platformName !== 'win32') return [];
+
+  const drives: Array<ProjectEntry | null> = await Promise.all(
+    Array.from({ length: 26 }, (_, index) => String.fromCharCode(65 + index)).map(async (letter) => {
+      const drivePath = `${letter}:\\`;
+      try {
+        const driveStat = await stat(drivePath);
+        if (!driveStat.isDirectory()) return null;
+
+        const realDrivePath = await realpath(drivePath).catch(() => drivePath);
+        if (!isUnderAllowedRoot(realDrivePath)) return null;
+
+        return {
+          name: `${letter}:`,
+          path: drivePath,
+          isDirectory: true,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return drives.filter((entry): entry is ProjectEntry => entry !== null);
+}
+
+/** Swappable reference for testing. */
+export let _listWindowsDriveRootsImpl: () => Promise<ProjectEntry[]> = () => listWindowsDriveRoots();
+export function setListWindowsDriveRootsImpl(fn: () => Promise<ProjectEntry[]>): void {
+  _listWindowsDriveRootsImpl = fn;
+}
+
 function requireTrustedProjectIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
   const userId = resolveHeaderUserId(request);
   if (!userId) {
@@ -206,11 +333,12 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const entries = await readdir(validatedParent, { withFileTypes: true });
+      const hiddenEntryNames = await _listWindowsHiddenSystemEntryNamesImpl(validatedParent);
       const results: ProjectEntry[] = [];
 
       for (const entry of entries) {
-        if (entry.name.startsWith('.')) continue;
-        if (entry.name === 'node_modules') continue;
+        if (shouldHideProjectBrowseEntry(entry.name)) continue;
+        if (hiddenEntryNames.has(entry.name)) continue;
         if (fragment && !entry.name.startsWith(fragment)) continue;
 
         const childPath = resolve(validatedParent, entry.name);
@@ -259,13 +387,13 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const entries = await readdir(validatedPath, { withFileTypes: true });
+      const hiddenEntryNames = await _listWindowsHiddenSystemEntryNamesImpl(validatedPath);
+      const drives = await _listWindowsDriveRootsImpl();
       const dirs: ProjectEntry[] = [];
 
       for (const entry of entries) {
-        // Skip hidden dirs (., .., .git, .node_modules, etc.)
-        if (entry.name.startsWith('.')) continue;
-        // Skip node_modules
-        if (entry.name === 'node_modules') continue;
+        if (shouldHideProjectBrowseEntry(entry.name)) continue;
+        if (hiddenEntryNames.has(entry.name)) continue;
 
         if (entry.isDirectory()) {
           // Resolve child realpath to prevent symlink escape in entries
@@ -289,6 +417,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         name: basename(validatedPath),
         parent: canGoUp ? parentDir : null,
         homePath: homedir(),
+        drives,
         entries: dirs,
       };
     } catch (err) {

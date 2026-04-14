@@ -349,7 +349,7 @@ describe('Multi-Mention Routes', () => {
 
     const executions = mockRouter.getExecutions();
     assert.equal(executions.length, 1);
-    assert.ok(executions[0].message.includes('[Multi-Mention from opus]'));
+    assert.ok(executions[0].message.includes('[共识总结 from opus]'));
     assert.ok(executions[0].message.includes('What is your opinion?'));
   });
 
@@ -473,7 +473,7 @@ describe('Multi-Mention Routes', () => {
     const stored = mockMessageStore.getMessages();
     assert.ok(stored.length > 0);
 
-    const resultMsg = stored.find((m) => m.content.includes('Multi-Mention 结果汇总'));
+    const resultMsg = stored.find((m) => m.content.includes('共识总结结果汇总'));
     assert.ok(resultMsg, 'Should have stored aggregated result message');
     assert.ok(resultMsg.content.includes('Quick question'));
 
@@ -578,7 +578,7 @@ describe('Multi-Mention Routes', () => {
 
     // The aggregated result should contain replies from BOTH cats
     const stored = mockMessageStore.getMessages();
-    const resultMsg = stored.find((m) => m.content.includes('Multi-Mention 结果汇总'));
+    const resultMsg = stored.find((m) => m.content.includes('共识总结结果汇总'));
     assert.ok(resultMsg, 'Should have aggregated result');
     assert.ok(resultMsg.content.includes('Reply from opus'), `Opus response missing. Got:\n${resultMsg?.content}`);
     assert.ok(resultMsg.content.includes('Reply from gemini'), `Gemini response missing. Got:\n${resultMsg?.content}`);

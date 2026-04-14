@@ -10,16 +10,24 @@ import { afterEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
 
 let setPickDirectoryImpl;
+let setListWindowsDriveRootsImpl;
+let setListWindowsHiddenSystemEntryNamesImpl;
 let projectsRoutes;
 
 // Load module once
 const mod = await import('../dist/routes/projects.js');
 setPickDirectoryImpl = mod.setPickDirectoryImpl;
+setListWindowsDriveRootsImpl = mod.setListWindowsDriveRootsImpl;
+setListWindowsHiddenSystemEntryNamesImpl = mod.setListWindowsHiddenSystemEntryNamesImpl;
 projectsRoutes = mod.projectsRoutes;
 
 // Restore real impl after each test
 const realImpl = mod.execPickDirectory;
-afterEach(() => setPickDirectoryImpl(realImpl));
+afterEach(() => {
+  setPickDirectoryImpl(realImpl);
+  setListWindowsDriveRootsImpl(() => mod.listWindowsDriveRoots());
+  setListWindowsHiddenSystemEntryNamesImpl((dirPath) => mod.listWindowsHiddenSystemEntryNames(dirPath));
+});
 
 const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
@@ -81,6 +89,25 @@ describe('getProjectBrowseParent()', () => {
   it('returns the parent path for Windows browse results', () => {
     assert.equal(mod.getProjectBrowseParent('C:\\Users\\alice\\repo', 'win32'), 'C:\\Users\\alice');
     assert.equal(mod.getProjectBrowseParent('C:\\', 'win32'), null);
+  });
+});
+
+describe('shouldHideProjectBrowseEntry()', () => {
+  it('hides Windows hidden/system directories by attribute', () => {
+    assert.equal(mod.shouldHideProjectBrowseEntry('ProgramData', 'win32', { isHidden: true }), true);
+    assert.equal(mod.shouldHideProjectBrowseEntry('Recovery', 'win32', { isSystem: true }), true);
+  });
+
+  it('still allows normal Windows directories', () => {
+    assert.equal(mod.shouldHideProjectBrowseEntry('workspace', 'win32'), false);
+  });
+});
+
+describe('parseWindowsDirectoryAttributesPayload()', () => {
+  it('normalizes a single PowerShell JSON object into records', () => {
+    assert.deepEqual(mod.parseWindowsDirectoryAttributesPayload('{"name":"ProgramData","attributes":["Hidden"]}'), [
+      { name: 'ProgramData', attributes: ['Hidden'] },
+    ]);
   });
 });
 
@@ -201,5 +228,42 @@ describe('GET /api/projects/browse (F113 cross-platform)', () => {
       assert.ok(!entry.name.startsWith('.'), `should hide: ${entry.name}`);
       assert.notEqual(entry.name, 'node_modules');
     }
+  });
+
+  it('filters Windows hidden/system directories returned by attribute scan', async () => {
+    setListWindowsHiddenSystemEntryNamesImpl(async () => new Set(['$RECYCLE.BIN', 'ProgramData']));
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/browse?path=${encodeURIComponent(homedir())}`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    for (const entry of body.entries) {
+      assert.notEqual(entry.name, '$RECYCLE.BIN');
+      assert.notEqual(entry.name, 'ProgramData');
+    }
+  });
+
+  it('includes Windows drive roots when the drive provider returns them', async () => {
+    setListWindowsDriveRootsImpl(async () => [
+      { name: 'C:', path: 'C:\\', isDirectory: true },
+      { name: 'D:', path: 'D:\\', isDirectory: true },
+    ]);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/browse?path=${encodeURIComponent(homedir())}`,
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.deepEqual(body.drives, [
+      { name: 'C:', path: 'C:\\', isDirectory: true },
+      { name: 'D:', path: 'D:\\', isDirectory: true },
+    ]);
   });
 });

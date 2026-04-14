@@ -9,6 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { useThemeStore } from '@/stores/themeStore';
+import { THEME_STORAGE_KEY } from '@/utils/theme-persistence';
 
 const mockStorage: Record<string, string> = {};
 const mockLocalStorage = {
@@ -42,6 +43,7 @@ describe('ThemeRootSync', () => {
   beforeEach(() => {
     mockLocalStorage.clear();
     vi.clearAllMocks();
+    document.cookie = `${THEME_STORAGE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
     document.documentElement.removeAttribute('data-ui-theme');
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -74,6 +76,21 @@ describe('ThemeRootSync', () => {
       useThemeStore.getState().setTheme('warm');
     });
 
+    expect(document.documentElement.dataset.uiTheme).toBe('warm');
+  });
+
+  it('restores the theme from cookies when the store has not loaded yet', async () => {
+    document.cookie = `${THEME_STORAGE_KEY}=warm; path=/`;
+    useThemeStore.setState({
+      theme: 'business',
+      isLoaded: false,
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ThemeRootSync));
+    });
+
+    expect(useThemeStore.getState().theme).toBe('warm');
     expect(document.documentElement.dataset.uiTheme).toBe('warm');
   });
 });

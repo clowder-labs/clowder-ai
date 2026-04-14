@@ -120,25 +120,25 @@ function normalizeTitleMentions(
   cats: Array<{ id: string; displayName: string; mentionPatterns: string[] }>,
 ): string {
   const mentionLabel = getMentionLabel();
-  const aliasToLabel: Record<string, string> = { ...mentionLabel };
+  const knownAliases = new Set<string>(Object.keys(mentionLabel).map((alias) => alias.toLowerCase()));
 
   for (const cat of cats) {
     const display = cat.displayName.trim();
     if (!display) continue;
-    const label = display.startsWith('@') ? display : `@${display}`;
-    aliasToLabel[cat.id.toLowerCase()] = label;
-    aliasToLabel[display.replace(/^@/, '').toLowerCase()] = label;
+    knownAliases.add(cat.id.toLowerCase());
+    knownAliases.add(display.replace(/^@/, '').toLowerCase());
     for (const pattern of cat.mentionPatterns) {
       const alias = pattern.replace(/^@/, '').trim().toLowerCase();
-      if (alias) aliasToLabel[alias] = label;
+      if (alias) knownAliases.add(alias);
     }
   }
 
   const tokenRe = /@([^\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)/g;
-  return title.replace(tokenRe, (fullMatch: string, alias: string) => {
-    const mapped = aliasToLabel[alias.toLowerCase()];
-    return mapped ?? fullMatch;
-  });
+  return title
+    .replace(tokenRe, (fullMatch: string, alias: string) => (knownAliases.has(alias.toLowerCase()) ? '' : fullMatch))
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.:;!?，。！？、：；])/g, '$1')
+    .trim();
 }
 
 function resolveThreadFallbackAvatar(
@@ -513,10 +513,10 @@ export function ThreadItem({
           />
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
               确定
             </button>
           </div>

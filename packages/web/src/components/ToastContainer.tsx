@@ -7,12 +7,17 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { type ToastItem, useToastStore } from '@/stores/toastStore';
+import { useChatStore } from '@/stores/chatStore';
 
 const DISMISS_DELAY = 300; // animation duration
 
 function ToastCard({ toast }: { toast: ToastItem }) {
   const { removeToast, markExiting } = useToastStore();
+  const router = useRouter();
+  const threads = useChatStore((s) => s.threads);
+  const setCurrentProject = useChatStore((s) => s.setCurrentProject);
   const statusIconSrc =
     toast.type === 'success'
       ? '/icons/message-success.svg'
@@ -24,6 +29,15 @@ function ToastCard({ toast }: { toast: ToastItem }) {
     markExiting(toast.id);
     setTimeout(() => removeToast(toast.id), DISMISS_DELAY);
   }, [toast.id, markExiting, removeToast]);
+
+  const handleViewThread = useCallback(() => {
+    if (toast.threadId) {
+      const target = threads?.find((t) => t.id === toast.threadId);
+      setCurrentProject(target?.projectPath ?? 'default');
+      router.push(toast.threadId === 'default' ? '/' : `/thread/${toast.threadId}`, { scroll: false });
+    }
+    dismiss();
+  }, [toast.threadId, threads, setCurrentProject, router, dismiss]);
 
   useEffect(() => {
     if (toast.duration <= 0) return;
@@ -59,8 +73,22 @@ function ToastCard({ toast }: { toast: ToastItem }) {
           />
         ) : null}
         <div className="min-w-0 flex-1">
+          {toast.threadTitle ? (
+            <p className="text-xs text-black/60 truncate mb-0.5" data-testid="toast-thread-title">
+              {toast.threadTitle}
+            </p>
+          ) : null}
           <p className="truncate text-sm font-medium text-black">{toast.title}</p>
           <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-black/80">{toast.message}</p>
+          {toast.threadId ? (
+            <button
+              onClick={handleViewThread}
+              className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+              data-testid="toast-view-button"
+            >
+              查看
+            </button>
+          ) : null}
         </div>
         <button
           onClick={dismiss}
