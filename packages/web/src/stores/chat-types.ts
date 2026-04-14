@@ -75,6 +75,8 @@ export interface ToolEvent {
   label: string;
   detail?: string;
   timestamp: number;
+  /** F142: Tool call ID for precise pairing */
+  toolCallId?: string;
 }
 
 /** F22: Rich block types for frontend rendering */
@@ -537,6 +539,8 @@ export interface CliEvent {
   label?: string;
   detail?: string;
   content?: string;
+  /** F142: Tool call ID for precise pairing */
+  toolCallId?: string;
 }
 
 export const DEFAULT_THREAD_STATE: ThreadState = {

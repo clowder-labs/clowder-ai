@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { apiFetch } from '@/utils/api-client';
 
 export interface VersionUpdateModalProps {
@@ -86,6 +87,11 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
     }
   }, [open]);
 
+  useEscapeKey({
+    enabled: open,
+    onEscape: onCancel,
+  });
+
   const currentVersion = versionInfo?.curversion ?? '';
   const hasNewVersion =
     !!versionInfo?.lastversion &&
@@ -149,18 +155,10 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
 
           {hasNewVersion && !isLoading && (
             <div data-testid="version-update-actions" className="flex justify-start gap-3">
-              <button
-                data-testid="version-update-cancel"
-                className="ui-button-default"
-                onClick={handleCancel}
-              >
+              <button data-testid="version-update-cancel" className="ui-button-default" onClick={handleCancel}>
                 下次再说
               </button>
-              <button
-                data-testid="version-update-confirm"
-                className="ui-button-primary"
-                onClick={handleDownload}
-              >
+              <button data-testid="version-update-confirm" className="ui-button-primary" onClick={handleDownload}>
                 立即更新
               </button>
             </div>

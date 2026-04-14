@@ -107,6 +107,12 @@ internal sealed class LauncherForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
     private const int WM_NCLBUTTONDOWN = 0xA1;
@@ -200,6 +206,7 @@ internal sealed class LauncherForm : Form
     private readonly string _runtimeStatePath;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
+    private bool _mainWebViewShown;
     private bool _exitRequested;
     private bool _trayHintShown;
     private bool _isHiddenToTray;
@@ -235,6 +242,7 @@ internal sealed class LauncherForm : Form
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
         WindowState = FormWindowState.Maximized;
+        BackColor = Color.FromArgb(255, 248, 242);
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
         _trayRestorePlacement = CreateEmptyWindowPlacement();
@@ -538,8 +546,85 @@ internal sealed class LauncherForm : Form
 
         if (WindowState == FormWindowState.Maximized)
         {
+            // 获取当前鼠标位置
+            POINT cursorPos;
+            if (!GetCursorPos(out cursorPos))
+            {
+                return;
+            }
+
+            // 获取最大化窗口的位置
+            RECT maxWindowRect;
+            if (!GetWindowRect(Handle, out maxWindowRect))
+            {
+                return;
+            }
+
+            // 获取窗口的 WINDOWPLACEMENT，其中包含还原后的尺寸
+            var placement = CreateEmptyWindowPlacement();
+            if (!GetWindowPlacement(Handle, ref placement))
+            {
+                return;
+            }
+
+            // 使用 rcNormalPosition 获取还原后的窗口尺寸（这是窗口记忆的尺寸，不会累积变化）
+            int normalWidth = placement.rcNormalPosition.Right - placement.rcNormalPosition.Left;
+            int normalHeight = placement.rcNormalPosition.Bottom - placement.rcNormalPosition.Top;
+
+            // 计算鼠标在最大化窗口中的相对位置（从左上角开始）
+            int relativeX = cursorPos.X - maxWindowRect.Left;
+            int relativeY = cursorPos.Y - maxWindowRect.Top;
+
+            // 计算最大化窗口的尺寸
+            int maxWidth = maxWindowRect.Right - maxWindowRect.Left;
+            int maxHeight = maxWindowRect.Bottom - maxWindowRect.Top;
+
+            // 按比例缩放鼠标的相对位置到还原后的窗口
+            // 这样可以保持鼠标在窗口中的相对位置不变
+            double scaleX = (double)normalWidth / maxWidth;
+            double scaleY = (double)normalHeight / maxHeight;
+
+            int adjustedRelativeX = (int)(relativeX * scaleX);
+            int adjustedRelativeY = (int)(relativeY * scaleY);
+
+            // 计算新窗口位置，让鼠标保持在相同的相对位置
+            int newX = cursorPos.X - adjustedRelativeX;
+            int newY = cursorPos.Y - adjustedRelativeY;
+
+            // 确保窗口不会移出屏幕
+            IntPtr monitor = MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
+            if (monitor != IntPtr.Zero)
+            {
+                var monitorInfo = new MONITORINFO();
+                monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                if (GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    // 限制在工作区内
+                    if (newX < monitorInfo.rcWork.Left)
+                    {
+                        newX = monitorInfo.rcWork.Left;
+                    }
+                    if (newY < monitorInfo.rcWork.Top)
+                    {
+                        newY = monitorInfo.rcWork.Top;
+                    }
+                    if (newX + normalWidth > monitorInfo.rcWork.Right)
+                    {
+                        newX = monitorInfo.rcWork.Right - normalWidth;
+                    }
+                    if (newY + normalHeight > monitorInfo.rcWork.Bottom)
+                    {
+                        newY = monitorInfo.rcWork.Bottom - normalHeight;
+                    }
+                }
+            }
+
+            // 还原窗口
             WindowState = FormWindowState.Normal;
             RefreshNativeFrame();
+
+            // 设置窗口新位置（保持原有尺寸）
+            SetWindowPos(Handle, IntPtr.Zero, newX, newY, normalWidth, normalHeight, SWP_NOZORDER | SWP_NOACTIVATE);
         }
 
         ReleaseCapture();
@@ -1023,15 +1108,22 @@ internal sealed class LauncherForm : Form
             },
         };
 
-        Controls.Clear();
+        Controls.Add(_webView);
         if (_splashWebView != null && !_splashWebView.IsDisposed)
         {
-            _splashWebView.Dispose();
-            _splashWebView = null;
+            _webView.SendToBack();
         }
-        Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
+
+        await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            "(function(){" +
+            "var style=document.createElement('style');" +
+            "style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+            "var target=document.head||document.documentElement;" +
+            "if(target)target.appendChild(style);" +
+            "})();"
+        ).ConfigureAwait(true);
 
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
@@ -1051,8 +1143,73 @@ internal sealed class LauncherForm : Form
         {
             AppendLog("WebView2 process failed: " + eventArgs.ProcessFailedKind);
         };
-        _webView.CoreWebView2.NavigationCompleted += (_, __) => PublishWindowState();
+        _webView.CoreWebView2.NavigationCompleted += async (_, eventArgs) =>
+        {
+            PublishWindowState();
+            if (!_mainWebViewShown && eventArgs.IsSuccess)
+            {
+                RevealMainWebView();
+            }
+
+            if (!_mainWebViewShown && !eventArgs.IsSuccess)
+            {
+                AppendLog("Main WebView navigation failed before splash handoff: " + eventArgs.WebErrorStatus);
+            }
+
+            if (eventArgs.IsSuccess)
+            {
+                await InjectLoginCssAsync().ConfigureAwait(true);
+            }
+        };
         _webView.Source = new Uri(_frontendUrl);
+    }
+
+    private void RevealMainWebView()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)RevealMainWebView);
+            return;
+        }
+
+        if (_mainWebViewShown)
+        {
+            return;
+        }
+
+        _mainWebViewShown = true;
+        _webView.BringToFront();
+
+        if (_splashWebView != null && !_splashWebView.IsDisposed)
+        {
+            Controls.Remove(_splashWebView);
+            _splashWebView.Dispose();
+            _splashWebView = null;
+        }
+    }
+
+    private async Task InjectLoginCssAsync()
+    {
+        if (_webView == null || _webView.IsDisposed || _webView.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var cssScript =
+                "if(!document.querySelector('#clawder-login-hide')){" +
+                "var s=document.createElement('style');" +
+                "s.id='clawder-login-hide';" +
+                "s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+                "(document.head||document.body||document.documentElement).appendChild(s);" +
+                "}";
+            await _webView.CoreWebView2.ExecuteScriptAsync(cssScript).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed to inject login CSS: " + ex.Message);
+        }
     }
 
     private void OnNewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs eventArgs)

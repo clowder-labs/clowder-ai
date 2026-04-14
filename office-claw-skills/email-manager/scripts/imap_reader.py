@@ -58,14 +58,14 @@ def get_email_body(msg):
                     charset = part.get_content_charset() or 'utf-8'
                     body = payload.decode(charset, errors='replace')
                     break
-                except:
+                except (UnicodeDecodeError, AttributeError, TypeError):
                     pass
     else:
         try:
             payload = msg.get_payload(decode=True)
             charset = msg.get_content_charset() or 'utf-8'
             body = payload.decode(charset, errors='replace')
-        except:
+        except (UnicodeDecodeError, AttributeError, TypeError):
             pass
     return body
 
