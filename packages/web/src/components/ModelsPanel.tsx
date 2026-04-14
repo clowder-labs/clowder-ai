@@ -316,6 +316,12 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
   return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
 }
 
+function isEnvFlagEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
@@ -352,6 +358,7 @@ export function ModelsPanel() {
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
 
+  const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
@@ -703,13 +710,13 @@ export function ModelsPanel() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
       const showToast = useToastStore.getState().addToast;
       showToast({
         type: 'error',
         title: '图标格式不支持',
-        message: '仅支持 png、jpeg、gif、jpg 格式图片',
+        message: '仅支持 png、jpeg、jpg 格式图片',
         duration: 3000,
       });
       event.target.value = '';
@@ -844,7 +851,7 @@ export function ModelsPanel() {
               {HUAWEI_MAAS_ACCESS_LABEL}
             </button>
           ) : null}
-          {isSkipAuth ? (
+          {canCreateModel ? (
             <button
               type="button"
               onClick={() => handleOpenCreateModelModal('default')}
@@ -1146,7 +1153,7 @@ export function ModelsPanel() {
                   <input
                     ref={modelIconFileInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/gif,image/jpg"
+                    accept="image/png,image/jpeg,image/jpg"
                     onChange={handleModelIconUpload}
                     className="hidden"
                     data-testid="models-create-model-icon-file-input"
@@ -1169,7 +1176,7 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1248,7 +1255,9 @@ export function ModelsPanel() {
                           </button>
                         </div>
                         {(rowErrors.keyError || rowErrors.valueError) && (
-                          <div className="text-xs text-red-600 px-1">{rowErrors.keyError || rowErrors.valueError}</div>
+                          <div className="break-all px-1 text-xs text-red-600">
+                            {rowErrors.keyError || rowErrors.valueError}
+                          </div>
                         )}
                       </div>
                     );
@@ -1256,7 +1265,7 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--icon-delete-hover)]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
