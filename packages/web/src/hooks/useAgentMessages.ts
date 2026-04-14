@@ -528,7 +528,7 @@ export function useAgentMessages() {
         ) {
           return;
         }
-        setCatStatus(msg.catId, msg.isFinal && errorFallback ? 'error' : 'streaming');
+        setCatStatus(msg.catId, errorFallback ? 'error' : 'streaming');
         // F118: Clear liveness warning when cat resumes output
         setCatInvocation(msg.catId, { livenessWarning: undefined });
         if (msg.origin !== 'callback') {

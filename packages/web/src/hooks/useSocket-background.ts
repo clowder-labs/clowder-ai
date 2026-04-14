@@ -114,6 +114,14 @@ function stopTrackedStream(
   return existing;
 }
 
+function markBackgroundErrorToastShown(streamKey: string, options: HandleBackgroundMessageOptions): void {
+  options.backgroundErrorToastsShown.add(streamKey);
+}
+
+function hasShownBackgroundErrorToast(streamKey: string, options: HandleBackgroundMessageOptions): boolean {
+  return options.backgroundErrorToastsShown.has(streamKey);
+}
+
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength)}...`;
@@ -423,7 +431,7 @@ export function handleBackgroundAgentMessage(
           content: msg.content,
           metadata: msg.metadata,
           streaming: !msg.isFinal,
-          catStatus: msg.isFinal ? (errorFallback ? 'error' : 'done') : 'streaming',
+          catStatus: errorFallback ? 'error' : msg.isFinal ? 'done' : 'streaming',
         });
         if (msg.replyTo || msg.replyPreview || errorFallback) {
           options.store.patchThreadMessage(msg.threadId, messageId, {
@@ -456,7 +464,7 @@ export function handleBackgroundAgentMessage(
         options.store.updateThreadCatStatus(
           msg.threadId,
           msg.catId,
-          msg.isFinal ? (msg.extra?.errorFallback ? 'error' : 'done') : 'streaming',
+          msg.extra?.errorFallback ? 'error' : msg.isFinal ? 'done' : 'streaming',
         );
         if (msg.isFinal) {
           options.bgStreamRefs.delete(streamKey);
@@ -495,6 +503,7 @@ export function handleBackgroundAgentMessage(
           threadTitle: options.getThreadTitle?.(msg.threadId),
           duration: 8000,
         });
+        markBackgroundErrorToastShown(streamKey, options);
         return;
       }
       options.addToast({
@@ -549,12 +558,41 @@ export function handleBackgroundAgentMessage(
       threadTitle: options.getThreadTitle?.(msg.threadId),
       duration: 8000,
     });
+    markBackgroundErrorToastShown(streamKey, options);
     return;
   }
 
   if (msg.type === 'done') {
     stopTrackedStream(streamKey, msg, options);
     const currentStatus = options.store.getThreadState(msg.threadId).catStatuses[msg.catId];
+    const latestAssistantMessage = options.store
+      .getThreadState(msg.threadId)
+      .messages.filter((m) => m.type === 'assistant' && m.catId === msg.catId)
+      .at(-1);
+    const messageErrorFallback = latestAssistantMessage?.extra?.errorFallback;
+    if (currentStatus === 'error' || messageErrorFallback) {
+      options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
+      if (messageErrorFallback && !hasShownBackgroundErrorToast(streamKey, options)) {
+        const catLabel = resolveCatLabel(msg.catId);
+        const toast = getAgentErrorToastContent({
+          catId: msg.catId,
+          catDisplayName: catLabel,
+          error: messageErrorFallback.rawError,
+          errorCode: msg.errorCode,
+        });
+        options.addToast({
+          type: 'error',
+          title: toast.title,
+          message: latestAssistantMessage?.content || toast.message,
+          threadId: msg.threadId,
+          threadTitle: options.getThreadTitle?.(msg.threadId),
+          duration: 8000,
+        });
+        markBackgroundErrorToastShown(streamKey, options);
+      }
+      options.backgroundErrorToastsShown.delete(streamKey);
+      return;
+    }
     if (currentStatus !== 'error') {
       options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'done');
       const catLabel = resolveCatLabel(msg.catId);
@@ -567,6 +605,7 @@ export function handleBackgroundAgentMessage(
         duration: 5000,
       });
     }
+    options.backgroundErrorToastsShown.delete(streamKey);
     if (msg.isFinal) {
       // #80 fix-C: Clear timeout guard so it doesn't fire a false "timed out" message
       options.clearDoneTimeout?.(msg.threadId);

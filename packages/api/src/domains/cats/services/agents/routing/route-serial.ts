@@ -1071,7 +1071,7 @@ export async function* routeSerial(
           error: collectedErrorText,
         });
         const errorFallback = {
-          v: 1,
+          v: 1 as const,
           kind: errorKind,
           rawError: collectedErrorText,
           timestamp: Date.now(),

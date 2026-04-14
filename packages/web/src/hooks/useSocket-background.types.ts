@@ -102,6 +102,7 @@ export interface HandleBackgroundMessageOptions {
   store: BackgroundStoreLike;
   bgStreamRefs: Map<string, BackgroundStreamRef>;
   replacedInvocations: Map<string, string>;
+  backgroundErrorToastsShown: Set<string>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
   getThreadTitle?: (threadId: string) => string | null | undefined;

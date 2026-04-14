@@ -843,7 +843,7 @@ export async function* routeParallel(
           error: errorText,
         });
         const errorFallback = {
-          v: 1,
+          v: 1 as const,
           kind: errorKind,
           rawError: errorText,
           timestamp: Date.now(),
