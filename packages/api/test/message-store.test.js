@@ -256,6 +256,39 @@ describe('MessageStore', () => {
     assert.equal(visible[1].content, '[定时任务] 该喝水啦！');
   });
 
+  test('getByThread() keeps scheduler-triggered agent responses visible for a different user', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+
+    const store = new MessageStore();
+    // Scheduler trigger message (userId='scheduler')
+    store.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: 1,
+      threadId: 'thread-sched',
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+    // Agent response to the trigger — stored with userId='default-user' because
+    // MCP callback has no session credential (no request.auth)
+    store.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: '好的，已经到时间了！记得喝水哦～',
+      mentions: [],
+      timestamp: 2,
+      threadId: 'thread-sched',
+    });
+
+    // Query as a real user (not 'default-user') — both messages should be visible
+    const visible = store.getByThread('thread-sched', 10, 'real-user-abc');
+    assert.equal(visible.length, 2);
+    assert.equal(visible[0].userId, 'scheduler');
+    assert.equal(visible[1].catId, 'opus');
+    assert.equal(visible[1].content, '好的，已经到时间了！记得喝水哦～');
+  });
+
   test('getBefore() returns messages before timestamp', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 

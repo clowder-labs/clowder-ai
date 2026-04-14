@@ -153,6 +153,42 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages[1].content, '[定时任务] 该喝水啦！');
   });
 
+  it('returns scheduler-triggered agent response after refresh for a real user', async () => {
+    messageStore.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: 3000,
+      threadId: 'thread-sched-agent',
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+    // Agent response stored with userId='default-user' (MCP callback has no session)
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: '好的，已经到时间了！记得喝水哦～',
+      mentions: [],
+      timestamp: 4000,
+      threadId: 'thread-sched-agent',
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/messages?threadId=thread-sched-agent',
+      headers: {
+        'x-cat-cafe-user': 'real-logged-in-user',
+      },
+    });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 2);
+    assert.equal(body.messages[0].type, 'connector');
+    assert.equal(body.messages[1].type, 'assistant');
+    assert.equal(body.messages[1].catId, 'opus');
+    assert.equal(body.messages[1].content, '好的，已经到时间了！记得喝水哦～');
+  });
+
   it('respects limit parameter', async () => {
     for (let i = 0; i < 10; i++) {
       messageStore.append({
