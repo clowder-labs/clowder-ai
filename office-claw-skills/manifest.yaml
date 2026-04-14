@@ -694,6 +694,34 @@ skills:
     sop_step: null
     merged_from: null
 
+    openai-whisper-cn:
+      description: >
+        本地语音转文字（Whisper CLI），国内加速版。
+        支持 pip 镜像、HuggingFace 镜像、imageio-ffmpeg，
+        无需 API Key，无需系统 ffmpeg。
+      triggers:
+        - "语音转文字"
+        - "音频转录"
+        - "录音转文本"
+        - "whisper"
+        - "STT"
+        - "speech to text"
+      not_for:
+        - "实时流式转录"
+        - "视频字幕生成（需要额外处理）"
+      output: "transcribed text file"
+      dependencies:
+        - "pip: openai-whisper"
+        - "pip: imageio-ffmpeg (推荐)"
+        - "ffmpeg (备选)"
+      note:
+        - "国内加速：pip 阿里云镜像、HF 镜像"
+        - "模型策略：base 首选，tiny 只用于超大文件"
+        - "预检查模型再执行转录"
+      next: [ ]
+      sop_step: null
+      merged_from: null
+
 # 注：
 # 1. `pptx-craft` 下的 `planner` / `designer` / `outline-research` 作为内部模块，由主技能按需读取。
 # 2. `meeting-autopilot-pro` 已纳入正式会议类技能分组。
