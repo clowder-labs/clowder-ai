@@ -50,6 +50,8 @@ interface AgentMsg {
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /** F142: Tool call ID for precise pairing (from backend AgentMessage) */
+  toolCallId?: string;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -648,10 +650,11 @@ export function useAgentMessages() {
         const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
         appendToolEvent(messageId, {
-          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: msg.toolCallId ?? `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_use',
           label: `${msg.catId} → ${toolName}`,
           ...(detail ? { detail } : {}),
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
         if (isFileChange) {
@@ -670,10 +673,11 @@ export function useAgentMessages() {
 
         const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
-          id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: msg.toolCallId ?? `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_result',
           label: `${msg.catId} ← result`,
           detail,
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {

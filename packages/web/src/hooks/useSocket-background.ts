@@ -548,10 +548,11 @@ export function handleBackgroundAgentMessage(
     const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
-      id: `bg-tool-use-${msg.timestamp}-${options.nextBgSeq()}`,
+      id: msg.toolCallId ?? `bg-tool-use-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_use',
       label: `${msg.catId} → ${toolName}`,
       ...(detail ? { detail } : {}),
+      ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
       timestamp: msg.timestamp,
     });
     options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
@@ -564,10 +565,11 @@ export function handleBackgroundAgentMessage(
     const detail = compactToolResultDetail(msg.content ?? '');
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
-      id: `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
+      id: msg.toolCallId ?? `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_result',
       label: `${msg.catId} ← result`,
       detail,
+      ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
       timestamp: msg.timestamp,
     });
     options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
