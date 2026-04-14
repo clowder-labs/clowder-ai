@@ -5,8 +5,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { createCatId } from '@cat-cafe/shared';
-import type { RelayClawAgentConfig } from '@cat-cafe/shared';
+import { createCatId } from '@office-claw/shared';
+import type { RelayClawAgentConfig } from '@office-claw/shared';
 import {
   FrameQueue,
   RelayClawConnectionManager,
