@@ -5,6 +5,7 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
+import { findMonorepoRoot } from '../../utils/monorepo-root.js';
 import {
   type ConnectorGatewayConfig,
   type ConnectorGatewayDeps,
@@ -228,7 +229,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       bindingStore: ctx.bindingStore,
       adapters: ctx.adapters,
       log: ctx.log,
-      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? './data/connector-media'),
+      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? 'data/connector-media'),
       messageLookup: ctx.messageLookup,
     });
     this.streamingHook = new StreamingOutboundHook({
@@ -837,7 +838,7 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     permissionStore,
   });
 
-  const mediaDir = config.connectorMediaDir ?? './data/connector-media';
+  const mediaDir = resolve(findMonorepoRoot(), config.connectorMediaDir ?? 'data/connector-media');
   const mediaService = new ConnectorMediaService({ mediaDir });
 
   let sttProvider:
@@ -917,9 +918,10 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
 }
 
 function buildMediaPathResolver(mediaDir: string): (url: string) => string | undefined {
-  const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
-  const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
-  const resolvedMediaDir = resolve(mediaDir);
+  const monoRoot = findMonorepoRoot();
+  const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
+  const ttsCacheDir = resolve(monoRoot, process.env.TTS_CACHE_DIR ?? 'data/tts-cache');
+  const resolvedMediaDir = resolve(monoRoot, mediaDir);
 
   return (url: string): string | undefined => {
     const safeResolve = (base: string, suffix: string): string | undefined => {
