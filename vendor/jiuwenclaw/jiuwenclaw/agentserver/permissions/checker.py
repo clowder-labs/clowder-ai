@@ -89,7 +89,7 @@ def _get_permissions_audit_logger() -> logging.Logger:
         return audit_logger
 
     try:
-        from jiuwenclaw.utils import get_logs_dir
+        from jiuwenclaw.logging.app_logger import get_logs_dir
 
         logs_root = get_logs_dir()
         logs_root.mkdir(parents=True, exist_ok=True)
@@ -117,7 +117,7 @@ def _get_primary_app_logger() -> logging.Logger | None:
     """返回当前工程里等价于上游 agent_server.log 的主日志器。"""
 
     try:
-        from jiuwenclaw.utils import logger as app_logger
+        from jiuwenclaw.logging.app_logger import logger as app_logger
 
         return app_logger
     except Exception:

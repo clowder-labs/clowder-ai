@@ -102,7 +102,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'server',
     sensitive: false,
   },
-  { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
+  { name: 'UPLOAD_DIR', defaultValue: 'data/uploads', description: '文件上传目录（默认相对 monorepo root）', category: 'server', sensitive: false },
   {
     name: 'PROJECT_ALLOWED_ROOTS',
     defaultValue: '(未设置 — 使用 denylist 模式，仅拦截系统目录)',

@@ -18,7 +18,7 @@ from jiuwenclaw.agentserver.tools.subagent_models import (
     SubagentConfig,
     SubagentTaskSpec,
 )
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 _executor: SubagentExecutor | None = None
 
