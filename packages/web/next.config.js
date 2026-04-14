@@ -33,6 +33,9 @@ const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  env: {
+    CAN_CREATE_MODEL: process.env.CAN_CREATE_MODEL ?? '0',
+  },
   // 允许 Tailscale 网段设备访问 dev server 的 /_next/* 资源
   allowedDevOrigins: [process.env.ALLOWED_DEV_ORIGINS],
   async rewrites() {

@@ -8,6 +8,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -121,6 +122,10 @@ export function ThreadSidebar({
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
+  useEscapeKey({
+    enabled: deleteTarget !== null,
+    onEscape: () => setDeleteTarget(null),
+  });
   // F095 Phase D: Trash bin state
   const [showTrash, setShowTrash] = useState(false);
   const [trashedThreads, setTrashedThreads] = useState<Thread[]>([]);
