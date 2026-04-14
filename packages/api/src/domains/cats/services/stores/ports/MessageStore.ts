@@ -16,6 +16,7 @@ import type { CatId, ConnectorSource, MessageContent, RichMessageExtra, ErrorFal
 import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
+import { matchesThreadHistoryUserScope } from '../visibility.js';
 export { DEFAULT_THREAD_ID };
 
 /**
@@ -386,7 +387,7 @@ export class MessageStore {
       if (msg.threadId !== threadId) continue;
       if (msg.deletedAt) continue;
       if (!isDelivered(msg)) continue; // F117: exclude queued/canceled
-      if (userId && msg.userId !== userId) continue;
+      if (!matchesThreadHistoryUserScope(msg, userId)) continue;
       matches.push(msg);
     }
     return matches.reverse();
@@ -405,7 +406,7 @@ export class MessageStore {
     for (let i = 0; i < this.messages.length && matches.length < max; i++) {
       const msg = this.messages[i]!;
       if (msg.threadId !== threadId) continue;
-      if (userId && msg.userId !== userId) continue;
+      if (!matchesThreadHistoryUserScope(msg, userId)) continue;
       if (afterId && msg.id <= afterId) continue;
       if (!isDelivered(msg)) continue;
       matches.push(msg);
@@ -432,7 +433,7 @@ export class MessageStore {
       if (msg.threadId !== threadId) continue;
       if (msg.deletedAt) continue;
       if (!isDelivered(msg)) continue; // F117: exclude queued/canceled
-      if (userId && msg.userId !== userId) continue;
+      if (!matchesThreadHistoryUserScope(msg, userId)) continue;
       if (msg.timestamp > timestamp) continue;
       if (msg.timestamp === timestamp) {
         if (!beforeId || msg.id >= beforeId) continue;

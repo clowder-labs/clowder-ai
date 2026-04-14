@@ -45,7 +45,7 @@ import {
 } from './relayclaw-sidecar.js';
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
-const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 60 * 1000;
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 24 * 7 * 60 * 1000;
 const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {
