@@ -46,12 +46,6 @@ export default function InvitationPage() {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
 
-  const redirectToLogin = useCallback(() => {
-    clearAuthIdentity();
-    setIsSkipAuth(false);
-    router.replace('/login');
-  }, [router]);
-
   const handleRelogin = useCallback(async () => {
     setIsReloginLoading(true);
     setError('');
@@ -74,8 +68,9 @@ export default function InvitationPage() {
       setIsReloginLoading(false);
     }
 
-    redirectToLogin();
-  }, [redirectToLogin]);
+    clearAuthIdentity();
+    setIsSkipAuth(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +106,10 @@ export default function InvitationPage() {
         }
 
         if (!data?.pendingInvitation) {
-          redirectToLogin();
+          clearAuthIdentity();
+          setIsSkipAuth(false);
+          const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+          if (loginUrl) window.location.replace(loginUrl);
           return;
         }
 
@@ -120,7 +118,8 @@ export default function InvitationPage() {
       } catch (err) {
         console.error('检查邀请码状态失败:', err);
         if (!cancelled) {
-          redirectToLogin();
+          clearAuthIdentity();
+          setIsSkipAuth(false);
         }
       }
     };
@@ -130,7 +129,7 @@ export default function InvitationPage() {
     return () => {
       cancelled = true;
     };
-  }, [redirectToLogin, router]);
+  }, [router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -62,7 +62,6 @@ async function logoutAndRedirect(): Promise<void> {
 
 function redirectToLogin(): void {
   clearAuthIdentity();
-  replaceLocation('/login');
 }
 
 function withAuthSuccessRedirect(target: string): string {
@@ -129,7 +128,7 @@ export default function LoginCallbackPage() {
         if (!ok || !data?.success || !data.userId) {
           setError(data?.message || '登录回调处理失败，正在返回统一认证页');
           window.setTimeout(() => {
-            if (!cancelled) redirectToLogin();
+            if (!cancelled) void logoutAndRedirect();
           }, 1800);
           return;
         }
@@ -141,7 +140,7 @@ export default function LoginCallbackPage() {
         if (!cancelled) {
           setError('登录回调处理失败，正在返回统一认证页');
           window.setTimeout(() => {
-            if (!cancelled) redirectToLogin();
+            if (!cancelled) void logoutAndRedirect();
           }, 1800);
         }
       }

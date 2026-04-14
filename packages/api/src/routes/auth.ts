@@ -553,7 +553,7 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
         method: 'GET',
       },
     );
-
+    console.log('===============validateCasTicket result: ', response);
     if (!response.ok) {
       const { error_code, error_message } = await getErrorMessage(response);
       return {

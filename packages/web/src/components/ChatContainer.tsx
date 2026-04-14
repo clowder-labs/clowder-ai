@@ -213,12 +213,6 @@ export function ChatContainer(props: ChatContainerProps) {
     const redirectTo = (target: string, external = false) => {
       if (hasAuthRedirectedRef.current) return;
       hasAuthRedirectedRef.current = true;
-      if (!external && target === '/login') {
-        clearAuthIdentity();
-        cachedAuthChecked = false;
-        cachedIsLoggedIn = false;
-        cachedIsSkipAuth = false;
-      }
       if (external) {
         window.location.replace(target);
         return;
@@ -246,15 +240,12 @@ export function ChatContainer(props: ChatContainerProps) {
             const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
             if (loginUrl) {
               redirectTo(loginUrl, true);
-            } else {
-              redirectTo('/login');
             }
           }
         }
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
-          redirectTo('/login');
         }
       } finally {
         if (!cancelled) {
