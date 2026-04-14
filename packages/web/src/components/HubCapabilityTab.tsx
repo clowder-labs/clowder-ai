@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -7,7 +7,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
@@ -23,6 +25,7 @@ const SKILL_SEARCH_PLACEHOLDER = '请输入名称或描述搜索';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
+const CATEGORY_TAB_PRIORITY = ['办公套件'];
 export interface SelectedSkillSummary {
   skillName: string;
   avatarUrl?: string | null;
@@ -32,6 +35,21 @@ function sourceToLabel(source: string): string {
   if (source === 'builtin') return '内置技能';
   if (source === 'external') return '用户添加技能';
   return '其他';
+}
+
+function sortCategoryTabs(categories: string[]): string[] {
+  return [...categories].sort((left, right) => {
+    const leftIndex = CATEGORY_TAB_PRIORITY.indexOf(left);
+    const rightIndex = CATEGORY_TAB_PRIORITY.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    if (left === UNCATEGORIZED) return 1;
+    if (right === UNCATEGORIZED) return -1;
+    return left.localeCompare(right, 'zh-CN');
+  });
 }
 
 export function HubCapabilityTab({
@@ -57,6 +75,7 @@ export function HubCapabilityTab({
   const sourceMenuRef = useRef<HTMLDivElement>(null);
 
   const confirm = useConfirm();
+  const addToast = useToastStore((state) => state.addToast);
 
   const fetchCapabilities = useCallback(async () => {
     setError(null);
@@ -143,13 +162,34 @@ export function HubCapabilityTab({
           body: JSON.stringify({ name: skillId }),
         });
         if (res.ok) {
+          notifySkillOptionsChanged();
+          addToast({
+            type: 'success',
+            title: '卸载成功',
+            message: `"${skillId}" 已卸载`,
+            duration: 4000,
+          });
           await fetchCapabilities();
+          return;
         }
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        const detail = payload.error ?? `HTTP ${res.status}`;
+        addToast({
+          type: 'error',
+          title: '卸载失败',
+          message: detail,
+          duration: 4000,
+        });
       } catch {
-        // ignore
+        addToast({
+          type: 'error',
+          title: '卸载失败',
+          message: '网络错误，请重试',
+          duration: 4000,
+        });
       }
     },
-    [confirm, fetchCapabilities],
+    [addToast, confirm, fetchCapabilities],
   );
 
   const visibleItems = useMemo(() => items.filter((item) => item.type !== 'mcp'), [items]);
@@ -165,8 +205,7 @@ export function HubCapabilityTab({
   const categoryTabs = useMemo(() => {
     const tabs = [ALL_CATEGORY];
     const categories = Array.from(categoryCounts.keys());
-    const ordered = categories.filter((category) => category !== UNCATEGORIZED);
-    if (categories.includes(UNCATEGORIZED)) ordered.push(UNCATEGORIZED);
+    const ordered = sortCategoryTabs(categories);
     tabs.push(...ordered);
     return tabs;
   }, [categoryCounts]);
@@ -238,8 +277,8 @@ export function HubCapabilityTab({
                 type="button"
                 onClick={() => handleCategoryChange(category)}
                 className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${activeCategory === category
-                    ? 'font-semibold text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
               >
                 {category}
@@ -279,17 +318,15 @@ export function HubCapabilityTab({
                 <button
                   type="button"
                   onClick={() => setIsSourceMenuOpen((prev) => !prev)}
-                  className={`ui-field flex h-[28px] w-[200px] items-center justify-between rounded-[6px] px-[12px] py-[5px] text-xs transition-colors ${
-                    isSourceMenuOpen ? 'border-[#191919]' : ''
-                  }`}
+                  className={`ui-field flex h-[28px] w-[200px] items-center justify-between rounded-[6px] px-[12px] py-[5px] text-xs transition-colors ${isSourceMenuOpen ? 'border-[#191919]' : ''
+                    }`}
                   aria-haspopup="listbox"
                   aria-expanded={isSourceMenuOpen}
                 >
                   <span className="truncate text-[var(--text-primary)]">{activeSourceLabel}</span>
                   <svg
-                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${
-                      isSourceMenuOpen ? 'rotate-180' : ''
-                    }`}
+                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${isSourceMenuOpen ? 'rotate-180' : ''
+                      }`}
                     viewBox="0 0 16 16"
                     fill="none"
                     aria-hidden="true"
@@ -314,9 +351,8 @@ export function HubCapabilityTab({
                             setActiveSource(source);
                             setIsSourceMenuOpen(false);
                           }}
-                          className={`flex h-[32px] w-full items-center px-[16px] py-[7px] text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] ${
-                            isSelected ? 'text-[#1476ff]' : 'text-[var(--text-primary)]'
-                          }`}
+                          className={`flex h-[32px] w-full items-center px-[16px] py-[7px] text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] ${isSelected ? 'text-[#1476ff]' : 'text-[var(--text-primary)]'
+                            }`}
                         >
                           {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
                         </button>

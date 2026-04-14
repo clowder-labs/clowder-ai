@@ -108,14 +108,19 @@ const CAS_BACKGROUND_IMAGE_URL = process.env.CAS_BACKGROUND_IMAGE_URL || DEFAULT
 const CAS_PORTAL_IMAGE_URL = process.env.CAS_PORTAL_IMAGE_URL || DEFAULT_CAS_PORTAL_IMAGE_URL;
 const CAS_LOGIN_URL =
   process.env.CAS_LOGIN_URL ||
-  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_header=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`;
+  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${encodeURIComponent(CAS_BACKGROUND_IMAGE_URL)}&portal_img_url=${encodeURIComponent(CAS_PORTAL_IMAGE_URL)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}#/login`;
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
 const CAS_LOGOUT_URL =
-  'https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/cas/login/callback';
+  `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
-const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009']);
+const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009', 'common.01010004']);
+const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
+  'AgentArts.11000009': '邀请码不存在或者今日邀请码配额已用完',
+  'AgentArts.11000008': '邀请码无效，请重新输入',
+  'common.01010004': '请确认账号状态，是否已实名认证或非欠费状态',
+};
 const require = createRequire(import.meta.url);
 const signer = loadSignerModule();
 
@@ -385,15 +390,6 @@ function unwrapPayload(value: unknown): Record<string, unknown> | null {
 function extractModelInfo(payload: Record<string, unknown> | null): Record<string, unknown> | undefined {
   if (!payload) return undefined;
 
-  const directModelInfo = isRecord(payload.model_info)
-    ? payload.model_info
-    : isRecord(payload.modelInfo)
-      ? payload.modelInfo
-      : undefined;
-  if (directModelInfo) {
-    return directModelInfo;
-  }
-
   const subscriptionPayload = unwrapPayload(payload.subscription);
   if (!subscriptionPayload) {
     return undefined;
@@ -401,10 +397,6 @@ function extractModelInfo(payload: Record<string, unknown> | null): Record<strin
 
   if (isRecord(subscriptionPayload.model_info)) {
     return subscriptionPayload.model_info;
-  }
-
-  if (isRecord(subscriptionPayload.modelInfo)) {
-    return subscriptionPayload.modelInfo;
   }
 
   return undefined;
@@ -561,7 +553,7 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
         method: 'GET',
       },
     );
-
+    console.log('===============validateCasTicket result: ', response);
     if (!response.ok) {
       const { error_code, error_message } = await getErrorMessage(response);
       return {
@@ -658,8 +650,10 @@ async function subscriptionClaw(
     if (!subResponse.ok) {
       const { error_code, error_message } = await getErrorMessage(subResponse);
       const needCode = PROMOTION_CODE_ERROR_CODES.has(error_code);
+      const customMessage = PROMOTION_CODE_ERROR_MESSAGES[error_code];
+      const message = customMessage || (needCode ? '邀请码无效，请重新输入' : '开通失败');
       console.error(`开通客户端失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-      return { success: false, message: needCode ? '邀请码无效，请重新输入' : '开通失败', needCode };
+      return { success: false, message, needCode };
     }
 
     const data = await subResponse.json();

@@ -124,6 +124,13 @@ async function createZipFile(
 }
 
 describe('UploadSkillModal', () => {
+  it('hides parsed result section before selecting any files', () => {
+    renderModal();
+
+    expect(container.textContent).toContain('暂未选择文件');
+    expect(container.textContent).not.toContain('解析结果');
+  });
+
   it('validates upload file count before submit', () => {
     const files = Array.from({ length: SKILL_UPLOAD_LIMITS.maxFiles + 1 }, (_, index) => ({
       path: `${index}.txt`,
