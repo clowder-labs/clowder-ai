@@ -13,7 +13,6 @@ import {
 } from '@/hooks/agent-error-fallback';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
 import { requestThreadLiveRefresh, type ThreadLiveRefreshScope } from './thread-live-refresh';
 
@@ -662,12 +661,11 @@ export function useAgentMessages() {
         setCatStatus(msg.catId, 'streaming');
         const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
-        const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
           id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_result',
           label: `${msg.catId} ← result`,
-          detail,
+          detail: msg.content ?? '',
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {

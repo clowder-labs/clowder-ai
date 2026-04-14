@@ -306,6 +306,7 @@ describe('background thread socket handling', () => {
 
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {
       const now = Date.now();
+      const fullResult = 'line-1\nline-2\nline-3\nline-4\nline-5\nline-6';
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-1' });
       useChatStore.getState().addMessageToThread('thread-bg', {
         id: 'bg-stream-1',
@@ -835,11 +836,12 @@ describe('background thread socket handling', () => {
 
     it('preserves tool_result as collapsed tool event on assistant message', () => {
       const now = Date.now();
+      const fullResult = 'line-1\nline-2\nline-3\nline-4\nline-5\nline-6';
       simulateBackgroundMessage({
         type: 'tool_result',
         catId: 'opus',
         threadId: 'thread-bg',
-        content: 'line-1\nline-2',
+        content: fullResult,
         timestamp: now,
       });
 
@@ -849,6 +851,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.content).toBe('');
       expect(ts.messages[0]?.toolEvents).toHaveLength(1);
       expect(ts.messages[0]?.toolEvents?.[0]?.type).toBe('tool_result');
+      expect(ts.messages[0]?.toolEvents?.[0]?.detail).toBe(fullResult);
       expect(ts.messages[0]?.toolEvents?.[0]?.label).toContain('opus ← result');
       expect(ts.catStatuses.opus).toBe('streaming');
     });

@@ -612,20 +612,20 @@ function ToolRow({
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
 
   return (
-    <button
-      type="button"
+    <div
       data-testid={`tool-row-${event.id}`}
-      className="w-full text-left cursor-pointer rounded text-[11px] flex flex-col gap-2"
-      style={{
-        padding: '4px 0 4px 28px',
-        borderRadius: 4,
-      }}
-      onClick={() => {
-        setRowExpanded((v) => !v);
-        onUserInteract?.();
-      }}
+      className="w-full text-left rounded text-[11px] flex flex-col gap-2"
+      style={{ padding: '4px 0 4px 28px', borderRadius: 4 }}
     >
-      <div className="flex">
+      {/* 标题行：点击切换展开/收起 */}
+      <button
+        type="button"
+        className="w-full text-left cursor-pointer flex"
+        onClick={() => {
+          setRowExpanded((v) => !v);
+          onUserInteract?.();
+        }}
+      >
         <div className="flex items-center gap-2 mr-2">
           {/* Status icon */}
           {isActive ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : hasResult ? <CheckIcon /> : null}
@@ -643,7 +643,8 @@ function ToolRow({
         </div>
         {/* Detail — hidden by default, shown on click */}
         {hasResult && <ChevronIcon expanded={rowExpanded} />}
-      </div>
+      </button>
+      {/* Detail 区域：独立于 button，点击不会触发折叠 */}
       {rowExpanded && hasResult && event.detail && (
         <div
           className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
@@ -652,8 +653,9 @@ function ToolRow({
           {event.detail}
         </div>
       )}
-    </button>
+    </div>
   );
+
 }
 
 /* ── Collapsible tools section ── */
@@ -673,23 +675,9 @@ function ToolsSection({
   onUserInteract: () => void;
   accent: string;
 }) {
-  const isStreaming = status === 'streaming';
-  const [toolsExpanded, setToolsExpanded] = useState(isStreaming);
+  // 外层 expanded 已控制 ToolsSection 的整体显示，内层始终展开工具列表
+  const [toolsExpanded, setToolsExpanded] = useState(true);
   const toolsUserInteracted = useRef(false);
-
-  const prevStatus = useRef(status);
-  useEffect(() => {
-    if (prevStatus.current === 'streaming' && !isStreaming && !toolsUserInteracted.current) {
-      setToolsExpanded(false);
-    }
-    prevStatus.current = status;
-  }, [status, isStreaming]);
-
-  useEffect(() => {
-    if (isStreaming) {
-      setToolsExpanded(true);
-    }
-  }, [isStreaming]);
 
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
@@ -709,7 +697,7 @@ function ToolsSection({
         <span>{toolsExpanded ? toolSummary : `${toolSummary} (collapsed)`}</span>
         <ChevronIcon expanded={toolsExpanded} />
       </button>
-      {true && (
+      {toolsExpanded && (
         <div className="space-y-0.5">
           {toolUses.map((e, i) => {
             const result = toolResults[i];
