@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { FeishuQrPanel } from './FeishuQrPanel';
+import { FeishuPermissionPanel } from './FeishuPermissionPanel';
 import {
   ConnectorLockIcon,
   DEFAULT_VISUAL,
@@ -49,6 +50,24 @@ interface ConnectorTestResult {
     openId?: string | null;
     name?: string | null;
   };
+}
+
+// F152: Personal user whitelist types
+interface UserWhitelistEntry {
+  openId: string;
+  name?: string;
+  addedAt: number;
+  addedBy?: string;
+}
+
+interface PermissionConfig {
+  whitelistEnabled: boolean;
+  commandAdminOnly: boolean;
+  adminOpenIds: string[];
+  allowedGroups: Array<{ externalChatId: string; label?: string; addedAt: number }>;
+  userWhitelistEnabled: boolean;
+  allowedUsers: UserWhitelistEntry[];
+  ownerOpenId?: string;
 }
 
 const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
@@ -495,6 +514,10 @@ export function HubConnectorConfigTab() {
                                 onConfigured={fetchStatus}
                                 onDisconnected={fetchStatus}
                               />
+                            )}
+                            {/* F152: Feishu permission panel (whitelist) */}
+                            {platform.id === 'feishu' && platform.configured && (
+                              <FeishuPermissionPanel />
                             )}
                           </div>
                         )}
