@@ -33,6 +33,16 @@ const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  // Enable production optimizations: minification and obfuscation
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
+  // onnxruntime-web (≈220 MB wasm+js) is only used client-side via dynamic import
+  // in useVadinterrupt.ts; exclude from server bundling to prevent OOM during build.
+  experimental: {
+    serverComponentsExternalPackages: ['onnxruntime-web', '@ricky0123/vad-web']
+  },
   // 允许 Tailscale 网段设备访问 dev server 的 /_next/* 资源
   allowedDevOrigins: [process.env.ALLOWED_DEV_ORIGINS],
   async rewrites() {
