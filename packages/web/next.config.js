@@ -33,6 +33,9 @@ const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  env: {
+    CAN_CREATE_MODEL: process.env.CAN_CREATE_MODEL ?? '0',
+  },
   // Enable production optimizations: minification and obfuscation
   swcMinify: true,
   compiler: {

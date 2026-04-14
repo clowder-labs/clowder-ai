@@ -710,7 +710,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             )}
           </div>
 
-          <div>
+          {files.length > 0 ? (
+            <div>
             <div className="mb-3 text-xs font-medium text-[#5F6775]">解析结果</div>
 
             <div className="space-y-3">
@@ -790,7 +791,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          ) : null}
 
         </div>
         <div className="mt-4 flex justify-end gap-2">

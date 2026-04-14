@@ -6,8 +6,10 @@
 
 'use client';
 
+import { transform } from 'esbuild-wasm';
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
@@ -15,7 +17,6 @@ import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
 import { SearchInput } from './shared/SearchInput';
-import { transform } from 'esbuild-wasm';
 
 type AgentTabKey = 'persona' | 'collab' | 'skills';
 type EditableTabKey = 'persona' | 'collab';
@@ -300,6 +301,17 @@ export function AgentsPanel() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [deleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
   const [catToDelete, setCatToDelete] = useState<string | null>(null);
+
+  const closeDeleteConfirmModal = useCallback(() => {
+    setDeleteConfirmModalOpen(false);
+    setCatToDelete(null);
+  }, []);
+
+  useEscapeKey({
+    enabled: deleteConfirmModalOpen,
+    onEscape: closeDeleteConfirmModal,
+  });
+
   const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const [templateBubblePosition, setTemplateBubblePosition] = useState<TemplateBubblePosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -848,7 +860,7 @@ export function AgentsPanel() {
         <div className="flex h-full min-h-0 flex-col items-center justify-center px-8 pb-6">
           <div className="text-center">
             <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">暂无内容</h3>
-            <p className="text-[12px] text-[var(--text-secondary)] mt-1" >当前暂无内容，您可以填写后获取数据。</p>
+            <p className="text-[12px] text-[var(--text-secondary)] mt-1">当前暂无内容，您可以填写后获取数据。</p>
             {canEditPersona ? (
               <button
                 type="button"
@@ -976,7 +988,9 @@ export function AgentsPanel() {
                     className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.dexcription}</div>
+                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
+                      {template.dexcription}
+                    </div>
                   </button>
                 </div>
               );
@@ -1116,9 +1130,7 @@ export function AgentsPanel() {
                     data-testid={`agent-card-${cat.id}`}
                     className="relative h-[76px] border px-3 py-2 transition-colors [border-radius:var(--connector-tab-radius)]"
                     style={{
-                      borderColor: isSelected
-                        ? 'var(--connector-tab-border-selected)'
-                        : 'var(--border-default)',
+                      borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--border-default)',
                       backgroundColor: isSelected
                         ? 'var(--connector-tab-bg-selected)'
                         : 'var(--connector-tab-bg-default)',
@@ -1146,9 +1158,7 @@ export function AgentsPanel() {
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">
-                            {modelText}
-                          </span>
+                          <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">{modelText}</span>
                         </span>
                       </button>
 
@@ -1328,12 +1338,8 @@ export function AgentsPanel() {
 
       {/* 删除确认弹窗 */}
       {deleteConfirmModalOpen && catToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        >
-          <div
-            className="w-[400px] rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[400px] rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1341,13 +1347,10 @@ export function AgentsPanel() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
-                  }}
+                  onClick={closeDeleteConfirmModal}
                   aria-label="close"
                   className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
-                 style={{ transform: 'translate(4px, -4px)' }}
+                  style={{ transform: 'translate(4px, -4px)' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -1356,20 +1359,11 @@ export function AgentsPanel() {
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-gray-600">
-                  是否确认删除?删除后数据将不可恢复。
-                </p>
+                <p className="text-sm text-gray-600">是否确认删除?删除后数据将不可恢复。</p>
               </div>
 
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
-                  }}
-                  className="ui-button-default font-normal"
-                >
+                <button type="button" onClick={closeDeleteConfirmModal} className="ui-button-default font-normal">
                   取消
                 </button>
                 <button
@@ -1378,8 +1372,7 @@ export function AgentsPanel() {
                     if (catToDelete) {
                       await handleDeleteMember(catToDelete);
                     }
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
+                    closeDeleteConfirmModal();
                   }}
                   className="ui-button-primary font-normal"
                 >
@@ -1393,4 +1386,3 @@ export function AgentsPanel() {
     </div>
   );
 }
-

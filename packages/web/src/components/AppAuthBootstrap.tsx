@@ -6,30 +6,16 @@
 
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { clearAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const isLoginRoute = pathname === '/login';
-  const [authReady, setAuthReady] = useState(isLoginRoute);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    if (isLoginRoute) {
-      setAuthReady(true);
-      return;
-    }
-
     let cancelled = false;
     setAuthReady(false);
-
-    const redirectToLogin = () => {
-      clearAuthIdentity();
-      router.replace('/login');
-    };
 
     (async () => {
       try {
@@ -43,18 +29,22 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        redirectToLogin();
+        clearAuthIdentity();
+        const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+        if (loginUrl) {
+          window.location.replace(loginUrl);
+        }
       } catch (error) {
         if (cancelled) return;
         console.error('检查登录状态失败:', error);
-        redirectToLogin();
+        clearAuthIdentity();
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [isLoginRoute, router]);
+  }, []);
 
   if (!authReady) {
     return null;

@@ -253,7 +253,7 @@ function toConfiguredModelList(
       description:
         binding.protocol === 'huawei_maas'
           ? '来自 ~/.office-claw/model.json'
-          : binding.description?.trim() || `自定义模型源 · ${binding.displayName?.trim() || binding.id}`,
+          : binding.description?.trim(),
       ...(binding.icon ? { icon: binding.icon } : {}),
     })),
   );

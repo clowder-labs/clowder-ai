@@ -10,6 +10,7 @@ import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, use
 import { createPortal } from 'react-dom';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth } from '@/utils/userId';
@@ -537,6 +538,11 @@ export function CreateAgentModal({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [clientMenuOpen, modelMenuOpen]);
+
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
 
   useEffect(() => {
     if (!open) return;
