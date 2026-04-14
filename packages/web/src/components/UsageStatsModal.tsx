@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import {
   buildUsageStatsPageFromDataset,
   fetchUsageStatsDataset,
@@ -10,10 +11,10 @@ import {
   type UsageStatsPageResult,
 } from '@/services/usageStats';
 import { AppModal } from './AppModal';
-import { formatTokenCount } from './status-helpers';
-import { EmptyDataState } from './shared/EmptyDataState';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
+import { formatTokenCount } from './status-helpers';
 
 interface UsageStatsModalProps {
   open: boolean;
@@ -56,7 +57,9 @@ export function formatPaginationPages(currentPage: number, totalPages: number): 
     currentPage + 1,
     currentPage + 2,
   ]);
-  const sortedPages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
   const result: Array<number | 'ellipsis'> = [];
 
   for (let index = 0; index < sortedPages.length; index += 1) {
@@ -122,6 +125,11 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
       cancelled = true;
     };
   }, [fetchDataset, open, refreshKey]);
+
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -217,8 +225,9 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
                     <button
                       key={option.value}
                       type="button"
-                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
-                        }`}
+                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${
+                        option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
+                      }`}
                       onClick={() => handleChangeRange(option.value)}
                     >
                       {option.label}
@@ -257,19 +266,31 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
                 <tr className="text-left text-[12px] text-[#595959]">
                   <th className="relative h-12 border-b border-[#F0F0F0] px-4 py-0">
                     会话
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]"
+                      aria-hidden="true"
+                    />
                   </th>
                   <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
                     Input Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]"
+                      aria-hidden="true"
+                    />
                   </th>
                   <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
                     Output Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]"
+                      aria-hidden="true"
+                    />
                   </th>
                   <th className="relative h-12 w-[132px] border-b border-[#F0F0F0] px-4 py-0">
                     总Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]"
+                      aria-hidden="true"
+                    />
                   </th>
                   <th className="h-12 w-[200px] border-b border-[#F0F0F0] px-4 py-0">时间</th>
                 </tr>
@@ -365,8 +386,9 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
                 <button
                   key={item}
                   type="button"
-                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
-                    }`}
+                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${
+                    item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
+                  }`}
                   onClick={() => {
                     if (isLoading) return;
                     setPage(item);
