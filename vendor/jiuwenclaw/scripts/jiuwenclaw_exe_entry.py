@@ -24,6 +24,10 @@ def main() -> None:
         from jiuwenclaw.app import main as app_main
         app_main()
         return
+    if _pop_flag("--desktop-run-agentserver"):
+        from jiuwenclaw.app_agentserver import main as agentserver_main
+        agentserver_main()
+        return
     if _pop_flag("--desktop-run-web"):
         from jiuwenclaw.app_web import main as web_main
         web_main()

@@ -85,18 +85,30 @@ export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): 
       if (!toolCall) return null;
       const toolName = (toolCall.name ?? toolCall.tool_name ?? 'unknown') as string;
       const toolInput = (toolCall.arguments ?? toolCall.input ?? toolCall) as Record<string, unknown>;
+      const toolCallId = (toolCall.id ?? toolCall.tool_call_id ?? payload.tool_call_id) as string | undefined;
       return {
         type: 'tool_use',
         catId,
         toolName,
         toolInput,
+        toolCallId,
         timestamp: Date.now(),
       };
     }
 
     case 'chat.tool_result': {
-      const result = payload.result ?? '';
-      return msg('tool_result', catId, typeof result === 'string' ? result : JSON.stringify(result));
+      const toolResult = (payload.tool_result ?? payload) as Record<string, unknown>;
+      const result = (payload.result ?? toolResult.result ?? '') as string | unknown;
+      const toolCallId = (toolResult.tool_call_id ?? payload.tool_call_id) as string | undefined;
+      const toolName = (toolResult.tool_name ?? payload.tool_name) as string | undefined;
+      return {
+        type: 'tool_result',
+        catId,
+        content: typeof result === 'string' ? result : JSON.stringify(result),
+        toolCallId,
+        toolName,
+        timestamp: Date.now(),
+      };
     }
 
     case 'chat.error': {

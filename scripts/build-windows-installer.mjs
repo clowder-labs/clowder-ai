@@ -72,7 +72,7 @@ const WINDOWS_RUNTIME_NPM_ARGS = [
   '--loglevel=error',
 ];
 
-export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
+export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw', 'workspace'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
@@ -94,6 +94,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
   '.env',
   'data',
   'logs',
+  'uploads',
+  'workspace',
   'dist',
   'packages/api/dist',
   'packages/mcp-server/dist',
@@ -102,6 +104,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
 const EXCLUDED_PREFIXES = [
   'data/',
   'logs/',
+  'uploads/',
+  'workspace/',
   'dist/',
   'packages/api/dist/',
   'packages/mcp-server/dist/',
@@ -1347,7 +1351,8 @@ async function stageWindowsNode(bundleDir, options) {
   const targetDir = join(bundleDir, 'tools', 'node');
   resetDir(targetDir);
   cpSync(nodeRoot, targetDir, { recursive: true, force: true });
-  removePaths(targetDir, ['node_modules', 'corepack', 'include', 'share']);
+  // Keep node_modules (contains npm and its dependencies, needed for runtime skill installation)
+  removePaths(targetDir, ['corepack', 'include', 'share']);
   walkFiles(targetDir, (fullPath, entry) => {
     if (entry.name.endsWith('.map') || entry.name.endsWith('.md')) {
       rmSync(fullPath, { force: true });

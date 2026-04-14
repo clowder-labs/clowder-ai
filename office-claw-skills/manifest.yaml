@@ -2,11 +2,16 @@
 # 仅登记 office-claw-skills 顶层目录下的官方技能。
 # refs/ 为参考资料，不作为独立 skill 触发。
 #
-# 更新日期：2026-04-13
+# 更新日期：2026-04-14
+# 分类：4 大类（办公套件、企业协作、自媒体、开发与工程）
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. 文档与办公 (Office Productivity) — 6 个
+# ═══════════════════════════════════════════════════════════════════════════════
 
 skills:
 
-  # ── 办公套件 ──
+  # ── 文档与办公 ──
   minimax-docx:
     description: >
       专业 DOCX 生成与格式化技能。基于 OpenXML SDK 处理 Word 文档创建、填充、
@@ -176,6 +181,34 @@ skills:
     sop_step: null
     merged_from: null
 
+  weather:
+    description: >
+      天气查询技能。通过 wttr.in 或 Open-Meteo 获取当前天气和短期预报，
+      适用于出行安排、行程准备和日常天气确认。
+    triggers:
+      - "weather"
+      - "天气"
+      - "forecast"
+      - "temperature"
+      - "会下雨吗"
+      - "气温"
+    not_for:
+      - "历史天气数据"
+      - "极端天气预警研判"
+    output: "Current weather conditions / short forecast"
+    dependencies:
+      system:
+        - "curl"
+      services:
+        - "wttr.in or Open-Meteo"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+# 2. 企业协作 (Enterprise Collaboration) — 7 个
+# ═══════════════════════════════════════════════════════════════════════════════
+
   meeting-autopilot-pro:
     description: >
       会议全生命周期技能。覆盖会前准备、会中笔记、会后摘要、行动项提取、
@@ -223,47 +256,25 @@ skills:
     sop_step: null
     merged_from: null
 
-  feishu-meeting:
+  feishu-bitable:
     description: >
-      飞书会议创建技能。通过飞书 API 创建在线会议并设置主题、时间、时长、
-      参会人和会议描述。
+      飞书多维表格技能。用于创建和管理 Bitable App、数据表、字段、视图与记录，
+      支持高级筛选、批量导入和批量更新。
     triggers:
-      - "创建飞书会议"
-      - "预定会议"
-      - "安排会议"
-      - "发起会议"
-      - "飞书会议"
+      - "多维表格"
+      - "bitable"
+      - "数据表"
+      - "记录"
+      - "字段"
+      - "view"
     not_for:
-      - "非飞书会议系统"
-      - "会议内容总结"
-    output: "Feishu meeting link / metadata"
-    dependencies:
-      python:
-        - "coze_workload_identity"
-      services:
-        - "Feishu VC API"
-        - "Feishu OAuth token / workload identity"
-    next: []
-    sop_step: null
-    merged_from: null
-
-  tencent-meeting:
-    description: >
-      腾讯会议管理技能。支持创建会议、查询会议、取消会议、查询录制与转写等操作。
-    triggers:
-      - "创建会议"
-      - "预约会议"
-      - "帮我定个会议"
-      - "腾讯会议"
-      - "会议录制"
-      - "录制回放"
-    not_for:
-      - "非腾讯会议系统"
-      - "会议纪要写作"
-    output: "Tencent Meeting operation result"
+      - "普通文档编辑"
+      - "非飞书表格系统"
+    output: "Feishu Bitable app / table / record operation result"
     dependencies:
       services:
-        - "Tencent Meeting API token"
+        - "Feishu Bitable API"
+        - "Feishu app credentials or user token"
     next: []
     sop_step: null
     merged_from: null
@@ -338,86 +349,6 @@ skills:
         - "Feishu Open Platform app"
         - "FEISHU_APP_ID"
         - "FEISHU_APP_SECRET"
-    next: []
-    sop_step: null
-    merged_from: null
-
-  android-native-dev:
-    description: >
-      Android 原生开发技能。覆盖 Material Design 3、Kotlin、Jetpack Compose、
-      项目配置、无障碍和构建排障。
-    triggers:
-      - "Android"
-      - "安卓"
-      - "Kotlin"
-      - "Jetpack Compose"
-      - "Material 3"
-    not_for:
-      - "iOS"
-      - "纯 Web 前端"
-    output: "Android project code / UI implementation guide"
-    dependencies:
-      system:
-        - "Android Studio"
-        - "Android SDK"
-        - "Gradle / Gradle Wrapper"
-    next: []
-    sop_step: null
-    merged_from: null
-
-  frontend-dev:
-    description: >
-      高质感前端开发技能。用于构建营销页、产品页、仪表盘等前端界面，
-      同时整合高级动效、真实媒体素材、转化文案和视觉设计。
-    triggers:
-      - "landing page"
-      - "marketing site"
-      - "product page"
-      - "dashboard"
-      - "前端页面"
-      - "scroll animation"
-    not_for:
-      - "纯后端服务"
-      - "仅数据库 schema"
-    output: "Production-ready frontend UI"
-    dependencies:
-      python:
-        - "requests"
-      node:
-        - "react"
-        - "react-dom"
-        - "framer-motion"
-        - "gsap"
-        - "lottie-react"
-        - "three"
-        - "@react-three/fiber"
-        - "@react-three/drei"
-      system:
-        - "ffmpeg (optional media post-processing)"
-      services:
-        - "MINIMAX_API_KEY (for media generation)"
-    next: []
-    sop_step: null
-    merged_from: null
-
-  fullstack-dev:
-    description: >
-      全栈开发技能。覆盖前后端集成、REST API、认证、文件上传、实时能力、
-      服务分层和生产环境加固。
-    triggers:
-      - "full-stack"
-      - "REST API"
-      - "CRUD app"
-      - "chat app"
-      - "实时应用"
-      - "auth"
-    not_for:
-      - "纯 CSS"
-      - "仅数据库 schema"
-    output: "Full-stack app code / architecture"
-    dependencies:
-      note:
-        - "No fixed component library; dependencies vary by chosen stack"
     next: []
     sop_step: null
     merged_from: null
@@ -585,6 +516,180 @@ skills:
       services:
         - "MINIMAX_API_HOST"
         - "MINIMAX_API_KEY"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  android-native-dev:
+    description: >
+      Android 原生开发技能。覆盖 Material Design 3、Kotlin、Jetpack Compose、
+      项目配置、无障碍和构建排障。
+    triggers:
+      - "Android"
+      - "安卓"
+      - "Kotlin"
+      - "Jetpack Compose"
+      - "Material 3"
+    not_for:
+      - "iOS"
+      - "纯 Web 前端"
+    output: "Android project code / UI implementation guide"
+    dependencies:
+      system:
+        - "Android Studio"
+        - "Android SDK"
+        - "Gradle / Gradle Wrapper"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  credential-manager:
+    description: >
+      凭据管理技能。集中整理散落的 API key 和各类凭据到统一 `.env`，
+      用于 OpenClaw 初始化、安全审计、迁移和凭据标准化。
+    triggers:
+      - "credential"
+      - "API key"
+      - ".env"
+      - "secret"
+      - "凭据"
+      - "密钥"
+    not_for:
+      - "业务功能开发"
+      - "公开配置文档整理"
+    output: "Centralized credential inventory / secure .env updates"
+    dependencies:
+      system:
+        - "bash / PowerShell"
+      note:
+        - "Security foundation skill; enforce centralized .env workflow"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  frontend-dev:
+    description: >
+      高质感前端开发技能。用于构建营销页、产品页、仪表盘等前端界面，
+      同时整合高级动效、真实媒体素材、转化文案和视觉设计。
+    triggers:
+      - "landing page"
+      - "marketing site"
+      - "product page"
+      - "dashboard"
+      - "前端页面"
+      - "scroll animation"
+    not_for:
+      - "纯后端服务"
+      - "仅数据库 schema"
+    output: "Production-ready frontend UI"
+    dependencies:
+      python:
+        - "requests"
+      node:
+        - "react"
+        - "react-dom"
+        - "framer-motion"
+        - "gsap"
+        - "lottie-react"
+        - "three"
+        - "@react-three/fiber"
+        - "@react-three/drei"
+      system:
+        - "ffmpeg (optional media post-processing)"
+      services:
+        - "MINIMAX_API_KEY (for media generation)"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  fullstack-dev:
+    description: >
+      全栈开发技能。覆盖前后端集成、REST API、认证、文件上传、实时能力、
+      服务分层和生产环境加固。
+    triggers:
+      - "full-stack"
+      - "REST API"
+      - "CRUD app"
+      - "chat app"
+      - "实时应用"
+      - "auth"
+    not_for:
+      - "纯 CSS"
+      - "仅数据库 schema"
+    output: "Full-stack app code / architecture"
+    dependencies:
+      note:
+        - "No fixed component library; dependencies vary by chosen stack"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  github:
+    description: >
+      GitHub 开发协作技能。使用 `gh` CLI 处理 issue、pull request、Actions/CI 运行、
+      以及 `gh api` 的高级查询。
+    triggers:
+      - "GitHub"
+      - "gh"
+      - "pull request"
+      - "PR"
+      - "workflow run"
+      - "Actions"
+    not_for:
+      - "本地 git 基础操作"
+      - "非 GitHub 托管仓库"
+    output: "GitHub issue / PR / run / API query result"
+    dependencies:
+      system:
+        - "gh CLI"
+      services:
+        - "GitHub repository access"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  skill-creator:
+    description: >
+      Skill 创建与优化技能。用于新建 skill、修改现有 skill、设计评测用例、
+      运行评估并优化触发描述与效果。
+    triggers:
+      - "create a skill"
+      - "new skill"
+      - "improve skill"
+      - "optimize skill"
+      - "技能创建"
+      - "技能优化"
+    not_for:
+      - "普通单次提示词润色"
+      - "未涉及 skill 的通用代码任务"
+    output: "Skill draft / eval plan / optimized skill package"
+    dependencies:
+      system:
+        - "Python 3"
+      note:
+        - "May use bundled eval scripts and reviewer workflow"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  skill-vetter:
+    description: >
+      Skill 安全审查技能。用于在安装来自 ClawdHub、GitHub 或其他来源的 skill 前，
+      审核权限范围、可疑模式和潜在安全风险。
+    triggers:
+      - "vet skill"
+      - "install skill"
+      - "review this skill"
+      - "ClawdHub"
+      - "技能审查"
+      - "技能安装前检查"
+    not_for:
+      - "直接创建新 skill"
+      - "普通业务代码安全审计"
+    output: "Skill vetting report with risk classification"
+    dependencies:
+      note:
+        - "Security review workflow; source and permission analysis required"
     next: []
     sop_step: null
     merged_from: null

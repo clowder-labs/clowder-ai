@@ -17,6 +17,7 @@ export interface CommandResult {
     | 'unbind'
     | 'allow-group'
     | 'deny-group'
+    | 'myid'
     | 'not-command';
   readonly response?: string;
   readonly newActiveThreadId?: string;
@@ -91,9 +92,11 @@ export class ConnectorCommandLayer {
       case '/unbind':
         return this.handleUnbind(connectorId, externalChatId);
       case '/allow-group':
-        return this.handleAllowGroup(connectorId, externalChatId, senderId, args.join(' '));
+        return this.handleAllowGroup(connectorId, externalChatId, userId, senderId, args.join(' '));
       case '/deny-group':
-        return this.handleDenyGroup(connectorId, externalChatId, senderId, args.join(' '));
+        return this.handleDenyGroup(connectorId, externalChatId, userId, senderId, args.join(' '));
+      case '/myid':
+        return this.handleMyId(connectorId, senderId);
       default:
         return { kind: 'not-command' };
     }
@@ -249,20 +252,21 @@ export class ConnectorCommandLayer {
     };
   }
 
-  // --- Phase D: permission commands ---
+  // --- Phase D: permission commands (F152: all methods need userId) ---
 
-  private async isAdminSender(connectorId: string, senderId?: string): Promise<boolean> {
+  private async isAdminSender(userId: string, connectorId: string, senderId?: string): Promise<boolean> {
     if (!senderId || !this.deps.permissionStore) return false;
-    return this.deps.permissionStore.isAdmin(connectorId, senderId);
+    return this.deps.permissionStore.isAdmin(userId, connectorId, senderId);
   }
 
   private async handleAllowGroup(
     connectorId: string,
     externalChatId: string,
+    userId: string,
     senderId?: string,
     chatIdArg?: string,
   ): Promise<CommandResult> {
-    if (!(await this.isAdminSender(connectorId, senderId))) {
+    if (!(await this.isAdminSender(userId, connectorId, senderId))) {
       return { kind: 'allow-group', response: '🔒 此命令仅管理员可用。' };
     }
     const store = this.deps.permissionStore;
@@ -270,8 +274,8 @@ export class ConnectorCommandLayer {
       return { kind: 'allow-group', response: '⚠️ 权限系统未启用。' };
     }
     const targetChatId = chatIdArg?.trim() || externalChatId;
-    await store.allowGroup(connectorId, targetChatId);
-    const groups = await store.listAllowedGroups(connectorId);
+    await store.allowGroup(userId, connectorId, targetChatId);
+    const groups = await store.listAllowedGroups(userId, connectorId);
     return {
       kind: 'allow-group',
       response: `✅ 群 ${targetChatId.slice(-8)} 已加入白名单（共 ${groups.length} 个群）`,
@@ -281,10 +285,11 @@ export class ConnectorCommandLayer {
   private async handleDenyGroup(
     connectorId: string,
     externalChatId: string,
+    userId: string,
     senderId?: string,
     chatIdArg?: string,
   ): Promise<CommandResult> {
-    if (!(await this.isAdminSender(connectorId, senderId))) {
+    if (!(await this.isAdminSender(userId, connectorId, senderId))) {
       return { kind: 'deny-group', response: '🔒 此命令仅管理员可用。' };
     }
     const store = this.deps.permissionStore;
@@ -292,12 +297,22 @@ export class ConnectorCommandLayer {
       return { kind: 'deny-group', response: '⚠️ 权限系统未启用。' };
     }
     const targetChatId = chatIdArg?.trim() || externalChatId;
-    const removed = await store.denyGroup(connectorId, targetChatId);
+    const removed = await store.denyGroup(userId, connectorId, targetChatId);
     return {
       kind: 'deny-group',
       response: removed
         ? `🚫 群 ${targetChatId.slice(-8)} 已从白名单移除`
         : `⚠️ 群 ${targetChatId.slice(-8)} 不在白名单中`,
+    };
+  }
+
+  private handleMyId(connectorId: string, senderId?: string): CommandResult {
+    if (!senderId) {
+      return { kind: 'myid', response: '⚠️ 无法获取您的用户信息。' };
+    }
+    return {
+      kind: 'myid',
+      response: `🆔 您的 open_id: ${senderId}\n\n请将此 ID 发送给管理员以添加到白名单。`,
     };
   }
 
