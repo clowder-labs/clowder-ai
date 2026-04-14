@@ -7,6 +7,56 @@ function getCtx() {
   return _ctx;
 }
 
+const GENERIC_FONT_FAMILIES = new Set([
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-serif",
+  "ui-sans-serif",
+  "ui-monospace",
+  "ui-rounded",
+  "emoji",
+  "math",
+  "fangsong",
+  "inherit",
+  "initial",
+  "unset",
+]);
+
+function parseFontFamilyList(fontFamily = "") {
+  return String(fontFamily)
+    .split(",")
+    .map((name) => name.trim().replace(/['"]/g, ""))
+    .filter(Boolean);
+}
+
+function isFontUsableInRuntime(fontName) {
+  if (!fontName) return false;
+  if (typeof document === "undefined" || !document.fonts || typeof document.fonts.check !== "function") {
+    return false;
+  }
+  try {
+    return document.fonts.check(`12px "${fontName}"`) || document.fonts.check(`12px '${fontName}'`);
+  } catch {
+    return false;
+  }
+}
+
+export function resolvePptxFontFace(fontFamily = "") {
+  const families = parseFontFamilyList(fontFamily);
+  const concreteFamilies = families.filter((name) => !GENERIC_FONT_FAMILIES.has(name.toLowerCase()));
+  if (!concreteFamilies.length) return "Arial";
+
+  // 与浏览器实际渲染保持一致：优先选当前环境可用的字体。
+  const firstUsable = concreteFamilies.find((name) => isFontUsableInRuntime(name));
+  if (firstUsable) return firstUsable;
+
+  return concreteFamilies[0];
+}
+
 function getTableBorder(style, side, scale) {
   const widthStr = style.getPropertyValue(`border-${side.toLowerCase()}-width`) || style[`border${side}Width`];
   const styleStr = style.getPropertyValue(`border-${side.toLowerCase()}-style`) || style[`border${side}Style`];
@@ -159,6 +209,7 @@ export function extractTableData(node, scale) {
           bold: textStyle.bold,
           italic: textStyle.italic,
           underline: textStyle.underline,
+          strike: textStyle.strike,
 
           fill: fill,
           align: align,
@@ -401,7 +452,99 @@ export function generateCustomShapeSVG(w, h, color, opacity, radii) {
   return "data:image/svg+xml;base64," + btoa(svg);
 }
 
-// --- REPLACE THE EXISTING parseColor FUNCTION ---
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function parseAlphaChannel(alphaRaw) {
+  if (alphaRaw === undefined || alphaRaw === null || alphaRaw === "") return 1;
+  const alphaText = String(alphaRaw).trim();
+  if (!alphaText) return 1;
+  if (alphaText.endsWith("%")) {
+    const pct = parseFloat(alphaText.slice(0, -1));
+    if (Number.isNaN(pct)) return null;
+    return clamp(pct / 100, 0, 1);
+  }
+  const alpha = parseFloat(alphaText);
+  if (Number.isNaN(alpha)) return null;
+  return clamp(alpha, 0, 1);
+}
+
+function parseRgbChannel(channelRaw) {
+  const channelText = String(channelRaw).trim();
+  if (!channelText) return null;
+  if (channelText.endsWith("%")) {
+    const pct = parseFloat(channelText.slice(0, -1));
+    if (Number.isNaN(pct)) return null;
+    return clamp(Math.round((pct / 100) * 255), 0, 255);
+  }
+  const value = parseFloat(channelText);
+  if (Number.isNaN(value)) return null;
+  return clamp(Math.round(value), 0, 255);
+}
+
+function parseRgbLikeColor(str) {
+  const rgbMatch = String(str).trim().match(/^rgba?\((.*)\)$/i);
+  if (!rgbMatch) return null;
+
+  const body = rgbMatch[1].trim();
+  if (!body) return null;
+
+  let channels = [];
+  let alphaRaw = null;
+
+  // Modern syntax: rgb(255 0 0 / 50%)
+  if (body.includes("/") && !body.includes(",")) {
+    const [channelPart, alphaPart] = body.split("/");
+    channels = channelPart.trim().split(/\s+/).filter(Boolean);
+    alphaRaw = alphaPart?.trim();
+  } else if (body.includes(",")) {
+    // Legacy syntax: rgb(255,0,0) / rgba(255,0,0,0.5)
+    const parts = body.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 3) return null;
+    channels = parts.slice(0, 3);
+    if (parts.length >= 4) alphaRaw = parts[3];
+    if (!alphaRaw && channels[2]?.includes("/")) {
+      const [b, a] = channels[2].split("/");
+      channels[2] = b.trim();
+      alphaRaw = a?.trim();
+    }
+  } else {
+    // Space syntax without alpha: rgb(255 0 0)
+    channels = body.split(/\s+/).filter(Boolean);
+  }
+
+  if (channels.length < 3) return null;
+
+  const r = parseRgbChannel(channels[0]);
+  const g = parseRgbChannel(channels[1]);
+  const b = parseRgbChannel(channels[2]);
+  const a = parseAlphaChannel(alphaRaw);
+  if (r === null || g === null || b === null || a === null) return null;
+
+  const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+  return { hex, opacity: a };
+}
+
+function hexToRgb(hex) {
+  const clean = String(hex || "").replace(/^#/, "").trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+}
+
+function blendRgbOverBg(fg, bg, alpha) {
+  const a = clamp(alpha, 0, 1);
+  return {
+    r: Math.round(fg.r * a + bg.r * (1 - a)),
+    g: Math.round(fg.g * a + bg.g * (1 - a)),
+    b: Math.round(fg.b * a + bg.b * (1 - a)),
+  };
+}
+
 export function parseColor(str) {
   if (!str || str === "transparent" || str.trim() === "rgba(0, 0, 0, 0)") {
     return { hex: null, opacity: 0 };
@@ -430,19 +573,9 @@ export function parseColor(str) {
     return { hex: hex.toUpperCase(), opacity };
   }
 
-  // 直接解析 rgba/rgb 格式，保留 alpha 通道
-  // 避免依赖 Canvas API 转换导致 alpha 丢失
-  // 匹配 rgba(255, 255, 255, 0.5) 或 rgb(255, 255, 255) 格式
-  const colorMatch = str.match(/rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/i);
-  if (colorMatch) {
-    const r = Math.round(parseFloat(colorMatch[1]));
-    const g = Math.round(parseFloat(colorMatch[2]));
-    const b = Math.round(parseFloat(colorMatch[3]));
-    // colorMatch[4] 存在时为 rgba，不存在时为 rgb（alpha 默认为 1）
-    const a = colorMatch[4] === undefined ? 1 : parseFloat(colorMatch[4]);
-    const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-    return { hex, opacity: a };
-  }
+  // 优先解析 CSS Color 4 与旧式 rgb/rgba，避免依赖 Canvas 造成 alpha 丢失
+  const rgbLike = parseRgbLikeColor(str);
+  if (rgbLike) return rgbLike;
 
   const ctx = getCtx();
   ctx.fillStyle = str;
@@ -550,11 +683,12 @@ export function getTextStyle(style, scale) {
 
   return {
     color: colorObj.hex || "000000",
-    fontFace: style.fontFamily.split(",")[0].replace(/['"]/g, ""),
+    fontFace: resolvePptxFontFace(style.fontFamily),
     fontSize: calculatedFontSize,
     bold: shouldBeBold,
     italic: style.fontStyle === "italic",
     underline: style.textDecoration.includes("underline"),
+    strike: style.textDecoration.includes("line-through"),
     // Map background color to highlight if present (only for sufficiently opaque backgrounds)
     ...(() => {
       const bgColor = parseColor(style.backgroundColor);
@@ -804,7 +938,50 @@ export function getVisibleShadow(shadowStr, scale) {
 /**
  * Generates an SVG image for gradients, supporting degrees and keywords.
  */
-export function generateGradientSVG(w, h, bgString, radius, border) {
+function normalizeCornerRadii(radius, w, h) {
+  const maxRadius = Math.min(w, h) / 2;
+  let tl = 0;
+  let tr = 0;
+  let br = 0;
+  let bl = 0;
+
+  if (typeof radius === "number") {
+    tl = tr = br = bl = radius;
+  } else if (radius && typeof radius === "object") {
+    tl = Number(radius.tl) || 0;
+    tr = Number(radius.tr) || 0;
+    br = Number(radius.br) || 0;
+    bl = Number(radius.bl) || 0;
+  }
+
+  tl = Math.min(Math.max(tl, 0), maxRadius);
+  tr = Math.min(Math.max(tr, 0), maxRadius);
+  br = Math.min(Math.max(br, 0), maxRadius);
+  bl = Math.min(Math.max(bl, 0), maxRadius);
+
+  const factor = Math.min(
+    w / (tl + tr) || Infinity,
+    h / (tr + br) || Infinity,
+    w / (br + bl) || Infinity,
+    h / (bl + tl) || Infinity
+  );
+
+  if (factor < 1) {
+    tl *= factor;
+    tr *= factor;
+    br *= factor;
+    bl *= factor;
+  }
+
+  return { tl, tr, br, bl };
+}
+
+function buildRoundedRectPath(w, h, radii) {
+  const { tl, tr, br, bl } = radii;
+  return `M ${tl} 0 L ${w - tr} 0 A ${tr} ${tr} 0 0 1 ${w} ${tr} L ${w} ${h - br} A ${br} ${br} 0 0 1 ${w - br} ${h} L ${bl} ${h} A ${bl} ${bl} 0 0 1 0 ${h - bl} L 0 ${tl} A ${tl} ${tl} 0 0 1 ${tl} 0 Z`;
+}
+
+export function generateGradientSVG(w, h, bgString, radius, border, options = {}) {
   try {
     const match = bgString.match(/linear-gradient\((.*)\)/);
     if (!match) return null;
@@ -925,6 +1102,12 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
     });
 
     // Generate stopsXML, handling 'transparent' by using adjacent color's RGB with opacity=0
+    const renderedStops = [];
+    const flattenAlphaToBgHex = String(options.flattenAlphaToBgHex || "")
+      .replace(/^#/, "")
+      .toUpperCase();
+    const flattenBgRgb = flattenAlphaToBgHex ? hexToRgb(flattenAlphaToBgHex) : null;
+
     parsedStops.forEach((stop, idx) => {
       let color = stop.color;
       let opacity = 1;
@@ -1000,7 +1183,19 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
         opacity = normalized.opacity;
       }
 
+      // 对背景类渐变可选择预混合透明度，避免 PPT 对透明渐变 PNG 的显示偏差
+      if (flattenBgRgb && opacity < 1) {
+        const fgParsed = parseColor(color);
+        const fgRgb = fgParsed.hex ? hexToRgb(fgParsed.hex) : null;
+        if (fgRgb) {
+          const blended = blendRgbOverBg(fgRgb, flattenBgRgb, opacity);
+          color = `rgb(${blended.r},${blended.g},${blended.b})`;
+          opacity = 1;
+        }
+      }
+
       stopsXML += `<stop offset="${stop.offset}" stop-color="${color}" stop-opacity="${opacity}"/>`;
+      renderedStops.push({ color, opacity, offset: stop.offset });
     });
 
     let strokeAttr = "";
@@ -1008,32 +1203,16 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
       strokeAttr = `stroke="#${border.color}" stroke-width="${border.width}"`;
     }
 
-    // CSS 规范：border-radius 不能超过 min(width, height) / 2
-    // 当 border-radius 值过大时（如 9999px），实际渲染效果是胶囊形状
-    const maxRadius = Math.min(w, h) / 2;
-    const clampedRadius = Math.min(radius, maxRadius);
-
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="grad" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stopsXML}</linearGradient></defs><rect x="0" y="0" width="${w}" height="${h}" rx="${clampedRadius}" ry="${clampedRadius}" fill="url(#grad)" ${strokeAttr} /></svg>`;
+    const radii = normalizeCornerRadii(radius, w, h);
+    const isUniformRadius = radii.tl === radii.tr && radii.tl === radii.br && radii.tl === radii.bl;
+    const shapeTag = isUniformRadius
+      ? `<rect x="0" y="0" width="${w}" height="${h}" rx="${radii.tl}" ry="${radii.tl}" fill="url(#grad)" ${strokeAttr} />`
+      : `<path d="${buildRoundedRectPath(w, h, radii)}" fill="url(#grad)" ${strokeAttr} />`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="grad" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stopsXML}</linearGradient></defs>${shapeTag}</svg>`;
 
     // Check if any stop has opacity < 1, if so we need PNG for proper transparency
     // 修复：检查所有透明度值，不仅仅是 opacity="0"
-    const hasTransparency = parsedStops.some((stop) => {
-      if (
-        stop.color.toLowerCase() === "transparent" ||
-        stop.color === "rgba(0, 0, 0, 0)" ||
-        stop.color === "rgba(0,0,0,0)"
-      ) {
-        return true;
-      }
-      if (stop.color.includes("rgba")) {
-        const rgbaMatch = stop.color.match(/[\d.]+/g);
-        if (rgbaMatch && rgbaMatch.length >= 4) {
-          const alpha = parseFloat(rgbaMatch[3]);
-          return alpha < 1;
-        }
-      }
-      return false;
-    });
+    const hasTransparency = renderedStops.some((stop) => stop.opacity < 1);
 
     if (hasTransparency) {
       // Return SVG string for async PNG conversion
@@ -1162,6 +1341,7 @@ function detectBreaksFromMap(charToDomMap, processedText, isVertical = false) {
   const breaks = [];
   let prevTop = null;
   let prevLeft = null;
+  let lineStartLeft = null;
 
   for (let i = 0; i < charToDomMap.length; i++) {
     const { node, localIdx, globalIdx } = charToDomMap[i];
@@ -1173,6 +1353,10 @@ function detectBreaksFromMap(charToDomMap, processedText, isVertical = false) {
     range.setEnd(node, localIdx + 1);
     const rect = range.getBoundingClientRect();
 
+    if (lineStartLeft === null) {
+      lineStartLeft = rect.left;
+    }
+
     if (prevTop !== null) {
       let isNewLine = false;
 
@@ -1182,7 +1366,11 @@ function detectBreaksFromMap(charToDomMap, processedText, isVertical = false) {
       } else {
         // 横排文字：只有当“下一字符显著更靠下，且水平位置回到本行更靠左的位置”时才认为是新的一行，
         // 这样可以避免因为不同字号/基线导致的小幅 top 变化被误判为换行。
-        isNewLine = rect.top > prevTop + 2 && (prevLeft === null || rect.left < prevLeft - 1);
+        const movedToNewVisualRow = rect.top > prevTop + 2;
+        const movedLeftFromPrevChar = prevLeft === null || rect.left < prevLeft - 1;
+        // 仅当字符“回到该行起始左边界附近”时才认定换行，避免行内样式切换造成误判。
+        const returnedToLineStart = lineStartLeft === null || rect.left <= lineStartLeft + 4;
+        isNewLine = movedToNewVisualRow && movedLeftFromPrevChar && returnedToLineStart;
       }
 
       if (isNewLine) {
@@ -1191,6 +1379,9 @@ function detectBreaksFromMap(charToDomMap, processedText, isVertical = false) {
           breakPos--;
         }
         breaks.push(breakPos);
+        if (!isVertical) {
+          lineStartLeft = rect.left;
+        }
       }
     }
 
