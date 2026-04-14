@@ -19,6 +19,7 @@ type InvitationResponse = {
   userName?: string;
   message?: string;
   redirectTo?: string;
+  logoutUrl?: string;
   islogin?: boolean;
   pendingInvitation?: boolean;
   isskip?: boolean;
@@ -40,14 +41,41 @@ export default function InvitationPage() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [promotionCode, setPromotionCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReloginLoading, setIsReloginLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
 
   const redirectToLogin = useCallback(() => {
     clearAuthIdentity();
+    setIsSkipAuth(false);
     router.replace('/login');
   }, [router]);
+
+  const handleRelogin = useCallback(async () => {
+    setIsReloginLoading(true);
+    setError('');
+
+    try {
+      const response = await apiFetch('/api/logout', {
+        method: 'POST',
+      });
+      const data = (await response.json()) as InvitationResponse;
+      clearAuthIdentity();
+      setIsSkipAuth(false);
+
+      if (response.ok && data?.logoutUrl) {
+        window.location.replace(data.logoutUrl);
+        return;
+      }
+    } catch (err) {
+      console.error('重新登录失败:', err);
+    } finally {
+      setIsReloginLoading(false);
+    }
+
+    redirectToLogin();
+  }, [redirectToLogin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +140,7 @@ export default function InvitationPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError('');
 
     try {
@@ -139,7 +167,7 @@ export default function InvitationPage() {
       console.error('提交邀请码失败:', err);
       setError('邀请码校验失败，请稍后重试');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -195,7 +223,7 @@ export default function InvitationPage() {
                 name="promotionCode"
                 type="text"
                 autoComplete="off"
-                disabled={!isReady || isLoading}
+                disabled={!isReady || isSubmitting || isReloginLoading}
                 className="block h-[28px] w-full rounded-[6px] border border-[#C2C2C2] bg-white px-3 text-sm text-[#111827] shadow-[0_10px_28px_-24px_rgba(15,23,42,0.8)] outline-none transition placeholder:text-[#C6BBAF] focus:border-[#F08A40] focus:ring-4 focus:ring-[#FCE7D6] disabled:cursor-not-allowed disabled:bg-[#F6F3EF]"
                 placeholder="请输入"
                 value={promotionCode}
@@ -234,13 +262,23 @@ export default function InvitationPage() {
             {error ? <p className="text-[13px] leading-5 text-[#D92D20]">{error}</p> : null}
 
             <div className="pt-7 text-center">
-              <button
-                type="submit"
-                disabled={!isReady || isLoading}
-                className="mx-auto flex h-8 w-[250px] items-center justify-center rounded-full bg-[#191919] px-6 text-[12px] font-normal text-white shadow-[0_18px_38px_-22px_rgba(17,24,39,0.95)] transition hover:-translate-y-0.5 hover:bg-[#242424] disabled:cursor-not-allowed disabled:bg-[#D1D5DB] disabled:shadow-none"
-              >
-                {isLoading ? '校验中...' : '立即体验'}
-              </button>
+              <div className="mx-auto flex max-w-[250px] gap-3">
+                <button
+                  type="button"
+                  disabled={!isReady || isReloginLoading || isSubmitting}
+                  onClick={handleRelogin}
+                  className="flex h-8 flex-1 items-center justify-center rounded-full border border-[#191919] bg-white px-6 text-[12px] font-normal text-[#191919] shadow-[0_18px_38px_-22px_rgba(17,24,39,0.95)] transition hover:-translate-y-0.5 hover:bg-[#F5F5F5] disabled:cursor-not-allowed disabled:border-[#D1D5DB] disabled:text-[#9CA3AF] disabled:shadow-none"
+                >
+                  {isReloginLoading ? '重新登录中...' : '重新登录'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={!isReady || isSubmitting || isReloginLoading}
+                  className="flex h-8 flex-1 items-center justify-center rounded-full bg-[#191919] px-6 text-[12px] font-normal text-white shadow-[0_18px_38px_-22px_rgba(17,24,39,0.95)] transition hover:-translate-y-0.5 hover:bg-[#242424] disabled:cursor-not-allowed disabled:bg-[#D1D5DB] disabled:shadow-none"
+                >
+                  {isSubmitting ? '校验中...' : '立即体验'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
