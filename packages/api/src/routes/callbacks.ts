@@ -1207,17 +1207,21 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F086: Multi-mention orchestration routes
   if (router && invocationRecordStore) {
-    registerMultiMentionRoutes(app, {
+    // outboundHook is late-bound after connector gateway bootstrap (index.ts).
+    // Use a getter so flushResult() reads the live value at request time,
+    // not the undefined snapshot captured during plugin registration.
+    const multiMentionDeps: Parameters<typeof registerMultiMentionRoutes>[1] = {
       registry,
       messageStore,
       socketManager,
-      ...(opts.outboundHook ? { outboundHook: opts.outboundHook } : {}),
+      get outboundHook() { return opts.outboundHook; },
       router,
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),
       ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
       ...(queueProcessor ? { queueProcessor } : {}),
-    });
+    };
+    registerMultiMentionRoutes(app, multiMentionDeps);
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {
       socketManager.setMultiMentionOrchestrator(getMultiMentionOrchestrator());
