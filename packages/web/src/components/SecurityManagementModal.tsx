@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
@@ -151,6 +152,11 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     };
   }, [open]);
 
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
+
   const handleToggleApprovalBar = async () => {
     if (savingApprovalBar) return;
 
@@ -268,7 +274,10 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex min-h-[220px] flex-1 items-center justify-center" data-testid="security-management-loading">
+        <div
+          className="flex min-h-[220px] flex-1 items-center justify-center"
+          data-testid="security-management-loading"
+        >
           <CenteredLoadingState />
         </div>
       );
