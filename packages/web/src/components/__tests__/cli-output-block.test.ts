@@ -703,6 +703,44 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('renders a generic generated file card for docx output and opens that file', async () => {
+    const docxEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: D:\\workspace\\output\\weekly-report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: docxEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-file-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('weekly-report.docx');
+
+    const openButton = container.querySelector('[data-testid="cli-output-file-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\workspace\\output\\weekly-report.docx',
+    });
+  });
+
   it('renders a markdown attachment card when the path is only present in escaped tool input json', async () => {
     const markdownEvents: CliEvent[] = [
       {

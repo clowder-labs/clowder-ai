@@ -18,6 +18,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
+import { appendGeneratedFileLocationDisclosure } from '../domains/cats/services/agents/routing/generated-file-artifacts.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
@@ -432,7 +433,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         app.log.error({ err }, '[callbacks/post-message] Voice block synthesis failed');
       }
     }
-    const storedContent = ensureFileLocationDisclosure(rawStoredContent, richBlocks);
+    const storedContent = appendGeneratedFileLocationDisclosure(rawStoredContent, richBlocks);
 
     // F52: Detect cross-thread post (used for both A2A exemption and crossPost metadata)
     const isCrossThread = effectiveThreadId !== record.threadId;
