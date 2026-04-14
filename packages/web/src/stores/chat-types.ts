@@ -238,7 +238,6 @@ export interface ChatMessage {
     | 'tool'
     | 'evidence'
     | 'a2a_followup'
-    | 'a2a_handoff'
     | 'governance_blocked'
     | 'intent_recognition';
   catId?: string;

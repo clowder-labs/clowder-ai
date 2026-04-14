@@ -133,8 +133,6 @@ export function useAgentMessages() {
    *  防止旧事件被路由到新 bubble。成员在新 invocation_created 时移除（自愈）。 */
   const cancelledInvocationsRef = useRef<Set<string>>(new Set());
 
-  /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
-  const a2aGroupRef = useRef<string | null>(null);
 
   /** F118 AC-C3: Pending timeout diagnostics keyed by catId to prevent cross-cat mismatch */
   const pendingTimeoutDiagRef = useRef<Map<string, Record<string, unknown>>>(new Map());
@@ -748,7 +746,6 @@ export function useAgentMessages() {
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
           // would allow reordered stale chunks to recreate ghost bubbles.
-          // a2aGroupRef 已移除 A2A 分组功能，不再需要清空
           // Bug C safety net: if done(isFinal) arrived but no streaming bubble
           // was ever created for this cat, text events were lost (socket transport
           // drop, dual-pointer guard mismatch, etc.). Request a history catch-up
@@ -768,8 +765,6 @@ export function useAgentMessages() {
           requestActiveThreadRefresh('panels', 'done_final');
           sawStreamDataRef.current.delete(msg.catId);
         }
-      } else if (msg.type === 'a2a_handoff') {
-        // A2A 内部讨论面板已移除，忽略握手消息，不做任何处理
       } else if (msg.type === 'system_info') {
         sawStreamDataRef.current.add(msg.catId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
@@ -1253,7 +1248,6 @@ export function useAgentMessages() {
     terminalStreamSuppressionRef.current.clear();
     pendingTimeoutDiagRef.current.clear();
     cancelledInvocationsRef.current.clear();
-    a2aGroupRef.current = null;
     clearDoneTimeout();
   }, [clearDoneTimeout]);
 

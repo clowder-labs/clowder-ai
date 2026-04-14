@@ -28,7 +28,6 @@ import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
-// A2ACollapsible 已移除，agent 消息直接平铺展示
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -459,7 +458,6 @@ function ThreadModeChatContainer({
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
-  // A2A 内部讨论面板已移除，所有消息直接平铺展示（含 a2aGroupId 的消息也正常渲染）
 
   const pendingAuthorizationByMessageId = useMemo(
     () => mapPendingAuthorizationToMessages(messages, authPending),

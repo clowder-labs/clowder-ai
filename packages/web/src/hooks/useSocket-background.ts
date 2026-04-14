@@ -575,12 +575,8 @@ export function handleBackgroundAgentMessage(
     return;
   }
 
-  if (msg.type === 'system_info' || msg.type === 'a2a_handoff') {
+  if (msg.type === 'system_info') {
     if (!msg.content) return;
-    if (msg.type === 'a2a_handoff') {
-      addBackgroundSystemMessage(msg, options, msg.content);
-      return;
-    }
 
     const result = consumeBackgroundSystemInfo(msg, existing, options);
     if (!result.consumed) {
