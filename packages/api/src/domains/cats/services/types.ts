@@ -127,6 +127,8 @@ export interface AgentMessage {
   toolName?: string;
   /** Tool input parameters (for 'tool_use' type) */
   toolInput?: Record<string, unknown>;
+  /** F142: Tool call ID for precise pairing between tool_use and tool_result */
+  toolCallId?: string;
   /** Error message (for 'error' type) */
   error?: string;
   /** Whether this is the final 'done' in a multi-cat invocation (for 'done' type) */

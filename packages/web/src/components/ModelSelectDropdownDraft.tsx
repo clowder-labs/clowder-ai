@@ -7,6 +7,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 const DEFAULT_MODEL_ICON = '/avatars/assistant.svg';
 
@@ -51,7 +52,13 @@ function SearchIcon() {
 function ChevronDownIcon() {
   return (
     <svg className="h-4 w-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M7 10L12 15L17 10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -77,9 +84,20 @@ export function ModelSelectValueDraft({
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {item && !loading ? <ModelIcon item={item} /> : null}
-      <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-        {loading ? '加载模型中...' : item?.name ?? placeholder}
-      </span>
+      <OverflowTooltip content={loading ? '加载模型中...' : (item?.name ?? placeholder)} className="min-w-0">
+        <span
+          className={`block min-w-0 truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+          style={{
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            wordBreak: 'break-all',
+          }}
+        >
+          {loading ? '加载模型中...' : (item?.name ?? placeholder)}
+        </span>
+      </OverflowTooltip>
     </span>
   );
 }
@@ -120,13 +138,13 @@ export function ModelSelectDropdownDraft({
       data-testid="model-select-dropdown"
     >
       <div className="px-[10px] pb-1 pt-[10px]">
-        <label className="ui-field flex h-7 items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
+        <label className="ui-field flex h-7 items-center gap-0 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
           <SearchIcon />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
-            className="ui-input ui-input-plain w-full text-[10px]"
+            className="ui-input ui-input-plain w-full text-[12px]"
           />
         </label>
       </div>
@@ -153,9 +171,20 @@ export function ModelSelectDropdownDraft({
                   <div className="flex min-w-0 items-center gap-2.5">
                     <ModelIcon item={item} />
                     <div className="min-w-0">
-                      <div className="truncate text-[14px] leading-[20px] font-normal text-[var(--text-primary)]">
-                        {item.name}
-                      </div>
+                      <OverflowTooltip content={item.name} className="w-full">
+                        <div
+                          className="block min-w-0 truncate text-[14px] leading-[20px] font-normal text-[var(--text-primary)]"
+                          style={{
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            wordBreak: 'break-all',
+                          }}
+                        >
+                          {item.name}
+                        </div>
+                      </OverflowTooltip>
                     </div>
                   </div>
                 </button>

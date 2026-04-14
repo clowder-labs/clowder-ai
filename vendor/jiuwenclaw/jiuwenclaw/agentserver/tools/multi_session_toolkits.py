@@ -38,7 +38,7 @@ from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
 from jiuwenclaw.gateway.message_handler import MessageHandler
 from jiuwenclaw.schema import AgentResponseChunk
 from jiuwenclaw.schema.message import EventType, Message
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 
 class Status(str, Enum):

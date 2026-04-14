@@ -318,7 +318,7 @@ describe('ModelsPanel search', () => {
     await clickButton(openModal!);
     await flushEffects();
 
-    expect(container.textContent).toContain('接入华为云 MaaS模型');
+    expect(container.textContent).toContain('接入华为云Maas模型');
     expect(container.textContent).toContain('模型调用名称');
     const huaweiNameInput = container.querySelector(
       '[data-testid="models-create-model-name-input"]',
@@ -378,7 +378,7 @@ describe('ModelsPanel search', () => {
   });
 
   it('shows a red inline validation message for an invalid Huawei MaaS model name', async () => {
-    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
 
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -414,7 +414,7 @@ describe('ModelsPanel search', () => {
   });
 
   it('shows a red inline validation message for an invalid custom model name', async () => {
-    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
     mockGetIsSkipAuth.mockReturnValue(true);
 
     await act(async () => {
@@ -456,7 +456,7 @@ describe('ModelsPanel search', () => {
   });
 
   it('does not show the validation message for a valid model name', async () => {
-    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
 
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -519,7 +519,7 @@ describe('ModelsPanel search', () => {
     await clickButton(editButton!);
     await flushEffects();
 
-    expect(container.textContent).toContain('接入华为云 MaaS模型');
+    expect(container.textContent).toContain('接入华为云Maas模型');
     expect(container.textContent).toContain('编辑');
     expect(container.textContent).toContain('模型调用名称');
     const urlInput = container.querySelector(
@@ -953,5 +953,76 @@ describe('ModelsPanel search', () => {
     const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(typeof payload.icon).toBe('string');
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
+  });
+
+  it('closes the create-model modal when Escape key is pressed', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('新建模型');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('新建模型');
+  });
+
+  it('closes the Huawei MaaS access modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('接入华为云Maas模型');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('接入华为云Maas模型');
+  });
+
+  it('closes the edit-model modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]',
+    ) as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    await clickButton(editButton!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('编辑');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('编辑');
   });
 });

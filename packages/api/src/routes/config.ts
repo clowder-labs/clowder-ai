@@ -17,6 +17,7 @@ import { resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
@@ -308,7 +309,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
   });
 
   app.get('/api/config/env-summary', async () => {
-    const apiCwd = process.cwd();
+    const monoRoot = findMonorepoRoot();
     const home = os.homedir();
     return {
       categories: ENV_CATEGORIES,
@@ -317,11 +318,11 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         projectRoot,
         homeDir: home,
         dataDirs: {
-          auditLogs: resolve(apiCwd, process.env.AUDIT_LOG_DIR ?? './data/audit-logs'),
-          runtimeLogs: resolve(apiCwd, './data/logs/api'),
-          cliArchive: resolve(apiCwd, process.env.CLI_RAW_ARCHIVE_DIR ?? './data/cli-raw-archive'),
+          auditLogs: resolve(monoRoot, process.env.AUDIT_LOG_DIR ?? 'data/audit-logs'),
+          runtimeLogs: resolve(monoRoot, 'data/logs/api'),
+          cliArchive: resolve(monoRoot, process.env.CLI_RAW_ARCHIVE_DIR ?? 'data/cli-raw-archive'),
           redisDevSandbox: resolve(home, '.office-claw/redis-dev-sandbox'),
-          uploads: resolve(apiCwd, process.env.UPLOAD_DIR ?? './uploads'),
+          uploads: resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads'),
         },
       },
     };

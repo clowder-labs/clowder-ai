@@ -33,6 +33,7 @@ export interface FeishuQrPollResult {
   status: 'waiting' | 'confirmed' | 'expired' | 'denied' | 'error';
   appId?: string;
   appSecret?: string;
+  ownerOpenId?: string;  // F152: QR scanner's open_id (exempt from whitelist)
   error?: string;
 }
 
@@ -127,10 +128,15 @@ export class DefaultFeishuQrBindClient implements FeishuQrBindClient {
     }
 
     if (typeof pollData.client_id === 'string' && typeof pollData.client_secret === 'string') {
+      // F152: Extract owner open_id from user_info
+      const userInfo = pollData.user_info as Record<string, unknown> | undefined;
+      const ownerOpenId = userInfo?.open_id as string | undefined;
+
       return {
         status: 'confirmed',
         appId: pollData.client_id,
         appSecret: pollData.client_secret,
+        ownerOpenId,
       };
     }
 

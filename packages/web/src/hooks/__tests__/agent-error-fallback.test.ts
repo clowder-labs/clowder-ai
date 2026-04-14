@@ -27,7 +27,7 @@ describe('agent sensitive-input error classification', () => {
     expect(
       isSensitiveInputAgentError({
         error:
-          "{‘error’: {‘code’: ‘ModelArts.81011’, ‘message’: ‘Input text May contain sensitive information, please try again.’}}",
+          '{‘error’: {‘code’: ‘ModelArts.81011’, ‘message’: ‘Input text May contain sensitive information, please try again.’}}',
       }),
     ).toBe(true);
   });
@@ -86,9 +86,7 @@ describe('getFriendlyAgentErrorMessage', () => {
       getFriendlyAgentErrorMessage({
         error: 'Max iterations reached without completion',
       }),
-    ).toBe(
-      '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。',
-    );
+    ).toBe('已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。');
     expect(getFriendlyAgentErrorMessage({ error: 'max_iterations_reached' })).toBe(
       '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。',
     );
@@ -101,9 +99,7 @@ describe('getFriendlyAgentErrorMessage', () => {
     );
     expect(
       getFriendlyAgentErrorMessage({ error: 'assistant connection failed: WebSocket connection closed unexpectedly' }),
-    ).toBe(
-      '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。',
-    );
+    ).toBe('当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。');
 
     // Abrupt exit errors (should NOT match "connection closed unexpectedly" in connection context)
     expect(getFriendlyAgentErrorMessage({ error: 'CLI 异常退出 (code: 1, signal: none)' })).toBe(
@@ -138,6 +134,19 @@ describe('getAgentErrorToastContent', () => {
     ).toEqual({
       title: 'codex 出错',
       message: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。 (预算用尽)',
+    });
+  });
+
+  it('prefers cat display name for toast title when available', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'agent-abc123',
+        catDisplayName: '产品分析助手',
+        error: 'request timed out before completion',
+      }),
+    ).toEqual({
+      title: '产品分析助手 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
     });
   });
 });

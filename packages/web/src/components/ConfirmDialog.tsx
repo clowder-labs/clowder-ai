@@ -61,8 +61,7 @@ export function ConfirmDialog({
   if (!open) return null;
 
   const canConfirm = requireInput ? inputValue === requireInput : true;
-  const confirmButtonClass =
-    variant === 'danger' ? 'ui-button-danger' : 'ui-button-primary';
+  const confirmButtonClass = variant === 'danger' ? 'ui-button-danger' : 'ui-button-primary';
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -78,7 +77,7 @@ export function ConfirmDialog({
         <div className="mb-2 pr-10">
           <h3 className="text-base font-semibold">{title}</h3>
         </div>
-        <p className="text-sm text-gray-600 mb-4 whitespace-pre-wrap">{message}</p>
+        <p className="text-sm text-gray-600 mb-4 whitespace-pre-wrap break-all">{message}</p>
         {requireInput && (
           <input
             ref={inputRef}
@@ -90,17 +89,10 @@ export function ConfirmDialog({
           />
         )}
         <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="ui-button-default"
-          >
+          <button onClick={onCancel} className="ui-button-default">
             {cancelLabel}
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={!canConfirm}
-            className={confirmButtonClass}
-          >
+          <button onClick={onConfirm} disabled={!canConfirm} className={confirmButtonClass}>
             {confirmLabel}
           </button>
         </div>

@@ -932,7 +932,7 @@ Section "Uninstall"
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 
   ; Ask user whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.office-claw、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n选择「是」将删除：$\r$\n  · 整个安装目录（含配置、数据库、日志、上传文件、工作区）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将仅删除程序文件，保留：$\r$\n  · 用户配置（.env、office-claw-config.json）$\r$\n  · 运行时数据（.office-claw、data、logs、workspace）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）" IDYES +3
     StrCpy $RemoveUserData "0"
     Goto +2
     StrCpy $RemoveUserData "1"

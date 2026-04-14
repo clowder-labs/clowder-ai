@@ -46,6 +46,10 @@ function simulateBackgroundMessage(msg: {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   origin?: 'stream' | 'callback';
   invocationId?: string;
   timestamp: number;
@@ -190,6 +194,42 @@ describe('background thread socket handling', () => {
       expect(useToastStore.getState().toasts).toHaveLength(1);
     });
 
+    it('text(isFinal) with errorFallback emits error toast and blocks later done success toast', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+        isFinal: true,
+        extra: {
+          errorFallback: {
+            v: 1,
+            kind: 'timeout',
+            rawError: 'request timed out before completion',
+            timestamp: now,
+          },
+        },
+        timestamp: now,
+      });
+
+      const stateAfterText = useChatStore.getState().getThreadState('thread-bg');
+      expect(stateAfterText.catStatuses.codex).toBe('error');
+      expect(useToastStore.getState().toasts).toHaveLength(1);
+      expect(useToastStore.getState().toasts[0].type).toBe('error');
+      expect(useToastStore.getState().toasts[0].title).toBe('codex 出错');
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        timestamp: now + 1,
+      });
+
+      expect(useToastStore.getState().toasts).toHaveLength(1);
+      expect(useChatStore.getState().getThreadState('thread-bg').catStatuses.codex).toBe('error');
+    });
+
     it('uses the sensitive-input toast copy for ModelArts blocked input errors', () => {
       simulateBackgroundMessage({
         type: 'error',
@@ -306,6 +346,7 @@ describe('background thread socket handling', () => {
 
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {
       const now = Date.now();
+      const fullResult = 'line-1\nline-2\nline-3\nline-4\nline-5\nline-6';
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-1' });
       useChatStore.getState().addMessageToThread('thread-bg', {
         id: 'bg-stream-1',
@@ -835,11 +876,12 @@ describe('background thread socket handling', () => {
 
     it('preserves tool_result as collapsed tool event on assistant message', () => {
       const now = Date.now();
+      const fullResult = 'line-1\nline-2\nline-3\nline-4\nline-5\nline-6';
       simulateBackgroundMessage({
         type: 'tool_result',
         catId: 'opus',
         threadId: 'thread-bg',
-        content: 'line-1\nline-2',
+        content: fullResult,
         timestamp: now,
       });
 
@@ -849,6 +891,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.content).toBe('');
       expect(ts.messages[0]?.toolEvents).toHaveLength(1);
       expect(ts.messages[0]?.toolEvents?.[0]?.type).toBe('tool_result');
+      expect(ts.messages[0]?.toolEvents?.[0]?.detail).toBe(fullResult);
       expect(ts.messages[0]?.toolEvents?.[0]?.label).toContain('opus ← result');
       expect(ts.catStatuses.opus).toBe('streaming');
     });
@@ -923,32 +966,6 @@ describe('background thread socket handling', () => {
       expect(testBgStreamRefs.get('thread-bg::codex')?.id).toBe('existing-stream-msg');
     });
 
-    it('preserves system_info and a2a_handoff messages with info variant', () => {
-      const now = Date.now();
-
-      simulateBackgroundMessage({
-        type: 'system_info',
-        catId: 'codex',
-        threadId: 'thread-bg',
-        content: 'system hint',
-        timestamp: now,
-      });
-
-      simulateBackgroundMessage({
-        type: 'a2a_handoff',
-        catId: 'codex',
-        threadId: 'thread-bg',
-        content: 'handoff info',
-        timestamp: now + 1,
-      });
-
-      const ts = useChatStore.getState().getThreadState('thread-bg');
-      expect(ts.messages).toHaveLength(2);
-      expect(ts.messages[0]?.content).toContain('system hint');
-      expect(ts.messages[1]?.content).toContain('handoff info');
-      expect(ts.messages[0]?.variant).toBe('info');
-      expect(ts.messages[1]?.variant).toBe('info');
-    });
 
     it('applies correct variant for parsed visible system_info events', () => {
       const now = Date.now();

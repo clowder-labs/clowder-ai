@@ -6,6 +6,14 @@
 
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { createModuleLogger } from '../infrastructure/logger.js';
+import {
+  buildModelConfigSourceApiKeyRef,
+  deleteSecretRef,
+  isLocalSecretStorageEnabled,
+  readSecretRef,
+  writeSecretRef,
+} from './local-secret-store.js';
 import type { ProviderProfileProtocol, ProviderProfileView } from './provider-profiles.types.js';
 import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 
@@ -17,11 +25,14 @@ export interface ModelConfigBinding {
   icon?: string;
   baseUrl?: string;
   apiKey?: string;
+  apiKeyRef?: string;
   headers?: Record<string, string>;
   protocol?: ProviderProfileProtocol;
 }
 export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
 export const MODEL_CONFIG_FALLBACK_ENV = 'OFFICE_CLAW_MODEL_CONFIG_FALLBACK_ENABLED';
+
+const log = createModuleLogger('model-config-profiles');
 
 export interface CreateProjectModelConfigSourceInput {
   id: string;
@@ -73,10 +84,12 @@ function normalizeHeaderMap(value: unknown): Record<string, string> | undefined 
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries);
 }
+
 function normalizeModelConfigRecord(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) return {};
   return { ...value };
 }
+
 function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
   if (profileId.trim().toLowerCase() === HUAWEI_MAAS_MODEL_SOURCE_ID) return 'huawei_maas';
   return undefined;
@@ -87,13 +100,26 @@ function displayNameForBinding(binding: ModelConfigBinding): string {
   return binding.displayName?.trim() || binding.id;
 }
 
+function resolveOpenAiBindingApiKey(value: Record<string, unknown>): { apiKey?: string; apiKeyRef?: string } {
+  const apiKey = typeof value.apiKey === 'string' ? value.apiKey.trim() : '';
+  const apiKeyRef = typeof value.apiKeyRef === 'string' ? value.apiKeyRef.trim() : '';
+  if (apiKeyRef) {
+    const resolved = readSecretRef(apiKeyRef);
+    if (resolved && resolved.trim()) {
+      return { apiKey: resolved.trim(), apiKeyRef };
+    }
+  }
+  if (apiKey) return { apiKey, apiKeyRef: apiKeyRef || undefined };
+  return { apiKeyRef: apiKeyRef || undefined };
+}
+
 function normalizeOpenAiBinding(id: string, value: Record<string, unknown>): ModelConfigBinding | null {
   const protocol = typeof value.protocol === 'string' ? value.protocol.trim().toLowerCase() : '';
   if (protocol !== 'openai') return null;
 
   const models = normalizeModelIds(value.models);
   const baseUrl = typeof value.baseUrl === 'string' ? value.baseUrl.trim() : '';
-  const apiKey = typeof value.apiKey === 'string' ? value.apiKey.trim() : '';
+  const { apiKey, apiKeyRef } = resolveOpenAiBindingApiKey(value);
   if (!baseUrl || !apiKey || models.length === 0) return null;
 
   const displayName = typeof value.displayName === 'string' ? value.displayName.trim() : '';
@@ -109,6 +135,7 @@ function normalizeOpenAiBinding(id: string, value: Record<string, unknown>): Mod
     ...(icon ? { icon } : {}),
     baseUrl,
     apiKey,
+    ...(apiKeyRef ? { apiKeyRef } : {}),
     ...(headers ? { headers } : {}),
   } satisfies ModelConfigBinding;
 }
@@ -137,6 +164,88 @@ function normalizeModelSourceBinding(id: string, value: unknown): ModelConfigBin
   return null;
 }
 
+function buildModelConfigOpenAiRecord(
+  projectRoot: string,
+  sourceId: string,
+  input: {
+    displayName?: string;
+    description?: string;
+    icon?: string;
+    baseUrl: string;
+    apiKey: string;
+    headers?: Record<string, string>;
+    models: string[];
+    existingApiKeyRef?: string;
+  },
+): Record<string, unknown> {
+  const apiKeyRef = input.existingApiKeyRef || buildModelConfigSourceApiKeyRef(projectRoot, sourceId);
+  const baseRecord: Record<string, unknown> = {
+    protocol: 'openai',
+    ...(input.displayName ? { displayName: input.displayName } : {}),
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.icon ? { icon: input.icon } : {}),
+    baseUrl: input.baseUrl,
+    ...(input.headers ? { headers: input.headers } : {}),
+    models: input.models.map((model) => ({ id: model })),
+  };
+
+  if (!isLocalSecretStorageEnabled()) {
+    log.info(
+      {
+        projectRoot,
+        sourceId,
+        platform: process.platform,
+      },
+      'Local secret storage unavailable; persisting model config apiKey in plaintext',
+    );
+    return { ...baseRecord, apiKey: input.apiKey };
+  }
+
+  writeSecretRef(apiKeyRef, input.apiKey);
+  return { ...baseRecord, apiKeyRef };
+}
+
+async function writeProjectModelConfigDocument(projectRoot: string, document: Record<string, unknown>): Promise<void> {
+  const filePath = resolveProjectModelConfigPath(projectRoot);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(document, null, 2)}\n`, 'utf-8');
+}
+
+async function migratePlaintextApiKeysIfNeeded(
+  projectRoot: string,
+  document: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!isLocalSecretStorageEnabled()) return document;
+
+  let dirty = false;
+  const nextDocument = { ...document };
+  for (const [id, rawValue] of Object.entries(nextDocument)) {
+    if (!isRecord(rawValue)) continue;
+    const protocol = typeof rawValue.protocol === 'string' ? rawValue.protocol.trim().toLowerCase() : '';
+    if (protocol !== 'openai') continue;
+
+    const apiKey = typeof rawValue.apiKey === 'string' ? rawValue.apiKey.trim() : '';
+    const apiKeyRef = typeof rawValue.apiKeyRef === 'string' ? rawValue.apiKeyRef.trim() : '';
+    if (!apiKey || apiKeyRef) continue;
+
+    try {
+      const nextRef = buildModelConfigSourceApiKeyRef(projectRoot, id);
+      writeSecretRef(nextRef, apiKey);
+      const migratedValue: Record<string, unknown> = { ...rawValue, apiKeyRef: nextRef };
+      delete migratedValue.apiKey;
+      nextDocument[id] = migratedValue;
+      dirty = true;
+    } catch {
+      continue;
+    }
+  }
+
+  if (dirty) {
+    await writeProjectModelConfigDocument(projectRoot, nextDocument);
+  }
+  return nextDocument;
+}
+
 export function resolveProjectModelConfigPath(projectRoot: string): string {
   return join(resolveProviderProfilesRootSync(projectRoot), '.office-claw', 'model.json');
 }
@@ -158,7 +267,8 @@ export async function readProjectModelConfigDocument(projectRoot: string): Promi
 
   const trimmed = raw.trim();
   if (!trimmed) return {};
-  return normalizeModelConfigRecord(JSON.parse(trimmed) as unknown);
+  const document = normalizeModelConfigRecord(JSON.parse(trimmed) as unknown);
+  return migratePlaintextApiKeysIfNeeded(projectRoot, document);
 }
 
 export async function readProjectModelConfigBindings(projectRoot: string): Promise<ModelConfigBinding[] | null> {
@@ -208,21 +318,18 @@ export async function createProjectModelConfigSource(
   const headers = normalizeHeaderMap(input.headers);
   const nextDocument: Record<string, unknown> = {
     ...existingDocument,
-    [trimmedId]: {
-      protocol: 'openai',
+    [trimmedId]: buildModelConfigOpenAiRecord(projectRoot, trimmedId, {
       ...(displayName ? { displayName } : {}),
       ...(description ? { description } : {}),
       ...(icon ? { icon } : {}),
       baseUrl,
       apiKey,
       ...(headers ? { headers } : {}),
-      models: models.map((model) => ({ id: model })),
-    },
+      models,
+    }),
   };
 
-  const filePath = resolveProjectModelConfigPath(projectRoot);
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(nextDocument, null, 2)}\n`, 'utf-8');
+  await writeProjectModelConfigDocument(projectRoot, nextDocument);
 
   return {
     id: trimmedId,
@@ -232,6 +339,7 @@ export async function createProjectModelConfigSource(
     ...(icon ? { icon } : {}),
     baseUrl,
     apiKey,
+    ...(isLocalSecretStorageEnabled() ? { apiKeyRef: buildModelConfigSourceApiKeyRef(projectRoot, trimmedId) } : {}),
     ...(headers ? { headers } : {}),
     models,
   } satisfies ModelConfigBinding;
@@ -261,10 +369,13 @@ export async function deleteProjectModelConfigSource(projectRoot: string, source
     return false;
   }
 
+  const existingValue = existingDocument[trimmedId];
+  if (isRecord(existingValue) && typeof existingValue.apiKeyRef === 'string') {
+    deleteSecretRef(existingValue.apiKeyRef);
+  }
+
   delete existingDocument[trimmedId];
-  const filePath = resolveProjectModelConfigPath(projectRoot);
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
+  await writeProjectModelConfigDocument(projectRoot, existingDocument);
   return true;
 }
 
@@ -296,12 +407,7 @@ export async function updateProjectModelConfigSource(
     throw new Error(`model config source "${trimmedId}" is not an editable openai source`);
   }
 
-  // Handle displayName: null/empty string means "clear" -> fall back to id
-  const displayName =
-    input.displayName !== undefined
-      ? input.displayName?.trim() || trimmedId // null/empty -> use id as fallback
-      : existing.displayName;
-  // Handle description/icon: null/empty string means "clear" -> undefined
+  const displayName = input.displayName !== undefined ? input.displayName?.trim() || trimmedId : existing.displayName;
   const description =
     input.description !== undefined
       ? input.description?.trim() || undefined
@@ -323,21 +429,19 @@ export async function updateProjectModelConfigSource(
     throw new Error('at least one model is required');
   }
 
-  const updatedRecord: Record<string, unknown> = {
-    protocol: 'openai',
+  const updatedRecord = buildModelConfigOpenAiRecord(projectRoot, trimmedId, {
     ...(displayName ? { displayName } : {}),
     ...(description ? { description } : {}),
     ...(icon ? { icon } : {}),
     baseUrl,
     apiKey,
     ...(headers ? { headers } : {}),
-    models: models.map((model) => ({ id: model })),
-  };
+    models,
+    existingApiKeyRef: existing.apiKeyRef,
+  });
 
   existingDocument[trimmedId] = updatedRecord;
-  const filePath = resolveProjectModelConfigPath(projectRoot);
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
+  await writeProjectModelConfigDocument(projectRoot, existingDocument);
 
   return {
     id: trimmedId,
@@ -347,6 +451,7 @@ export async function updateProjectModelConfigSource(
     ...(icon ? { icon } : {}),
     baseUrl,
     apiKey,
+    ...(typeof updatedRecord.apiKeyRef === 'string' ? { apiKeyRef: updatedRecord.apiKeyRef } : {}),
     ...(headers ? { headers } : {}),
     models,
   } satisfies ModelConfigBinding;
@@ -372,7 +477,6 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     description: binding.description,
     icon: binding.icon,
     baseUrl: binding.baseUrl,
-    apiKey: binding.apiKey,
     headers: binding.headers,
     authType: binding.protocol === 'huawei_maas' ? 'none' : 'api_key',
     kind: 'api_key' as const,
@@ -380,7 +484,7 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     mode: binding.protocol === 'huawei_maas' ? ('none' as const) : ('api_key' as const),
     ...(binding.protocol ? { protocol: binding.protocol } : {}),
     models: binding.models,
-    hasApiKey: binding.protocol !== 'huawei_maas',
+    hasApiKey: binding.protocol !== 'huawei_maas' && Boolean(binding.apiKey),
     createdAt: timestamp,
     updatedAt: timestamp,
   })) as ProviderProfileView[];
