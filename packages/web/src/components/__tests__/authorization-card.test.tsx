@@ -72,7 +72,7 @@ describe('AuthorizationCard', () => {
     expect(card).not.toBeNull();
     expect(card?.className).toContain('max-w-[482px]');
     expect(card?.className).toContain('min-h-[140px]');
-    expect(card?.className).toContain('rounded-[16px]');
+    expect(card?.className).toContain('rounded-[12px]');
 
     expect(title?.textContent).toBe('工具 cron_create_job 需要授权才能执行');
     expect(title?.className).toContain('text-[14px]');
@@ -81,6 +81,8 @@ describe('AuthorizationCard', () => {
     expect(description?.textContent).toContain('安全风险评估：🔴 高风险');
     expect(description?.textContent).not.toContain('工具 cron_create_job 需要授权才能执行');
     expect(description?.className).toContain('text-[12px]');
+    expect(description?.className).toContain('whitespace-pre-wrap');
+    expect(description?.className).toContain('break-words');
 
     expect(helper?.textContent).toContain('安全管理');
     expect(helper?.className).toContain('text-[12px]');
@@ -108,6 +110,29 @@ describe('AuthorizationCard', () => {
     );
     expect(container.querySelector('[data-testid="authorization-card-description"]')?.textContent).toContain(
       '将删除临时文件。',
+    );
+  });
+
+  it('extracts params json block and shows command/workdir in structured fields', async () => {
+    const paramsReasonRequest: AuthPendingRequest = {
+      ...request,
+      reason:
+        'tool mcp_exec_command requires approval\nrisk: medium\n参数：\njson\n{\n"command": "dir /b *.md2 2>nul || echo not_found",\n"workdir": "D:\\\\CODE\\\\relay-claw-fml\\\\workspace"\n}\nrule: tools.mcp_exec_command.*',
+    };
+
+    await act(async () => {
+      root.render(React.createElement(AuthorizationCard, { request: paramsReasonRequest, onRespond: vi.fn() }));
+    });
+
+    expect(container.querySelector('[data-testid="authorization-card-params"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="authorization-card-param-command"]')?.textContent).toContain(
+      'dir /b *.md2 2>nul || echo not_found',
+    );
+    expect(container.querySelector('[data-testid="authorization-card-param-workdir"]')?.textContent).toContain(
+      'D:\\CODE\\relay-claw-fml\\workspace',
+    );
+    expect(container.querySelector('[data-testid="authorization-card-params-raw"]')?.textContent).toContain(
+      '"command": "dir /b *.md2 2>nul || echo not_found"',
     );
   });
 
