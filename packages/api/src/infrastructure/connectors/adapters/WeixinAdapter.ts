@@ -192,7 +192,6 @@ export class WeixinAdapter implements IOutboundAdapter {
     {
       token: string;
       parts: string[];
-      resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }>;
     }
   >();
   private fetchFn: typeof fetch = globalThis.fetch;
@@ -532,7 +531,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     const currentToken = this.contextTokens.get(externalChatId) ?? '';
     this.log.info(
       { chatId: externalChatId, contentLen: content.length, tokenHash: currentToken.slice(-8) || 'none' },
-      '[WeixinAdapter] sendReply() queued for debounce',
+      '[WeixinAdapter] sendReply() queued for batch delivery',
     );
 
     // No token and no existing pending bucket → skip immediately (don't poison future buckets)
@@ -555,27 +554,24 @@ export class WeixinAdapter implements IOutboundAdapter {
       await this.flushReply(externalChatId);
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const pending = this.pendingReplies.get(externalChatId);
-      if (pending && pending.token === currentToken) {
-        // Same token — keep batching until connector lifecycle confirms the chain is done.
-        pending.parts.push(content);
-        pending.resolvers.push({ resolve, reject });
-      } else if (pending) {
-        // Different token bucket exists (created by concurrent sendReply during our flush await)
-        // Refuse cross-token merge — content is still in the thread, not lost
-        this.log.warn(
-          { chatId: externalChatId, ownTokenHash: currentToken.slice(-8), bucketTokenHash: pending.token.slice(-8) },
-          '[WeixinAdapter] Token mismatch during debounce — refusing cross-token merge',
-        );
-        resolve();
-      } else {
-        this.pendingReplies.set(externalChatId, {
-          token: currentToken,
-          parts: [content],
-          resolvers: [{ resolve, reject }],
-        });
-      }
+    const pending = this.pendingReplies.get(externalChatId);
+    if (pending && pending.token === currentToken) {
+      // Same token — keep batching until connector lifecycle confirms the chain is done.
+      pending.parts.push(content);
+      return;
+    }
+    if (pending) {
+      // Different token bucket exists (created by concurrent sendReply during our flush await)
+      // Refuse cross-token merge — content is still in the thread, not lost.
+      this.log.warn(
+        { chatId: externalChatId, ownTokenHash: currentToken.slice(-8), bucketTokenHash: pending.token.slice(-8) },
+        '[WeixinAdapter] Token mismatch during batch queueing — refusing cross-token merge',
+      );
+      return;
+    }
+    this.pendingReplies.set(externalChatId, {
+      token: currentToken,
+      parts: [content],
     });
   }
 
@@ -584,7 +580,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     if (!pending) return;
     this.pendingReplies.delete(externalChatId);
 
-    const { token: boundToken, parts, resolvers } = pending;
+    const { token: boundToken, parts } = pending;
     const merged = parts.join('\n\n');
 
     const tokenHash = boundToken ? boundToken.slice(-8) : 'none';
@@ -602,7 +598,6 @@ export class WeixinAdapter implements IOutboundAdapter {
         '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
       );
       this.stopTyping(externalChatId);
-      for (const r of resolvers) r.resolve();
       return;
     }
 
@@ -623,12 +618,10 @@ export class WeixinAdapter implements IOutboundAdapter {
         { chatId: externalChatId, textLen: plainContent.length, tokenHash },
         '[WeixinAdapter] flushReply() completed — token consumed',
       );
-
-      for (const r of resolvers) r.resolve();
     } catch (err) {
       this.stopTyping(externalChatId);
       this.log.error({ err, chatId: externalChatId }, '[WeixinAdapter] flushReply() failed');
-      for (const r of resolvers) r.reject(err instanceof Error ? err : new Error(String(err)));
+      throw err;
     }
   }
 

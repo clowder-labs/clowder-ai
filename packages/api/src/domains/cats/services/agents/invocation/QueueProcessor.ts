@@ -65,6 +65,7 @@ export interface OutboundDeliveryHookLike {
     origin?: string,
     triggerMessageId?: string,
   ): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 /** Minimal streaming outbound interface — avoids importing full StreamingOutboundHook. */
@@ -719,7 +720,13 @@ export class QueueProcessor {
       // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete().
       // excludeSlot: our own processingSlot hasn't been released yet (that happens in the
       // outer .then() after executeEntry resolves), so exclude it from the busy check.
-      if (this.deps.streamingHook?.notifyDeliveryBatchDone) {
+      if (this.deps.outboundHook?.notifyDeliveryBatchDone) {
+        const selfSlot = QueueProcessor.slotKey(threadId, primaryCat);
+        const threadStillBusy = invocationTracker.has(threadId) || this.isThreadBusy(threadId, selfSlot);
+        this.deps.outboundHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+          log.warn({ err, threadId }, '[QueueProcessor] notifyDeliveryBatchDone failed');
+        });
+      } else if (this.deps.streamingHook?.notifyDeliveryBatchDone) {
         const selfSlot = QueueProcessor.slotKey(threadId, primaryCat);
         const threadStillBusy = invocationTracker.has(threadId) || this.isThreadBusy(threadId, selfSlot);
         this.deps.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {

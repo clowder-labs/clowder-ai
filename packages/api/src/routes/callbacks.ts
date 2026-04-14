@@ -1209,6 +1209,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       registry,
       messageStore,
       socketManager,
+      ...(opts.outboundHook ? { outboundHook: opts.outboundHook } : {}),
       router,
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),

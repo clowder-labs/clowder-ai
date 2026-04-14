@@ -286,9 +286,8 @@ describe('WeixinAdapter', () => {
   describe('sendReply', () => {
     // Helper: sendReply + immediately flush (avoids waiting for debounce timer)
     async function sendAndFlush(adapter, chatId, content) {
-      const p = adapter.sendReply(chatId, content);
+      await adapter.sendReply(chatId, content);
       await adapter._flushAllPending();
-      return p;
     }
 
     it('sends text message via iLink sendmessage API with msg wrapper', async () => {
@@ -391,6 +390,33 @@ describe('WeixinAdapter', () => {
       assert.ok(sentTexts[0].includes('Office'), 'merged reply should include follow-up cat');
     });
 
+    it('queues reply without blocking caller until chainDone flushes the batch', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-token-1');
+
+      const sentTexts = [];
+      adapter._injectFetch(async (_url, opts) => {
+        const body = JSON.parse(opts.body);
+        sentTexts.push(body.msg.item_list[0].text_item.text);
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      let settled = false;
+      const queued = adapter.sendReply('user-1', '[Assistant] batched reply').then(() => {
+        settled = true;
+      });
+
+      await Promise.resolve();
+      assert.equal(settled, true, 'sendReply should resolve after queueing, not wait for flush');
+      assert.equal(sentTexts.length, 0, 'queueing alone must not send immediately');
+
+      await adapter.onDeliveryBatchDone('user-1', true);
+      await queued;
+
+      assert.equal(sentTexts.length, 1, 'batch should send once chainDone=true arrives');
+      assert.ok(sentTexts[0].includes('batched reply'));
+    });
+
     it('uses token bound at queue time, not token at flush time (token rotation safety)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'token-A');
@@ -432,6 +458,7 @@ describe('WeixinAdapter', () => {
       // New message arrives with token-B → sendReply with token-B should flush old A bucket first
       adapter._injectContextToken('user-1', 'token-B');
       const pB = adapter.sendReply('user-1', 'reply for B');
+      await pB;
       await adapter._flushAllPending();
       await Promise.all([pA, pB]);
 
