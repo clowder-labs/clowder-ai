@@ -101,10 +101,30 @@ function resolvePresentationPath(rawPath: string, configuredProjectPath?: string
 }
 
 function normalizePresentationPath(rawPath: string): string {
-  return rawPath
+  const normalized = rawPath
     .trim()
     .replace(/^[('"`\[{<]+/, '')
-    .replace(/['"`)\]}>.,;:!?]+$/g, '');
+    .replace(/['"`)\]}>.,;:!?]+$/g, '')
+    .replace(/\\\\/g, '\\')
+    .replace(/\\\//g, '/');
+
+  const windowsPathStart = normalized.search(/[A-Za-z]:[\\/]/);
+  if (windowsPathStart > 0) {
+    return normalized.slice(windowsPathStart);
+  }
+
+  const posixPathStart = normalized.search(/(?:^|[\s:："'`])\//);
+  if (posixPathStart >= 0) {
+    const slashIndex = normalized.indexOf('/', posixPathStart);
+    if (slashIndex > 0) {
+      return normalized.slice(slashIndex);
+    }
+  }
+
+  return normalized.replace(
+    /^(?:file\s*path|path|saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|文件路径|路径|产物|输出|保存)\s*[:：]\s*/i,
+    '',
+  );
 }
 
 function isLikelyRelativePresentationPath(path: string): boolean {
@@ -129,6 +149,20 @@ function isLikelyRelativeMarkdownPath(path: string): boolean {
 function collectRelativeMarkdownCandidates(text: string): string[] {
   const matches = text.match(RELATIVE_MARKDOWN_PATH_TOKENS) ?? [];
   return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativeMarkdownPath(match));
+}
+
+function scoreMarkdownCandidate(path: string): number {
+  const normalized = path.replace(/\\/g, '/').toLowerCase();
+  let score = 0;
+
+  if (normalized.includes('/workspace/output/') || normalized.startsWith('workspace/output/')) score += 100;
+  else if (normalized.includes('/output/') || normalized.startsWith('output/')) score += 80;
+  else if (normalized.includes('/workspace/') || normalized.startsWith('workspace/')) score += 40;
+
+  if (normalized.includes('/.jiuwenclaw/agent/memory/')) score -= 200;
+  if (normalized.includes('/.jiuwenclaw/agent/sessions/')) score -= 150;
+
+  return score;
 }
 
 function pushPresentationCandidate(candidates: string[], candidate: string): void {
@@ -187,7 +221,17 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | 
 
 function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null {
   const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
-  const candidates: string[] = [];
+  const candidates: Array<{ path: string; score: number; order: number }> = [];
+  let order = 0;
+
+  function pushMarkdownCandidate(candidate: string): void {
+    const hasMoreSpecificCandidate = candidates.some(
+      (existing) => existing.path.length > candidate.length && existing.path.endsWith(candidate),
+    );
+    if (!hasMoreSpecificCandidate) {
+      candidates.push({ path: candidate, score: scoreMarkdownCandidate(candidate), order: order++ });
+    }
+  }
 
   for (const text of searchSpace) {
     for (const pattern of MARKDOWN_PATH_PATTERNS) {
@@ -204,16 +248,24 @@ function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null
             continue;
           }
         }
-        pushPresentationCandidate(candidates, normalized);
+        pushMarkdownCandidate(normalized);
       }
     }
 
     for (const relativeCandidate of collectRelativeMarkdownCandidates(text)) {
-      pushPresentationCandidate(candidates, relativeCandidate);
+      pushMarkdownCandidate(relativeCandidate);
     }
   }
 
-  const path = candidates.at(-1);
+  const path = candidates
+    .slice()
+    .sort((a, b) => (b.score - a.score) || (b.order - a.order))
+    .at(0)?.path;
+  console.log('[CliOutputBlock][MarkdownCard] extractLocalMarkdownFile', {
+    searchSpace,
+    candidates,
+    selectedPath: path ?? null,
+  });
   if (!path) return null;
   return { name: fileNameFromPath(path), path, kind: 'markdown' };
 }
@@ -363,6 +415,16 @@ function LocalFileAttachmentCard({
   );
 
   useEffect(() => {
+    console.log('[CliOutputBlock][MarkdownCard] file-path-state', {
+      kind: file.kind,
+      rawPath: file.path,
+      projectPath: projectPath ?? null,
+      defaultProjectPath,
+      resolvedPath,
+    });
+  }, [defaultProjectPath, file.kind, file.path, projectPath, resolvedPath]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadDefaultProjectPath(): Promise<void> {
@@ -374,6 +436,11 @@ function LocalFileAttachmentCard({
         if (!response.ok) return;
         const payload = (await response.json()) as { path?: string };
         if (!cancelled && typeof payload.path === 'string' && payload.path.trim()) {
+          console.log('[CliOutputBlock][MarkdownCard] loaded default cwd', {
+            kind: file.kind,
+            rawPath: file.path,
+            cwd: payload.path.trim(),
+          });
           setDefaultProjectPath(payload.path.trim());
         }
       } catch {
@@ -393,12 +460,24 @@ function LocalFileAttachmentCard({
     async function loadMeta(): Promise<void> {
       if (!resolvedPath) return;
       try {
+        console.log('[CliOutputBlock][MarkdownCard] request local-file-meta', {
+          kind: file.kind,
+          rawPath: file.path,
+          resolvedPath,
+          projectPath: projectPath ?? null,
+        });
         const response = await apiFetch('/api/workspace/local-file-meta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
         });
         if (!response.ok) {
+          console.log('[CliOutputBlock][MarkdownCard] local-file-meta not ok', {
+            kind: file.kind,
+            rawPath: file.path,
+            resolvedPath,
+            status: response.status,
+          });
           if (!cancelled && status === 'streaming') {
             retryTimer.current = setTimeout(loadMeta, 1000);
           }
@@ -406,10 +485,22 @@ function LocalFileAttachmentCard({
         }
         const payload = (await response.json()) as LocalGeneratedFileMeta;
         if (!cancelled && typeof payload.generatedAt === 'number') {
+          console.log('[CliOutputBlock][MarkdownCard] local-file-meta success', {
+            kind: file.kind,
+            rawPath: file.path,
+            resolvedPath,
+            generatedAt: payload.generatedAt,
+          });
           setGeneratedAt(payload.generatedAt);
           setIsReady(true);
         }
-      } catch {
+      } catch (error) {
+        console.log('[CliOutputBlock][MarkdownCard] local-file-meta error', {
+          kind: file.kind,
+          rawPath: file.path,
+          resolvedPath,
+          error,
+        });
         if (!cancelled) {
           setGeneratedAt(null);
           if (status === 'streaming') {
@@ -433,6 +524,12 @@ function LocalFileAttachmentCard({
     if (isOpening || !resolvedPath) return;
     setIsOpening(true);
     try {
+      console.log('[CliOutputBlock][MarkdownCard] open-local', {
+        kind: file.kind,
+        rawPath: file.path,
+        resolvedPath,
+        projectPath: projectPath ?? null,
+      });
       await apiFetch('/api/workspace/open-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -451,7 +548,7 @@ function LocalFileAttachmentCard({
       className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
-        {isMarkdown ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="40.000000" height="40.000000" fill="none" customFrame="#000000">
+        {isMarkdown ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40.000000" height="40.000000" fill="none">
           <rect id="MD" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
           <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
           <g id="ic_normal_white_grid_pptx">
@@ -685,6 +782,14 @@ export function CliOutputBlock({
     () => extractLocalMarkdownFile(events) ?? extractLocalPresentationFile(events),
     [events],
   );
+
+  useEffect(() => {
+    console.log('[CliOutputBlock][MarkdownCard] localGeneratedFile', {
+      localGeneratedFile,
+      projectPath: projectPath ?? null,
+      eventCount: events.length,
+    });
+  }, [events.length, localGeneratedFile, projectPath]);
 
   useLayoutEffect(() => {
     if (!hasMounted.current) {
