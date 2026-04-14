@@ -699,40 +699,6 @@ class JiuClawReActAgent(ReActAgent):
                         if session is not None:
                             await self._emit_tool_result(session, tc, deny_msg)
 
-                    # ---- 技能模式下禁止批量 todo_complete ----
-                    if self._active_skill and allowed_tool_calls:
-                        complete_indices = [
-                            i for i, tc in enumerate(allowed_tool_calls)
-                            if getattr(tc, "name", "") == "todo_complete"
-                        ]
-                        if len(complete_indices) > 1:
-                            # 只保留第一个 todo_complete，其余拦截
-                            blocked = set(complete_indices[1:])
-                            lang = get_config().get("preferred_language", "zh")
-                            if lang == "zh":
-                                block_msg = (
-                                    "[拦截] 技能执行中每次只能完成一个 todo 项。"
-                                    "请先完成当前项并确认结果，再完成下一项。"
-                                )
-                            else:
-                                block_msg = (
-                                    "[Blocked] Only one todo_complete per turn during skill execution. "
-                                    "Complete the current item and verify before moving to the next."
-                                )
-                            for idx in blocked:
-                                tc = allowed_tool_calls[idx]
-                                tool_call_id = getattr(tc, "id", "")
-                                await context.add_messages(_ToolMsg(
-                                    content=block_msg,
-                                    tool_call_id=tool_call_id,
-                                ))
-                                if session is not None:
-                                    await self._emit_tool_result(session, tc, block_msg)
-                            allowed_tool_calls = [
-                                tc for i, tc in enumerate(allowed_tool_calls)
-                                if i not in blocked
-                            ]
-
                     # 执行被允许的工具调用
                     if allowed_tool_calls:
                         # Set session context for subagent tools to access
