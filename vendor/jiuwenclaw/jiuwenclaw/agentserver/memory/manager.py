@@ -21,7 +21,7 @@ from .internal import (
 )
 from .embeddings import EmbeddingProvider, create_embedding_provider
 from .config import MemorySettings
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 META_KEY = "memory_index_meta_v1"
 SNIPPET_MAX_CHARS = 700

@@ -21,7 +21,7 @@ import logging
 import os
 from typing import Any, Mapping
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 
 def _env_int(name: str, default: int) -> int:

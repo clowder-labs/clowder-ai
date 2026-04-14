@@ -13,6 +13,7 @@ import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import {
   resolveJiuwenClawAppDir,
   resolveJiuwenClawExecutable,
@@ -146,7 +147,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const executablePath = resolveJiuwenClawExecutable(this.config.executablePath);
     const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
     const useExecutable = existsSync(executablePath);
-    const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
+    const homeDir = this.config.homeDir?.trim() || join(findMonorepoRoot(), '.office-claw', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
     const defaultHeaders = callbackEnv.default_headers || callbackEnv.OPENAI_DEFAULT_HEADERS || '';
