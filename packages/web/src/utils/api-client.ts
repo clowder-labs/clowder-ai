@@ -10,9 +10,13 @@
  * - Auto-prepends NEXT_PUBLIC_API_URL
  * - Auto-injects X-Office-Claw-User identity header on every request
  * - Replaces scattered raw fetch() calls across hooks/components
+ * - Configurable request timeout (default: 1 hour to match backend CLI timeout)
  */
 
 import { getUserId } from './userId';
+
+/** Default API request timeout: 1 hour (matching backend CLI_TIMEOUT_MS) */
+const DEFAULT_API_TIMEOUT_MS = 60 * 60 * 1000;
 
 function getBrowserLocation(): Location | null {
   if (typeof globalThis !== 'object' || globalThis === null) return null;
@@ -55,18 +59,36 @@ function resolveApiUrl(): string {
 }
 export const API_URL = resolveApiUrl();
 
+export interface ApiFetchOptions extends RequestInit {
+  /** Custom timeout in milliseconds (default: 1 hour) */
+  timeoutMs?: number;
+}
+
 /**
- * Fetch wrapper that injects identity header.
+ * Fetch wrapper that injects identity header and supports timeout.
  * @param path - API path starting with '/' (e.g. '/api/messages')
- * @param init - Standard RequestInit options
+ * @param init - Standard RequestInit options plus optional timeoutMs
  */
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, init?: ApiFetchOptions): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set('X-Office-Claw-User', getUserId());
-  return fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-    // Cloudflare Access: 跨子域名请求需要 credentials 才能带 CF_Authorization cookie
-    credentials: API_URL.includes(CLOWDER_AI_COM) ? 'include' : (init?.credentials ?? 'same-origin'),
-  });
+
+  const timeoutMs = init?.timeoutMs ?? DEFAULT_API_TIMEOUT_MS;
+
+  // Use AbortController for timeout support
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+      // Cloudflare Access: 跨子域名请求需要 credentials 才能带 CF_Authorization cookie
+      credentials: API_URL.includes(CLOWDER_AI_COM) ? 'include' : (init?.credentials ?? 'same-origin'),
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

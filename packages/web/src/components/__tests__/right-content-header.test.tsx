@@ -7,8 +7,13 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RightContentHeader } from '../RightContentHeader';
-import { getIsSkipAuth } from '@/utils/userId';
+import { getDomainId, getIsSkipAuth } from '@/utils/userId';
+import { useFeedbackPopoverStore } from '@/stores/feedbackPopoverStore';
+import {
+  RightContentHeader,
+  __resetFeedbackAutoOpenSessionForTests,
+  __resetFeedbackPopoverStateForTests,
+} from '../RightContentHeader';
 
 const addToast = vi.fn();
 
@@ -19,12 +24,42 @@ vi.mock('@/stores/toastStore', () => ({
 
 vi.mock('@/utils/userId', () => ({
   getUserId: () => 'user-1',
+  getDomainId: vi.fn(() => 'domain-1'),
   getIsSkipAuth: vi.fn(() => false),
+}));
+
+type MockChatStoreState = {
+  currentThreadId: string;
+  isLoadingHistory: boolean;
+  messages: Array<{ id: string; type: 'user' | 'assistant' | 'system'; content: string; timestamp: number }>;
+};
+
+function resetChatStoreState() {
+  chatStoreState.currentThreadId = 'thread-1';
+  chatStoreState.isLoadingHistory = false;
+  chatStoreState.messages = [
+    { id: 'user-1', type: 'user', content: 'hello', timestamp: 1 },
+    { id: 'assistant-1', type: 'assistant', content: 'hi', timestamp: 2 },
+  ];
+}
+
+const chatStoreState: MockChatStoreState = {
+  currentThreadId: 'thread-1',
+  isLoadingHistory: false,
+  messages: [
+    { id: 'user-1', type: 'user', content: 'hello', timestamp: 1 },
+    { id: 'assistant-1', type: 'assistant', content: 'hi', timestamp: 2 },
+  ],
+};
+
+vi.mock('@/stores/chatStore', () => ({
+  useChatStore: (selector: (state: MockChatStoreState) => unknown) => selector(chatStoreState),
 }));
 
 describe('RightContentHeader feedback popover', () => {
   let container: HTMLDivElement;
   let root: Root;
+  const mockedGetDomainId = vi.mocked(getDomainId);
   const mockedGetIsSkipAuth = vi.mocked(getIsSkipAuth);
   const mockSubmitFetch = vi.fn();
   const formatFeedbackDate = (date: Date) =>
@@ -36,11 +71,15 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   beforeEach(() => {
+    __resetFeedbackAutoOpenSessionForTests();
+    __resetFeedbackPopoverStateForTests();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     mockedGetIsSkipAuth.mockReset();
     mockedGetIsSkipAuth.mockReturnValue(false);
+    mockedGetDomainId.mockReset();
+    mockedGetDomainId.mockReturnValue('domain-1');
     mockSubmitFetch.mockReset();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -49,6 +88,8 @@ describe('RightContentHeader feedback popover', () => {
     vi.stubGlobal('fetch', mockSubmitFetch);
     addToast.mockReset();
     window.localStorage.clear();
+    window.history.replaceState({}, '', '/thread/thread-1');
+    resetChatStoreState();
   });
 
   afterEach(() => {
@@ -83,6 +124,10 @@ describe('RightContentHeader feedback popover', () => {
     return container.querySelector('.ui-content-header-feedback-popover-close') as HTMLButtonElement | null;
   }
 
+  function getFeedbackAnchor() {
+    return container.querySelector('.ui-content-header-feedback-anchor') as HTMLDivElement | null;
+  }
+
   function getFetchCallsByMethod(method: string) {
     return mockSubmitFetch.mock.calls.filter(([, init]) => {
       const requestInit = init as RequestInit | undefined;
@@ -90,13 +135,25 @@ describe('RightContentHeader feedback popover', () => {
     });
   }
 
-  function mockPopoverHoverState(isHovering: boolean) {
-    const popover = container.querySelector('[role="dialog"]') as HTMLDivElement | null;
-    expect(popover).toBeTruthy();
-    Object.defineProperty(popover!, 'matches', {
-      configurable: true,
-      value: (selector: string) => (selector === ':hover' ? isHovering : false),
-    });
+  function getLatestPostAnswers() {
+    const postCalls = getFetchCallsByMethod('POST');
+    const latestPost = postCalls.at(-1);
+    expect(latestPost).toBeTruthy();
+    const requestInit = latestPost?.[1] as RequestInit | undefined;
+    const body = JSON.parse(String(requestInit?.body ?? '{}')) as {
+      data?: { answers?: Array<{ questionId: string }> };
+    };
+    return body.data?.answers ?? [];
+  }
+
+  function getLatestPostBody() {
+    const postCalls = getFetchCallsByMethod('POST');
+    const latestPost = postCalls.at(-1);
+    expect(latestPost).toBeTruthy();
+    const requestInit = latestPost?.[1] as RequestInit | undefined;
+    return JSON.parse(String(requestInit?.body ?? '{}')) as {
+      data?: { contactId?: string; w3account?: string; answers?: Array<{ questionId: string }> };
+    };
   }
 
   it('auto opens the feedback popover when the API reports no previous submission', async () => {
@@ -110,6 +167,92 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
 
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('does not auto open before the current thread has completed one round of dialogue', async () => {
+    chatStoreState.messages = [{ id: 'user-1', type: 'user', content: 'hello', timestamp: 1 }];
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('does not auto open outside the thread detail route', async () => {
+    window.history.replaceState({}, '', '/');
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('only executes the auto-open check once per app session', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(getFetchCallsByMethod('GET')).toHaveLength(1);
+
+    act(() => root.unmount());
+    container.remove();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    chatStoreState.currentThreadId = 'thread-2';
+    chatStoreState.messages = [
+      { id: 'user-2', type: 'user', content: 'hello again', timestamp: 3 },
+      { id: 'assistant-2', type: 'assistant', content: 'hi again', timestamp: 4 },
+    ];
+    window.history.replaceState({}, '', '/thread/thread-2');
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(getFetchCallsByMethod('GET')).toHaveLength(1);
+  });
+
+  it('auto opens after thread entry once history finishes loading and one round becomes available', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+    chatStoreState.isLoadingHistory = true;
+    chatStoreState.messages = [];
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+
+    chatStoreState.isLoadingHistory = false;
+    chatStoreState.messages = [
+      { id: 'user-late', type: 'user', content: 'hello', timestamp: 10 },
+      { id: 'assistant-late', type: 'assistant', content: 'hi', timestamp: 11 },
+    ];
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(getFetchCallsByMethod('GET')).toHaveLength(1);
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
@@ -139,6 +282,108 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
+  it('keeps the auto-opened feedback popover open across route remounts until user or timer closes it', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(getFetchCallsByMethod('GET')).toHaveLength(1);
+
+    act(() => root.unmount());
+    container.remove();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    window.history.replaceState({}, '', '/thread/thread-2');
+    chatStoreState.currentThreadId = 'thread-2';
+    chatStoreState.messages = [
+      { id: 'user-2', type: 'user', content: 'follow up', timestamp: 30 },
+      { id: 'assistant-2', type: 'assistant', content: 'response', timestamp: 31 },
+    ];
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(getFetchCallsByMethod('GET')).toHaveLength(1);
+  });
+
+  it('preserves selected score and typed feedback across route remounts', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    const lowScoreButton = getScoreButton(6);
+    expect(lowScoreButton).toBeTruthy();
+    act(() => {
+      lowScoreButton?.click();
+    });
+    await flush();
+
+    const textarea = container.querySelector('textarea') as HTMLTextAreaElement | null;
+    expect(textarea).toBeTruthy();
+    act(() => {
+      useFeedbackPopoverStore.getState().setLowScoreDetail('keep this detail');
+    });
+    await flush();
+    expect((container.querySelector('textarea') as HTMLTextAreaElement | null)?.value).toBe('keep this detail');
+
+    const otherIssueCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    const otherIssueCheckbox = otherIssueCheckboxes.at(-1) ?? null;
+    expect(otherIssueCheckbox).toBeTruthy();
+    act(() => {
+      otherIssueCheckbox?.click();
+    });
+    await flush();
+
+    const otherIssueInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+    expect(otherIssueInput).toBeTruthy();
+    act(() => {
+      useFeedbackPopoverStore.getState().setOtherIssueDetail('keep this reason');
+    });
+    await flush();
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('keep this reason');
+
+    act(() => root.unmount());
+    container.remove();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    window.history.replaceState({}, '', '/thread/thread-2');
+    chatStoreState.currentThreadId = 'thread-2';
+    chatStoreState.messages = [
+      { id: 'user-2', type: 'user', content: 'follow up', timestamp: 30 },
+      { id: 'assistant-2', type: 'assistant', content: 'response', timestamp: 31 },
+    ];
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    const persistedScoreButton = getScoreButton(6);
+    expect(persistedScoreButton?.className).toContain('ui-content-header-feedback-score-selected');
+    expect((container.querySelector('textarea') as HTMLTextAreaElement | null)?.value).toBe('keep this detail');
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('keep this reason');
+  });
+
   it('stores the close time in localStorage when the user dismisses the feedback popover with the close button', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -164,7 +409,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('auto closes an auto-opened feedback popover after 60s when the mouse is outside', async () => {
+  it('auto closes an auto-opened feedback popover after 60s when no score is selected', async () => {
     vi.useFakeTimers();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -177,8 +422,6 @@ describe('RightContentHeader feedback popover', () => {
     await act(async () => {
       await Promise.resolve();
     });
-
-    mockPopoverHoverState(false);
 
     await act(async () => {
       vi.advanceTimersByTime(60_000);
@@ -188,7 +431,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('keeps an auto-opened feedback popover open after 60s when the mouse is still inside', async () => {
+  it('keeps an auto-opened feedback popover open after 60s when a score was selected', async () => {
     vi.useFakeTimers();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -202,7 +445,14 @@ describe('RightContentHeader feedback popover', () => {
       await Promise.resolve();
     });
 
-    mockPopoverHoverState(true);
+    const scoreButton = getScoreButton(6);
+    expect(scoreButton).toBeTruthy();
+    act(() => {
+      scoreButton?.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await act(async () => {
       vi.advanceTimersByTime(60_000);
@@ -212,7 +462,8 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
-  it('closes the feedback popover when clicking outside the dialog', async () => {
+  it('closes the feedback popover shortly after the mouse leaves before any score is selected', async () => {
+    vi.useFakeTimers();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -221,15 +472,23 @@ describe('RightContentHeader feedback popover', () => {
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
-    await flush();
-    await flush();
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+    const anchor = getFeedbackAnchor();
+    expect(anchor).toBeTruthy();
 
     act(() => {
-      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      anchor?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
     });
-    await flush();
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(120);
+      await Promise.resolve();
+    });
 
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
@@ -243,6 +502,79 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
 
     expect(mockSubmitFetch).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('keeps the feedback popover open when the mouse leaves after a score is selected', async () => {
+    vi.useFakeTimers();
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const scoreButton = getScoreButton(6);
+    expect(scoreButton).toBeTruthy();
+    act(() => {
+      scoreButton?.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const anchor = getFeedbackAnchor();
+    expect(anchor).toBeTruthy();
+    act(() => {
+      anchor?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(120);
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('keeps the feedback popover open when the mouse re-enters before the delayed close fires', async () => {
+    vi.useFakeTimers();
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const anchor = getFeedbackAnchor();
+    expect(anchor).toBeTruthy();
+
+    act(() => {
+      anchor?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+    });
+    act(() => {
+      anchor?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }));
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(120);
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
   it('uses auto height and computes the popover max height from the content frame', async () => {
@@ -260,6 +592,7 @@ describe('RightContentHeader feedback popover', () => {
         ),
       );
     });
+    await flush();
     await flush();
 
     const frame = container.querySelector('[data-testid="right-content-frame"]') as HTMLDivElement | null;
@@ -326,6 +659,8 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
     await flush();
 
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
     const lowScoreButton = Array.from(container.querySelectorAll('button')).find((button) => button.getAttribute('aria-label') === '评分 6');
     expect(lowScoreButton).toBeTruthy();
 
@@ -372,6 +707,8 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
     await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
 
     const lowScoreButton = getScoreButton(6);
     expect(lowScoreButton).toBeTruthy();
@@ -427,6 +764,8 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
     await flush();
 
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
     const lowScoreButton = getScoreButton(6);
     expect(lowScoreButton).toBeTruthy();
     act(() => {
@@ -465,6 +804,121 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.textContent).not.toContain('请先完成必填项');
   });
 
+  it('submits score reason as question_1 for scores 0 through 8', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const scoreButton = getScoreButton(8);
+    expect(scoreButton).toBeTruthy();
+    act(() => {
+      scoreButton?.click();
+    });
+    await flush();
+
+    const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(firstCheckbox).toBeTruthy();
+    act(() => {
+      firstCheckbox?.click();
+    });
+    await flush();
+
+    const submitButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('提交'));
+    expect(submitButton).toBeTruthy();
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+    await flush();
+
+    expect(getLatestPostAnswers()[1]?.questionId).toBe('question_1');
+  });
+
+  it('submits score reason as question_2 for scores 9 and 10', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const scoreButton = getScoreButton(9);
+    expect(scoreButton).toBeTruthy();
+    act(() => {
+      scoreButton?.click();
+    });
+    await flush();
+
+    const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(firstCheckbox).toBeTruthy();
+    act(() => {
+      firstCheckbox?.click();
+    });
+    await flush();
+
+    const submitButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('提交'));
+    expect(submitButton).toBeTruthy();
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+    await flush();
+
+    expect(getLatestPostAnswers()[1]?.questionId).toBe('question_2');
+  });
+
+  it('uses the current domainId as feedback w3account when submitting', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    const scoreButton = getScoreButton(9);
+    expect(scoreButton).toBeTruthy();
+    act(() => {
+      scoreButton?.click();
+    });
+    await flush();
+
+    const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(firstCheckbox).toBeTruthy();
+    act(() => {
+      firstCheckbox?.click();
+    });
+    await flush();
+
+    const submitButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('提交'));
+    expect(submitButton).toBeTruthy();
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+    await flush();
+
+    expect(getLatestPostBody().data?.w3account).toBe('domain-1');
+  });
+
   it('shows an inline error only when other issue is selected without input', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -476,6 +930,8 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
     await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
 
     const lowScoreButton = getScoreButton(6);
     expect(lowScoreButton).toBeTruthy();
@@ -517,6 +973,8 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
     await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
 
     const lowScoreButton = getScoreButton(6);
     expect(lowScoreButton).toBeTruthy();
