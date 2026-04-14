@@ -141,7 +141,6 @@ const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
 const FEEDBACK_SAVE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/save';
-const FEEDBACK_DATE_CHECKED_KEY = 'cat-cafe:survey-feedback-date-checked';
 const FEEDBACK_CLOSE_TIME_KEY = 'feedbackCloseTime';
 const FEEDBACK_CLOSE_SUPPRESS_DAYS = 30;
 const FEEDBACK_RESURFACE_DAYS = 120;
@@ -150,7 +149,6 @@ const FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS = 120;
 const DEFAULT_FEEDBACK_SAVE_SURVEY_ID = 'hwcloudbusurvey_key_fbd25bdbdb87';
 const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'CCS2025081800123';
 const DEFAULT_FEEDBACK_SAVE_CONTACT_ID = 'global.cf';
-const DEFAULT_FEEDBACK_SAVE_W3ACCOUNT = 'pclclawclient';
 const SCORE_QUESTION_ID = 'question_0';
 const LOW_SCORE_REASON_QUESTION_ID = 'question_1';
 const HIGH_SCORE_REASON_QUESTION_ID = 'question_2';
