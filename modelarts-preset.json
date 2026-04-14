@@ -19,7 +19,7 @@
       "mentionPatterns": ["@office", "@小九", "@办公智能体"],
       "provider": "relayclaw",
       "providerProfileId": "huawei-maas",
-      "defaultModel": "glm5",
+      "defaultModel": "glm-5",
       "roleDescription": "全局梳理、脉络串联",
       "personality": "专业干练的职场精英，逻辑清晰，善于结构化输出和流程优化。具有冷静的全局观，擅长抓遗漏信息。",
       "teamStrengths": "全局掌控、信息整合、文档梳理",
