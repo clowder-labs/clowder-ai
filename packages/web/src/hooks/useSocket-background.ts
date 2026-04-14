@@ -8,7 +8,6 @@ import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
 import { getCachedCats } from '@/hooks/useCatData';
 import type { CatStatusType } from '@/stores/chat-types';
-import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
   ActiveRoutedAgentMessage,
   BackgroundAgentMessage,
@@ -640,7 +639,6 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'tool_result') {
     markThreadInvocationActive(msg, options);
-    const detail = compactToolResultDetail(msg.content ?? '');
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
       id: msg.toolCallId ?? `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
@@ -655,12 +653,8 @@ export function handleBackgroundAgentMessage(
     return;
   }
 
-  if (msg.type === 'system_info' || msg.type === 'a2a_handoff') {
+  if (msg.type === 'system_info') {
     if (!msg.content) return;
-    if (msg.type === 'a2a_handoff') {
-      addBackgroundSystemMessage(msg, options, msg.content);
-      return;
-    }
 
     const result = consumeBackgroundSystemInfo(msg, existing, options);
     if (!result.consumed) {

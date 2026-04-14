@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
 import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
+import { useChatStore, type ChatMessage } from '@/stores/chatStore';
+import { useFeedbackPopoverStore } from '@/stores/feedbackPopoverStore';
 import { useToastStore } from '@/stores/toastStore';
-import { apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { getDomainId, getIsSkipAuth } from '@/utils/userId';
+
+let hasAttemptedFeedbackAutoOpenThisSession = false;
 
 function WindowSmileIcon() {
   return (
@@ -138,20 +141,17 @@ const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
 const FEEDBACK_SAVE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/save';
-const FEEDBACK_DATE_CHECKED_KEY = 'cat-cafe:survey-feedback-date-checked';
 const FEEDBACK_CLOSE_TIME_KEY = 'feedbackCloseTime';
 const FEEDBACK_CLOSE_SUPPRESS_DAYS = 30;
 const FEEDBACK_RESURFACE_DAYS = 120;
 const FEEDBACK_AUTO_CLOSE_DELAY_MS = 60_000;
-const DEFAULT_SURVEY_ID = 'agentarts_satisfaction';
-const DEFAULT_SERVICE_ID = 'officeclaw';
-const DEFAULT_CONTACT_ID = 'web_home';
+const FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS = 120;
 const DEFAULT_FEEDBACK_SAVE_SURVEY_ID = 'hwcloudbusurvey_key_fbd25bdbdb87';
 const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'CCS2025081800123';
 const DEFAULT_FEEDBACK_SAVE_CONTACT_ID = 'global.cf';
-const DEFAULT_FEEDBACK_SAVE_W3ACCOUNT = 'pclclawclient';
 const SCORE_QUESTION_ID = 'question_0';
-const SCORE_REASON_QUESTION_ID = 'question_1';
+const LOW_SCORE_REASON_QUESTION_ID = 'question_1';
+const HIGH_SCORE_REASON_QUESTION_ID = 'question_2';
 const DETAIL_QUESTION_ID = 'question_99';
 const SCORE_REASON_DEFAULT_REASON = '0';
 const DETAIL_DEFAULT_SUB_REMARK = 'null';
@@ -183,6 +183,38 @@ function isWithinDays(timestamp: number, days: number): boolean {
   return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
 }
 
+function getThreadIdFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/thread\/([^/?#]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function hasCompletedOneDialogueRound(messages: ChatMessage[]): boolean {
+  let hasUserMessage = false;
+  let hasAssistantMessage = false;
+
+  for (const message of messages) {
+    if (message.type === 'user') hasUserMessage = true;
+    if (message.type === 'assistant') hasAssistantMessage = true;
+    if (hasUserMessage && hasAssistantMessage) return true;
+  }
+
+  return false;
+}
+
+function getFeedbackUserId(): string {
+  return process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || getDomainId();
+}
+
+export function __resetFeedbackAutoOpenSessionForTests() {
+  hasAttemptedFeedbackAutoOpenThisSession = false;
+}
+
+export function __resetFeedbackPopoverStateForTests() {
+  const state = useFeedbackPopoverStore.getState();
+  state.resetFeedbackPopoverState();
+  state.resetFeedbackFormState();
+}
+
 type FeedbackDateResponse = {
   data?: string | { latest_feedback_date?: string };
   latest_feedback_date?: string;
@@ -211,23 +243,35 @@ type FeedbackSubmitResponse = {
 
 export function RightContentHeader() {
   const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [isAutoOpenedFeedback, setIsAutoOpenedFeedback] = useState(false);
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const isLoadingHistory = useChatStore((s) => s.isLoadingHistory);
+  const messages = useChatStore((s) => s.messages);
+  const isFeedbackOpen = useFeedbackPopoverStore((s) => s.isFeedbackOpen);
+  const isAutoOpenedFeedback = useFeedbackPopoverStore((s) => s.isAutoOpenedFeedback);
+  const selectedScore = useFeedbackPopoverStore((s) => s.selectedScore);
+  const lowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.lowScoreSelectedIssues);
+  const highScoreSelectedIssues = useFeedbackPopoverStore((s) => s.highScoreSelectedIssues);
+  const lowScoreDetail = useFeedbackPopoverStore((s) => s.lowScoreDetail);
+  const otherIssueDetail = useFeedbackPopoverStore((s) => s.otherIssueDetail);
+  const setFeedbackPopoverState = useFeedbackPopoverStore((s) => s.setFeedbackPopoverState);
+  const setSelectedScore = useFeedbackPopoverStore((s) => s.setSelectedScore);
+  const setLowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setLowScoreSelectedIssues);
+  const setHighScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setHighScoreSelectedIssues);
+  const setLowScoreDetail = useFeedbackPopoverStore((s) => s.setLowScoreDetail);
+  const setOtherIssueDetail = useFeedbackPopoverStore((s) => s.setOtherIssueDetail);
+  const resetFeedbackFormState = useFeedbackPopoverStore((s) => s.resetFeedbackFormState);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
-  const [selectedScore, setSelectedScore] = useState<number | null>(null);
-  const [lowScoreSelectedIssues, setLowScoreSelectedIssues] = useState<string[]>([]);
-  const [highScoreSelectedIssues, setHighScoreSelectedIssues] = useState<string[]>([]);
-  const [lowScoreDetail, setLowScoreDetail] = useState('');
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
   const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
-  const [otherIssueDetail, setOtherIssueDetail] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const headerRef = useRef<HTMLDivElement>(null);
   const smileActionRef = useRef<HTMLButtonElement>(null);
   const feedbackPopoverRef = useRef<HTMLDivElement | null>(null);
   const autoCloseFeedbackTimerRef = useRef<number | null>(null);
+  const mouseLeaveCloseTimerRef = useRef<number | null>(null);
+  const selectedScoreRef = useRef<number | null>(null);
   const feedbackPopoverId = useId();
   const isScoreUnselected = selectedScore == null;
   const isVeryLowScoreDetailVisible = selectedScore != null && selectedScore <= 6;
@@ -250,38 +294,74 @@ export function RightContentHeader() {
   const currentDetailPlaceholder =
     '\u8bf7\u63cf\u8ff0\u60a8\u7684\u4f7f\u7528\u573a\u666f\uff1a\n\u8bf7\u63d0\u51fa\u60a8\u7684\u4f18\u5316\u5efa\u8bae\uff1a';
   const resetFeedbackState = useCallback(() => {
-    setSelectedScore(null);
-    setLowScoreSelectedIssues([]);
-    setHighScoreSelectedIssues([]);
-    setLowScoreDetail('');
+    resetFeedbackFormState();
     setIsDetailTooLong(false);
     setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
-    setOtherIssueDetail('');
     setIsSubmittingFeedback(false);
-  }, []);
+  }, [resetFeedbackFormState]);
   const closeFeedbackPopover = useCallback(() => {
     if (autoCloseFeedbackTimerRef.current != null) {
       window.clearTimeout(autoCloseFeedbackTimerRef.current);
       autoCloseFeedbackTimerRef.current = null;
     }
-    setIsFeedbackOpen(false);
-    setIsAutoOpenedFeedback(false);
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+    setFeedbackPopoverState({ isFeedbackOpen: false, isAutoOpenedFeedback: false });
     setFeedbackPopoverMaxHeight(null);
     resetFeedbackState();
-  }, [resetFeedbackState]);
+  }, [resetFeedbackState, setFeedbackPopoverState]);
   const dismissFeedbackPopover = useCallback(() => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(FEEDBACK_CLOSE_TIME_KEY, String(Date.now()));
     }
     closeFeedbackPopover();
   }, [closeFeedbackPopover]);
+  const openFeedbackPopoverManually = useCallback(() => {
+    if (autoCloseFeedbackTimerRef.current != null) {
+      window.clearTimeout(autoCloseFeedbackTimerRef.current);
+      autoCloseFeedbackTimerRef.current = null;
+    }
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+    setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: false });
+  }, [setFeedbackPopoverState]);
+  const cancelMouseLeaveClose = useCallback(() => {
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+  }, []);
+  const scheduleMouseLeaveClose = useCallback(() => {
+    if (selectedScoreRef.current != null) return;
+    cancelMouseLeaveClose();
+    mouseLeaveCloseTimerRef.current = window.setTimeout(() => {
+      mouseLeaveCloseTimerRef.current = null;
+      if (selectedScoreRef.current == null) {
+        closeFeedbackPopover();
+      }
+    }, FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS);
+  }, [cancelMouseLeaveClose, closeFeedbackPopover]);
+
+  useEffect(() => {
+    selectedScoreRef.current = selectedScore;
+  }, [selectedScore]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (getIsSkipAuth()) return;
-    if (window.sessionStorage.getItem(FEEDBACK_DATE_CHECKED_KEY) === '1') return;
-    window.sessionStorage.setItem(FEEDBACK_DATE_CHECKED_KEY, '1');
+    if (hasAttemptedFeedbackAutoOpenThisSession) return;
+
+    const routeThreadId = getThreadIdFromPathname(window.location.pathname);
+    if (!routeThreadId || routeThreadId !== currentThreadId) return;
+    if (isLoadingHistory) return;
+    if (!hasCompletedOneDialogueRound(messages)) return;
+
+    hasAttemptedFeedbackAutoOpenThisSession = true;
 
     const dismissedAtRaw = window.localStorage.getItem(FEEDBACK_CLOSE_TIME_KEY);
     const dismissedAt = dismissedAtRaw ? Number(dismissedAtRaw) : Number.NaN;
@@ -292,7 +372,7 @@ export function RightContentHeader() {
     const surveyId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SURVEY_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SURVEY_ID;
     const serviceId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SERVICE_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SERVICE_ID;
     const contactId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || DEFAULT_FEEDBACK_SAVE_CONTACT_ID;
-    const userId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || DEFAULT_FEEDBACK_SAVE_W3ACCOUNT;
+    const userId = getFeedbackUserId();
     const query = new URLSearchParams({
       userId,
       surveyId,
@@ -309,8 +389,7 @@ export function RightContentHeader() {
         if (cancelled) return;
         if (!response.ok) {
           resetFeedbackState();
-          setIsAutoOpenedFeedback(true);
-          setIsFeedbackOpen(true);
+          setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
           return;
         }
 
@@ -328,16 +407,14 @@ export function RightContentHeader() {
 
         if (!latestFeedbackTimestamp || !isWithinDays(latestFeedbackTimestamp, FEEDBACK_RESURFACE_DAYS)) {
           resetFeedbackState();
-          setIsAutoOpenedFeedback(true);
-          setIsFeedbackOpen(true);
+          setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
         resetFeedbackState();
-        setIsAutoOpenedFeedback(true);
-        setIsFeedbackOpen(true);
+        setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
       }
     };
 
@@ -346,7 +423,7 @@ export function RightContentHeader() {
     return () => {
       cancelled = true;
     };
-  }, [resetFeedbackState]);
+  }, [currentThreadId, isLoadingHistory, messages, resetFeedbackState, setFeedbackPopoverState]);
 
   useEffect(() => {
     if (isLowScoreDetailVisible) return;
@@ -377,31 +454,11 @@ export function RightContentHeader() {
   }, [isFeedbackOpen]);
 
   useEffect(() => {
-    if (!isFeedbackOpen) return;
-
-    const handlePointerDownOutside = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (feedbackPopoverRef.current?.contains(target)) return;
-      if (smileActionRef.current?.contains(target)) return;
-
-      closeFeedbackPopover();
-    };
-
-    document.addEventListener('mousedown', handlePointerDownOutside, true);
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDownOutside, true);
-    };
-  }, [closeFeedbackPopover, isFeedbackOpen]);
-
-  useEffect(() => {
     if (!isFeedbackOpen || !isAutoOpenedFeedback) return;
 
     autoCloseFeedbackTimerRef.current = window.setTimeout(() => {
       autoCloseFeedbackTimerRef.current = null;
-      const isHoveringPopover = feedbackPopoverRef.current?.matches(':hover') ?? false;
-      if (!isHoveringPopover) {
+      if (selectedScoreRef.current == null) {
         closeFeedbackPopover();
       }
     }, FEEDBACK_AUTO_CLOSE_DELAY_MS);
@@ -514,8 +571,7 @@ export function RightContentHeader() {
     const surveyId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SURVEY_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SURVEY_ID;
     const serviceId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SERVICE_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SERVICE_ID;
     const contactId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || DEFAULT_FEEDBACK_SAVE_CONTACT_ID;
-    const w3account =
-      process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || DEFAULT_FEEDBACK_SAVE_W3ACCOUNT;
+    const w3account = getFeedbackUserId();
     const scoreValue = String(selectedScore);
     const selectedIssueCodes = currentIssueOptions
       .map((issue, index) => (currentSelectedIssues.includes(issue.id) ? String(index + 1) : ''))
@@ -529,6 +585,7 @@ export function RightContentHeader() {
     const otherIssueReason = currentSelectedIssues.includes('other_issue')
       ? otherIssueDetail.trim()
       : SCORE_REASON_DEFAULT_REASON;
+    const scoreReasonQuestionId = selectedScore >= 9 ? HIGH_SCORE_REASON_QUESTION_ID : LOW_SCORE_REASON_QUESTION_ID;
     const answers: FeedbackSubmitAnswer[] = [
       {
         questionId: SCORE_QUESTION_ID,
@@ -539,7 +596,7 @@ export function RightContentHeader() {
         reason: SCORE_REASON_DEFAULT_REASON,
       },
       {
-        questionId: SCORE_REASON_QUESTION_ID,
+        questionId: scoreReasonQuestionId,
         subQuestionId: null,
         subName: isLowScoreDetailVisible
           ? '\u60a8\u5728\u4f7f\u7528\u8fc7\u7a0b\u4e2d\u9047\u5230\u4e86\u54ea\u4e9b\u95ee\u9898\uff1f'
@@ -754,21 +811,19 @@ export function RightContentHeader() {
     >
       <div aria-hidden="true" />
       <div className="ui-content-header-actions">
-        <div className="ui-content-header-feedback-anchor">
+        <div
+          className="ui-content-header-feedback-anchor"
+          onMouseEnter={cancelMouseLeaveClose}
+          onMouseLeave={scheduleMouseLeaveClose}
+        >
           <HeaderAction
             title={'\u7b11\u8138'}
             buttonRef={smileActionRef}
             aria-expanded={isFeedbackOpen}
             aria-controls={feedbackPopoverId}
             aria-haspopup="dialog"
-            onClick={() => {
-              setIsAutoOpenedFeedback(false);
-              setIsFeedbackOpen(true);
-            }}
-            onMouseEnter={() => {
-              setIsAutoOpenedFeedback(false);
-              setIsFeedbackOpen(true);
-            }}
+            onClick={openFeedbackPopoverManually}
+            onMouseEnter={openFeedbackPopoverManually}
           >
             <WindowSmileIcon />
           </HeaderAction>

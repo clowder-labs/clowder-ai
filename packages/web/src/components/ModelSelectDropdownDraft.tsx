@@ -120,13 +120,13 @@ export function ModelSelectDropdownDraft({
       data-testid="model-select-dropdown"
     >
       <div className="px-[10px] pb-1 pt-[10px]">
-        <label className="ui-field flex h-7 items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
+        <label className="ui-field flex h-7 items-center gap-0 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
           <SearchIcon />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
-            className="ui-input ui-input-plain w-full text-[10px]"
+            className="ui-input ui-input-plain w-full text-[12px]"
           />
         </label>
       </div>
