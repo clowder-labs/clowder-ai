@@ -775,6 +775,15 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
 
+  {
+    name: 'CAN_CREATE_MODEL',
+    defaultValue: '0',
+    description: 'Set to 1 or true to show the create model button',
+    category: 'frontend',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+
   // --- push ---
   {
     name: 'VAPID_PUBLIC_KEY',

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -7,7 +7,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
@@ -73,6 +75,7 @@ export function HubCapabilityTab({
   const sourceMenuRef = useRef<HTMLDivElement>(null);
 
   const confirm = useConfirm();
+  const addToast = useToastStore((state) => state.addToast);
 
   const fetchCapabilities = useCallback(async () => {
     setError(null);
@@ -159,13 +162,34 @@ export function HubCapabilityTab({
           body: JSON.stringify({ name: skillId }),
         });
         if (res.ok) {
+          notifySkillOptionsChanged();
+          addToast({
+            type: 'success',
+            title: '卸载成功',
+            message: `"${skillId}" 已卸载`,
+            duration: 4000,
+          });
           await fetchCapabilities();
+          return;
         }
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        const detail = payload.error ?? `HTTP ${res.status}`;
+        addToast({
+          type: 'error',
+          title: '卸载失败',
+          message: detail,
+          duration: 4000,
+        });
       } catch {
-        // ignore
+        addToast({
+          type: 'error',
+          title: '卸载失败',
+          message: '网络错误，请重试',
+          duration: 4000,
+        });
       }
     },
-    [confirm, fetchCapabilities],
+    [addToast, confirm, fetchCapabilities],
   );
 
   const visibleItems = useMemo(() => items.filter((item) => item.type !== 'mcp'), [items]);
@@ -211,6 +235,13 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
+  // 当 sourceOptions 不再包含当前 activeSource 时重置为全部来源
+  useEffect(() => {
+    if (activeSource !== ALL_SOURCES && !sourceOptions.includes(activeSource)) {
+      setActiveSource(ALL_SOURCES);
+    }
+  }, [activeSource, sourceOptions]);
+
   useEffect(() => {
     if (!isSourceMenuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -241,7 +272,7 @@ export function HubCapabilityTab({
   if (loading) return <CenteredLoadingState />;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div data-testid="hub-capability-fixed-header">
@@ -253,8 +284,8 @@ export function HubCapabilityTab({
                 type="button"
                 onClick={() => handleCategoryChange(category)}
                 className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${activeCategory === category
-                    ? 'font-semibold text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
               >
                 {category}
@@ -294,17 +325,15 @@ export function HubCapabilityTab({
                 <button
                   type="button"
                   onClick={() => setIsSourceMenuOpen((prev) => !prev)}
-                  className={`ui-field flex h-[28px] w-[200px] items-center justify-between rounded-[6px] px-[12px] py-[5px] text-xs transition-colors ${
-                    isSourceMenuOpen ? 'border-[#191919]' : ''
-                  }`}
+                  className={`ui-field flex h-[28px] w-[200px] items-center justify-between rounded-[6px] px-[12px] py-[5px] text-xs transition-colors ${isSourceMenuOpen ? 'border-[#191919]' : ''
+                    }`}
                   aria-haspopup="listbox"
                   aria-expanded={isSourceMenuOpen}
                 >
                   <span className="truncate text-[var(--text-primary)]">{activeSourceLabel}</span>
                   <svg
-                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${
-                      isSourceMenuOpen ? 'rotate-180' : ''
-                    }`}
+                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${isSourceMenuOpen ? 'rotate-180' : ''
+                      }`}
                     viewBox="0 0 16 16"
                     fill="none"
                     aria-hidden="true"
@@ -329,9 +358,8 @@ export function HubCapabilityTab({
                             setActiveSource(source);
                             setIsSourceMenuOpen(false);
                           }}
-                          className={`flex h-[32px] w-full items-center px-[16px] py-[7px] text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] ${
-                            isSelected ? 'text-[#1476ff]' : 'text-[var(--text-primary)]'
-                          }`}
+                          className={`flex h-[32px] w-full items-center px-[16px] py-[7px] text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] ${isSelected ? 'text-[#1476ff]' : 'text-[var(--text-primary)]'
+                            }`}
                         >
                           {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
                         </button>
@@ -359,7 +387,7 @@ export function HubCapabilityTab({
           <EmptyDataState />
         </div>
       ) : (
-        <div data-testid="hub-capability-scroll-region">
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-capability-scroll-region">
           {filteredDisplayedSkillItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredDisplayedSkillItems.map((item) => (

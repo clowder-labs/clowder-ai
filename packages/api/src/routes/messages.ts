@@ -46,6 +46,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import { resolveThreadProjectPath, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { isSystemUserMessage } from '../domains/cats/services/stores/visibility.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import { ensureRegisteredWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
@@ -1163,12 +1164,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
     const chatItems: TimelineItem[] = page.map((m) => ({
       id: m.id,
-      type: (m.catId
-        ? 'assistant'
-        : m.source
-          ? 'connector'
-          : m.userId === 'system'
-            ? 'system'
+      type: (m.source
+        ? 'connector'
+        : isSystemUserMessage(m)
+          ? 'system'
+          : m.catId
+            ? 'assistant'
             : 'user') as TimelineItem['type'],
       catId: m.catId,
       content: m.content,

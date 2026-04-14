@@ -7,8 +7,8 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import VersionUpdateModal from '../VersionUpdateModal';
 import { apiFetch } from '@/utils/api-client';
+import VersionUpdateModal from '../VersionUpdateModal';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -41,15 +41,13 @@ describe('VersionUpdateModal', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  const mockVersionResponse = (
-    versionInfo: {
-      curversion: string;
-      lastversion: string;
-      description: string;
-      downloadUrl?: string;
-      download_url?: string;
-    },
-  ) => {
+  const mockVersionResponse = (versionInfo: {
+    curversion: string;
+    lastversion: string;
+    description: string;
+    downloadUrl?: string;
+    download_url?: string;
+  }) => {
     mockedApiFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(versionInfo),
@@ -285,5 +283,27 @@ describe('VersionUpdateModal', () => {
     expect(container.textContent).not.toContain('下载中');
 
     openSpy.mockRestore();
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onCancel = vi.fn();
+    mockVersionResponse({
+      curversion: '1.0.0',
+      lastversion: '1.0.1',
+      description: 'bug fixes',
+    });
+
+    await act(async () => {
+      root.render(React.createElement(VersionUpdateModal, { open: true, onCancel }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('.shadow-lg')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

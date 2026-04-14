@@ -8,7 +8,9 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { type Thread, useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
@@ -18,8 +20,8 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
+import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
@@ -27,6 +29,7 @@ import { useProjectPins } from './use-project-pins';
 
 const MAX_SIDEBAR_RESTORE_FRAMES = 90;
 const SIDEBAR_SCROLL_STORAGE_KEY = 'cat-cafe:sidebar-scroll:v1';
+const MAX_SESSIONS = 200;
 
 function readSidebarScrollTop(): number {
   if (typeof window === 'undefined') return 0;
@@ -112,6 +115,7 @@ export function ThreadSidebar({
     getThreadState,
     threadStates,
   } = useChatStore();
+  const { addToast } = useToastStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,6 +125,10 @@ export function ThreadSidebar({
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
+  useEscapeKey({
+    enabled: deleteTarget !== null,
+    onEscape: () => setDeleteTarget(null),
+  });
   // F095 Phase D: Trash bin state
   const [showTrash, setShowTrash] = useState(false);
   const [trashedThreads, setTrashedThreads] = useState<Thread[]>([]);
@@ -298,6 +306,17 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+    if (actualThreadCount >= MAX_SESSIONS) {
+      addToast({
+        type: 'error',
+        title: '会话数量已达上限',
+        message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+        duration: 5000,
+      });
+      return;
+    }
+
     setSearchQuery('');
     setIsSearchOpen(false);
     setShowFilter(false);
@@ -312,10 +331,21 @@ export function ThreadSidebar({
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       onClose?.();
     }
-  }, [onNewChatClick, onClose, setCurrentProject, setCurrentThread, navigateToThread]);
+  }, [addToast, onNewChatClick, onClose, setCurrentProject, setCurrentThread, navigateToThread, threads]);
 
   const createInProject = useCallback(
     async (opts: NewThreadOptions) => {
+      const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+      if (actualThreadCount >= MAX_SESSIONS) {
+        addToast({
+          type: 'error',
+          title: '会话数量已达上限',
+          message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+          duration: 5000,
+        });
+        return;
+      }
+
       setIsCreating(true);
       setShowPicker(false);
       try {
@@ -346,7 +376,9 @@ export function ThreadSidebar({
           );
           const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
           if (failed.length > 0) {
-            setBindWarning(`Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`);
+            setBindWarning(
+              `Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`,
+            );
             setTimeout(() => setBindWarning(null), 6000);
           }
         }
@@ -364,7 +396,7 @@ export function ThreadSidebar({
         setIsCreating(false);
       }
     },
-    [setCurrentProject, navigateToThread, loadThreads, onClose],
+    [addToast, setCurrentProject, navigateToThread, loadThreads, onClose, threads],
   );
 
   // F095 Phase D: Load trashed threads
@@ -406,6 +438,17 @@ export function ThreadSidebar({
 
   /** F087: Create a bootcamp onboarding thread */
   const createBootcampThread = useCallback(async () => {
+    const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+    if (actualThreadCount >= MAX_SESSIONS) {
+      addToast({
+        type: 'error',
+        title: '会话数量已达上限',
+        message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+        duration: 5000,
+      });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const res = await apiFetch('/api/threads', {
@@ -432,7 +475,7 @@ export function ThreadSidebar({
     } finally {
       setIsCreating(false);
     }
-  }, [navigateToThread, loadThreads, onClose]);
+  }, [addToast, navigateToThread, loadThreads, onClose, threads]);
 
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(
@@ -510,8 +553,7 @@ export function ThreadSidebar({
       if (scrollRegion) {
         writeSidebarScrollTop(scrollRegion.scrollTop);
       }
-      const isAlreadyOnThreadRoute =
-        (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
+      const isAlreadyOnThreadRoute = (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
       if (threadId === currentThreadId && isAlreadyOnThreadRoute) return;
       // B1.1: Restore projectPath from thread metadata on switch
       const target = threads.find((t) => t.id === threadId);
@@ -597,7 +639,8 @@ export function ThreadSidebar({
     () => displayThreadGroups.some((group) => (group.threads?.length ?? 0) > 0),
     [displayThreadGroups],
   );
-  const showNoResults = !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
+  const showNoResults =
+    !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
 
   // F095: Collapse state with localStorage persistence + search/active auto-expand
   const { isCollapsed, toggleGroup } = useCollapseState({
@@ -620,7 +663,9 @@ export function ThreadSidebar({
         <div className="ui-sidebar-section ui-sidebar-section-no-divider flex items-center justify-between px-3 py-[14px] border-0">
           <div className="flex items-center gap-2">
             <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
-            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
+            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">
+              OfficeClaw
+            </span>
           </div>
         </div>
 
@@ -705,8 +750,12 @@ export function ThreadSidebar({
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
-                <svg  className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor" >
-                  <path id="_减去顶层" d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z" fillRule="evenodd"/>
+                <svg className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor">
+                  <path
+                    id="_减去顶层"
+                    d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z"
+                    fillRule="evenodd"
+                  />
                 </svg>
               </button>
               <button
@@ -811,13 +860,11 @@ export function ThreadSidebar({
           {showNoResults ? (
             <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
               <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">请<button
-                type="button"
-                onClick={handleNewChat}
-                className="text-[12px] font-[400] text-[#1476ff]"
-              >
-                新建会话
-              </button>
+              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">
+                请
+                <button type="button" onClick={handleNewChat} className="text-[12px] font-[400] text-[#1476ff]">
+                  新建会话
+                </button>
               </div>
             </div>
           ) : (
@@ -892,13 +939,15 @@ export function ThreadSidebar({
                   icon={icon}
                   count={group.threads.length}
                   isCollapsed={group.type === 'pinned' || group.type === 'recent' ? false : isCollapsed(groupKey)}
-                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => { } : () => toggleGroup(groupKey)}
+                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => {} : () => toggleGroup(groupKey)}
                   hideToggle={group.type === 'pinned' || group.type === 'recent'}
                   hideCount={group.type === 'pinned' || group.type === 'recent'}
                   projectPath={group.projectPath}
                   governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
                   onToggleProjectPin={
-                    group.type === 'project' && group.projectPath ? () => toggleProjectPin(group.projectPath!) : undefined
+                    group.type === 'project' && group.projectPath
+                      ? () => toggleProjectPin(group.projectPath!)
+                      : undefined
                   }
                   isProjectPinned={
                     group.type === 'project' && group.projectPath ? pinnedProjects.has(group.projectPath) : undefined
@@ -931,7 +980,6 @@ export function ThreadSidebar({
               );
             })
           )}
-
         </div>
 
         {/* 回收站入口暂时隐藏 */}

@@ -299,8 +299,8 @@ describe('CreateAgentModal', () => {
     await flushEffects();
     await flushEffects();
 
-    const cancelButton = container.querySelector('button[aria-label=\"Cancel\"]') as HTMLButtonElement | null;
-    const confirmButton = container.querySelector('button[aria-label=\"Create\"]') as HTMLButtonElement | null;
+    const cancelButton = container.querySelector('button[aria-label="Cancel"]') as HTMLButtonElement | null;
+    const confirmButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
@@ -481,5 +481,68 @@ describe('CreateAgentModal', () => {
 
     expect(container.textContent).toContain('头像大小不能超过 200KB');
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onCloseFn = vi.fn();
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Test Bot',
+          description: 'Test description',
+          onClose: onCloseFn,
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="create-agent-modal"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(onCloseFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the edit modal when Escape key is pressed', async () => {
+    const onCloseFn = vi.fn();
+    mockModalBootApi();
+
+    const mockCat: Partial<CatData> = {
+      id: 'test-cat-id',
+      name: 'Existing Bot',
+      roleDescription: 'Existing description',
+      icon: '/images/cat-1.svg',
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          cat: mockCat as CatData,
+          onClose: onCloseFn,
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="create-agent-modal"]')).not.toBeNull();
+    expect(container.textContent).toContain('编辑智能体');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(onCloseFn).toHaveBeenCalledTimes(1);
   });
 });

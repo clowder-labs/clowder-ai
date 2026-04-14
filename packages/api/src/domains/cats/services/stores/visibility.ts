@@ -28,6 +28,30 @@ export function isSystemUserMessage(msg: Pick<StoredMessage, 'userId' | 'catId'>
   return SYSTEM_USER_IDS.has(msg.userId) && (msg.catId === 'system' || msg.catId === null);
 }
 
+/**
+ * Per-user thread history queries should still include trusted system messages
+ * (scheduler reminders) and cat/agent responses, otherwise a page refresh
+ * hides them even though they were persisted and shown in realtime.
+ *
+ * Cat/agent messages are thread-scoped, not user-scoped — the userId on them
+ * records "who triggered this invocation", not "who authored the content".
+ * Scheduler-triggered agent responses have userId='default-user' (no session
+ * on MCP callback), so the exact-match filter would exclude them for any
+ * real logged-in user.
+ */
+export function matchesThreadHistoryUserScope(
+  msg: Pick<StoredMessage, 'userId' | 'catId'>,
+  userId?: string,
+): boolean {
+  if (!userId) return true;
+  if (msg.userId === userId) return true;
+  if (isSystemUserMessage(msg)) return true;
+  // Agent/cat responses belong to the thread, not to the triggering user.
+  // Guard: only non-system userIds — prevents forged userId='scheduler'+catId bypass.
+  if (msg.catId && msg.catId !== 'system' && !SYSTEM_USER_IDS.has(msg.userId)) return true;
+  return false;
+}
+
 /** Who is viewing */
 export type Viewer = { readonly type: 'user' } | { readonly type: 'cat'; readonly catId: CatId };
 

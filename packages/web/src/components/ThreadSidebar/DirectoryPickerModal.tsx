@@ -46,6 +46,7 @@ export function DirectoryPickerModal({
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [bindExpanded, setBindExpanded] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [defaultWorkspacePath, setDefaultWorkspacePath] = useState<string | null>(null);
   const [showBrowser, setShowBrowser] = useState(false);
   const [pathInput, setPathInput] = useState('');
   const [pathError, setPathError] = useState<string | null>(null);
@@ -148,7 +149,8 @@ export function DirectoryPickerModal({
         const res = await apiFetch('/api/projects/cwd');
         if (res.ok) {
           const data = await res.json();
-          setCwdPath(data.path);
+          setCwdPath(typeof data?.path === 'string' ? data.path : null);
+          setDefaultWorkspacePath(typeof data?.workspacePath === 'string' ? data.workspacePath : null);
         }
       } catch {
         // ignore — cwd is optional
@@ -166,6 +168,7 @@ export function DirectoryPickerModal({
   }, [onCancel]);
 
   const [catsExpanded, setCatsExpanded] = useState(false);
+  const recommendedPath = defaultWorkspacePath ?? cwdPath;
   const catSummary = selectedCats.length > 0 ? `已选 ${selectedCats.length}` : '';
 
   return (
@@ -209,17 +212,17 @@ export function DirectoryPickerModal({
         <div className={`overflow-y-auto px-5 py-3 space-y-1 ${showBrowser ? 'hidden' : 'flex-1 min-h-[180px]'}`}>
           <div className="text-[10px] text-gray-400 font-medium mb-1">选择项目</div>
 
-          {cwdPath && !existingProjects.includes(cwdPath) && (
+          {recommendedPath && !existingProjects.includes(recommendedPath) && (
             <button
               type="button"
-              onClick={() => handleSelectPath(cwdPath)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : 'ring-1 ring-cocreator-primary/30 bg-cocreator-bg/50'}`}
-              title={cwdPath}
+              onClick={() => handleSelectPath(recommendedPath)}
+              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === recommendedPath ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : 'ring-1 ring-cocreator-primary/30 bg-cocreator-bg/50'}`}
+              title={recommendedPath}
             >
               <FolderIcon />
               <div className="min-w-0 flex-1">
-                <span className="font-medium block truncate">{projectDisplayName(cwdPath)}</span>
-                <span className="text-[10px] text-gray-400 block truncate">{cwdPath}</span>
+                <span className="font-medium block truncate">{projectDisplayName(recommendedPath)}</span>
+                <span className="text-[10px] text-gray-400 block truncate">{recommendedPath}</span>
               </div>
               <span className="text-[10px] text-cocreator-primary flex-shrink-0">推荐</span>
             </button>
@@ -360,8 +363,16 @@ export function DirectoryPickerModal({
         {showBrowser && (
           <div className="border-t border-gray-100 flex-1 min-h-0 flex flex-col overflow-hidden">
             <DirectoryBrowser
-              initialPath={cwdPath ?? undefined}
-              activeProjectPath={cwdPath ?? undefined}
+              initialPath={
+                selectedPath && selectedPath !== 'lobby'
+                  ? selectedPath
+                  : defaultWorkspacePath ?? cwdPath ?? undefined
+              }
+              activeProjectPath={
+                selectedPath && selectedPath !== 'lobby'
+                  ? selectedPath
+                  : defaultWorkspacePath ?? undefined
+              }
               onSelect={handleBrowserSelect}
               onCancel={() => setShowBrowser(false)}
             />
