@@ -90,6 +90,31 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.equal(aliceOnly[0].content, 'alice msg');
   });
 
+  it('getByThread() keeps scheduler/system messages visible for a specific user history view', async () => {
+    const now = Date.now();
+    await store.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'user request',
+      mentions: [],
+      timestamp: now,
+      threadId: 'thread-scheduler',
+    });
+    await store.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: now + 1,
+      threadId: 'thread-scheduler',
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+
+    const visible = await store.getByThread('thread-scheduler', 10, 'default-user');
+    assert.equal(visible.length, 2);
+    assert.equal(visible[1].content, '[定时任务] 该喝水啦！');
+  });
+
   it('getMentionsFor() returns messages mentioning a specific cat', async () => {
     const now = Date.now();
     await store.append({ userId: 'u', catId: null, content: 'hi opus', mentions: ['opus'], timestamp: now });

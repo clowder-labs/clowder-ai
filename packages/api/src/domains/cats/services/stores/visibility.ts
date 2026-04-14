@@ -28,6 +28,19 @@ export function isSystemUserMessage(msg: Pick<StoredMessage, 'userId' | 'catId'>
   return SYSTEM_USER_IDS.has(msg.userId) && (msg.catId === 'system' || msg.catId === null);
 }
 
+/**
+ * Per-user thread history queries should still include trusted system messages
+ * such as scheduler reminders, otherwise a page refresh hides them even though
+ * they were persisted and shown in realtime.
+ */
+export function matchesThreadHistoryUserScope(
+  msg: Pick<StoredMessage, 'userId' | 'catId'>,
+  userId?: string,
+): boolean {
+  if (!userId) return true;
+  return msg.userId === userId || isSystemUserMessage(msg);
+}
+
 /** Who is viewing */
 export type Viewer = { readonly type: 'user' } | { readonly type: 'cat'; readonly catId: CatId };
 

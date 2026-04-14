@@ -229,6 +229,33 @@ describe('MessageStore', () => {
     assert.equal(filtered[0].content, '@opus u1-tA');
   });
 
+  test('getByThread() keeps scheduler/system messages visible for a specific user history view', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+
+    const store = new MessageStore();
+    store.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'user request',
+      mentions: [],
+      timestamp: 1,
+      threadId: 'thread-scheduler',
+    });
+    store.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: 2,
+      threadId: 'thread-scheduler',
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+
+    const visible = store.getByThread('thread-scheduler', 10, 'default-user');
+    assert.equal(visible.length, 2);
+    assert.equal(visible[1].content, '[定时任务] 该喝水啦！');
+  });
+
   test('getBefore() returns messages before timestamp', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 
