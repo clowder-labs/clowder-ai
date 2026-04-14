@@ -780,7 +780,7 @@ export function useAgentMessages() {
         addMessage({
           id: `a2a-${Date.now()}-${msg.catId}`,
           type: 'system',
-          variant: 'info',
+          variant: 'a2a_handoff',
           content: msg.content ?? '',
           a2aGroupId: a2aGroupRef.current,
           timestamp: Date.now(),

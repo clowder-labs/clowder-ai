@@ -179,6 +179,7 @@ export function ChatMessage({
     const isError = message.variant === 'error' || isLegacyError;
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
+    const isHandoff = message.variant === 'a2a_handoff';
 
     // F118 AC-C3: Enhanced timeout diagnostics panel
     if (isError && message.extra?.timeoutDiagnostics) {
@@ -195,13 +196,16 @@ export function ChatMessage({
       ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
       : isFollowup
         ? 'text-purple-700 bg-purple-50 border border-purple-200'
-        : isError
-          ? 'text-red-500 bg-red-50 rounded-full'
-          : 'text-blue-700 bg-blue-50 hidden';
+        : isHandoff
+          ? 'text-indigo-600 bg-indigo-50/60 border border-indigo-100 text-xs'
+          : isError
+            ? 'text-red-500 bg-red-50 rounded-full'
+            : 'text-blue-700 bg-blue-50 hidden';
     return (
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
           {isFollowup && <span className="mr-1">🔗</span>}
+          {isHandoff && <span className="mr-1">↪️</span>}
           {message.content}
           {isFollowup && <span className="block mt-1 text-xs text-purple-500">输入 @智能体 跟进 来发起 follow-up</span>}
         </div>
