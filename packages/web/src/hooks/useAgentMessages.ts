@@ -8,9 +8,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import {
-  getAgentErrorToastContent,
-} from '@/hooks/agent-error-fallback';
+import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
+import { getCachedCats } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
@@ -43,7 +42,10 @@ interface AgentMsg {
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   /** F121: Reply-to message ID */
   replyTo?: string;
   /** F121: Server-hydrated reply preview */
@@ -64,6 +66,22 @@ function safeJsonPreview(value: unknown, maxLength: number): string {
   } catch {
     return '[unserializable input]';
   }
+}
+
+function resolveCatLabel(catId: string): string {
+  return getCachedCats().find((cat) => cat.id === catId)?.displayName ?? catId;
+}
+
+function buildMessageExtra(
+  msg: Pick<AgentMsg, 'extra'>,
+  invocationId?: string,
+): NonNullable<import('../stores/chat-types').ChatMessage['extra']> | undefined {
+  const extra = {
+    ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+    ...(msg.extra?.errorFallback ? { errorFallback: msg.extra.errorFallback } : {}),
+    ...(invocationId ? { stream: { invocationId } } : {}),
+  };
+  return Object.keys(extra).length > 0 ? extra : undefined;
 }
 
 function findLatestActiveInvocationIdForCat(
@@ -502,6 +520,7 @@ export function useAgentMessages() {
       }
 
       if (msg.type === 'text' && msg.content) {
+        const errorFallback = msg.extra?.errorFallback;
         if (
           msg.origin !== 'callback' &&
           (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId) ||
@@ -509,7 +528,7 @@ export function useAgentMessages() {
         ) {
           return;
         }
-        setCatStatus(msg.catId, 'streaming');
+        setCatStatus(msg.catId, msg.isFinal && errorFallback ? 'error' : 'streaming');
         // F118: Clear liveness warning when cat resumes output
         setCatInvocation(msg.catId, { livenessWarning: undefined });
         if (msg.origin !== 'callback') {
@@ -532,14 +551,7 @@ export function useAgentMessages() {
               origin: 'callback',
               isStreaming: false,
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost || invocationId
-                ? {
-                    extra: {
-                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                      ...(invocationId ? { stream: { invocationId } } : {}),
-                    },
-                  }
-                : {}),
+              ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
@@ -561,14 +573,7 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'callback',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost || invocationId
-                ? {
-                    extra: {
-                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                      ...(invocationId ? { stream: { invocationId } } : {}),
-                    },
-                  }
-                : {}),
+              ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
@@ -608,7 +613,7 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'stream',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+              ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
@@ -677,14 +682,20 @@ export function useAgentMessages() {
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {
-        setCatStatus(msg.catId, 'done');
+        const currentMessage = useChatStore
+          .getState()
+          .messages.filter((m) => m.type === 'assistant' && m.catId === msg.catId)
+          .at(-1);
+        const hasErrorFallback = Boolean(currentMessage?.extra?.errorFallback);
+        setCatStatus(msg.catId, hasErrorFallback ? 'error' : 'done');
         const suppressedAfterTerminalError = terminalStreamSuppressionRef.current.has(msg.catId);
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
             taskProgress: {
               ...currentProgress,
-              snapshotStatus: currentProgress.snapshotStatus === 'interrupted' ? 'interrupted' : 'completed',
+              snapshotStatus:
+                currentProgress.snapshotStatus === 'interrupted' || hasErrorFallback ? 'interrupted' : 'completed',
               lastUpdate: Date.now(),
             },
           });
@@ -1132,7 +1143,10 @@ export function useAgentMessages() {
         });
 
         // Toast 通知（降级）
-        const toast = getAgentErrorToastContent(msg);
+        const toast = getAgentErrorToastContent({
+          ...msg,
+          catDisplayName: resolveCatLabel(msg.catId),
+        });
         useToastStore.getState().addToast({
           type: 'error',
           title: toast.title,
@@ -1257,7 +1271,15 @@ export function useAgentMessages() {
       }
       terminalStreamSuppressionRef.current.clear();
     },
-    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout, setCatInvocation],
+    [
+      setLoading,
+      clearAllActiveInvocations,
+      setStreaming,
+      setIntentMode,
+      clearCatStatuses,
+      clearDoneTimeout,
+      setCatInvocation,
+    ],
   );
 
   const resetRefs = useCallback(() => {

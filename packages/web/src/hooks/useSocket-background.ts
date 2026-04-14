@@ -6,6 +6,7 @@
 
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
+import { getCachedCats } from '@/hooks/useCatData';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
@@ -33,6 +34,29 @@ const STATUS_MAP: Record<string, CatStatusType> = {
 
 function getStreamKey(msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>): string {
   return `${msg.threadId}::${msg.catId}`;
+}
+
+function resolveCatLabel(catId: string): string {
+  return getCachedCats().find((cat) => cat.id === catId)?.displayName ?? catId;
+}
+
+function buildMessageExtra(
+  msg: Pick<BackgroundAgentMessage, 'extra'>,
+  invocationId?: string | null,
+): NonNullable<import('@/stores/chat-types').ChatMessage['extra']> | undefined {
+  const extra = {
+    ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+    ...(msg.extra?.errorFallback ? { errorFallback: msg.extra.errorFallback } : {}),
+    ...(invocationId ? { stream: { invocationId } } : {}),
+  };
+  return Object.keys(extra).length > 0 ? extra : undefined;
+}
+
+function getErrorFallback(
+  msg: Pick<BackgroundAgentMessage, 'extra'>,
+  finalMessage?: { extra?: { errorFallback?: { rawError?: string } } },
+): { rawError: string } | null {
+  return msg.extra?.errorFallback ?? finalMessage?.extra?.errorFallback ?? null;
 }
 
 function findLatestActiveInvocationIdForCat(
@@ -337,15 +361,8 @@ export function handleBackgroundAgentMessage(
           origin: 'callback',
           isStreaming: false,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(msg.extra?.crossPost || replacementTarget.invocationId
-            ? {
-                extra: {
-                  ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                  ...(replacementTarget.invocationId
-                    ? { stream: { invocationId: replacementTarget.invocationId } }
-                    : {}),
-                },
-              }
+          ...(buildMessageExtra(msg, replacementTarget.invocationId)
+            ? { extra: buildMessageExtra(msg, replacementTarget.invocationId) }
             : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
@@ -370,14 +387,7 @@ export function handleBackgroundAgentMessage(
           catId: msg.catId,
           content: msg.content,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(msg.extra?.crossPost || bgInvocationId
-            ? {
-                extra: {
-                  ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                  ...(bgInvocationId ? { stream: { invocationId: bgInvocationId } } : {}),
-                },
-              }
-            : {}),
+          ...(buildMessageExtra(msg, bgInvocationId) ? { extra: buildMessageExtra(msg, bgInvocationId) } : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
           ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
@@ -403,6 +413,7 @@ export function handleBackgroundAgentMessage(
         messageId = recoverStreamingMessage(msg, streamKey, options);
       }
       if (messageId) {
+        const errorFallback = getErrorFallback(msg);
         // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
         // to prevent React update-depth overflow during high-frequency streaming.
         options.store.batchStreamChunkUpdate({
@@ -412,10 +423,11 @@ export function handleBackgroundAgentMessage(
           content: msg.content,
           metadata: msg.metadata,
           streaming: !msg.isFinal,
-          catStatus: msg.isFinal ? 'done' : 'streaming',
+          catStatus: msg.isFinal ? (errorFallback ? 'error' : 'done') : 'streaming',
         });
-        if (msg.replyTo || msg.replyPreview) {
+        if (msg.replyTo || msg.replyPreview || errorFallback) {
           options.store.patchThreadMessage(msg.threadId, messageId, {
+            ...(buildMessageExtra(msg) ? { extra: buildMessageExtra(msg) } : {}),
             ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
             ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
           });
@@ -433,7 +445,7 @@ export function handleBackgroundAgentMessage(
           catId: msg.catId,
           content: msg.content,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+          ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
           ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
           timestamp: msg.timestamp,
@@ -441,7 +453,11 @@ export function handleBackgroundAgentMessage(
           origin: 'stream',
         });
         // Cat status for new message (not batched — fires once per stream start)
-        options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+        options.store.updateThreadCatStatus(
+          msg.threadId,
+          msg.catId,
+          msg.isFinal ? (msg.extra?.errorFallback ? 'error' : 'done') : 'streaming',
+        );
         if (msg.isFinal) {
           options.bgStreamRefs.delete(streamKey);
         }
@@ -451,8 +467,9 @@ export function handleBackgroundAgentMessage(
     }
 
     // Callback-only: update cat status on isFinal (non-callback handled by batch/new-message above)
+    const errorFallback = getErrorFallback(msg);
     if (isCallbackText && msg.isFinal) {
-      options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'done');
+      options.store.updateThreadCatStatus(msg.threadId, msg.catId, errorFallback ? 'error' : 'done');
     }
     if (msg.isFinal) {
       // #80 fix-C: Clear timeout guard for text(isFinal) path
@@ -461,10 +478,28 @@ export function handleBackgroundAgentMessage(
         ? options.store.getThreadState(msg.threadId).messages.find((m) => m.id === finalMsgId)
         : undefined;
       const preview = finalMessage?.content ?? msg.content;
+      const catLabel = resolveCatLabel(msg.catId);
       markThreadInvocationComplete(msg, options);
+      if (errorFallback) {
+        const toast = getAgentErrorToastContent({
+          catId: msg.catId,
+          catDisplayName: catLabel,
+          error: errorFallback.rawError,
+          errorCode: msg.errorCode,
+        });
+        options.addToast({
+          type: 'error',
+          title: toast.title,
+          message: preview || toast.message,
+          threadId: msg.threadId,
+          threadTitle: options.getThreadTitle?.(msg.threadId),
+          duration: 8000,
+        });
+        return;
+      }
       options.addToast({
         type: 'success',
-        title: `${msg.catId} 完成`,
+        title: `${catLabel} 完成`,
         message: preview.slice(0, 80) + (preview.length > 80 ? '...' : ''),
         threadId: msg.threadId,
         threadTitle: options.getThreadTitle?.(msg.threadId),
@@ -502,7 +537,10 @@ export function handleBackgroundAgentMessage(
     }
 
     // Toast 通知（降级）
-    const toast = getAgentErrorToastContent(msg);
+    const toast = getAgentErrorToastContent({
+      ...msg,
+      catDisplayName: resolveCatLabel(msg.catId),
+    });
     options.addToast({
       type: 'error',
       title: toast.title,
@@ -519,10 +557,11 @@ export function handleBackgroundAgentMessage(
     const currentStatus = options.store.getThreadState(msg.threadId).catStatuses[msg.catId];
     if (currentStatus !== 'error') {
       options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'done');
+      const catLabel = resolveCatLabel(msg.catId);
       options.addToast({
         type: 'success',
-        title: `${msg.catId} 完成`,
-        message: `${msg.catId} 已完成处理`,
+        title: `${catLabel} 完成`,
+        message: `${catLabel} 已完成处理`,
         threadId: msg.threadId,
         threadTitle: options.getThreadTitle?.(msg.threadId),
         duration: 5000,
