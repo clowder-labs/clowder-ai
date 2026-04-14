@@ -40,9 +40,28 @@ function replaceLocation(target: string): void {
   }
 }
 
+async function logoutAndRedirect(): Promise<void> {
+  try {
+    const response = await apiFetch('/api/logout', {
+      method: 'POST',
+    });
+    const data = (await response.json()) as { logoutUrl?: string };
+    clearAuthIdentity();
+    setIsSkipAuth(false);
+
+    if (response.ok && typeof data?.logoutUrl === 'string' && data.logoutUrl) {
+      window.location.replace(data.logoutUrl);
+      return;
+    }
+  } catch (error) {
+    console.error('退出登录失败:', error);
+  }
+
+  redirectToLogin();
+}
+
 function redirectToLogin(): void {
   clearAuthIdentity();
-  replaceLocation('/login');
 }
 
 function withAuthSuccessRedirect(target: string): string {
@@ -93,9 +112,9 @@ export default function LoginCallbackPage() {
     const finalizeLogin = async () => {
       const ticket = getTicketFromLocation();
       if (!ticket) {
-        setError('登录回调缺少 ticket 参数，正在返回统一认证页');
+        setError('登录回调缺少 ticket 参数，正在退出登录');
         window.setTimeout(() => {
-          if (!cancelled) redirectToLogin();
+          if (!cancelled) void logoutAndRedirect();
         }, 1800);
         return;
       }
@@ -109,7 +128,7 @@ export default function LoginCallbackPage() {
         if (!ok || !data?.success || !data.userId) {
           setError(data?.message || '登录回调处理失败，正在返回统一认证页');
           window.setTimeout(() => {
-            if (!cancelled) redirectToLogin();
+            if (!cancelled) void logoutAndRedirect();
           }, 1800);
           return;
         }
@@ -121,7 +140,7 @@ export default function LoginCallbackPage() {
         if (!cancelled) {
           setError('登录回调处理失败，正在返回统一认证页');
           window.setTimeout(() => {
-            if (!cancelled) redirectToLogin();
+            if (!cancelled) void logoutAndRedirect();
           }, 1800);
         }
       }

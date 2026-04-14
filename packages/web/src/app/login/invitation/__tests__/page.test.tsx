@@ -103,6 +103,14 @@ describe('InvitationPage', () => {
           }),
         );
       }
+      if (url === '/api/logout' && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            success: true,
+            logoutUrl: '/login',
+          }),
+        );
+      }
       return Promise.resolve(jsonResponse({}));
     });
   });
@@ -175,5 +183,29 @@ describe('InvitationPage', () => {
 
     expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockRouterReplace).toHaveBeenCalledWith('/login');
+  });
+
+  it('calls logout and redirects when clicking relogin', async () => {
+    const locationReplaceSpy = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined as any);
+
+    await act(async () => {
+      root.render(React.createElement(InvitationPage));
+    });
+    await flush();
+
+    const reloginButton = container.querySelector('button[type="button"]');
+    expect(reloginButton).not.toBeNull();
+
+    await act(async () => {
+      reloginButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/logout', expect.objectContaining({ method: 'POST' }));
+    expect(mockClearAuthIdentity).toHaveBeenCalled();
+    expect(locationReplaceSpy).toHaveBeenCalledWith('/login');
+
+    locationReplaceSpy.mockRestore();
   });
 });

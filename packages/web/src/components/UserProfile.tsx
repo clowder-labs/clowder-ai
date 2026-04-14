@@ -1,6 +1,5 @@
 ﻿'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
@@ -55,7 +54,6 @@ export function UserProfile({ className }: UserProfileProps) {
   const panelScrollRef = useRef<HTMLDivElement>(null);
   const themeAnchorRef = useRef<HTMLDivElement>(null);
   const themePopoverRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
   const userId = getUserId();
   const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
@@ -142,13 +140,7 @@ export function UserProfile({ className }: UserProfileProps) {
     clearAuthIdentity();
     setShowThemePanel(false);
     setShowPanel(false);
-
-    if (typeof window !== 'undefined') {
-      window.location.assign(logoutUrl || DEFAULT_LOGOUT_URL);
-      return;
-    }
-
-    router.replace('/login');
+    window.location.assign(logoutUrl || DEFAULT_LOGOUT_URL);
   };
 
   const handleLogout = async () => {

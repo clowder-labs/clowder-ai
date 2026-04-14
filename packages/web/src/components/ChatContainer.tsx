@@ -56,6 +56,10 @@ import { LoadingPointStyle } from './LoadingPointStyle';
 import { AuthHeroShowcase } from './auth/AuthShell';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
+let cachedAuthChecked = false;
+let cachedIsLoggedIn = false;
+let cachedIsSkipAuth = false;
+
 const SIDEBAR_DEFAULT = 240;
 const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
 const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
@@ -166,8 +170,16 @@ function mapPendingAuthorizationToMessages(
 
 export function ChatContainer(props: ChatContainerProps) {
   const [skipInitialAuthGate] = useState(() => Boolean(props.skipInitialAuthGate) || hasAuthSuccessFlagInLocation());
-  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck || skipInitialAuthGate);
-  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck || skipInitialAuthGate);
+  const [authChecked, setAuthChecked] = useState(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return true;
+    console.log('ChatContainer: initializing authChecked from cache:', cachedAuthChecked, 'cachedIsLoggedIn:', cachedIsLoggedIn);
+    return cachedAuthChecked;
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return true;
+    console.log('ChatContainer: initializing isLoggedIn from cache:', cachedIsLoggedIn);
+    return cachedIsLoggedIn;
+  });
   const hasAuthRedirectedRef = useRef(false);
   const router = useRouter();
   const authPending = Boolean(props.requireLoginCheck) && !authChecked;
@@ -185,14 +197,21 @@ export function ChatContainer(props: ChatContainerProps) {
   useEffect(() => {
     if (!props.requireLoginCheck || skipInitialAuthGate) return;
 
+    console.log('ChatContainer: checking cache - cachedAuthChecked:', cachedAuthChecked, 'cachedIsLoggedIn:', cachedIsLoggedIn);
+    if (cachedAuthChecked && cachedIsLoggedIn) {
+      console.log('ChatContainer: using cached auth state');
+      setIsSkipAuth(cachedIsSkipAuth);
+      setIsLoggedIn(true);
+      setAuthChecked(true);
+      return;
+    }
+
+    console.log('ChatContainer: cache not valid, making API call');
     let cancelled = false;
 
     const redirectTo = (target: string, external = false) => {
       if (hasAuthRedirectedRef.current) return;
       hasAuthRedirectedRef.current = true;
-      if (!external && target === '/login') {
-        clearAuthIdentity();
-      }
       if (external) {
         window.location.replace(target);
         return;
@@ -201,30 +220,39 @@ export function ChatContainer(props: ChatContainerProps) {
     };
 
     (async () => {
+      let data: any = null;
       try {
         const response = await apiFetch('/api/islogin');
-        const data = await response.json();
+        data = await response.json();
         if (cancelled) return;
         setIsSkipAuth(Boolean(data?.isskip));
         if (data?.islogin) {
+          console.log('ChatContainer: auth success, setting cache');
           setIsLoggedIn(true);
-        } else if (data?.pendingInvitation) {
-          redirectTo('/login/invitation');
+          cachedIsLoggedIn = true;
         } else {
-          const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
-          if (loginUrl) {
-            redirectTo(loginUrl, true);
+          console.log('ChatContainer: auth failed, clearing cache');
+          cachedIsLoggedIn = false;
+          if (data?.pendingInvitation) {
+            redirectTo('/login/invitation');
           } else {
-            redirectTo('/login');
+            const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+            if (loginUrl) {
+              redirectTo(loginUrl, true);
+            }
           }
         }
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
-          redirectTo('/login');
         }
       } finally {
-        if (!cancelled) setAuthChecked(true);
+        if (!cancelled) {
+          console.log('ChatContainer: auth check completed, setting cachedAuthChecked = true');
+          setAuthChecked(true);
+          cachedAuthChecked = true;
+          cachedIsSkipAuth = Boolean(data?.isskip);
+        }
       }
     })();
 
