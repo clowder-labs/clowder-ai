@@ -41,6 +41,7 @@ import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueP
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
+import { getJiuwenPermissionBridge } from './domains/cats/services/auth/JiuwenPermissionBridge.js';
 import {
   AgentRouter,
   AuditEventTypes,
@@ -173,6 +174,7 @@ import {
   createAomMetricsReporterFromEnv,
   createTokenUsageReporter,
   initMetricsService,
+  startTokenUsageReporter,
 } from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
@@ -631,6 +633,7 @@ async function main(): Promise<void> {
     const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
     const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
     const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+    taskRunnerV2.setDynamicTaskStore(dynamicTaskStore);
 
     // Schedule panel API routes
     const { scheduleRoutes } = await import('./routes/schedule.js');
@@ -638,9 +641,11 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
+      deliver: schedulerDeliver,
     });
 
     // Hydrate persisted dynamic tasks + start
@@ -995,6 +1000,7 @@ async function main(): Promise<void> {
     auditStore: authAuditStore,
     io: socketManager.getIO(),
   });
+  getJiuwenPermissionBridge().bindAuthorizationManager(authManager);
   const connectorBindingStore = redisClient
     ? new RedisConnectorThreadBindingStore(redisClient)
     : new MemoryConnectorThreadBindingStore();
@@ -1052,7 +1058,9 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {
+    agentRegistry,
+  };
   await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);
@@ -1161,17 +1169,14 @@ async function main(): Promise<void> {
   startTtsCacheCleaner(ttsCacheDir);
 
   // Token Usage Reporter (AOM metrics, 1-minute interval)
-  const aomReporter = createAomMetricsReporterFromEnv();
-  if (aomReporter) {
+  // Try environment variables first (legacy), then rely on credential-based init after login
+  const envReporter = createAomMetricsReporterFromEnv();
+  if (envReporter) {
     initMetricsService();
-    const tokenUsageReporter = createTokenUsageReporter({
-      reporter: aomReporter,
-      intervalMs: 60_000,
-    });
-    tokenUsageReporter.start();
-    app.log.info('[api] Token usage reporter started');
+    startTokenUsageReporter(60_000);
+    app.log.info('[api] Token usage reporter started (from env)');
   } else {
-    app.log.info('[api] Token usage reporter disabled (AOM not configured)');
+    app.log.info('[api] Token usage reporter will initialize after login (credential-based)');
   }
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)

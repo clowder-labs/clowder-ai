@@ -22,18 +22,82 @@
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { InvocationRecord, InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
+import {
+  notifyTaskDeleted,
+  notifyTaskPaused,
+  notifyTaskRegistered,
+  notifyTaskResumed,
+} from '../infrastructure/scheduler/schedule-notify.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
-import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { DeliverOpts, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
+
+const MIN_INTERVAL_MS = 10_000;
+const MIN_ONCE_DELAY_MS = 1_000;
+
+/** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
+function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
+  if (trigger.type !== 'once') return trigger as TriggerSpec;
+  const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
+  const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
+  if (delayMs != null) {
+    if (!Number.isFinite(delayMs) || delayMs < MIN_ONCE_DELAY_MS) {
+      return { error: `once trigger delayMs must be a finite number >= ${MIN_ONCE_DELAY_MS}` };
+    }
+    return { type: 'once', fireAt: Date.now() + delayMs };
+  }
+  if (fireAt != null) {
+    if (!Number.isFinite(fireAt) || fireAt < Date.now()) {
+      return { error: 'once trigger fireAt must be a finite epoch ms in the future' };
+    }
+    return { type: 'once', fireAt };
+  }
+  return { error: 'once trigger requires either delayMs or fireAt' };
+}
+
+function normalizeTriggerSpec(trigger: unknown): TriggerSpec | { error: string } {
+  if (!trigger || typeof trigger !== 'object' || Array.isArray(trigger)) {
+    return { error: 'trigger must be a plain object' };
+  }
+
+  const record = trigger as Record<string, unknown>;
+  const type = typeof record.type === 'string' ? record.type : undefined;
+  if (!type) return { error: 'trigger.type is required' };
+
+  if (type === 'interval') {
+    const ms = typeof record.ms === 'number' ? record.ms : Number.NaN;
+    if (!Number.isFinite(ms) || ms < MIN_INTERVAL_MS) {
+      return { error: `interval trigger ms must be a finite number >= ${MIN_INTERVAL_MS}` };
+    }
+    return { type: 'interval', ms };
+  }
+
+  if (type === 'cron') {
+    const expression = typeof record.expression === 'string' ? record.expression.trim() : '';
+    if (!expression) return { error: 'cron trigger expression must be a non-empty string' };
+    const timezone = typeof record.timezone === 'string' && record.timezone.trim().length > 0 ? record.timezone.trim() : undefined;
+    return timezone ? { type: 'cron', expression, timezone } : { type: 'cron', expression };
+  }
+
+  if (type === 'once') return normalizeOnceTrigger(record);
+
+  return { error: `Unsupported trigger type: ${type}` };
+}
+
+function resolveTriggerSpec(trigger: unknown, fallback: TriggerSpec): TriggerSpec | { error: string } {
+  return normalizeTriggerSpec(trigger ?? fallback);
+}
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
   registry?: InvocationRegistry;
   dynamicTaskStore?: DynamicTaskStore;
+  threadStore?: IThreadStore;
   templateRegistry?: {
     get: (id: string) => import('../infrastructure/scheduler/templates/types.js').TaskTemplate | null;
     list: () => import('../infrastructure/scheduler/templates/types.js').TaskTemplate[];
@@ -44,6 +108,8 @@ export interface ScheduleRoutesOptions {
   globalControlStore?: GlobalControlStore;
   /** Phase 3B (AC-D3): pack template store */
   packTemplateStore?: PackTemplateStore;
+  /** #415: deliver function for lifecycle notifications */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -51,6 +117,12 @@ export function extractThreadId(subjectKey: string): string | null {
   if (subjectKey.startsWith('thread-')) return subjectKey.slice(7);
   if (subjectKey.startsWith('thread:')) return subjectKey.slice(7);
   return null;
+}
+
+function formatTriggerForLog(trigger: TriggerSpec): string {
+  if (trigger.type === 'interval') return `interval:${trigger.ms}ms`;
+  if (trigger.type === 'once') return `once:${new Date(trigger.fireAt).toISOString()}`;
+  return `cron:${trigger.expression}${trigger.timezone ? `@${trigger.timezone}` : ''}`;
 }
 
 function pickString(value: unknown): string | undefined {
@@ -93,12 +165,36 @@ function resolveInvocationRecord(
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, registry, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore } = opts;
+  const { taskRunner, registry, dynamicTaskStore, threadStore, templateRegistry, globalControlStore, packTemplateStore, deliver } =
+    opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
     const summaries = taskRunner.getTaskSummaries();
-    return { tasks: summaries };
+    const deliveryThreadIdByTaskId = new Map(
+      (dynamicTaskStore?.getAll() ?? []).map((def) => [def.id, def.deliveryThreadId]),
+    );
+    const threadIds = Array.from(
+      new Set(
+        summaries
+          .map((task) => deliveryThreadIdByTaskId.get(task.id) ?? null)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    const threadTitleById = new Map<string, string>();
+    if (threadStore && threadIds.length > 0) {
+      const threads = await Promise.all(threadIds.map((threadId) => threadStore.get(threadId)));
+      for (const thread of threads) {
+        if (thread?.id) threadTitleById.set(thread.id, thread.title ?? '');
+      }
+    }
+    return {
+      tasks: summaries.map((task) => ({
+        ...task,
+        deliveryThreadId: deliveryThreadIdByTaskId.get(task.id) ?? null,
+        threadTitle: threadTitleById.get(deliveryThreadIdByTaskId.get(task.id) ?? '') ?? null,
+      })),
+    };
   });
 
   // GET /api/schedule/tasks/:id/runs
@@ -140,13 +236,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
   // POST /api/schedule/tasks/:id/trigger
   app.post('/api/schedule/tasks/:id/trigger', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
     const registered = taskRunner.getRegisteredTasks();
     if (!registered.includes(id)) {
       reply.status(404);
       return { error: 'Task not found' };
     }
 
+    const summary = taskRunner.getTaskSummaries().find((task) => task.id === id);
+    const triggerInfo = summary ? formatTriggerForLog(summary.trigger) : 'unknown';
+    app.log.info(`[schedule] manual trigger requested task=${id} trigger=${triggerInfo} requestedBy=${requestedBy}`);
     await taskRunner.triggerNow(id, { manual: true });
+    app.log.info(`[schedule] manual trigger completed task=${id} trigger=${triggerInfo} requestedBy=${requestedBy}`);
     return { success: true, taskId: id };
   });
 
@@ -196,7 +297,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    const trigger = resolveTriggerSpec(body.trigger, template.defaultTrigger);
+    if ('error' in trigger) {
+      reply.status(400);
+      return { error: trigger.error };
+    }
     const params = body.params ?? {};
     const display = body.display
       ? {
@@ -251,8 +356,13 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    const trigger = resolveTriggerSpec(body.trigger, template.defaultTrigger);
+    if ('error' in trigger) {
+      reply.status(400);
+      return { error: trigger.error };
+    }
     const params = body.params ?? {};
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
 
     if (typeof params !== 'object' || params === null || Array.isArray(params)) {
       reply.status(400);
@@ -319,6 +429,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Task registered but DB insert failed (rolled back): ${err instanceof Error ? err.message : String(err)}` };
     }
 
+    app.log.info(
+      `[schedule] registered dynamic task task=${id} template=${body.templateId} trigger=${formatTriggerForLog(trigger)} requestedBy=${requestedBy}`,
+    );
+    notifyTaskRegistered(deliver, def);
     return { success: true, task: { id, ...display, trigger } };
   });
 
@@ -330,6 +444,9 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     const { id } = request.params as { id: string };
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
+    // Read def before deletion for notification + logging
+    const def = dynamicTaskStore.getById(id);
     const removed = dynamicTaskStore.remove(id);
     if (!removed) {
       reply.status(404);
@@ -337,6 +454,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     taskRunner.unregister(id);
+    app.log.info(`[schedule] deleted dynamic task task=${id} requestedBy=${requestedBy} taskInfo=${JSON.stringify(def)}`);
+
+    // #415: lifecycle notification — task deleted
+    if (def) notifyTaskDeleted(deliver, def);
     return { success: true };
   });
 
@@ -349,6 +470,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
 
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as { enabled?: boolean };
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
 
     if (typeof body.enabled !== 'boolean') {
       reply.status(400);
@@ -361,29 +483,36 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
+    const def = dynamicTaskStore.getById(id);
     // Keep dynamic task in runtime summaries; toggle execution state only.
     // If runtime entry is missing (e.g. legacy state), re-register from store.
     const toggled = taskRunner.setDynamicEnabled(id, body.enabled);
-    if (!toggled) {
-      const def = dynamicTaskStore.getById(id);
-      if (def) {
-        const template = templateRegistry.get(def.templateId);
-        if (template) {
-          const spec = template.createSpec(def.id, {
-            trigger: def.trigger,
-            params: def.params,
-            deliveryThreadId: def.deliveryThreadId,
-          });
-          spec.display = def.display;
-          try {
-            taskRunner.registerDynamic(spec, def.id, def.enabled);
-          } catch {
-            // Already registered — ignore
-          }
+    if (!toggled && def) {
+      const template = templateRegistry.get(def.templateId);
+      if (template) {
+        const spec = template.createSpec(def.id, {
+          trigger: def.trigger,
+          params: def.params,
+          deliveryThreadId: def.deliveryThreadId,
+        });
+        spec.display = def.display;
+        try {
+          taskRunner.registerDynamic(spec, def.id, def.enabled);
+        } catch {
+          // Already registered — ignore
         }
+      } else if (body.enabled) {
+        dynamicTaskStore.setEnabled(id, false); // roll back — resume failed
+        reply.status(500);
+        return { error: `Template ${def.templateId} not found — task cannot resume` };
       }
     }
 
+    app.log.info(`[schedule] updated dynamic task enabled state task=${id} enabled=${body.enabled} requestedBy=${requestedBy}`);
+    if (def) {
+      if (!body.enabled) notifyTaskPaused(deliver, def);
+      else notifyTaskResumed(deliver, def);
+    }
     return { success: true, enabled: body.enabled };
   });
 

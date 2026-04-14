@@ -5,10 +5,12 @@
  */
 
 import type { Metadata, Viewport } from 'next';
-import { AppAuthBootstrap } from '@/components/AppAuthBootstrap';
+import Script from 'next/script';
+import { DevServiceWorkerReset } from '@/components/DevServiceWorkerReset';
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
+import { buildThemeBootstrapScript, DEFAULT_THEME } from '@/utils/theme-persistence';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -35,12 +37,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" data-ui-theme="business">
-      <body className="min-h-screen w-screen">
+    <html lang="zh-CN" data-ui-theme={DEFAULT_THEME} suppressHydrationWarning>
+      <body className="min-h-screen w-full" suppressHydrationWarning>
+        <DevServiceWorkerReset />
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {buildThemeBootstrapScript()}
+        </Script>
         <ThemeRootSync />
-        <AppAuthBootstrap>
-          <ConfirmProvider>{children}</ConfirmProvider>
-        </AppAuthBootstrap>
+        <ConfirmProvider>{children}</ConfirmProvider>
         <ToastContainer />
       </body>
     </html>

@@ -103,7 +103,7 @@ describe('ModelsPanel shared empty search state', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector('input[type="search"]') as HTMLInputElement | null;
+    const input = container.querySelector('input[aria-label="搜索模型"]') as HTMLInputElement | null;
     expect(input).not.toBeNull();
 
     await changeInputValue(input!, 'no-match');
@@ -122,7 +122,7 @@ describe('ModelsPanel shared empty search state', () => {
     await clickButton(clearButton!);
     await flushEffects();
 
-    expect((container.querySelector('input[type="search"]') as HTMLInputElement | null)?.value).toBe('');
+    expect((container.querySelector('input[aria-label="搜索模型"]') as HTMLInputElement | null)?.value).toBe('');
     expect(container.textContent).toContain('gpt-5');
   });
 

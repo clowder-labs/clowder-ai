@@ -18,6 +18,8 @@ type ScheduleTaskSummaryResponse = {
   tasks: Array<{
     id: string;
     dynamicTaskId?: string;
+    deliveryThreadId?: string | null;
+    threadTitle?: string | null;
     source: 'builtin' | 'dynamic';
     trigger: ScheduleTrigger;
     enabled: boolean;
@@ -56,7 +58,7 @@ type ScheduledTaskItem = {
   status: string;
   enabled: boolean;
   createTime: string;
-  sessionId: string;
+  sessionName: string;
 };
 
 type ScheduleControlSnapshot = {
@@ -97,7 +99,8 @@ function toViewTask(
   control?: ScheduleControlSnapshot,
 ): ScheduledTaskItem {
   const id = task.dynamicTaskId ?? task.id;
-  const threadId = extractThreadId(task.lastRun?.subject_key);
+  const threadId = task.deliveryThreadId ?? extractThreadId(task.lastRun?.subject_key);
+  const threadName = task.threadTitle?.trim() || threadId || '-';
   const effectiveEnabled = computeEffectiveEnabled(task, control);
   return {
     taskId: id,
@@ -111,7 +114,7 @@ function toViewTask(
     status: effectiveEnabled ? 'running' : 'paused',
     enabled: effectiveEnabled,
     createTime: task.lastRun?.started_at ?? '',
-    sessionId: threadId ?? '-',
+    sessionName: threadName,
   };
 }
 
@@ -368,14 +371,14 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               <div className="min-w-0 flex-1 leading-6">{selectedTask.prompt}</div>
             </div>
             <div className="flex items-start gap-6">
-              <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">会话ID</div>
-              <div className="min-w-0 flex-1 font-mono text-[13px] leading-6 text-[#2F3A4B]">{selectedTask.sessionId}</div>
+              <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">执行会话</div>
+              <div className="min-w-0 flex-1 text-[14px] leading-6 text-[#2F3A4B]">{selectedTask.sessionName}</div>
             </div>
             <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={() => setSelectedTask(null)}
-                className="ui-button-primary ui-modal-action-button"
+                className="ui-button-primary"
               >
                 确定
               </button>
@@ -411,7 +414,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               type="button"
               onClick={() => setDeleteTargetTask(null)}
               disabled={isDeletingTask}
-              className="ui-button-default ui-modal-action-button"
+              className="ui-button-default"
             >
               取消
             </button>
@@ -421,7 +424,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                 await handleDeleteConfirm();
               }}
               disabled={isDeletingTask}
-              className="ui-button-primary ui-modal-action-button"
+              className="ui-button-primary"
             >
               {isDeletingTask ? '删除中...' : '删除'}
             </button>

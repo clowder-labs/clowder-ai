@@ -168,8 +168,9 @@ describe('UploadSkillModal', () => {
 
   it('allows English names with hyphen and rejects unsupported characters', () => {
     expect(validateSkillName('Alpha-Beta')).toBeNull();
-    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文和中划线');
-    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文和中划线');
+    expect(validateSkillName('Alpha-2026')).toBeNull();
+    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文、数字和中划线');
+    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文、数字和中划线');
   });
 
   it('parses skill metadata only from frontmatter fields', () => {
@@ -222,7 +223,6 @@ Fallback description`),
 
     const cancelButton = container.querySelector('button.ui-button-default') as HTMLButtonElement | null;
     expect(cancelButton).toBeTruthy();
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
 
     act(() => {
       cancelButton?.click();
@@ -240,9 +240,7 @@ Fallback description`),
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('shows a disabled hint before any files are selected', () => {
@@ -772,16 +770,31 @@ description: editable skill.
     });
     await flushEffects();
 
+    const nameError = container.querySelector('[data-testid="upload-skill-name-error"]') as HTMLParagraphElement | null;
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('导入'),
     ) as HTMLButtonElement | undefined;
     const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(nameInput?.style.borderColor).toBe('rgb(242, 48, 48)');
+    expect(nameInput?.style.backgroundColor).toBe('rgb(252, 227, 225)');
+    expect(nameError?.textContent).toBe('技能名称仅支持英文、数字和中划线');
     expect(confirmButton).toBeDefined();
     expect(confirmButton?.disabled).toBe(true);
+
+    await act(async () => {
+      nameInput?.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('input[placeholder="请输入技能名称"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="upload-skill-name-error"]')?.textContent).toBe('技能名称仅支持英文、数字和中划线');
+
     act(() => {
       submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     });
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文和中划线');
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文、数字和中划线');
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });

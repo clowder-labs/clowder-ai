@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
+import { clearAuthIdentity } from '@/utils/userId';
 
 const mockReplace = vi.fn();
 const mockApiFetch = vi.fn();
@@ -21,9 +22,12 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  clearAuthIdentity: vi.fn(),
   getUserId: () => 'test-user',
   setIsSkipAuth: vi.fn(),
 }));
+
+const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 
 vi.mock('@/hooks/useAgentMessages', () => ({
   useAgentMessages: () => ({
@@ -149,13 +153,19 @@ describe('ChatContainer auth gate', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    window.history.replaceState({}, '', 'http://localhost/');
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     mockReplace.mockReset();
     mockApiFetch.mockReset();
+    mockClearAuthIdentity.mockReset();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it('shows the auth loading panel instead of the home shell while login status is pending', () => {
@@ -178,6 +188,7 @@ describe('ChatContainer auth gate', () => {
       await flushEffects();
     });
 
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/login');
     expect(container.querySelector('[data-testid="chat-container-loading-panel"]')).not.toBeNull();
     expect(container.textContent).toContain('正在跳转登录页...');
@@ -195,5 +206,32 @@ describe('ChatContainer auth gate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(container.querySelector('[data-testid="chat-container-loading-panel"]')).toBeNull();
     expect(container.querySelector('[data-testid="new-thread-container"]')).not.toBeNull();
+  });
+
+  it('opens the chat page directly when login was just confirmed in the same tab', async () => {
+    mockApiFetch.mockReturnValue(new Promise(() => {}));
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { mode: 'new', requireLoginCheck: true, skipInitialAuthGate: true }));
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="chat-container-loading-panel"]')).toBeNull();
+    expect(container.querySelector('[data-testid="new-thread-container"]')).not.toBeNull();
+  });
+
+  it('honors authSuccess from the URL on direct reloads after login', async () => {
+    window.history.replaceState({}, '', 'http://localhost/?authSuccess=1');
+    mockApiFetch.mockReturnValue(new Promise(() => {}));
+
+    await act(async () => {
+      root.render(React.createElement(ChatContainer, { mode: 'new', requireLoginCheck: true }));
+      await flushEffects();
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="chat-container-loading-panel"]')).toBeNull();
+    expect(container.querySelector('[data-testid="new-thread-container"]')).not.toBeNull();
+    expect(new URL(window.location.href).searchParams.has('authSuccess')).toBe(false);
   });
 });

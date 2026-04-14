@@ -576,7 +576,7 @@ export function WorkspacePanel() {
         <button
           type="button"
           onClick={() => setRightPanelMode('status')}
-          className="w-6 h-6 flex items-center justify-center rounded-md text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60 transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded-md text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
           title="切换到状态面板"
         >
           <CloseIcon />
@@ -971,7 +971,7 @@ export function WorkspacePanel() {
                             if (openFilePath) closeTab(openFilePath);
                             setEditMode(false);
                           }}
-                          className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                          className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
                           title="关闭标签页"
                         >
                           <CloseIcon />

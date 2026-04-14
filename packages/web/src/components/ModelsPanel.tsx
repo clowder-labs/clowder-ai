@@ -81,6 +81,19 @@ function SparklesIcon() {
   );
 }
 
+function CloseIcon() {
+  return <AgentManagementIcon name="close" className="h-4 w-4" />;
+}
+
+function ClockIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12L15 13.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 interface MassModelResponseItem {
   id?: string | number;
   object?: string;
@@ -106,6 +119,7 @@ interface ModelCardData {
   protocol: string;
   baseUrl?: string;
   accessMode?: 'huawei_maas_access';
+  createdAt?: string | number;
   [key: string]: unknown;
 }
 
@@ -124,6 +138,7 @@ interface ModelConfigProviderItem {
   apiKey?: string;
   headers?: Record<string, string>;
   models?: string[];
+  createdAt?: string;
 }
 
 interface HeaderInputRow {
@@ -162,6 +177,34 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function normalizeCreatedAt(value: unknown): string | number | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
+}
+
+function formatCustomModelCreatedAt(value: unknown): string | null {
+  const normalized = normalizeCreatedAt(value);
+  if (normalized === undefined) return null;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}:${ss}`;
+}
+
+function resolveModelConfigSourceId(cardId: string): string | null {
+  if (!cardId.startsWith('model_config:')) return null;
+  const parts = cardId.split(':');
+  if (parts.length < 3) return null;
+  const sourceId = parts[1]?.trim();
+  return sourceId ? sourceId : null;
+}
+
 function isHuaweiMaasAccessBaseUrl(baseUrl: string | undefined): boolean {
   return normalizeBaseUrlForComparison(baseUrl) === normalizeBaseUrlForComparison(HUAWEI_MAAS_ACCESS_URL);
 }
@@ -197,6 +240,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
   const baseUrl = typeof item.baseUrl === 'string' && item.baseUrl.trim() ? item.baseUrl.trim() : undefined;
   const accessMode = item.accessMode === 'huawei_maas_access' ? 'huawei_maas_access' : undefined;
+  const createdAt = normalizeCreatedAt(item.createdAt ?? item.created_at ?? item.createTime ?? item.create_time);
   const resolvedDeveloper = isHuaweiMaasAccessBaseUrl(baseUrl) ? '其他' : developer;
 
   return {
@@ -210,6 +254,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     protocol,
     ...(baseUrl ? { baseUrl } : {}),
     ...(accessMode ? { accessMode } : {}),
+    ...(createdAt !== undefined ? { createdAt } : {}),
   };
 }
 
@@ -320,28 +365,55 @@ export function ModelsPanel() {
     return queryText ? `/api/maas-models?${queryText}` : '/api/maas-models';
   }, [currentProjectPath]);
 
+  const buildModelConfigProfilesUrl = useCallback(() => {
+    const query = new URLSearchParams();
+    if (currentProjectPath && currentProjectPath !== 'default') {
+      query.set('projectPath', currentProjectPath);
+    }
+    const queryText = query.toString();
+    return queryText ? `/api/model-config-profiles?${queryText}` : '/api/model-config-profiles';
+  }, [currentProjectPath]);
+
   const fetchModels = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(buildModelsUrl());
-      if (!res.ok) {
+      const [modelsRes, providersRes] = await Promise.all([
+        apiFetch(buildModelsUrl()),
+        apiFetch(buildModelConfigProfilesUrl()),
+      ]);
+      if (!modelsRes.ok) {
         setCards([]);
         return;
       }
-      const json = (await res.json()) as {
+      const json = (await modelsRes.json()) as {
         projectPath?: string;
         list?: MassModelResponseItem[];
         models?: MassModelResponseItem[];
       };
+      const providersJson = providersRes.ok
+        ? ((await providersRes.json()) as { providers?: ModelConfigProviderItem[] })
+        : { providers: [] };
+      const providerCreatedAtById = new Map(
+        (providersJson.providers ?? [])
+          .filter((provider) => normalizeCreatedAt(provider.createdAt) !== undefined)
+          .map((provider) => [provider.id, provider.createdAt as string]),
+      );
       const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
-      setCards(source.map(normalizeModel));
+      setCards(
+        source.map(normalizeModel).map((card) => {
+          const sourceId = resolveModelConfigSourceId(card.id);
+          if (!sourceId || card.createdAt !== undefined) return card;
+          const createdAt = providerCreatedAtById.get(sourceId);
+          return createdAt ? { ...card, createdAt } : card;
+        }),
+      );
       setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
     } catch {
       setCards([]);
     } finally {
       setLoading(false);
     }
-  }, [buildModelsUrl]);
+  }, [buildModelConfigProfilesUrl, buildModelsUrl]);
 
   const handleDeleteModel = useCallback(
     async (cardId: string, cardName: string) => {
@@ -406,14 +478,6 @@ export function ModelsPanel() {
   const showEmptyData = !loading && cards.length === 0;
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
-
-  const resolveModelConfigSourceId = (cardId: string): string | null => {
-    if (!cardId.startsWith('model_config:')) return null;
-    const parts = cardId.split(':');
-    if (parts.length < 3) return null;
-    const sourceId = parts[1]?.trim();
-    return sourceId ? sourceId : null;
-  };
 
   const resolveProjectPathForPayload = () =>
     resolvedProjectPath || (currentProjectPath && currentProjectPath !== 'default' ? currentProjectPath : undefined);
@@ -526,7 +590,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
-          ...(headers ? { headers } : {}),
+          headers: headers ?? {},
           models: mergedModels,
           ...(projectPath ? { projectPath } : {}),
         };
@@ -735,6 +799,7 @@ export function ModelsPanel() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => {
                     const cardIconSrc = resolveUploadedIconUrl(card.icon);
+                    const customModelCreatedAt = card.protocol !== 'huawei_maas' ? formatCustomModelCreatedAt(card.createdAt) : null;
                     return (
                       <article
                         key={card.id}
@@ -801,15 +866,29 @@ export function ModelsPanel() {
                             {card.protocol !== 'huawei_maas' ? (
                               <div className="relative">
                                 <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={VENDOR_ICON}
-                                    alt={`${card.developer} icon`}
-                                    width={16}
-                                    height={16}
-                                    className="h-4 w-4 rounded-sm object-cover"
-                                  />
-                                  <span>{card.developer}</span>
+                                  {customModelCreatedAt ? (
+                                    <>
+                                      <span
+                                        className="inline-flex h-4 w-4 items-center justify-center"
+                                        data-testid={`model-card-created-at-icon-${card.id}`}
+                                      >
+                                        <ClockIcon />
+                                      </span>
+                                      <span data-testid={`model-card-created-at-${card.id}`}>{customModelCreatedAt}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={VENDOR_ICON}
+                                        alt={`${card.developer} icon`}
+                                        width={16}
+                                        height={16}
+                                        className="h-4 w-4 rounded-sm object-cover"
+                                      />
+                                      <span>{card.developer}</span>
+                                    </>
+                                  )}
                                 </span>
                                 <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                                   <button
@@ -819,9 +898,11 @@ export function ModelsPanel() {
                                     onClick={() => {
                                       void handleOpenEditModelModal(card);
                                     }}
-                                    className="whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline"
+                                    className="group whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)]"
                                   >
-                                    编辑
+                                    <span className="inline-flex h-[20px] items-center border-b border-transparent transition-colors group-hover:border-current">
+                                      编辑
+                                    </span>
                                   </button>
                                   <button
                                     type="button"
@@ -830,9 +911,11 @@ export function ModelsPanel() {
                                       void handleDeleteModel(card.id, card.name);
                                     }}
                                     data-testid={`model-card-delete-${card.id}`}
-                                    className="ml-[24px] whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
+                                    className="group ml-[24px] whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] disabled:opacity-50"
                                   >
-                                    {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
+                                    <span className="inline-flex h-[20px] items-center border-b border-transparent transition-colors group-hover:border-current">
+                                      {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
+                                    </span>
                                   </button>
                                 </div>
                               </div>
@@ -865,21 +948,19 @@ export function ModelsPanel() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
           data-testid="models-create-model-modal"
         >
-          <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
+          <div className="relative flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={closeCreateModelModal}
+              aria-label="close"
+              className="absolute right-5 top-5 flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            >
+              <CloseIcon />
+            </button>
+            <div className="pr-10">
               <h3 className="text-[16px] font-bold">
                 {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? HUAWEI_MAAS_ACCESS_LABEL : CREATE_MODEL_LABEL}
               </h3>
-              <button
-                type="button"
-                onClick={closeCreateModelModal}
-                aria-label="close"
-                className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
@@ -937,12 +1018,12 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-xs)] transition overflow-hidden"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={modelIconPreviewSrc} alt="Model icon preview" className="h-full w-full object-cover" />
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
-                      上传
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                      <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                     </span>
                   </button>
                   <input
@@ -1039,7 +1120,7 @@ export function ModelsPanel() {
                         type="button"
                         onClick={() => handleRemoveHeaderRow(row.id)}
                         aria-label={`请求头 ${index + 1}`}
-                        className="h-[16px] w-[16px] min-h-[16px] min-w-[16px] p-0"
+                        className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
                         data-testid={`models-create-model-header-remove-${index}`}
                       >
                         <AgentManagementIcon name="delete" className="h-4 w-4" />
@@ -1049,11 +1130,13 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
-                    <span>添加</span>
+                    <span className="inline-flex h-[18px] items-center border-b border-transparent transition-colors group-hover:border-current">
+                      添加
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1063,7 +1146,7 @@ export function ModelsPanel() {
               <button
                 type="button"
                 onClick={closeCreateModelModal}
-                className="ui-button-default ui-modal-action-button"
+                className="ui-button-default"
               >
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
@@ -1072,7 +1155,7 @@ export function ModelsPanel() {
                 disabled={!canConfirmCreateModel || testingConnection || modelIconUploading || editModelBusy}
                 onClick={handleTestConnection}
                 data-testid="models-test-connection"
-                className="ui-button-default ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ui-button-default disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {testingConnection ? '测试中...' : TEST_CONNECTION_LABEL}
               </button>
@@ -1081,7 +1164,7 @@ export function ModelsPanel() {
                 disabled={!canConfirmCreateModel || saveModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
-                className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saveModelBusy ? '保存中...' : SAVE_MODEL_LABEL}
               </button>

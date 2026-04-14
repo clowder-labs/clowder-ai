@@ -319,11 +319,23 @@ internal sealed class LauncherForm : Form
             await InitializeSplashWebViewAsync().ConfigureAwait(true);
 
             AppendLog("Launcher boot started.");
-            TryRefreshFrontendUrlFromRuntimeState();
 
             if (!await IsFrontendReadyAsync().ConfigureAwait(true))
             {
                 AppendLog("Starting local services...");
+                // 删除旧的 runtime state 文件，避免读取到上次运行的错误端口
+                try
+                {
+                    if (File.Exists(_runtimeStatePath))
+                    {
+                        File.Delete(_runtimeStatePath);
+                        AppendLog("Cleared stale runtime state.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("Warning: Could not delete stale runtime state: " + ex.Message);
+                }
                 StartManagedServices();
                 _serviceStartedByLauncher = true;
             }
@@ -358,11 +370,8 @@ internal sealed class LauncherForm : Form
 
     private string BuildFrontendUrl()
     {
-        if (TryRefreshFrontendUrlFromRuntimeState())
-        {
-            return _frontendUrl;
-        }
-
+        // 不在构造函数读取 runtime state，因为可能是上次运行遗留的旧数据
+        // 正确的 URL 会在 WaitForFrontendAsync() 轮询时从新写入的 runtime state 刷新
         var port = ReadPortFromEnv("FRONTEND_PORT", 3003);
         return "http://127.0.0.1:" + port + "/";
     }
@@ -419,7 +428,9 @@ internal sealed class LauncherForm : Form
         }
 
         _notifyIcon.Visible = false;
-        StopManagedServices();
+
+        // StopManagedServices is now called asynchronously in RequestExit()
+        // to improve user experience (window closes immediately, services stop in background)
     }
 
     private void ShowCloseConfirmationDialog()
@@ -727,7 +738,17 @@ internal sealed class LauncherForm : Form
         }
 
         _exitRequested = true;
-        ShowInTaskbar = true;
+
+        // Hide window immediately for better user experience
+        // Services will be stopped asynchronously in background
+        Hide();
+        _notifyIcon.Visible = false;
+
+        // Start stopping services asynchronously (fire-and-forget)
+        // The PowerShell process will continue running even after this app exits
+        StopManagedServicesAsync();
+
+        // Close window immediately
         Close();
     }
 
@@ -1093,6 +1114,47 @@ internal sealed class LauncherForm : Form
         }
     }
 
+    /// <summary>
+    /// Stops managed services asynchronously without blocking the UI.
+    /// The PowerShell process will continue running even after this application exits.
+    /// </summary>
+    private void StopManagedServicesAsync()
+    {
+        try
+        {
+            var stopScript = Path.Combine(_projectRoot, "scripts", "stop-windows.ps1");
+            if (File.Exists(stopScript))
+            {
+                AppendLog("Starting stop-windows.ps1 in background...");
+
+                // Start PowerShell process without waiting
+                // It will continue running even after this app exits
+                var stopInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + stopScript + "\"",
+                    WorkingDirectory = _projectRoot,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                Process.Start(stopInfo);
+            }
+
+            // Kill serviceHostProcess immediately if it's still running
+            // This is a fallback in case stop-windows.ps1 takes too long
+            if (_serviceHostProcess != null && !_serviceHostProcess.HasExited)
+            {
+                AppendLog("Terminating service host process...");
+                _serviceHostProcess.Kill();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed starting stop script: " + ex.Message);
+        }
+    }
+
     private void AppendLog(string message)
     {
         lock (_logLock)
@@ -1110,8 +1172,6 @@ internal sealed class CloseConfirmationDialog : Form
 {
     private readonly RadioButton _minimizeRadio;
     private readonly RadioButton _exitRadio;
-    private readonly Button _okButton;
-    private readonly Button _cancelButton;
 
     public bool ShouldMinimize
     {
@@ -1126,54 +1186,103 @@ internal sealed class CloseConfirmationDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(320, 140);
         AutoScaleMode = AutoScaleMode.Font;
+
+        var outerTable = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+        };
+        outerTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        outerTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        outerTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        outerTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+        var contentPanel = new Panel
+        {
+            AutoSize = true,
+            MinimumSize = new Size(280, 0),
+        };
+
+        var innerFlow = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            Parent = contentPanel,
+        };
 
         var promptLabel = new Label
         {
             Text = "关闭窗口时，您希望如何处理？",
-            Location = new Point(12, 12),
-            Size = new Size(296, 20),
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 12),
         };
+        innerFlow.Controls.Add(promptLabel);
 
         _minimizeRadio = new RadioButton
         {
             Text = "最小化到托盘（继续运行）",
-            Location = new Point(24, 40),
-            Size = new Size(280, 24),
+            AutoSize = true,
             Checked = true,
+            Margin = new Padding(0, 0, 0, 6),
         };
+        innerFlow.Controls.Add(_minimizeRadio);
 
         _exitRadio = new RadioButton
         {
             Text = "直接退出（关闭应用）",
-            Location = new Point(24, 68),
-            Size = new Size(280, 24),
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 16),
         };
+        innerFlow.Controls.Add(_exitRadio);
 
-        _okButton = new Button
+        var okButton = new Button
         {
             Text = "确定",
             DialogResult = DialogResult.OK,
-            Location = new Point(140, 100),
-            Size = new Size(80, 28),
+            AutoSize = true,
+            MinimumSize = new Size(75, 25),
+            Margin = new Padding(0, 0, 8, 0),
         };
 
-        _cancelButton = new Button
+        var cancelButton = new Button
         {
             Text = "取消",
             DialogResult = DialogResult.Cancel,
-            Location = new Point(228, 100),
-            Size = new Size(80, 28),
+            AutoSize = true,
+            MinimumSize = new Size(75, 25),
+            Margin = new Padding(0),
         };
 
-        Controls.Add(promptLabel);
-        Controls.Add(_minimizeRadio);
-        Controls.Add(_exitRadio);
-        Controls.Add(_okButton);
-        Controls.Add(_cancelButton);
+        var buttonPanel = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.LeftToRight,
+            AutoSize = true,
+            Margin = new Padding(0),
+        };
+        buttonPanel.Controls.Add(okButton);
+        buttonPanel.Controls.Add(cancelButton);
 
-        AcceptButton = _okButton;
-        CancelButton = _cancelButton;
+        innerFlow.Controls.Add(buttonPanel);
+
+        outerTable.Controls.Add(contentPanel, 0, 1);
+
+        Controls.Add(outerTable);
+
+        AcceptButton = okButton;
+        CancelButton = cancelButton;
+
+        Load += (_, __) =>
+        {
+            contentPanel.Width = Math.Max(280, innerFlow.PreferredSize.Width + 30);
+            innerFlow.Left = (contentPanel.Width - innerFlow.PreferredSize.Width) / 2;
+            innerFlow.Top = 0;
+
+            var dialogWidth = contentPanel.Width + 40;
+            var dialogHeight = innerFlow.PreferredSize.Height + 60;
+            ClientSize = new Size(dialogWidth, dialogHeight);
+        };
     }
 }

@@ -328,7 +328,28 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
   assert.match(nsisScript, /Call WriteAutoStartRegistry/);
   assert.match(nsisScript, /Delete "\$DESKTOP\\\$\{APP_NAME\}\.lnk"/);
   assert.match(nsisScript, /DeleteRegValue HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\OfficeClaw\.exe"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\OfficeClaw\.exe\.config"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\Microsoft\.Web\.WebView2\.Core\.dll"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\Microsoft\.Web\.WebView2\.WinForms\.dll"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\WebView2Loader\.dll"/);
+  assert.doesNotMatch(nsisScript, /Delete "\$INSTDIR\\assets\\app\.ico"/);
+  assert.doesNotMatch(nsisScript, /rd \/s \/q "\$INSTDIR\\assets"/);
   assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "/);
+});
+
+test('NSIS installer blocks concurrent installer sessions before touching shared install state', () => {
+  assert.match(nsisScript, /!define INSTALLER_MUTEX_NAME "Local\\\$\{COMPANY_KEY\}\.\$\{APP_NAME\}\.InstallerSession"/);
+  assert.match(nsisScript, /Var InstallerMutexHandle/);
+  assert.match(nsisScript, /Function AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /Function un\.AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0 \?e'/);
+  assert.match(nsisScript, /StrCpy \$InstallerMutexHandle \$0/);
+  assert.match(nsisScript, /Pop \$1/);
+  assert.match(nsisScript, /\$\{If\} \$1 == 183/);
+  assert.match(nsisScript, /MessageBox MB_OK\|MB_ICONEXCLAMATION "/);
+  assert.match(nsisScript, /Function \.onInit[\s\S]*?Call AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /Function un\.onInit[\s\S]*?Call un\.AcquireInstallerSessionMutex/);
 });
 
 test('NSIS installer reuses the recorded install dir instead of allowing duplicate installs elsewhere', () => {

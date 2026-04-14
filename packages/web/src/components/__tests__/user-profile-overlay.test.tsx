@@ -9,10 +9,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserProfile } from '../UserProfile';
+import { apiFetch } from '@/utils/api-client';
+import { clearAuthIdentity } from '@/utils/userId';
 
 const mockReplace = vi.fn();
 const mockSetTheme = vi.fn();
 const mockWindowOpen = vi.fn();
+const mockLocationAssign = vi.fn();
+const originalLocation = window.location;
 let currentTheme: 'business' | 'warm' = 'business';
 
 vi.mock('next/navigation', () => ({
@@ -30,6 +34,7 @@ vi.mock('@/utils/api-client', () => ({
 vi.mock('@/utils/userId', () => ({
   getUserId: () => 'user:Alice',
   getIsSkipAuth: () => false,
+  clearAuthIdentity: vi.fn(),
 }));
 
 vi.mock('../VersionUpdateModal', () => ({
@@ -37,6 +42,8 @@ vi.mock('../VersionUpdateModal', () => ({
 }));
 
 const usageStatsModalSpy = vi.fn();
+const mockApiFetch = vi.mocked(apiFetch);
+const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 
 vi.mock('../UsageStatsModal', () => ({
   UsageStatsModal: (props: { open: boolean; onClose: () => void }) => {
@@ -67,12 +74,29 @@ describe('UserProfile overlay classes', () => {
     mockReplace.mockReset();
     mockSetTheme.mockReset();
     mockWindowOpen.mockReset();
+    mockLocationAssign.mockReset();
+    mockApiFetch.mockReset();
+    mockClearAuthIdentity.mockReset();
     usageStatsModalSpy.mockReset();
+
+    mockApiFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) } as Response);
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        assign: mockLocationAssign,
+      },
+    });
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 
   afterAll(() => {
@@ -322,6 +346,39 @@ describe('UserProfile overlay classes', () => {
       'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html',
       '_blank',
       'noopener,noreferrer',
+    );
+  });
+
+  it('falls back to the default logout url when the logout request fails', async () => {
+    mockApiFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const logoutButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('退出登录'));
+    expect(logoutButton).toBeTruthy();
+
+    await act(async () => {
+      logoutButton?.click();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/logout',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
+    expect(mockLocationAssign).toHaveBeenCalledWith(
+      'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?',
     );
   });
 

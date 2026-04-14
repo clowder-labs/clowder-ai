@@ -791,6 +791,23 @@ class JiuWenClaw:
                 },
                 metadata=request.metadata,
             )
+        # Inject description from ability_manager into permissions.tools
+        if trees and self._instance is not None:
+            permissions = trees.get("permissions")
+            if isinstance(permissions, dict):
+                tools_cfg = permissions.get("tools")
+                if isinstance(tools_cfg, dict):
+                    for tool_name, tool_cfg in tools_cfg.items():
+                        card = self._instance.ability_manager.get(tool_name)
+                        if not isinstance(card, ToolCard):
+                            continue
+                        desc = getattr(card, 'description', None)
+                        if not desc:
+                            continue
+                        if isinstance(tool_cfg, str):
+                            tools_cfg[tool_name] = {"level": tool_cfg, "description": desc}
+                        elif isinstance(tool_cfg, dict):
+                            tool_cfg["description"] = desc
         return AgentResponse(
             request_id=request.request_id,
             channel_id=request.channel_id,
