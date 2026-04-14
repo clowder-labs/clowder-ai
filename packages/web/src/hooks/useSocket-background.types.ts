@@ -30,7 +30,10 @@ export interface BackgroundAgentMessage {
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: TokenUsage };
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   /** F057-C2: Whether this message mentions the user (@user / @用户) */
   mentionsUser?: boolean;
   /** F121: Reply-to message ID */
@@ -101,6 +104,7 @@ export interface HandleBackgroundMessageOptions {
   store: BackgroundStoreLike;
   bgStreamRefs: Map<string, BackgroundStreamRef>;
   replacedInvocations: Map<string, string>;
+  backgroundErrorToastsShown: Set<string>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
   getThreadTitle?: (threadId: string) => string | null | undefined;
