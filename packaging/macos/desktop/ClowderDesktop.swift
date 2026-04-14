@@ -307,6 +307,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
+        let cssScript = WKUserScript(
+            source: """
+            var style=document.createElement('style');
+            style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
+            (document.head||document.documentElement).appendChild(style);
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(cssScript)
+
         webView = WKWebView(frame: window.contentView!.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self

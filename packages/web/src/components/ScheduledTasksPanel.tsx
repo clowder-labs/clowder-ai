@@ -12,7 +12,8 @@ type ScheduledTasksPanelProps = {
 
 type ScheduleTrigger =
   | { type: 'interval'; ms: number }
-  | { type: 'cron'; expression: string; timezone?: string };
+  | { type: 'cron'; expression: string; timezone?: string }
+  | { type: 'once'; fireAt: number };
 
 type ScheduleTaskSummaryResponse = {
   tasks: Array<{
@@ -72,7 +73,14 @@ function formatFrequency(trigger: ScheduleTrigger): string {
     const minutes = Math.max(1, Math.round(trigger.ms / 60000));
     return `每隔 ${minutes} 分钟`;
   }
-  return formatCronFrequency(trigger.expression);
+  if (trigger.type === 'once') {
+    const date = new Date(trigger.fireAt);
+    return date.toLocaleString('zh-CN');
+  }
+  if (trigger.type === 'cron') {
+    return formatCronFrequency(trigger.expression);
+  }
+  return `任务类型: ${(trigger as any).type || '未知'}`;
 }
 
 function extractThreadId(subjectKey: string | null | undefined): string | null {
@@ -102,6 +110,8 @@ function toViewTask(
   const threadId = task.deliveryThreadId ?? extractThreadId(task.lastRun?.subject_key);
   const threadName = task.threadTitle?.trim() || threadId || '-';
   const effectiveEnabled = computeEffectiveEnabled(task, control);
+  const isOnce = task.trigger.type === 'once';
+  const fireAtTime = isOnce ? (task.trigger as { type: 'once'; fireAt: number }).fireAt : null;
   return {
     taskId: id,
     dynamicTaskId: task.dynamicTaskId,
@@ -110,7 +120,7 @@ function toViewTask(
     prompt: task.display?.description?.trim() || '暂无描述',
     frequency: formatFrequency(task.trigger),
     nextExcuteTime: '-',
-    effectiveTime: '长期有效',
+    effectiveTime: isOnce && fireAtTime ? new Date(fireAtTime).toLocaleString('zh-CN') : '长期有效',
     status: effectiveEnabled ? 'running' : 'paused',
     enabled: effectiveEnabled,
     createTime: task.lastRun?.started_at ?? '',
@@ -375,11 +385,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               <div className="min-w-0 flex-1 text-[14px] leading-6 text-[#2F3A4B]">{selectedTask.sessionName}</div>
             </div>
             <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedTask(null)}
-                className="ui-button-primary"
-              >
+              <button type="button" onClick={() => setSelectedTask(null)} className="ui-button-primary">
                 确定
               </button>
             </div>

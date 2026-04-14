@@ -158,7 +158,6 @@ export const MAAS_MODEL_WHITELIST = [
   'DeepSeek-V3.2',
   'DeepSeek-V3',
   'Kimi-K2',
-  'Qwen3-235B-A22B',
   'Qwen3-Coder-480B-A35B-Instruct',
 ] as const;
 

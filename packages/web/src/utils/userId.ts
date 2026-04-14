@@ -43,6 +43,12 @@ export function getUserName(): string {
   return parts.length > 1 ? parts[1] || parts[0] : userId;
 }
 
+export function getDomainId(): string {
+  const userId = getUserId();
+  const separatorIndex = userId.indexOf(':');
+  return separatorIndex > 0 ? userId.slice(0, separatorIndex) : '';
+}
+
 export function setUserName(name: string): void {
   if (typeof window !== 'undefined') {
     if (name.trim()) {

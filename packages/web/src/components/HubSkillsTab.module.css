@@ -16,6 +16,7 @@
   min-height: 194px;
   flex-direction: column;
   gap: var(--space-7);
+  padding: 24px;
 }
 
 .header {
@@ -64,6 +65,12 @@
     border-color 200ms ease,
     background-color 200ms ease,
     color 200ms ease;
+  text-decoration: none;
+}
+
+.installButton:hover,
+.installButton:focus-visible {
+  text-decoration: none;
 }
 
 .installButtonPrimary {

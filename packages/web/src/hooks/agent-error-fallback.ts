@@ -9,6 +9,7 @@ const MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT = 'Input text May contain sens
 
 export type ErrorLike = {
   catId?: string;
+  catDisplayName?: string;
   error?: string;
   errorCode?: string;
   metadata?: { provider?: string; model?: string };
@@ -141,18 +142,17 @@ function getErrorSubtypeLabel(rawContent?: string): string | null {
   }
 }
 
-export function getAgentErrorToastContent(
-  msg: ErrorLike & { content?: string },
-): { title: string; message: string } {
+export function getAgentErrorToastContent(msg: ErrorLike & { content?: string }): { title: string; message: string } {
   if (isSensitiveInputAgentError(msg)) {
     return getSensitiveInputErrorToastContent();
   }
 
   const subtypeLabel = getErrorSubtypeLabel(msg.content);
   const baseMessage = getFriendlyAgentErrorMessage(msg);
+  const agentLabel = msg.catDisplayName?.trim() || msg.catId?.trim();
 
   return {
-    title: msg.catId?.trim() ? `${msg.catId} 出错` : '智能体出错',
+    title: agentLabel ? `${agentLabel} 出错` : '智能体出错',
     message: subtypeLabel ? `${baseMessage} (${subtypeLabel})` : baseMessage,
   };
 }

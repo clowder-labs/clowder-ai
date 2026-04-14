@@ -23,7 +23,9 @@ private enum LauncherError: LocalizedError {
 final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private let fileManager = FileManager.default
     private var window: NSWindow?
+    private var rootView: NSView?
     private var webView: WKWebView?
+    private var loadingOverlayView: NSView?
     private var statusLabel: NSTextField?
     private var spinner: NSProgressIndicator?
 
@@ -84,10 +86,16 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         window.center()
         window.title = "Clowder AI"
         window.isReleasedWhenClosed = false
+        window.backgroundColor = NSColor(calibratedRed: 1.0, green: 0.972, blue: 0.949, alpha: 1.0)
 
-        let contentView = NSView(frame: rect)
-        contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        let rootView = NSView(frame: rect)
+        rootView.wantsLayer = true
+        rootView.layer?.backgroundColor = NSColor(calibratedRed: 1.0, green: 0.972, blue: 0.949, alpha: 1.0).cgColor
+
+        let loadingOverlay = NSView(frame: rect)
+        loadingOverlay.wantsLayer = true
+        loadingOverlay.layer?.backgroundColor = NSColor(calibratedRed: 1.0, green: 0.972, blue: 0.949, alpha: 1.0).cgColor
+        loadingOverlay.autoresizingMask = [.width, .height]
 
         let spinner = NSProgressIndicator(frame: NSRect(x: (rect.width - 32) / 2, y: rect.height / 2 + 8, width: 32, height: 32))
         spinner.style = .spinning
@@ -99,12 +107,15 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         label.frame = NSRect(x: 0, y: rect.height / 2 - 36, width: rect.width, height: 24)
         label.font = .systemFont(ofSize: 15, weight: .medium)
 
-        contentView.addSubview(spinner)
-        contentView.addSubview(label)
-        window.contentView = contentView
+        loadingOverlay.addSubview(spinner)
+        loadingOverlay.addSubview(label)
+        rootView.addSubview(loadingOverlay)
+        window.contentView = rootView
         window.makeKeyAndOrderFront(nil)
 
         self.window = window
+        self.rootView = rootView
+        self.loadingOverlayView = loadingOverlay
         self.spinner = spinner
         self.statusLabel = label
     }
@@ -184,18 +195,43 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     }
 
     private func showWebView(_ frontendURL: URL) {
-        statusLabel?.removeFromSuperview()
-        spinner?.stopAnimation(nil)
-        spinner?.removeFromSuperview()
+        statusLabel?.stringValue = "Opening workspace..."
 
         let configuration = WKWebViewConfiguration()
-        let webView = WKWebView(frame: window?.contentView?.bounds ?? .zero, configuration: configuration)
+        let webView = WKWebView(frame: rootView?.bounds ?? .zero, configuration: configuration)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
-        window?.contentView = webView
+        webView.isHidden = true
+        rootView?.addSubview(webView, positioned: .below, relativeTo: loadingOverlayView)
         window?.title = "Clowder AI"
         webView.load(URLRequest(url: frontendURL))
         self.webView = webView
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        webView.isHidden = false
+        guard let loadingOverlayView else { return }
+
+        spinner?.stopAnimation(nil)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            loadingOverlayView.animator().alphaValue = 0
+        } completionHandler: {
+            self.statusLabel?.removeFromSuperview()
+            self.spinner?.removeFromSuperview()
+            loadingOverlayView.removeFromSuperview()
+            self.loadingOverlayView = nil
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
+        presentFailure(failureDetails(summary: error.localizedDescription))
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
+        presentFailure(failureDetails(summary: error.localizedDescription))
     }
 
     private func presentFailure(_ details: String) {

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
@@ -68,7 +68,9 @@ export function HubCapabilityTab({
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSource, setActiveSource] = useState(ALL_SOURCES);
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const sourceMenuRef = useRef<HTMLDivElement>(null);
 
   const confirm = useConfirm();
 
@@ -147,7 +149,7 @@ export function HubCapabilityTab({
         message: `确定要卸载 “${skillId}” 吗？此操作不可恢复。`,
         confirmLabel: '卸载',
         cancelLabel: '取消',
-        variant: 'danger',
+        variant: 'default',
       });
       if (!ok) return;
       try {
@@ -209,6 +211,18 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
+  useEffect(() => {
+    if (!isSourceMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (sourceMenuRef.current?.contains(target)) return;
+      setIsSourceMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [isSourceMenuOpen]);
+
   const handleCategoryChange = useCallback((category: string) => {
     setSearchQuery('');
     setActiveCategory(category);
@@ -218,6 +232,11 @@ export function HubCapabilityTab({
     setSearchQuery('');
     setActiveSource(ALL_SOURCES);
   }, []);
+
+  const activeSourceLabel = useMemo(
+    () => (activeSource === ALL_SOURCES ? '全部来源' : sourceToLabel(activeSource)),
+    [activeSource],
+  );
 
   if (loading) return <CenteredLoadingState />;
 
@@ -233,11 +252,10 @@ export function HubCapabilityTab({
               <button
                 type="button"
                 onClick={() => handleCategoryChange(category)}
-                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                  activeCategory === category
+                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${activeCategory === category
                     ? 'font-semibold text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
+                  }`}
               >
                 {category}
               </button>
@@ -251,7 +269,7 @@ export function HubCapabilityTab({
               <button
                 type="button"
                 onClick={onImport}
-                className="ui-button-default min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+                className="ui-button-primary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
               >
                 {IMPORT_LABEL}
               </button>
@@ -259,18 +277,69 @@ export function HubCapabilityTab({
           </div>
           <div className="py-6">
             <div className="flex items-center gap-2">
-              <select
-                aria-label={SOURCE_FILTER_ARIA_LABEL}
-                value={activeSource}
-                onChange={(event) => setActiveSource(event.target.value)}
-                className="ui-field h-[28px] min-h-[28px] w-[200px] shrink-0 px-3 py-0 pr-8 text-xs"
-              >
-                {sourceOptions.map((source) => (
-                  <option key={source} value={source}>
-                    {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
-                  </option>
-                ))}
-              </select>
+              <div ref={sourceMenuRef} className="relative w-[200px] shrink-0">
+                <select
+                  aria-label={SOURCE_FILTER_ARIA_LABEL}
+                  value={activeSource}
+                  onChange={(event) => setActiveSource(event.target.value)}
+                  className="sr-only"
+                  tabIndex={-1}
+                >
+                  {sourceOptions.map((source) => (
+                    <option key={source} value={source}>
+                      {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setIsSourceMenuOpen((prev) => !prev)}
+                  className={`ui-field flex h-[28px] w-[200px] items-center justify-between rounded-[6px] px-[12px] py-[5px] text-xs transition-colors ${
+                    isSourceMenuOpen ? 'border-[#191919]' : ''
+                  }`}
+                  aria-haspopup="listbox"
+                  aria-expanded={isSourceMenuOpen}
+                >
+                  <span className="truncate text-[var(--text-primary)]">{activeSourceLabel}</span>
+                  <svg
+                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${
+                      isSourceMenuOpen ? 'rotate-180' : ''
+                    }`}
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {isSourceMenuOpen ? (
+                  <div
+                    role="listbox"
+                    className="absolute left-0 top-[calc(100%+4px)] z-30 w-[200px] rounded-[6px] bg-white py-[8px] shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+                  >
+                    {sourceOptions.map((source) => {
+                      const isSelected = source === activeSource;
+                      return (
+                        <button
+                          key={source}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            setActiveSource(source);
+                            setIsSourceMenuOpen(false);
+                          }}
+                          className={`flex h-[32px] w-full items-center px-[16px] py-[7px] text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] ${
+                            isSelected ? 'text-[#1476ff]' : 'text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
               <SearchInput
                 wrapperClassName="w-full"
                 aria-label={SKILL_SEARCH_ARIA_LABEL}
@@ -304,10 +373,10 @@ export function HubCapabilityTab({
                   onClick={
                     item.type === 'skill'
                       ? () =>
-                          onSelectSkill?.({
-                            skillName: item.id,
-                            avatarUrl: item.iconUrl ?? null,
-                          })
+                        onSelectSkill?.({
+                          skillName: item.id,
+                          avatarUrl: item.iconUrl ?? null,
+                        })
                       : undefined
                   }
                   hideSkillMountStatus={hideSkillMountStatus}

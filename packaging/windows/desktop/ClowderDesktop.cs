@@ -206,6 +206,7 @@ internal sealed class LauncherForm : Form
     private readonly string _runtimeStatePath;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
+    private bool _mainWebViewShown;
     private bool _exitRequested;
     private bool _trayHintShown;
     private bool _isHiddenToTray;
@@ -241,6 +242,7 @@ internal sealed class LauncherForm : Form
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
         WindowState = FormWindowState.Maximized;
+        BackColor = Color.FromArgb(255, 248, 242);
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
         _trayRestorePlacement = CreateEmptyWindowPlacement();
@@ -558,34 +560,36 @@ internal sealed class LauncherForm : Form
                 return;
             }
 
-            // 计算鼠标在窗口中的相对位置（从左上角开始）
-            int relativeX = cursorPos.X - maxWindowRect.Left;
-            int relativeY = cursorPos.Y - maxWindowRect.Top;
-
-            // 还原窗口
-            WindowState = FormWindowState.Normal;
-            RefreshNativeFrame();
-
-            // 获取还原后的窗口大小
-            RECT normalWindowRect;
-            if (!GetWindowRect(Handle, out normalWindowRect))
+            // 获取窗口的 WINDOWPLACEMENT，其中包含还原后的尺寸
+            var placement = CreateEmptyWindowPlacement();
+            if (!GetWindowPlacement(Handle, ref placement))
             {
-                ReleaseCapture();
-                SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
                 return;
             }
 
-            int normalWidth = normalWindowRect.Right - normalWindowRect.Left;
-            int normalHeight = normalWindowRect.Bottom - normalWindowRect.Top;
+            // 使用 rcNormalPosition 获取还原后的窗口尺寸（这是窗口记忆的尺寸，不会累积变化）
+            int normalWidth = placement.rcNormalPosition.Right - placement.rcNormalPosition.Left;
+            int normalHeight = placement.rcNormalPosition.Bottom - placement.rcNormalPosition.Top;
 
-            // 计算新窗口位置，让鼠标保持在标题栏的相对位置
-            // 如果鼠标相对位置超过还原后的窗口宽度，按比例缩放
+            // 计算鼠标在最大化窗口中的相对位置（从左上角开始）
+            int relativeX = cursorPos.X - maxWindowRect.Left;
+            int relativeY = cursorPos.Y - maxWindowRect.Top;
+
+            // 计算最大化窗口的尺寸
             int maxWidth = maxWindowRect.Right - maxWindowRect.Left;
-            double scaleX = relativeX > normalWidth ? (double)normalWidth / maxWidth : 1.0;
-            int adjustedRelativeX = (int)(relativeX * scaleX);
+            int maxHeight = maxWindowRect.Bottom - maxWindowRect.Top;
 
+            // 按比例缩放鼠标的相对位置到还原后的窗口
+            // 这样可以保持鼠标在窗口中的相对位置不变
+            double scaleX = (double)normalWidth / maxWidth;
+            double scaleY = (double)normalHeight / maxHeight;
+
+            int adjustedRelativeX = (int)(relativeX * scaleX);
+            int adjustedRelativeY = (int)(relativeY * scaleY);
+
+            // 计算新窗口位置，让鼠标保持在相同的相对位置
             int newX = cursorPos.X - adjustedRelativeX;
-            int newY = cursorPos.Y - relativeY;
+            int newY = cursorPos.Y - adjustedRelativeY;
 
             // 确保窗口不会移出屏幕
             IntPtr monitor = MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
@@ -615,8 +619,12 @@ internal sealed class LauncherForm : Form
                 }
             }
 
-            // 设置窗口新位置
-            SetWindowPos(Handle, IntPtr.Zero, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            // 还原窗口
+            WindowState = FormWindowState.Normal;
+            RefreshNativeFrame();
+
+            // 设置窗口新位置（保持原有尺寸）
+            SetWindowPos(Handle, IntPtr.Zero, newX, newY, normalWidth, normalHeight, SWP_NOZORDER | SWP_NOACTIVATE);
         }
 
         ReleaseCapture();
@@ -1100,15 +1108,19 @@ internal sealed class LauncherForm : Form
             },
         };
 
-        Controls.Clear();
+        Controls.Add(_webView);
         if (_splashWebView != null && !_splashWebView.IsDisposed)
         {
-            _splashWebView.Dispose();
-            _splashWebView = null;
+            _webView.SendToBack();
         }
-        Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
+
+        await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            "const style=document.createElement('style');" +
+            "style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+            "(document.head||document.documentElement).appendChild(style);"
+        ).ConfigureAwait(true);
 
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
@@ -1128,8 +1140,45 @@ internal sealed class LauncherForm : Form
         {
             AppendLog("WebView2 process failed: " + eventArgs.ProcessFailedKind);
         };
-        _webView.CoreWebView2.NavigationCompleted += (_, __) => PublishWindowState();
+        _webView.CoreWebView2.NavigationCompleted += (_, eventArgs) =>
+        {
+            PublishWindowState();
+            if (!_mainWebViewShown && eventArgs.IsSuccess)
+            {
+                RevealMainWebView();
+                return;
+            }
+
+            if (!_mainWebViewShown && !eventArgs.IsSuccess)
+            {
+                AppendLog("Main WebView navigation failed before splash handoff: " + eventArgs.WebErrorStatus);
+            }
+        };
         _webView.Source = new Uri(_frontendUrl);
+    }
+
+    private void RevealMainWebView()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)RevealMainWebView);
+            return;
+        }
+
+        if (_mainWebViewShown)
+        {
+            return;
+        }
+
+        _mainWebViewShown = true;
+        _webView.BringToFront();
+
+        if (_splashWebView != null && !_splashWebView.IsDisposed)
+        {
+            Controls.Remove(_splashWebView);
+            _splashWebView.Dispose();
+            _splashWebView = null;
+        }
     }
 
     private void OnNewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs eventArgs)
