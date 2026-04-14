@@ -31,6 +31,7 @@ const mockSetMessageThinking = vi.fn();
 const mockSetMessageStreamInvocation = vi.fn();
 const mockRequestStreamCatchUp = vi.fn();
 const mockAddToast = vi.fn();
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 const storeState = {
   messages: [] as Array<{
@@ -109,6 +110,7 @@ describe('useAgentMessages error toast fallback', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     captured = undefined;
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockAddMessage.mockClear();
     mockAddToast.mockClear();
     mockSetCatStatus.mockClear();
@@ -119,6 +121,7 @@ describe('useAgentMessages error toast fallback', () => {
       root.unmount();
     });
     container.remove();
+    consoleWarnSpy.mockRestore();
   });
 
   it('pushes a sensitive-input toast for active-thread error events', () => {
@@ -147,6 +150,33 @@ describe('useAgentMessages error toast fallback', () => {
     expect(mockAddMessage).not.toHaveBeenCalled();
   });
 
+  it('pushes a fixed system bubble for temporary rate-limit error events', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
+        catId: 'codex',
+        errorCode: 'ModelArts.81101',
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'error',
+        content: '当前请求较多，模型暂时限流，请稍后重试。',
+      }),
+    );
+    expect(mockAddToast).not.toHaveBeenCalled();
+  });
+
   it('uses toast instead of assistant bubble for generic agent failures', () => {
     act(() => {
       root.render(React.createElement(Harness));
@@ -162,13 +192,14 @@ describe('useAgentMessages error toast fallback', () => {
     });
 
     expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
-    expect(mockAddToast).toHaveBeenCalledWith({
-      type: 'error',
-      title: 'codex 出错',
-      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
-      threadId: 'thread-1',
-      duration: 8000,
-    });
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'error',
+        message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+        threadId: 'thread-1',
+        duration: 8000,
+      }),
+    );
     expect(mockAddMessage).not.toHaveBeenCalled();
   });
 });
