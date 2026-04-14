@@ -606,7 +606,6 @@ function ToolRow({
   onUserInteract?: () => void;
   accent: string;
 }) {
-  console.log('event:', event);
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
   // Design: active = breed bg 20% + left border 2px + lighter text
@@ -621,14 +620,12 @@ function ToolRow({
         padding: '4px 0 4px 28px',
         borderRadius: 4,
       }}
+      onClick={() => {
+        setRowExpanded((v) => !v);
+        onUserInteract?.();
+      }}
     >
-      <div
-        className="flex"
-        onClick={() => {
-          setRowExpanded((v) => !v);
-          onUserInteract?.();
-        }}
-      >
+      <div className="flex">
         <div className="flex items-center gap-2 mr-2">
           {/* Status icon */}
           {isActive ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : hasResult ? <CheckIcon /> : null}
@@ -712,11 +709,10 @@ function ToolsSection({
         <span>{toolsExpanded ? toolSummary : `${toolSummary} (collapsed)`}</span>
         <ChevronIcon expanded={toolsExpanded} />
       </button>
-      {true && (
+      {toolsExpanded && (
         <div className="space-y-0.5">
           {toolUses.map((e, i) => {
             const result = toolResults[i];
-            console.log('result', result);
             return (
               <ToolRow
                 key={e.id}
@@ -809,9 +805,7 @@ export function CliOutputBlock({
 
   const summary = buildSummary(events, status);
   const toolUses = events.filter((e) => e.kind === 'tool_use');
-  console.log('toolUses', toolUses);
   const toolResults = events.filter((e) => e.kind === 'tool_result');
-  console.log('toolResults', toolResults);
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
   const accent = breedColor || '#7C3AED';

@@ -7,7 +7,6 @@
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
 import type { CatStatusType } from '@/stores/chat-types';
-import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
   ActiveRoutedAgentMessage,
   BackgroundAgentMessage,
@@ -561,13 +560,12 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'tool_result') {
     markThreadInvocationActive(msg, options);
-    const detail = compactToolResultDetail(msg.content ?? '');
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
       id: `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_result',
       label: `${msg.catId} ← result`,
-      detail,
+      detail: msg.content ?? '',
       timestamp: msg.timestamp,
     });
     options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
