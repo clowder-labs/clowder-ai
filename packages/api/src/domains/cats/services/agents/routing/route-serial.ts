@@ -1070,6 +1070,12 @@ export async function* routeSerial(
           catId: catId as string,
           error: collectedErrorText,
         });
+        const errorFallback = {
+          v: 1,
+          kind: errorKind,
+          rawError: collectedErrorText,
+          timestamp: Date.now(),
+        };
 
         try {
           await deps.messageStore.append({
@@ -1081,17 +1087,21 @@ export async function* routeSerial(
             timestamp: Date.now(),
             threadId,
             extra: {
-              errorFallback: {
-                v: 1,
-                kind: errorKind,
-                rawError: collectedErrorText,
-                timestamp: Date.now(),
-              },
+              errorFallback,
             },
           });
         } catch (err) {
           log.error({ catId: catId as string, err }, 'messageStore.append (error fallback) failed');
         }
+
+        yield {
+          type: 'text' as AgentMessageType,
+          catId,
+          content: friendlyMessage,
+          origin: 'stream',
+          extra: { errorFallback },
+          timestamp: Date.now(),
+        } as AgentMessage;
       }
 
       // Ack cursor regardless of hadError: messages were assembled into the prompt

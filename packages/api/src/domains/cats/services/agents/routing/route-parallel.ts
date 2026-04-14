@@ -836,15 +836,18 @@ export async function* routeParallel(
       // 这种情况理论上不应该发生，但保留作为安全网
       const errorText = catErrorText.get(msg.catId);
       if (errorText && !catErrorTransformed.has(msg.catId)) {
-        log.warn(
-          { catId: msg.catId, errorText },
-          'Error not transformed in stream loop — fallback persistence',
-        );
+        log.warn({ catId: msg.catId, errorText }, 'Error not transformed in stream loop — fallback persistence');
         const errorKind = classifyError(errorText);
         const friendlyMessage = getFriendlyAgentErrorMessage({
           catId: msg.catId,
           error: errorText,
         });
+        const errorFallback = {
+          v: 1,
+          kind: errorKind,
+          rawError: errorText,
+          timestamp: Date.now(),
+        };
 
         try {
           await deps.messageStore.append({
@@ -856,17 +859,21 @@ export async function* routeParallel(
             timestamp: Date.now(),
             threadId,
             extra: {
-              errorFallback: {
-                v: 1,
-                kind: errorKind,
-                rawError: errorText,
-                timestamp: Date.now(),
-              },
+              errorFallback,
             },
           });
         } catch (err) {
           log.error({ catId: msg.catId, err }, 'messageStore.append (error fallback) failed');
         }
+
+        yield {
+          type: 'text' as AgentMessageType,
+          catId: msg.catId as CatId,
+          content: friendlyMessage,
+          origin: 'stream',
+          extra: { errorFallback },
+          timestamp: Date.now(),
+        } as AgentMessage;
       }
 
       // Ack cursor regardless of error: messages were assembled into the prompt
