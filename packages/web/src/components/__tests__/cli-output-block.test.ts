@@ -660,6 +660,49 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('renders a markdown attachment card from the generated local file path and opens that file', async () => {
+    const markdownEvents: CliEvent[] = [
+      { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Write report.md' },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.md',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      },
+      {
+        id: 't3',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Markdown generated at C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-markdown-card"]')).toBeTruthy();
+    expect(container.textContent).toContain('daily-report.md');
+    const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+    });
+  });
+
   it.skip('does not render a ppt card when no ppt file was generated', async () => {
     act(() => {
       root.render(

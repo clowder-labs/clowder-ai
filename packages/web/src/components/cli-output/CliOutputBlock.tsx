@@ -42,12 +42,15 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
-interface LocalPresentationFile {
+type LocalGeneratedFileKind = 'ppt' | 'markdown';
+
+interface LocalGeneratedFile {
   name: string;
   path: string;
+  kind: LocalGeneratedFileKind;
 }
 
-interface LocalPresentationFileMeta {
+interface LocalGeneratedFileMeta {
   generatedAt: number;
 }
 
@@ -61,6 +64,13 @@ const PRESENTATION_PATH_PATTERNS = [
   /(\/[^\r\n`'"]+?\.pptx?)/gi,
 ];
 const RELATIVE_PRESENTATION_PATH_TOKENS = /[^\s"'`<>]+\.pptx?\b/gi;
+const MARKDOWN_PATH_PATTERNS = [
+  /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:md|markdown))/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?(\/[^\r\n`'"]+?\.(?:md|markdown))/gi,
+  /([A-Za-z]:\\[^\r\n`'"]+?\.(?:md|markdown))/gi,
+  /(\/[^\r\n`'"]+?\.(?:md|markdown))/gi,
+];
+const RELATIVE_MARKDOWN_PATH_TOKENS = /[^\s"'`<>]+\.(?:md|markdown)\b/gi;
 
 function isAbsolutePresentationPath(path: string): boolean {
   return /^[A-Za-z]:\\/.test(path) || path.startsWith('/');
@@ -109,6 +119,18 @@ function collectRelativePresentationCandidates(text: string): string[] {
   return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativePresentationPath(match));
 }
 
+function isLikelyRelativeMarkdownPath(path: string): boolean {
+  if (isAbsolutePresentationPath(path)) return false;
+  if (!/[\\/]/.test(path)) return false;
+  if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
+  return /\.(?:md|markdown)$/i.test(path);
+}
+
+function collectRelativeMarkdownCandidates(text: string): string[] {
+  const matches = text.match(RELATIVE_MARKDOWN_PATH_TOKENS) ?? [];
+  return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativeMarkdownPath(match));
+}
+
 function pushPresentationCandidate(candidates: string[], candidate: string): void {
   const hasMoreSpecificCandidate = candidates.some(
     (existing) => existing.length > candidate.length && existing.endsWith(candidate),
@@ -129,7 +151,7 @@ function formatGeneratedDate(timestamp: number | null): string {
   return `生成时间：${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile | null {
+function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | null {
   const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
   const candidates: string[] = [];
 
@@ -160,7 +182,40 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile
 
   const path = candidates.at(-1);
   if (!path) return null;
-  return { name: fileNameFromPath(path), path };
+  return { name: fileNameFromPath(path), path, kind: 'ppt' };
+}
+
+function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null {
+  const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
+  const candidates: string[] = [];
+
+  for (const text of searchSpace) {
+    for (const pattern of MARKDOWN_PATH_PATTERNS) {
+      pattern.lastIndex = 0;
+      for (const match of text.matchAll(pattern)) {
+        const rawPath = match[1];
+        if (!rawPath) continue;
+        const fullMatch = match[0] ?? '';
+        const normalized = normalizePresentationPath(rawPath);
+        if (normalized.startsWith('/') && typeof match.index === 'number') {
+          const pathStart = match.index + fullMatch.indexOf(rawPath);
+          const previousChar = pathStart > 0 ? text[pathStart - 1] : '';
+          if (previousChar && /[A-Za-z0-9_.-]/.test(previousChar)) {
+            continue;
+          }
+        }
+        pushPresentationCandidate(candidates, normalized);
+      }
+    }
+
+    for (const relativeCandidate of collectRelativeMarkdownCandidates(text)) {
+      pushPresentationCandidate(candidates, relativeCandidate);
+    }
+  }
+
+  const path = candidates.at(-1);
+  if (!path) return null;
+  return { name: fileNameFromPath(path), path, kind: 'markdown' };
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -287,12 +342,12 @@ function PawPrint() {
 
 /* ── Status helpers ── */
 
-function PptAttachmentCard({
+function LocalFileAttachmentCard({
   file,
   projectPath,
   status,
 }: {
-  file: LocalPresentationFile;
+  file: LocalGeneratedFile;
   projectPath?: string | null;
   status: CliStatus;
 }) {
@@ -301,6 +356,7 @@ function PptAttachmentCard({
   const [isReady, setIsReady] = useState(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
+  const isMarkdown = file.kind === 'markdown';
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
@@ -348,7 +404,7 @@ function PptAttachmentCard({
           }
           return;
         }
-        const payload = (await response.json()) as LocalPresentationFileMeta;
+        const payload = (await response.json()) as LocalGeneratedFileMeta;
         if (!cancelled && typeof payload.generatedAt === 'number') {
           setGeneratedAt(payload.generatedAt);
           setIsReady(true);
@@ -391,16 +447,27 @@ function PptAttachmentCard({
 
   return (
     <div
-      data-testid="cli-output-ppt-card"
+      data-testid={isMarkdown ? 'cli-output-markdown-card' : 'cli-output-ppt-card'}
       className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
-          <rect id="文件格式/ppt" width="24.000000" height="24.000000" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fill-opacity="0" />
-          <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fill-rule="evenodd" />
-          <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fill-rule="evenodd" />
-          <path id="矢量 62" d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z" fill="rgb(255,255,255)" fill-rule="evenodd" />
-        </svg>
+        {isMarkdown ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="40.000000" height="40.000000" fill="none" customFrame="#000000">
+          <rect id="MD" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+          <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+          <g id="ic_normal_white_grid_pptx">
+            <g id="编组-236">
+              <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(254,201,176)" fill-rule="evenodd" />
+              <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(255,119,55)" fill-rule="evenodd" />
+            </g>
+          </g>
+          <path id="矢量 111" d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.31428576" />
+          <path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" stroke-linejoin="round" stroke-width="1.31428576" />
+        </svg> : <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
+          <rect id="文件格式/ppt" width="24.000000" height="24.000000" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fillOpacity="0" />
+          <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fillRule="evenodd" />
+          <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fillRule="evenodd" />
+          <path id="矢量 62" d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z" fill="rgb(255,255,255)" fillRule="evenodd" />
+        </svg>}
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#191919]" title={file.name}>{file.name}</div>
@@ -408,7 +475,7 @@ function PptAttachmentCard({
       </div>
       <button
         type="button"
-        data-testid="cli-output-ppt-open"
+        data-testid={isMarkdown ? 'cli-output-markdown-open' : 'cli-output-ppt-open'}
         onClick={() => {
           void handleOpen();
         }}
@@ -614,7 +681,10 @@ export function CliOutputBlock({
     }
   }, [forceExpanded]);
 
-  const localPresentationFile = useMemo(() => extractLocalPresentationFile(events), [events]);
+  const localGeneratedFile = useMemo(
+    () => extractLocalMarkdownFile(events) ?? extractLocalPresentationFile(events),
+    [events],
+  );
 
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -824,8 +894,8 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </div>
       </div>
-      {localPresentationFile && (
-        <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} status={status} />
+      {localGeneratedFile && (
+        <LocalFileAttachmentCard file={localGeneratedFile} projectPath={projectPath} status={status} />
       )}
     </div>
   );
