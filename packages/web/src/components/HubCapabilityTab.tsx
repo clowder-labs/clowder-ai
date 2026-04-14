@@ -207,7 +207,7 @@ export function HubCapabilityTab({
   if (loading) return <CenteredLoadingState />;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div data-testid="hub-capability-fixed-header">
@@ -275,7 +275,7 @@ export function HubCapabilityTab({
           <EmptyDataState />
         </div>
       ) : (
-        <div data-testid="hub-capability-scroll-region">
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-capability-scroll-region">
           {filteredDisplayedSkillItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredDisplayedSkillItems.map((item) => (
