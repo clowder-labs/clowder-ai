@@ -202,11 +202,11 @@ channels:
 #     3. defaults.*                       全局默认
 #   同一工具的 patterns 内部: deny > ask > allow (最严格者胜出)
 permissions:
-  enabled: false
+  enabled: true
 
   # 全局默认: 未匹配任何规则时的行为
   defaults:
-    "*": "allow"
+    "*": "ask"
 
   # 按具体工具名设置权限 (支持 patterns 子规则)
   tools:
