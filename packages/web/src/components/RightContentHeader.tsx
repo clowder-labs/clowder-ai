@@ -204,7 +204,7 @@ function hasCompletedOneDialogueRound(messages: ChatMessage[]): boolean {
 }
 
 function getFeedbackUserId(): string {
-  return process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || getDomainId();
+  return process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || getDomainId();
 }
 
 export function __resetFeedbackAutoOpenSessionForTests() {
