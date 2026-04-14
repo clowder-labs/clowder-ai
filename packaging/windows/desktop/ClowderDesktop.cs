@@ -1117,9 +1117,12 @@ internal sealed class LauncherForm : Form
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
 
         await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
-            "const style=document.createElement('style');" +
+            "(function(){" +
+            "var style=document.createElement('style');" +
             "style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
-            "(document.head||document.documentElement).appendChild(style);"
+            "var target=document.head||document.documentElement;" +
+            "if(target)target.appendChild(style);" +
+            "})();"
         ).ConfigureAwait(true);
 
         var settings = _webView.CoreWebView2.Settings;
@@ -1140,18 +1143,22 @@ internal sealed class LauncherForm : Form
         {
             AppendLog("WebView2 process failed: " + eventArgs.ProcessFailedKind);
         };
-        _webView.CoreWebView2.NavigationCompleted += (_, eventArgs) =>
+        _webView.CoreWebView2.NavigationCompleted += async (_, eventArgs) =>
         {
             PublishWindowState();
             if (!_mainWebViewShown && eventArgs.IsSuccess)
             {
                 RevealMainWebView();
-                return;
             }
 
             if (!_mainWebViewShown && !eventArgs.IsSuccess)
             {
                 AppendLog("Main WebView navigation failed before splash handoff: " + eventArgs.WebErrorStatus);
+            }
+
+            if (eventArgs.IsSuccess)
+            {
+                await InjectLoginCssAsync().ConfigureAwait(true);
             }
         };
         _webView.Source = new Uri(_frontendUrl);
@@ -1178,6 +1185,30 @@ internal sealed class LauncherForm : Form
             Controls.Remove(_splashWebView);
             _splashWebView.Dispose();
             _splashWebView = null;
+        }
+    }
+
+    private async Task InjectLoginCssAsync()
+    {
+        if (_webView == null || _webView.IsDisposed || _webView.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var cssScript =
+                "if(!document.querySelector('#clawder-login-hide')){" +
+                "var s=document.createElement('style');" +
+                "s.id='clawder-login-hide';" +
+                "s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+                "(document.head||document.body||document.documentElement).appendChild(s);" +
+                "}";
+            await _webView.CoreWebView2.ExecuteScriptAsync(cssScript).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed to inject login CSS: " + ex.Message);
         }
     }
 
