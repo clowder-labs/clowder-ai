@@ -119,7 +119,7 @@ const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.110
 const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
   'AgentArts.11000009': '邀请码不存在或者今日邀请码配额已用完',
   'AgentArts.11000008': '邀请码无效，请重新输入',
-  'common.01010004': '请确认账号是否实名认证',
+  'common.01010004': '请确认账号状态，是否已实名认证或非欠费状态',
 };
 const require = createRequire(import.meta.url);
 const signer = loadSignerModule();
