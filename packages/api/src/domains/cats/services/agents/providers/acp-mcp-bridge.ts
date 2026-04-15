@@ -455,7 +455,7 @@ export class ACPMcpBridge {
 
   private async createLocalConnection(sessionId: string, serverId: string, connectionId: string): Promise<void> {
     const resolved = buildCatCafeMcpRequestConfig(this.options);
-    if (!resolved) throw new ACPRequestError(-32602, 'Cat Cafe MCP server is unavailable');
+    if (!resolved) throw new ACPRequestError(-32602, 'OfficeClaw MCP server is unavailable');
 
     const existingConnectionId = this.sessionServers.get(sessionId)?.get(serverId);
     if (existingConnectionId) {

@@ -323,7 +323,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (ssCheck.unpushedFiles?.length) {
           const msg =
             `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-            'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+            'Please `git push` soon so other agents see the latest shared state (shared-rules §14).';
           log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight: unpushed files');
           yield {
             type: 'system_info' as const,
@@ -606,7 +606,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (ssCheck.unpushedFiles?.length) {
             const msg =
               `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-              'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+              'Please `git push` soon so other agents see the latest shared state (shared-rules §14).';
             log.warn(
               { catId, preflightRoot, unpushedFiles: ssCheck.unpushedFiles },
               'Shared-state preflight: unpushed files',

@@ -25,7 +25,11 @@ export * from './types/index.js';
 // Export agent error transform utilities
 export {
   getFriendlyAgentErrorMessage,
+  getRateLimitMessage,
   classifyError,
+  isRateLimitError,
+  isSensitiveInputError,
+  MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
   type ErrorFallbackKind,
   type ErrorFallbackMetadata,

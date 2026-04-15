@@ -3,7 +3,9 @@
  */
 
 export const MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE = 'ModelArts.81011';
+export const MODEL_ARTS_RATE_LIMIT_ERROR_CODE = 'ModelArts.81101';
 const MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT = 'Input text May contain sensitive information';
+const MODEL_ARTS_RATE_LIMIT_MESSAGE = '当前请求较多，模型暂时限流，请稍后重试。';
 
 export type ErrorFallbackKind =
   | 'timeout' // 响应超时
@@ -11,6 +13,7 @@ export type ErrorFallbackKind =
   | 'config' // 配置错误
   | 'abrupt_exit' // CLI 异常退出
   | 'max_iterations' // 达到最大迭代次数
+  | 'rate_limit' // 模型瞬时限流
   | 'sensitive_input' // 敏感词校验
   | 'unknown'; // 未分类错误
 
@@ -32,7 +35,7 @@ function normalizeQuotedText(rawError: string): string {
   return rawError.replace(/['']/g, "'").replace(/[""]/g, '"');
 }
 
-function isSensitiveInputError(msg: ErrorLike | string): boolean {
+export function isSensitiveInputError(msg: ErrorLike | string): boolean {
   if (typeof msg === 'string') {
     const normalized = normalizeQuotedText(msg);
     return (
@@ -48,6 +51,18 @@ function isSensitiveInputError(msg: ErrorLike | string): boolean {
     normalized.includes(MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE) &&
     normalized.toLowerCase().includes(MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT.toLowerCase())
   );
+}
+
+export function isRateLimitError(msg: ErrorLike | string): boolean {
+  if (typeof msg === 'string') {
+    const normalized = normalizeQuotedText(msg);
+    return normalized.includes(MODEL_ARTS_RATE_LIMIT_ERROR_CODE);
+  }
+  if (msg.errorCode === MODEL_ARTS_RATE_LIMIT_ERROR_CODE) return true;
+  const rawError = msg.error?.trim();
+  if (!rawError) return false;
+  const normalized = normalizeQuotedText(rawError);
+  return normalized.includes(MODEL_ARTS_RATE_LIMIT_ERROR_CODE);
 }
 
 function isTimeoutError(rawError: string): boolean {
@@ -107,6 +122,7 @@ function getConfigurationErrorMessage(rawError: string): string {
 }
 
 export function classifyError(rawError: string): ErrorFallbackKind {
+  if (isRateLimitError(rawError)) return 'rate_limit';
   if (isSensitiveInputError(rawError)) return 'sensitive_input';
   if (isTimeoutError(rawError)) return 'timeout';
   if (isAbruptExitError(rawError)) return 'abrupt_exit';
@@ -116,6 +132,10 @@ export function classifyError(rawError: string): ErrorFallbackKind {
   return 'unknown';
 }
 
+export function getRateLimitMessage(): string {
+  return MODEL_ARTS_RATE_LIMIT_MESSAGE;
+}
+
 export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   let rawError = msg.error?.trim() || 'Unknown error';
 
@@ -123,6 +143,10 @@ export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   const MAX_RAW_ERROR_LENGTH = 1000;
   if (rawError.length > MAX_RAW_ERROR_LENGTH) {
     rawError = rawError.slice(0, MAX_RAW_ERROR_LENGTH) + '... (truncated)';
+  }
+
+  if (isRateLimitError(msg)) {
+    return getRateLimitMessage();
   }
 
   if (isSensitiveInputError(msg)) {

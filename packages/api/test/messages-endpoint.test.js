@@ -119,7 +119,7 @@ describe('GET /api/messages', () => {
     assert.match(body.messages[1].content, /^Error: stream_idle_stall/);
   });
 
-  it('returns scheduler connector messages after refresh for the requesting user', async () => {
+  it('filters scheduler trigger placeholder messages from history responses', async () => {
     messageStore.append({
       userId: 'default-user',
       catId: null,
@@ -147,13 +147,12 @@ describe('GET /api/messages', () => {
     });
     const body = JSON.parse(res.body);
 
-    assert.equal(body.messages.length, 2);
-    assert.equal(body.messages[1].type, 'connector');
-    assert.equal(body.messages[1].source.connector, 'scheduler');
-    assert.equal(body.messages[1].content, '[定时任务] 该喝水啦！');
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].type, 'user');
+    assert.equal(body.messages[0].content, '一分钟后提醒我喝水');
   });
 
-  it('returns scheduler-triggered agent response after refresh for a real user', async () => {
+  it('keeps scheduler-triggered agent response while hiding the trigger placeholder', async () => {
     messageStore.append({
       userId: 'scheduler',
       catId: 'system',
@@ -182,11 +181,10 @@ describe('GET /api/messages', () => {
     });
     const body = JSON.parse(res.body);
 
-    assert.equal(body.messages.length, 2);
-    assert.equal(body.messages[0].type, 'connector');
-    assert.equal(body.messages[1].type, 'assistant');
-    assert.equal(body.messages[1].catId, 'opus');
-    assert.equal(body.messages[1].content, '好的，已经到时间了！记得喝水哦～');
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].type, 'assistant');
+    assert.equal(body.messages[0].catId, 'opus');
+    assert.equal(body.messages[0].content, '好的，已经到时间了！记得喝水哦～');
   });
 
   it('respects limit parameter', async () => {

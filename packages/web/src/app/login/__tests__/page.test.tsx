@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
 const mockLocationReplace = vi.fn();
@@ -29,12 +29,14 @@ vi.mock('@/utils/api-client', () => ({
 vi.mock('@/utils/userId', () => ({
   clearAuthIdentity: vi.fn(),
   setAuthIdentity: vi.fn(),
+  setCanCreateModel: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
 const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
+const mockSetCanCreateModel = vi.mocked(setCanCreateModel);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 const originalLocation = window.location;
 
@@ -70,6 +72,7 @@ describe('LoginPage', () => {
     mockApiFetch.mockReset();
     mockClearAuthIdentity.mockReset();
     mockSetAuthIdentity.mockReset();
+    mockSetCanCreateModel.mockReset();
     mockSetIsSkipAuth.mockReset();
 
     Object.defineProperty(window, 'location', {
@@ -85,6 +88,7 @@ describe('LoginPage', () => {
       jsonResponse({
         islogin: false,
         isskip: false,
+        canCreateModel: false,
         pendingInvitation: false,
         loginUrl: 'https://auth.example.com/login',
       }),
@@ -116,6 +120,7 @@ describe('LoginPage', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
     expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
+    expect(mockSetCanCreateModel).toHaveBeenCalledWith(false);
     expect(mockLocationReplace).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(container.textContent).toContain('立即登录');
@@ -135,6 +140,7 @@ describe('LoginPage', () => {
       jsonResponse({
         islogin: true,
         isskip: false,
+        canCreateModel: true,
         userId: 'debug-user',
         userName: 'debug-user',
       }),
@@ -146,6 +152,7 @@ describe('LoginPage', () => {
     await flush();
 
     expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'debug-user', userName: 'debug-user' });
+    expect(mockSetCanCreateModel).toHaveBeenCalledWith(true);
     expect(mockRouterReplace).toHaveBeenCalledWith('/?authSuccess=1');
     expect(mockLocationReplace).not.toHaveBeenCalled();
   });
@@ -155,6 +162,7 @@ describe('LoginPage', () => {
       jsonResponse({
         islogin: false,
         isskip: false,
+        canCreateModel: false,
         pendingInvitation: true,
       }),
     );

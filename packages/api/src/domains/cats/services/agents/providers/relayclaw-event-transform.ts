@@ -113,7 +113,14 @@ export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): 
 
     case 'chat.error': {
       const error = payload.error ?? 'Unknown relay-claw error';
-      return { type: 'error', catId, error, timestamp: Date.now() };
+      // 提取 error_code，用于前端精准识别特定错误类型（如 ModelArts.81101 限流）
+      const errorStr = typeof error === 'string' ? error : JSON.stringify(error);
+      const errorCodeMatch = errorStr.match(/'error_code':\s*'([^']+)'/) ||
+        errorStr.match(/"error_code":\s*"([^"]+)"/)||
+        errorStr.match(/'code':\s*'([^']+)'/) ||
+        errorStr.match(/"code":\s*"([^"]+)"/); 
+      const errorCode = errorCodeMatch?.[1];
+      return { type: 'error', catId, error: errorStr, ...(errorCode ? { errorCode } : {}), timestamp: Date.now() };
     }
 
     case 'chat.processing_status': {

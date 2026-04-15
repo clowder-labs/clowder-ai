@@ -28,6 +28,20 @@ vi.mock('@/hooks/useCatData', () => ({
         source: 'runtime',
       },
       {
+        id: 'runtime-empty',
+        name: 'runtime-empty',
+        displayName: '空白办公智能体',
+        color: { primary: '#9333ea', secondary: '#e9d5ff' },
+        mentionPatterns: ['@runtime-empty'],
+        provider: 'openai',
+        defaultModel: 'gpt-5.4',
+        avatar: '',
+        roleDescription: '空白灵魂配置',
+        personality: '',
+        teamStrengths: '',
+        source: 'runtime',
+      },
+      {
         id: 'seed-codex',
         name: 'seed-codex',
         displayName: '预置办公智能体',
@@ -73,6 +87,11 @@ function findButtonByText(container: HTMLElement, text: string): HTMLButtonEleme
     throw new Error(`Missing button containing text: ${text}`);
   }
   return button as HTMLButtonElement;
+}
+
+function hasClassToken(node: Element | null | undefined, className: string): boolean {
+  if (!node) return false;
+  return node.className.split(/\s+/).includes(className);
 }
 
 describe('AgentsPanel scroll behavior', () => {
@@ -134,6 +153,65 @@ describe('AgentsPanel scroll behavior', () => {
 
     expect(textarea?.style.height).toBe('960px');
     expect(textarea?.style.overflowY).toBe('hidden');
+  });
+
+  it('keeps empty persona templates in normal flow with bottom breathing room', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const emptyCard = container.querySelector(
+      '[data-testid="agent-card-runtime-empty"] button',
+    ) as HTMLButtonElement | null;
+    expect(emptyCard).not.toBeNull();
+
+    await act(async () => {
+      emptyCard?.click();
+    });
+
+    const editButton = findButtonByText(container, '编辑');
+    await act(async () => {
+      editButton.click();
+    });
+
+    const templateLabel = Array.from(container.querySelectorAll('span')).find((node) =>
+      node.textContent?.includes('灵魂模板'),
+    ) as HTMLSpanElement | undefined;
+    expect(templateLabel).toBeDefined();
+
+    const templateHeaderRow = templateLabel?.parentElement as HTMLElement | null;
+    const templateContent = templateHeaderRow?.parentElement as HTMLElement | null;
+    const templateSection = templateContent?.parentElement as HTMLElement | null;
+    const editorRoot = container.querySelector('[data-testid="agent-tab-empty-editor"]') as HTMLElement | null;
+
+    expect(hasClassToken(templateSection, 'mt-5')).toBe(true);
+    expect(hasClassToken(templateSection, 'overflow-hidden')).toBe(false);
+    expect(hasClassToken(editorRoot, 'min-h-full')).toBe(true);
+    expect(hasClassToken(editorRoot, 'pb-6')).toBe(true);
+    expect(hasClassToken(editorRoot, 'h-full')).toBe(false);
+  });
+
+  it('applies the same bottom breathing room to filled preview and editor states', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const previewRoot = container.querySelector('[data-testid="agent-tab-preview"]') as HTMLElement | null;
+    expect(previewRoot).not.toBeNull();
+    expect(hasClassToken(previewRoot, 'min-h-full')).toBe(true);
+    expect(hasClassToken(previewRoot, 'pb-6')).toBe(true);
+    expect(hasClassToken(previewRoot, 'h-full')).toBe(false);
+
+    const editButton = findButtonByText(container, '编辑');
+    await act(async () => {
+      editButton.click();
+    });
+
+    const editorRoot = container.querySelector('[data-testid="agent-tab-editor"]') as HTMLElement | null;
+    expect(editorRoot).not.toBeNull();
+    expect(hasClassToken(editorRoot, 'min-h-full')).toBe(true);
+    expect(hasClassToken(editorRoot, 'pb-6')).toBe(true);
+    expect(hasClassToken(editorRoot, 'h-full')).toBe(false);
   });
 
   it('renders the 灵魂配置 tab as disabled without selected styling', async () => {
@@ -213,15 +291,18 @@ describe('AgentsPanel scroll behavior', () => {
       deleteMenuItem?.click();
     });
 
-    const deleteConfirmModal = container.querySelector('h3.text-\\[16px\\].font-bold:text-gray-900');
+    const deleteConfirmModal = Array.from(container.querySelectorAll('h3')).find((node) =>
+      node.textContent?.includes('确认删除智能体'),
+    );
     expect(deleteConfirmModal).not.toBeNull();
-    expect(deleteConfirmModal?.textContent).toContain('确认删除智能体');
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
 
-    const deleteConfirmModalAfter = container.querySelector('h3.text-\\[16px\\].font-bold:text-gray-900');
-    expect(deleteConfirmModalAfter).toBeNull();
+    const deleteConfirmModalAfter = Array.from(container.querySelectorAll('h3')).find((node) =>
+      node.textContent?.includes('确认删除智能体'),
+    );
+    expect(deleteConfirmModalAfter).toBeUndefined();
   });
 });

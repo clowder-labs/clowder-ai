@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import InvitationPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
 
@@ -28,12 +28,14 @@ vi.mock('@/utils/api-client', () => ({
 vi.mock('@/utils/userId', () => ({
   clearAuthIdentity: vi.fn(),
   setAuthIdentity: vi.fn(),
+  setCanCreateModel: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
 const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
+const mockSetCanCreateModel = vi.mocked(setCanCreateModel);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -78,6 +80,7 @@ describe('InvitationPage', () => {
     mockApiFetch.mockReset();
     mockClearAuthIdentity.mockReset();
     mockSetAuthIdentity.mockReset();
+    mockSetCanCreateModel.mockReset();
     mockSetIsSkipAuth.mockReset();
 
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -88,6 +91,7 @@ describe('InvitationPage', () => {
             islogin: false,
             pendingInvitation: true,
             isskip: false,
+            canCreateModel: true,
             userId: 'domain-1:alice',
             userName: 'alice',
           }),
@@ -144,6 +148,7 @@ describe('InvitationPage', () => {
     await flush();
 
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
+    expect(mockSetCanCreateModel).toHaveBeenCalledWith(true);
     expect(mockApiFetch).toHaveBeenCalledWith(
       '/api/login/invitation',
       expect.objectContaining({ method: 'POST' }),
@@ -172,6 +177,7 @@ describe('InvitationPage', () => {
           islogin: false,
           pendingInvitation: false,
           isskip: false,
+          canCreateModel: false,
         }),
       ),
     );

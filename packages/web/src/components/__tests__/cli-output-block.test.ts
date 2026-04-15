@@ -976,6 +976,211 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('renders a word attachment card from the generated local file path and opens that file', async () => {
+    const wordEvents: CliEvent[] = [
+      { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Write report.docx' },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\weekly-report.docx',
+      },
+      {
+        id: 't3',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Word generated at C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\weekly-report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: wordEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-word-card"]')).toBeTruthy();
+    expect(container.textContent).toContain('weekly-report.docx');
+    const openButton = container.querySelector('[data-testid="cli-output-word-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\weekly-report.docx',
+    });
+  });
+
+  it('joins relative word path with the configured POSIX project path before open-local', async () => {
+    const wordEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: wordEvents,
+          status: 'done',
+          projectPath: '/Users/kagol/project',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-word-card"]');
+    expect(card).toBeTruthy();
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
+      path: '/Users/kagol/project/workspace/output/20260415_100534_000/report.docx',
+      projectPath: '/Users/kagol/project',
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-word-open"]') as HTMLButtonElement | null;
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: '/Users/kagol/project/workspace/output/20260415_100534_000/report.docx',
+      projectPath: '/Users/kagol/project',
+    });
+  });
+
+  it('renders a word attachment card when only the filename is mentioned and projectPath is default', async () => {
+    const wordEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Create word document',
+        detail: '[Done] Generated Word document: weekly-report.docx',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Word文档已生成，文件名为 weekly-report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: wordEvents,
+          status: 'done',
+          projectPath: 'default',
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/cwd');
+
+    const card = container.querySelector('[data-testid="cli-output-word-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('weekly-report.docx');
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\weekly-report.docx',
+      projectPath: 'default',
+    });
+  });
+
+  it('prefers a ppt attachment card over markdown when both markdown and ppt files are generated', async () => {
+    const mixedEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write outline.md',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/outline.md',
+      },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1002,
+        label: 'Create slides',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/final-deck.pptx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: mixedEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="cli-output-markdown-card"]')).toBeNull();
+    expect(container.textContent).toContain('final-deck.pptx');
+  });
+
+  it('renders both word and ppt attachment cards when markdown, word, and ppt files are all generated', async () => {
+    const mixedEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write outline.md',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/outline.md',
+      },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1002,
+        label: 'Create word',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/report.docx',
+      },
+      {
+        id: 't3',
+        kind: 'tool_result',
+        timestamp: 1003,
+        label: 'Create slides',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/final-deck.pptx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: mixedEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-word-card"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="cli-output-markdown-card"]')).toBeNull();
+    expect(container.textContent).toContain('report.docx');
+    expect(container.textContent).toContain('final-deck.pptx');
+  });
+
   it('prefers the user-facing markdown artifact over internal memory markdown files', async () => {
     const markdownEvents: CliEvent[] = [
       {
