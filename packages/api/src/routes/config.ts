@@ -399,10 +399,14 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       changedKeys.push(name);
     }
 
+    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
+    if (changedConnectorEnv && opts.connectorRuntimeManager?.setOwnerUserId) {
+      await opts.connectorRuntimeManager.setOwnerUserId(operator);
+    }
+
     const runtime = opts.connectorRuntimeManager && changedKeys.length > 0
       ? await opts.connectorRuntimeManager.reconcile(changedKeys)
       : undefined;
-    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
     const needsRestart = changedConnectorEnv && (!runtime || !runtime.applied);
 
     try {

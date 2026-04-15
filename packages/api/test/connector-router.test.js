@@ -181,6 +181,79 @@ describe('ConnectorRouter', () => {
     assert.equal(trigger.calls[0].userId, 'resolved-owner');
   });
 
+  it('drops legacy default-user bindings and recreates the thread under the resolved owner', async () => {
+    const originalOwner = process.env.DEFAULT_OWNER_USER_ID;
+    delete process.env.DEFAULT_OWNER_USER_ID;
+    try {
+      bindingStore.bind('dingtalk', 'chat-legacy', 'thread-legacy', 'default-user');
+      const routerWithResolver = new ConnectorRouter({
+        bindingStore,
+        dedup,
+        messageStore,
+        threadStore,
+        invokeTrigger: trigger,
+        socketManager,
+        defaultUserIdResolver: () => 'owner-real',
+        defaultUserId: 'default-user',
+        defaultCatId: 'opus',
+        log: noopLog(),
+      });
+
+      const result = await routerWithResolver.route('dingtalk', 'chat-legacy', 'hello', 'ext-legacy-1');
+      assert.equal(result.kind, 'routed');
+      assert.notEqual(result.threadId, 'thread-legacy');
+      assert.equal(messageStore.messages[0].userId, 'owner-real');
+      assert.equal(trigger.calls[0].userId, 'owner-real');
+      assert.deepEqual(socketManager.emitted, [
+        {
+          userId: 'owner-real',
+          event: 'thread_created',
+          data: { threadId: result.threadId, source: 'connector_auto' },
+        },
+      ]);
+      const rebound = bindingStore.getByExternal('dingtalk', 'chat-legacy');
+      assert.equal(rebound?.userId, 'owner-real');
+    } finally {
+      if (originalOwner == null) {
+        delete process.env.DEFAULT_OWNER_USER_ID;
+      } else {
+        process.env.DEFAULT_OWNER_USER_ID = originalOwner;
+      }
+    }
+  });
+
+  it('skips inbound routing when owner is unresolved instead of binding to default-user', async () => {
+    const originalOwner = process.env.DEFAULT_OWNER_USER_ID;
+    delete process.env.DEFAULT_OWNER_USER_ID;
+    try {
+      const unresolvedRouter = new ConnectorRouter({
+        bindingStore,
+        dedup,
+        messageStore,
+        threadStore,
+        invokeTrigger: trigger,
+        socketManager,
+        defaultUserIdResolver: () => 'default-user',
+        defaultUserId: 'default-user',
+        defaultCatId: 'opus',
+        log: noopLog(),
+      });
+
+      const result = await unresolvedRouter.route('dingtalk', 'chat-no-owner', 'hello', 'ext-no-owner-1');
+      assert.deepEqual(result, { kind: 'skipped', reason: 'owner_unresolved' });
+      assert.equal(messageStore.messages.length, 0);
+      assert.equal(trigger.calls.length, 0);
+      assert.equal(threadStore.threads.size, 0);
+      assert.equal(bindingStore.getByExternal('dingtalk', 'chat-no-owner'), null);
+    } finally {
+      if (originalOwner == null) {
+        delete process.env.DEFAULT_OWNER_USER_ID;
+      } else {
+        process.env.DEFAULT_OWNER_USER_ID = originalOwner;
+      }
+    }
+  });
+
   it('posts message to message store with ConnectorSource', async () => {
     await router.route('feishu', 'chat-123', 'Hello', 'ext-1');
     assert.equal(messageStore.messages.length, 1);

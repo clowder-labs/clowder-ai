@@ -290,6 +290,7 @@ describe('PATCH /api/config/env (route)', () => {
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'FEISHU_APP_ID=old-app\n', 'utf8');
     const reconcileCalls = [];
+    const ownerCalls = [];
 
     const app = Fastify({ logger: false });
     try {
@@ -297,6 +298,9 @@ describe('PATCH /api/config/env (route)', () => {
         projectRoot: tempRoot,
         envFilePath,
         connectorRuntimeManager: {
+          async setOwnerUserId(userId) {
+            ownerCalls.push(userId);
+          },
           async reconcile(keys) {
             reconcileCalls.push(keys);
             return {
@@ -326,6 +330,7 @@ describe('PATCH /api/config/env (route)', () => {
       assert.equal(body.ok, true);
       assert.equal(body.requiresRestart, false);
       assert.equal(body.runtime.applied, true);
+      assert.deepEqual(ownerCalls, ['codex']);
       assert.deepEqual(reconcileCalls, [['FEISHU_APP_ID']]);
     } finally {
       await app.close();
