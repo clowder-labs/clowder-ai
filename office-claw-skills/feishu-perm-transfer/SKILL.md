@@ -1,3 +1,8 @@
+---
+name: feishu-perm-transfer
+description: Manage and transfer Feishu document permissions in bulk, including ownership transfer, collaborator add/remove, and permission cleanup across docs, sheets, bitables, and wiki content. Use when users need document handoff, batch permission updates, collaborator onboarding or offboarding, or Feishu access governance.
+---
+
 # 飞书文档权限转移助手
 
 ## 功能说明
