@@ -548,6 +548,38 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[1].content, 'Reply 1');
   });
 
+  test('GET thread-context filters scheduler trigger placeholder but keeps agent reply', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: 1,
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: '好的，已经到时间了！记得喝水哦～',
+      mentions: [],
+      timestamp: 2,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].catId, 'opus');
+    assert.equal(body.messages[0].content, '好的，已经到时间了！记得喝水哦～');
+  });
+
   test('GET thread-context respects limit parameter', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');

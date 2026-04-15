@@ -289,6 +289,7 @@ describe('workspace open-local endpoint', () => {
   let customProjectRoot;
   const localAgentDir = join(homedir(), '.jiuwenclaw', 'agent');
   const localDeckPath = join(localAgentDir, 'meta-test-deck.pptx');
+  const localWordPath = join(localAgentDir, 'meta-test-report.docx');
   const localMarkdownPath = join(localAgentDir, 'meta-test-report.md');
   const worktreeDeckDirName = '__workspace_open_local_test__';
   let worktreeDeckPath;
@@ -306,6 +307,7 @@ describe('workspace open-local endpoint', () => {
 
     await mkdir(localAgentDir, { recursive: true });
     await writeFile(localDeckPath, Buffer.from('pptx-meta'));
+    await writeFile(localWordPath, Buffer.from('word-meta'));
     await writeFile(localMarkdownPath, '# test report\n');
     await mkdir(join(worktreeRoot, worktreeDeckDirName), { recursive: true });
     await writeFile(worktreeDeckPath, Buffer.from('pptx-worktree'));
@@ -319,6 +321,7 @@ describe('workspace open-local endpoint', () => {
   after(async () => {
     await app?.close();
     await rm(localDeckPath, { force: true });
+    await rm(localWordPath, { force: true });
     await rm(localMarkdownPath, { force: true });
     if (worktreeRoot) {
       await rm(join(worktreeRoot, worktreeDeckDirName), { recursive: true, force: true });
@@ -411,6 +414,25 @@ describe('workspace open-local endpoint', () => {
     const body = JSON.parse(res.payload);
     assert.equal(body.fileName, 'meta-test-report.md');
     assert.equal(body.path, localMarkdownPath);
+    assert.ok(typeof body.generatedAt === 'number');
+    assert.ok(body.generatedAt > 0);
+  });
+
+  it('returns local Word metadata with generatedAt', async () => {
+    await mkdir(localAgentDir, { recursive: true });
+    await writeFile(localWordPath, Buffer.from('word-meta'));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/local-file-meta',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localWordPath }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.fileName, 'meta-test-report.docx');
+    assert.equal(body.path, localWordPath);
     assert.ok(typeof body.generatedAt === 'number');
     assert.ok(body.generatedAt > 0);
   });

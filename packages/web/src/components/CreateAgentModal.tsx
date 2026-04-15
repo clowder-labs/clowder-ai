@@ -133,7 +133,6 @@ function autoSlug(name: string): string {
 }
 
 const AGENT_NAME_VALIDATION_MESSAGE = '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
-
 function validateAgentName(name: string): string | null {
   if (!name) return AGENT_NAME_VALIDATION_MESSAGE;
   if (name !== name.trim()) return AGENT_NAME_VALIDATION_MESSAGE;
@@ -143,24 +142,26 @@ function validateAgentName(name: string): string | null {
   }
   return null;
 }
-function normalizeSaveErrorMessage(message: string | null | undefined): string | null {
+
+function normalizeErrorMessage(message: string | null | undefined): string | null {
   if (!message) return null;
+  const trimmed = message.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
+function isDuplicateNameErrorMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
   const normalized = message.trim().toLowerCase();
-  if (!normalized) return null;
+  if (!normalized) return false;
 
-  if (
+  return (
+    (normalized.includes('名称') && normalized.includes('已被使用')) ||
     normalized.includes('duplicate') ||
     normalized.includes('already exists') ||
     normalized.includes('名称重复') ||
     normalized.includes('名字重复') ||
-    normalized.includes('重名') ||
-    normalized.includes('别名')
-  ) {
-    return '名称重复';
-  }
-
-  return message;
+    normalized.includes('重名')
+  );
 }
 
 function generateRandomCatId(): string {
@@ -445,7 +446,9 @@ export function CreateAgentModal({
   const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [nameSubmitError, setNameSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const clientMenuRef = useRef<HTMLDivElement | null>(null);
   const clientTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -487,7 +490,9 @@ export function CreateAgentModal({
       setModelMenuOpen(false);
       setOpenAbove(false);
       setModelMenuPosition(null);
-      setError(null);
+      setGlobalError(null);
+      setAvatarError(null);
+      setNameSubmitError(null);
       return;
     }
     setSelectedClient(RELAYCLAW_CLIENT);
@@ -498,7 +503,9 @@ export function CreateAgentModal({
     setModelMenuOpen(false);
     setOpenAbove(false);
     setModelMenuPosition(null);
-    setError(null);
+    setGlobalError(null);
+    setAvatarError(null);
+    setNameSubmitError(null);
   }, [cat, description, isSkipAuth, name, open]);
 
   useEffect(() => {
@@ -563,7 +570,7 @@ export function CreateAgentModal({
       } catch (err) {
         if (cancelled) return;
         setMarketplaceModels([]);
-        setError(err instanceof Error ? err.message : '模型广场加载失败');
+        setGlobalError(err instanceof Error ? err.message : '模型广场加载失败');
       } finally {
         if (!cancelled) setLoadingModels(false);
       }
@@ -621,7 +628,8 @@ export function CreateAgentModal({
     [clientOptions, selectedClient],
   );
   const nameError = useMemo(() => validateAgentName(draftName), [draftName]);
-  const isConfirmDisabled = saving || Boolean(nameError);
+  const inlineNameError = nameError ?? nameSubmitError;
+  const isConfirmDisabled = saving || Boolean(inlineNameError);
 
   const updateClientMenuPosition = useCallback(() => {
     if (!clientMenuOpen || !clientTriggerRef.current) return;
@@ -712,17 +720,17 @@ export function CreateAgentModal({
 
     const validationError = validateAvatarFile(file);
     if (validationError) {
-      setError(validationError);
+      setAvatarError(validationError);
       event.target.value = '';
       return;
     }
 
     setUploadingAvatar(true);
-    setError(null);
+    setAvatarError(null);
     try {
       setDraftAvatar(await uploadAvatarAsset(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '头像上传失败');
+      setAvatarError(err instanceof Error ? err.message : '头像上传失败');
     } finally {
       setUploadingAvatar(false);
       event.target.value = '';
@@ -734,12 +742,13 @@ export function CreateAgentModal({
     if (nameError) return;
 
     if (!selectedModel) {
-      setError('请选择模型');
+      setGlobalError('请选择模型');
       return;
     }
 
     setSaving(true);
-    setError(null);
+    setGlobalError(null);
+    setNameSubmitError(null);
     try {
       const formState = cat
         ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
@@ -753,9 +762,12 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError(
-          normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`,
-        );
+        const nextError = normalizeErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`;
+        if (isDuplicateNameErrorMessage(nextError)) {
+          setNameSubmitError(nextError);
+        } else {
+          setGlobalError(nextError);
+        }
         return;
       }
 
@@ -765,7 +777,12 @@ export function CreateAgentModal({
       await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
-      setError(normalizeSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败'));
+      const nextError = normalizeErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败');
+      if (isDuplicateNameErrorMessage(nextError)) {
+        setNameSubmitError(nextError);
+      } else {
+        setGlobalError(nextError);
+      }
     } finally {
       setSaving(false);
     }
@@ -799,13 +816,20 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-primary)]">名称</div>
               <input
                 aria-label="Name"
-                aria-invalid={Boolean(nameError)}
+                aria-invalid={Boolean(inlineNameError)}
                 value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
+                onChange={(event) => {
+                  setDraftName(event.target.value);
+                  setNameSubmitError(null);
+                }}
                 maxLength={64}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
-              {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
+              {inlineNameError ? (
+                <div data-testid="create-agent-name-error" className="text-[12px] text-[var(--state-error-text)]">
+                  {inlineNameError}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2.5">
@@ -866,8 +890,10 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-muted)]">
                 {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
               </div>
-              {error ? (
-                <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div>
+              {avatarError ? (
+                <div data-testid="create-agent-avatar-error" className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
+                  {avatarError}
+                </div>
               ) : null}
             </div>
 
@@ -984,6 +1010,12 @@ export function CreateAgentModal({
               )}
             </div>
           </div>
+
+          {globalError ? (
+            <div data-testid="create-agent-global-error" className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
+              {globalError}
+            </div>
+          ) : null}
         </div>
 
         <div data-testid="create-agent-modal-footer" className="flex shrink-0 justify-end gap-3">

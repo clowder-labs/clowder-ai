@@ -13,25 +13,29 @@ const mockAddMessage = vi.fn();
 const mockAppendToMessage = vi.fn();
 const mockAppendToolEvent = vi.fn();
 const mockAppendRichBlock = vi.fn();
-const mockReplaceMessageId = vi.fn();
-const mockPatchMessage = vi.fn();
-const mockRemoveMessage = vi.fn();
 const mockSetStreaming = vi.fn();
 const mockSetLoading = vi.fn();
 const mockSetHasActiveInvocation = vi.fn();
-const mockRemoveActiveInvocation = vi.fn();
-const mockClearAllActiveInvocations = vi.fn();
 const mockSetIntentMode = vi.fn();
 const mockSetCatStatus = vi.fn();
 const mockClearCatStatuses = vi.fn();
 const mockSetCatInvocation = vi.fn();
 const mockSetMessageUsage = vi.fn();
+const mockRequestStreamCatchUp = vi.fn();
 const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
+const mockReplaceMessageId = vi.fn();
+const mockPatchMessage = vi.fn();
+const mockRemoveMessage = vi.fn();
+const mockRemoveActiveInvocation = vi.fn();
+const mockClearAllActiveInvocations = vi.fn();
 const mockSetMessageStreamInvocation = vi.fn();
-const mockRequestStreamCatchUp = vi.fn();
-const mockAddToast = vi.fn();
-let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+
+const mockAddMessageToThread = vi.fn();
+const mockClearThreadActiveInvocation = vi.fn();
+const mockResetThreadInvocationState = vi.fn();
+const mockSetThreadMessageStreaming = vi.fn();
+const mockGetThreadState = vi.fn(() => ({ messages: [] }));
 
 const storeState = {
   messages: [] as Array<{
@@ -63,11 +67,18 @@ const storeState = {
   setMessageThinking: mockSetMessageThinking,
   setMessageStreamInvocation: mockSetMessageStreamInvocation,
   requestStreamCatchUp: mockRequestStreamCatchUp,
+
+  addMessageToThread: mockAddMessageToThread,
+  clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+  resetThreadInvocationState: mockResetThreadInvocationState,
+  setThreadMessageStreaming: mockSetThreadMessageStreaming,
+  getThreadState: mockGetThreadState,
   currentThreadId: 'thread-1',
-  activeInvocations: {},
-  catInvocations: {},
-  getThreadState: vi.fn(() => ({ messages: [], activeInvocations: {}, catInvocations: {} })),
+  activeInvocations: {} as Record<string, { catId: string; mode: string }>,
+  catInvocations: {} as Record<string, { invocationId?: string }>,
 };
+
+let captured: ReturnType<typeof useAgentMessages> | undefined;
 
 vi.mock('@/stores/chatStore', () => {
   const useChatStoreMock = Object.assign(() => storeState, { getState: () => storeState });
@@ -76,22 +87,12 @@ vi.mock('@/stores/chatStore', () => {
   };
 });
 
-vi.mock('@/stores/toastStore', () => ({
-  useToastStore: {
-    getState: () => ({
-      addToast: mockAddToast,
-    }),
-  },
-}));
-
-let captured: ReturnType<typeof useAgentMessages> | undefined;
-
 function Harness() {
   captured = useAgentMessages();
   return null;
 }
 
-describe('useAgentMessages error toast fallback', () => {
+describe('useAgentMessages scheduler placeholder filter', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -110,10 +111,10 @@ describe('useAgentMessages error toast fallback', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     captured = undefined;
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mockAddMessage.mockClear();
-    mockAddToast.mockClear();
-    mockSetCatStatus.mockClear();
+    storeState.messages = [];
+    storeState.activeInvocations = {};
+    storeState.catInvocations = {};
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -121,85 +122,53 @@ describe('useAgentMessages error toast fallback', () => {
       root.unmount();
     });
     container.remove();
-    consoleWarnSpy.mockRestore();
   });
 
-  it('pushes a sensitive-input toast for active-thread error events', () => {
+  it('suppresses realtime scheduler trigger placeholders but keeps the agent reply', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
 
     act(() => {
       captured?.handleAgentMessage({
-        type: 'error',
-        catId: 'codex',
-        errorCode: 'ModelArts.81011',
-        error: 'Input text May contain sensitive information, please try again.',
-        isFinal: true,
+        type: 'text',
+        catId: 'system',
+        content: '[定时任务] 该休息一下啦！站起来活动活动，保护眼睛~',
+        origin: 'callback',
+        source: {
+          connector: 'scheduler',
+          label: '定时任务',
+          icon: 'scheduler',
+        },
       });
     });
 
-    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
-    expect(mockAddToast).toHaveBeenCalledWith({
-      type: 'error',
-      title: '检测到敏感词',
-      message: '当前对话触发了敏感词校验，请重新打开一个新会话后再试。',
-      threadId: 'thread-1',
-      duration: 8000,
-    });
     expect(mockAddMessage).not.toHaveBeenCalled();
-  });
-
-  it('pushes a fixed system bubble for temporary rate-limit error events', () => {
-    act(() => {
-      root.render(React.createElement(Harness));
-    });
 
     act(() => {
       captured?.handleAgentMessage({
-        type: 'error',
-        catId: 'codex',
-        errorCode: 'ModelArts.81101',
-        error:
-          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
-        isFinal: true,
+        type: 'text',
+        catId: 'opus',
+        content: '该休息一下啦！站起来活动活动，保护眼睛~',
+        origin: 'callback',
+        source: {
+          connector: 'scheduler',
+          label: '定时任务',
+          icon: 'scheduler',
+        },
+        messageId: 'reply-1',
       });
     });
 
-    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
+    expect(mockAddMessage).toHaveBeenCalledTimes(1);
     expect(mockAddMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'system',
-        variant: 'error',
-        content: '当前请求较多，模型暂时限流，请稍后重试。',
+        id: 'reply-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: '该休息一下啦！站起来活动活动，保护眼睛~',
+        origin: 'callback',
       }),
     );
-    expect(mockAddToast).not.toHaveBeenCalled();
-  });
-
-  it('uses toast instead of assistant bubble for generic agent failures', () => {
-    act(() => {
-      root.render(React.createElement(Harness));
-    });
-
-    act(() => {
-      captured?.handleAgentMessage({
-        type: 'error',
-        catId: 'codex',
-        error: 'request timed out before completion',
-        isFinal: true,
-      });
-    });
-
-    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
-    expect(mockAddToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'error',
-        message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
-        threadId: 'thread-1',
-        duration: 8000,
-      }),
-    );
-    expect(mockAddMessage).not.toHaveBeenCalled();
   });
 });

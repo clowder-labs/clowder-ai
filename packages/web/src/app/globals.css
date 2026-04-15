@@ -253,6 +253,8 @@
   --accent-soft: rgba(255, 221, 210, 0.45);
   --accent-soft-strong: #ffddd2;
   --chat-user-bubble-bg: rgba(255, 241, 230, 1);
+  --chat-input-shell-border: #ffe7d3;
+  --chat-input-shell-focus-border: #ffdac0;
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #e6e6e6;
@@ -284,7 +286,7 @@
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-active-bg: var(--surface-panel);
+  --menu-active-bg: #fffbf7;
   --menu-disabled-bg: transparent;
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
@@ -314,7 +316,7 @@
 
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: transparent;
-  --connector-tab-border-default: #f0f0f0;
+  --connector-tab-border-default: #e6e6e6;
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: #cc6d1a;
   --icon-delete-color: #191919;
@@ -378,6 +380,8 @@
   --accent-soft: #eef0ff;
   --accent-soft-strong: #ddeeff;
   --chat-user-bubble-bg: #deecff;
+  --chat-input-shell-border: #dbdbdb;
+  --chat-input-shell-focus-border: #c2c2c2;
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #f0f0f0;
@@ -585,7 +589,6 @@ select:-webkit-autofill:focus {
   .ui-card {
     border: var(--border-width-default) solid var(--card-border);
     border-radius: var(--card-radius);
-    box-shadow: var(--card-shadow);
     padding: var(--card-padding);
   }
 
@@ -593,7 +596,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid var(--card-border);
     border-radius: var(--card-radius);
     background: var(--card-muted-bg);
-    box-shadow: var(--card-shadow);
     padding: var(--card-padding);
   }
 
@@ -1250,6 +1252,14 @@ select:-webkit-autofill:focus {
     box-shadow: none;
   }
 
+  .chat-input-shell {
+    border-color: var(--chat-input-shell-border);
+  }
+
+  .chat-input-shell:focus-within {
+    border-color: var(--chat-input-shell-focus-border);
+  }
+
   .ui-status-success {
     background: var(--state-success-surface);
     color: var(--state-success-text);
@@ -1525,11 +1535,10 @@ select:-webkit-autofill:focus {
   }
 
   .ui-content-header-feedback-low-score-subtitle {
-    margin-left: 8px;
     font-size: 12px;
     line-height: 1.4;
     font-weight: 500;
-    color: #8f8f8f;
+    color: #808080;
   }
 
   .ui-content-header-feedback-low-score-options {
@@ -1668,7 +1677,6 @@ select:-webkit-autofill:focus {
     }
 
     .ui-content-header-feedback-low-score-subtitle {
-      margin-left: 6px;
       font-size: 12px;
     }
 

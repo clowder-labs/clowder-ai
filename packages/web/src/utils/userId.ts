@@ -11,6 +11,7 @@
 
 const STORAGE_KEY = 'cat-cafe-userId';
 const SKIP_AUTH_KEY = 'cat-cafe-isskip';
+const CAN_CREATE_MODEL_KEY = 'can-create-model';
 const USER_NAME_KEY = 'cat-cafe-userName';
 const DEFAULT_USER = 'default-user';
 
@@ -82,5 +83,17 @@ export function getIsSkipAuth(): boolean {
 export function setIsSkipAuth(value: boolean): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(SKIP_AUTH_KEY, value ? '1' : '0');
+  }
+}
+
+export function getCanCreateModel(): boolean {
+  if (typeof window === 'undefined') return false;
+  const raw = localStorage.getItem(CAN_CREATE_MODEL_KEY);
+  return raw === '1' || raw === 'true';
+}
+
+export function setCanCreateModel(value: boolean): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(CAN_CREATE_MODEL_KEY, value ? '1' : '0');
   }
 }
