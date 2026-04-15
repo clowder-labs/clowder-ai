@@ -14,7 +14,7 @@ from pathlib import Path
 
 from openjiuwen.core.foundation.tool import LocalFunction, Tool, ToolCard
 
-from jiuwenclaw.utils import get_agent_skill_source_dirs
+from jiuwenclaw.utils import get_agent_registered_skill_dirs
 from jiuwenclaw.logging.app_logger import logger
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ def _find_skill_dir(skill_name: str) -> Path | None:
         clean = clean.rsplit("/", 1)[-1]
     skill_name = clean
 
-    for base_dir in get_agent_skill_source_dirs():
+    for base_dir in get_agent_registered_skill_dirs():
         if not base_dir.exists():
             continue
         result = _recursive_find_skill(base_dir, skill_name)

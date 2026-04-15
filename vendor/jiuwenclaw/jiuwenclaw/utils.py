@@ -71,7 +71,10 @@ def get_disabled_agent_skill_names() -> set[str]:
 def get_agent_skill_source_dirs() -> list[Path]:
     dirs: list[Path] = []
     seen: set[str] = set()
-    for path in [*get_shared_agent_skills_dirs(), get_agent_skills_dir()]:
+    agent_skill_dirs = [get_agent_skills_dir()]
+    if get_shared_agent_skills_dirs():
+        agent_skill_dirs = get_shared_agent_skills_dirs()
+    for path in agent_skill_dirs:
         resolved = path.expanduser().resolve()
         key = str(resolved)
         if key in seen:
@@ -81,16 +84,9 @@ def get_agent_skill_source_dirs() -> list[Path]:
     return dirs
 
 
-def get_agent_shared_skills_cache_dir() -> Path:
-    runtime_dir = (os.getenv("JIUWENCLAW_RUNTIME_SKILLS_DIR") or "").strip()
-    if runtime_dir:
-        return Path(runtime_dir).expanduser().resolve()
-    return get_agent_root_dir() / "shared-skills-cache"
-
-
 def get_agent_registered_skill_dirs() -> list[Path]:
     if get_shared_agent_skills_dirs():
-        return [get_agent_shared_skills_cache_dir(), get_agent_skills_dir()]
+        return get_shared_agent_skills_dirs()
     return [get_agent_skills_dir()]
 
 
@@ -108,37 +104,6 @@ def _iter_skill_dirs(base_dir: Path) -> list[Path]:
         )
     except Exception:
         return []
-
-
-def sync_shared_agent_skills_cache() -> None:
-    shared_dirs = get_shared_agent_skills_dirs()
-    cache_dir = get_agent_shared_skills_cache_dir()
-
-    if not shared_dirs:
-        if cache_dir.exists():
-            shutil.rmtree(cache_dir)
-        return
-
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    seen_names: set[str] = set()
-
-    for base_dir in shared_dirs:
-        for skill_dir in _iter_skill_dirs(base_dir):
-            skill_name = skill_dir.name
-            if skill_name in seen_names:
-                continue
-            seen_names.add(skill_name)
-
-            dest_dir = cache_dir / skill_name
-            if dest_dir.exists():
-                shutil.rmtree(dest_dir)
-            shutil.copytree(skill_dir, dest_dir)
-
-    for child in list(cache_dir.iterdir()):
-        if not child.is_dir():
-            continue
-        if child.name not in seen_names:
-            shutil.rmtree(child)
 
 
 def _detect_installation_mode() -> bool:
@@ -418,10 +383,7 @@ def prepare_workspace(overwrite: bool = True, preferred_language: Optional[str] 
             shutil.rmtree(agent_workspace)
         agent_workspace.mkdir(parents=True, exist_ok=True)
     _copy_dir(template_agent_memory, agent_memory)
-    if get_shared_agent_skills_dirs():
-        agent_skills.mkdir(parents=True, exist_ok=True)
-        sync_shared_agent_skills_cache()
-    else:
+    if not get_shared_agent_skills_dirs():
         _copy_dir(template_agent_skills, agent_skills)
 
     # home: 按语言将 PRINCIPLE/TONE/HEARTBEAT 模板复制为无后缀的 .md
