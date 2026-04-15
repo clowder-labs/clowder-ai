@@ -8,9 +8,9 @@
  * Redis key patterns for memory store.
  */
 
-/** Memory hash key pattern: cat-cafe:memory:{threadId} */
+/** Memory hash key pattern: office-claw:memory:{threadId} */
 export function memoryKey(threadId: string): string {
-  return `cat-cafe:memory:${threadId}`;
+  return `memory:${threadId}`;
 }
 
 /** TTL for memory entries: 30 days */

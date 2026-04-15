@@ -155,6 +155,21 @@ def _chunk_text(text: str, chunk_size: int) -> List[str]:
     return chunks
 
 
+def _serialize_tool_call_delta(tool_call: Any) -> Dict[str, Any]:
+    """Serialize a streamed tool call delta for WS/history transport."""
+    arguments = getattr(tool_call, "arguments", "")
+    if arguments is None:
+        arguments = ""
+    return {
+        "id": getattr(tool_call, "id", "") or "",
+        "tool_call_id": getattr(tool_call, "id", "") or "",
+        "type": getattr(tool_call, "type", "function") or "function",
+        "name": getattr(tool_call, "name", "") or "",
+        "arguments": arguments,
+        "index": getattr(tool_call, "index", 0),
+    }
+
+
 class JiuClawReActAgent(ReActAgent):
     """Inherits ReActAgent, overrides invoke/stream to support todo.updated events."""
 
@@ -345,6 +360,22 @@ class JiuClawReActAgent(ReActAgent):
                     accumulated_chunk = chunk
                 else:
                     accumulated_chunk = accumulated_chunk + chunk
+
+                if chunk.tool_calls:
+                    await session.write_stream(
+                        OutputSchema(
+                            type="tool_calls.delta",
+                            index=chunk_count,
+                            payload={
+                                "tool_calls": [
+                                    _serialize_tool_call_delta(tc)
+                                    for tc in chunk.tool_calls
+                                ],
+                                "source": "llm_stream",
+                            },
+                        )
+                    )
+                    chunk_count += 1
 
                 if chunk.reasoning_content:
                     reasoning_trace_pending.append(

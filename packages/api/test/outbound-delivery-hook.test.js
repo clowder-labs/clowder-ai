@@ -315,7 +315,7 @@ describe('OutboundDeliveryHook', () => {
       assert.equal(formattedCalls[0].chatId, 'oc_chat_1');
       const env = formattedCalls[0].envelope;
       assert.ok(env.header.includes(OPUS_DISPLAY_NAME), 'header should contain cat display name');
-      assert.ok(env.subtitle.includes('T42'), 'subtitle should have thread short ID');
+      assert.ok(env.subtitle.includes('飞书登录bug排查'), 'subtitle should have thread title');
       assert.ok(env.subtitle.includes('F088'), 'subtitle should have feat ID');
       assert.equal(env.body, 'Hello from cat!');
     });
