@@ -507,7 +507,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   return (
     <div className="relative">
       {showPlaceholder && placeholder && (
-        <div className="pointer-events-none absolute left-4 top-4 text-[16px] text-gray-400">{placeholder}</div>
+        <div className="pointer-events-none absolute left-[18px] top-4 text-[16px] text-gray-400">{placeholder}</div>
       )}
       <div
         ref={rootRef}
