@@ -730,7 +730,7 @@ describe('SkillDetailView', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('renders imported skill as third-party source from detail response', async () => {
+  it('renders imported skill as user-added source from detail response', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/skills/detail?name=demo-skill') {
@@ -780,7 +780,7 @@ describe('SkillDetailView', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('三方');
+    expect(container.textContent).toContain('用户添加技能');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Productivity');
     expect(container.querySelector('[data-testid="skill-detail-uninstall-button"]')?.textContent).toContain('卸载');
   });

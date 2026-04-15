@@ -144,7 +144,7 @@ function SkillList({
           const resolvedCategory = getSkillCategory(skill);
 
           return (
-            <article key={skill.id} className={`ui-card ui-card-hover ${styles.card}`}>
+            <article key={skill.id} className={`ui-card ${styles.card}`}>
               <div className={styles.header}>
                 <NameInitialIcon name={skill.slug} />
                 <div className={styles.content}>
