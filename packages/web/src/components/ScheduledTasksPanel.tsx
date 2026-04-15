@@ -251,7 +251,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
   } as const;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="ui-page-title">定时任务</h1>
         <button
@@ -263,20 +263,20 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
         </button>
       </div>
 
-      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 shadow-none">
+      <div className="ui-panel border-0 shadow-none">
         {isLoading ? (
-          <div className="flex h-full min-h-0 items-center justify-center">
+          <div className="flex min-h-[320px] items-center justify-center">
             <div className="text-[12px] text-[var(--text-muted)]">加载中...</div>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="flex h-full min-h-0 items-center justify-center">
+          <div className="flex min-h-[320px] items-center justify-center">
             <div className="text-center">
               <EmptyDataState title="暂无定时任务" />
               <p className="mt-2 text-[12px] text-[var(--text-muted)]">暂无数据，您可以点击创建按钮新增定时任务</p>
             </div>
           </div>
         ) : (
-          <div className="h-full min-h-0 overflow-y-auto px-1 pb-4">
+          <div className="px-1 pb-4">
             <div className="grid grid-cols-3 gap-x-4 gap-y-6">
               {tasks.map((task) => (
                 <article
@@ -290,7 +290,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                       setSelectedTask(task);
                     }
                   }}
-                  className="group h-[194px] cursor-pointer rounded-[16px] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 transition-shadow hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
+                  className="group h-[194px] cursor-pointer rounded-[16px] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 transition-shadow hover:bg-[var(--card-hover-bg)] hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                 >
                   <div className="flex h-full flex-col gap-4">
                     <div className="flex h-[48px] items-center justify-between gap-3">

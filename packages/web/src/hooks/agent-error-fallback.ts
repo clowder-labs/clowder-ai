@@ -5,16 +5,19 @@
  */
 
 import {
+  APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
   MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
+  getDailyQuotaExhaustedMessage,
   getFriendlyAgentErrorMessage as getSharedFriendlyAgentErrorMessage,
   getRateLimitMessage,
+  isDailyQuotaExhaustedError as isSharedDailyQuotaExhaustedError,
   isRateLimitError as isSharedRateLimitError,
   isSensitiveInputError as isSharedSensitiveInputError,
   type ErrorLike as SharedErrorLike,
 } from '@office-claw/shared';
 
-export { MODEL_ARTS_RATE_LIMIT_ERROR_CODE, MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE };
+export { APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE, MODEL_ARTS_RATE_LIMIT_ERROR_CODE, MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE };
 
 export type ErrorLike = SharedErrorLike & {
   catDisplayName?: string;
@@ -26,6 +29,14 @@ export function isRateLimitError(msg: ErrorLike): boolean {
 
 export function getRateLimitChatMessage(): string {
   return getRateLimitMessage();
+}
+
+export function isDailyQuotaExhaustedAgentError(msg: ErrorLike): boolean {
+  return isSharedDailyQuotaExhaustedError(msg);
+}
+
+export function getDailyQuotaExhaustedChatMessage(): string {
+  return getDailyQuotaExhaustedMessage();
 }
 
 export function isSensitiveInputAgentError(msg: ErrorLike): boolean {

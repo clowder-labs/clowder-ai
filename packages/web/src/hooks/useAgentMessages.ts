@@ -8,7 +8,13 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import { getAgentErrorToastContent, getRateLimitChatMessage, isRateLimitError } from '@/hooks/agent-error-fallback';
+import {
+  getAgentErrorToastContent,
+  getDailyQuotaExhaustedChatMessage,
+  getRateLimitChatMessage,
+  isDailyQuotaExhaustedAgentError,
+  isRateLimitError,
+} from '@/hooks/agent-error-fallback';
 import { getCachedCats } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -1154,6 +1160,14 @@ export function useAgentMessages() {
             type: 'system',
             variant: 'error',
             content: getRateLimitChatMessage(),
+            timestamp: Date.now(),
+          });
+        } else if (isDailyQuotaExhaustedAgentError(msg)) {
+          addMessage({
+            id: `daily-quota-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: 'error',
+            content: getDailyQuotaExhaustedChatMessage(),
             timestamp: Date.now(),
           });
         } else {

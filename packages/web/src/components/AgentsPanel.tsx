@@ -16,6 +16,7 @@ import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { SearchInput } from './shared/SearchInput';
 
 type AgentTabKey = 'persona' | 'collab' | 'skills';
@@ -859,7 +860,7 @@ export function AgentsPanel() {
       return (
         <div className="flex h-full min-h-0 flex-col items-center justify-center px-8 pb-6">
           <div className="text-center">
-            <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">暂无内容</h3>
+            <EmptyDataState title="暂无内容" />
             <p className="text-[12px] text-[var(--text-secondary)] mt-1">当前暂无内容，您可以填写后获取数据。</p>
             {canEditPersona ? (
               <button

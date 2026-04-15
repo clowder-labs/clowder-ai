@@ -986,7 +986,7 @@ export function ModelsPanel() {
                           </p>
                         </OverflowTooltip>
 
-                        <div className="mt-auto flex items-end justify-between gap-3">
+                        <div className="flex items-end justify-between gap-3">
                           <div className="min-h-5 text-xs leading-5">
                             {card.protocol !== 'huawei_maas' ? (
                               <div className="relative">
@@ -1177,7 +1177,7 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1266,7 +1266,7 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--icon-delete-hover)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[--text-accent]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />

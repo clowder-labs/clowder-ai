@@ -65,7 +65,7 @@ const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度2
 const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
-const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/time-time.svg';
 
 function buildScheduledTaskQuickActionInsertText(): string | null {
   const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
@@ -194,6 +194,25 @@ export function ChatContainer(props: ChatContainerProps) {
     window.history.replaceState(window.history.state, '', nextUrl || '/');
   }, [skipInitialAuthGate]);
 
+  // Thread pages skip requireLoginCheck to avoid the loading panel flash.
+  // But this leaves cachedAuthChecked=false, causing "新建会话" to show
+  // the loading panel on the home page. Silently warm up the cache here.
+  useEffect(() => {
+    if (props.mode !== 'thread' || props.requireLoginCheck || cachedAuthChecked) return;
+    apiFetch('/api/islogin')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.islogin) {
+          cachedAuthChecked = true;
+          cachedIsLoggedIn = true;
+          setCanCreateModel(Boolean(data?.canCreateModel));
+        }
+      })
+      .catch(() => {});
+    // intentionally run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!props.requireLoginCheck || skipInitialAuthGate) return;
 
@@ -246,6 +265,26 @@ export function ChatContainer(props: ChatContainerProps) {
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
+          // API 不可用（如服务重启/ERR_FAILED）时，用 sessionStorage 限制重试次数，
+          // 避免 authChecked=true + isLoggedIn=false 导致永久卡在"正在跳转登录页..."。
+          const retries = Number(sessionStorage.getItem('_chat_auth_retry') || '0');
+          if (retries < 2) {
+            sessionStorage.setItem('_chat_auth_retry', String(retries + 1));
+            // 延迟 3s 后 reload，等待 API 服务恢复
+            setTimeout(() => {
+              if (!cancelled) window.location.reload();
+            }, 3000);
+            return; // 不执行 finally 里的 setAuthChecked(true)，保持 loading 状态
+          }
+          // 重试耗尽：跳转 CAS 重新登录
+          sessionStorage.removeItem('_chat_auth_retry');
+          const casUrl = sessionStorage.getItem('_cas_login_url');
+          if (casUrl) {
+            window.location.replace(casUrl);
+          } else {
+            window.location.reload();
+          }
+          return;
         }
       } finally {
         if (!cancelled) {
@@ -772,7 +811,9 @@ function ThreadModeChatContainer({
           {sidebarMenu !== 'chat' && (
             <div
               className={`ui-shell-surface h-full px-12 py-8 ${
-                sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
+                sidebarMenu === 'models' || sidebarMenu === 'skills' || sidebarMenu === 'scheduledTasks'
+                  ? 'overflow-y-auto'
+                  : 'overflow-hidden'
               }`}
             >
               {sidebarMenu === 'models' && <ModelsPanel />}
