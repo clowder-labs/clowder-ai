@@ -12,7 +12,7 @@ import type { TaskProgressSnapshot, TaskProgressStore } from './TaskProgressStor
  * Redis-backed task progress snapshots.
  *
  * Key naming:
- * - Use bare keys. Our ioredis client applies `cat-cafe:` via keyPrefix.
+ * - Use bare keys. Our ioredis client applies `office-claw:` via keyPrefix.
  */
 function threadKey(threadId: string): string {
   return `task-progress:${threadId}`;
