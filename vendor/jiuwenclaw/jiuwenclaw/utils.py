@@ -2,16 +2,17 @@
 
 """Path management for JiuWenClaw.
 
-Runtime layout:
-- ~/.jiuwenclaw/config/config.yaml
-- ~/.jiuwenclaw/config/.env
-- ~/.jiuwenclaw/agent/home
-- ~/.jiuwenclaw/agent/memory
-- ~/.jiuwenclaw/agent/skills
-- ~/.jiuwenclaw/agent/sessions
-- ~/.jiuwenclaw/agent/workspace（运行时文件与 agent-data.json）
-- ~/.jiuwenclaw/.checkpoint
-- ~/.jiuwenclaw/.logs
+Runtime layout（根目录见 ``runtime_paths.USER_WORKSPACE_DIR``：默认 ``~/.jiuwenclaw``；若设置环境变量
+``JIUWENCLAW_DATA_DIR`` 则为该路径本身，须为可直接使用的绝对路径，由宿主负责拼出 ``…/.jiuwenclaw`` 等布局）:
+- <workspace>/config/config.yaml
+- <workspace>/config/.env
+- <workspace>/agent/home
+- <workspace>/agent/memory
+- <workspace>/agent/skills
+- <workspace>/agent/sessions
+- <workspace>/agent/workspace（运行时文件与 agent-data.json）
+- <workspace>/.checkpoint
+- <workspace>/.logs
 
 内置模板位于包内 ``jiuwenclaw/resources/``（含 ``agent/`` 下 HEARTBEAT_ZH/EN、PRINCIPLE、TONE 等，以及 ``skills_state.json``）。
 """
@@ -27,12 +28,9 @@ from typing import Any, Literal, Optional
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.runtime_paths import USER_WORKSPACE_DIR
 
 
-
-# User home directory
-USER_HOME = Path.home()
-USER_WORKSPACE_DIR = USER_HOME / ".jiuwenclaw"
 
 # Cache for resolved paths
 _config_dir: Path | None = None

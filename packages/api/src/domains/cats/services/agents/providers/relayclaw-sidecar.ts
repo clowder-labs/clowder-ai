@@ -8,7 +8,8 @@ import { type ChildProcess, type SpawnOptions, spawn, spawnSync } from 'node:chi
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { delimiter, dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
@@ -148,6 +149,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
     const useExecutable = existsSync(executablePath);
     const homeDir = this.config.homeDir?.trim() || join(findMonorepoRoot(), '.office-claw', 'relayclaw', this.catId as string);
+    const officeClawDataDirEnv = resolve((process.env.OFFICE_CLAW_DATA_DIR ?? '').trim() || join(homedir(), '.office-claw'));
+    const jiuwenclawDataDir = resolve(
+      (process.env.JIUWENCLAW_DATA_DIR ?? '').trim() || join(officeClawDataDirEnv, '.jiuwenclaw'),
+    );
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
     const defaultHeaders = callbackEnv.default_headers || callbackEnv.OPENAI_DEFAULT_HEADERS || '';
@@ -180,6 +185,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       webPort: this.config.webPort ?? 0,
       env: {
         HOME: homeDir,
+        JIUWENCLAW_DATA_DIR: jiuwenclawDataDir,
         PYTHONUNBUFFERED: '1',
         WEB_HOST: '127.0.0.1',
         API_KEY: apiKey,
@@ -209,6 +215,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         pythonBin,
         appDir,
         homeDir,
+        officeClawDataDir: officeClawDataDirEnv,
         appSignature: buildRelayClawAppSignature(appDir),
         apiBase,
         defaultHeaders,
