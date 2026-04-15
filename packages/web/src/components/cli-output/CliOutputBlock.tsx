@@ -42,7 +42,7 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
-type LocalGeneratedFileKind = 'ppt' | 'markdown';
+type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'word';
 
 interface LocalGeneratedFile {
   name: string;
@@ -52,6 +52,15 @@ interface LocalGeneratedFile {
 
 interface LocalGeneratedFileMeta {
   generatedAt: number;
+}
+
+function dedupeLocalGeneratedFiles(files: Array<LocalGeneratedFile | null>): LocalGeneratedFile[] {
+  const deduped = new Map<string, LocalGeneratedFile>();
+  for (const file of files) {
+    if (!file) continue;
+    deduped.set(`${file.kind}:${file.path}`, file);
+  }
+  return [...deduped.values()];
 }
 
 const PRESENTATION_PATH_PATTERNS = [
@@ -71,6 +80,14 @@ const MARKDOWN_PATH_PATTERNS = [
   /(\/[^\r\n`'"]+?\.(?:md|markdown))/gi,
 ];
 const RELATIVE_MARKDOWN_PATH_TOKENS = /[^\s"'`<>]+\.(?:md|markdown)\b/gi;
+const WORD_PATH_PATTERNS = [
+  /(?:saved|output|exported|generated|final\s+artifact|word(?:\s+file)?|docx?(?:\s+file)?|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx|doc))/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|word(?:\s+file)?|docx?(?:\s+file)?|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.(?:docx|doc))/gi,
+  /([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx|doc))/gi,
+  /(\/[^\r\n`'"]+?\.(?:docx|doc))/gi,
+];
+const RELATIVE_WORD_PATH_TOKENS = /[^\s"'`<>]+\.(?:docx|doc)\b/gi;
+const WORD_FILENAME_TOKENS = /(?:^|[\s"'`([{<:：])([^\\/\s"'`<>]+\.(?:docx|doc))\b/gi;
 
 function isAbsolutePresentationPath(path: string): boolean {
   return /^[A-Za-z]:\\/.test(path) || path.startsWith('/');
@@ -122,7 +139,7 @@ function normalizePresentationPath(rawPath: string): string {
   }
 
   return normalized.replace(
-    /^(?:file\s*path|path|saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|文件路径|路径|产物|输出|保存)\s*[:：]\s*/i,
+    /^(?:file\s*path|path|saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|word(?:\s+file)?|docx?(?:\s+file)?|文件路径|路径|产物|输出|保存)\s*[:：]\s*/i,
     '',
   );
 }
@@ -149,6 +166,32 @@ function isLikelyRelativeMarkdownPath(path: string): boolean {
 function collectRelativeMarkdownCandidates(text: string): string[] {
   const matches = text.match(RELATIVE_MARKDOWN_PATH_TOKENS) ?? [];
   return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativeMarkdownPath(match));
+}
+
+function isLikelyRelativeWordPath(path: string): boolean {
+  if (isAbsolutePresentationPath(path)) return false;
+  if (!/[\\/]/.test(path)) return false;
+  if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
+  return /\.(?:docx|doc)$/i.test(path);
+}
+
+function collectRelativeWordCandidates(text: string): string[] {
+  const matches = text.match(RELATIVE_WORD_PATH_TOKENS) ?? [];
+  return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativeWordPath(match));
+}
+
+function collectWordFilenameCandidates(text: string): string[] {
+  const matches: string[] = [];
+  WORD_FILENAME_TOKENS.lastIndex = 0;
+  for (const match of text.matchAll(WORD_FILENAME_TOKENS)) {
+    const rawPath = match[1];
+    if (!rawPath) continue;
+    const normalized = normalizePresentationPath(rawPath);
+    if (/[\\/]/.test(normalized)) continue;
+    if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:)/.test(normalized)) continue;
+    matches.push(normalized);
+  }
+  return matches;
 }
 
 function scoreMarkdownCandidate(path: string): number {
@@ -261,13 +304,46 @@ function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null
     .slice()
     .sort((a, b) => (b.score - a.score) || (b.order - a.order))
     .at(0)?.path;
-  console.log('[CliOutputBlock][MarkdownCard] extractLocalMarkdownFile', {
-    searchSpace,
-    candidates,
-    selectedPath: path ?? null,
-  });
   if (!path) return null;
   return { name: fileNameFromPath(path), path, kind: 'markdown' };
+}
+
+function extractLocalWordFile(events: CliEvent[]): LocalGeneratedFile | null {
+  const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
+  const candidates: string[] = [];
+  const fallbackCandidates: string[] = [];
+
+  for (const text of searchSpace) {
+    for (const pattern of WORD_PATH_PATTERNS) {
+      pattern.lastIndex = 0;
+      for (const match of text.matchAll(pattern)) {
+        const rawPath = match[1];
+        if (!rawPath) continue;
+        const fullMatch = match[0] ?? '';
+        const normalized = normalizePresentationPath(rawPath);
+        if (normalized.startsWith('/') && typeof match.index === 'number') {
+          const pathStart = match.index + fullMatch.indexOf(rawPath);
+          const previousChar = pathStart > 0 ? text[pathStart - 1] : '';
+          if (previousChar && /[A-Za-z0-9_.-]/.test(previousChar)) {
+            continue;
+          }
+        }
+        pushPresentationCandidate(candidates, normalized);
+      }
+    }
+
+    for (const relativeCandidate of collectRelativeWordCandidates(text)) {
+      pushPresentationCandidate(candidates, relativeCandidate);
+    }
+
+    for (const filenameCandidate of collectWordFilenameCandidates(text)) {
+      pushPresentationCandidate(fallbackCandidates, filenameCandidate);
+    }
+  }
+
+  const path = candidates.at(-1) ?? fallbackCandidates.at(-1);
+  if (!path) return null;
+  return { name: fileNameFromPath(path), path, kind: 'word' };
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -409,20 +485,11 @@ function LocalFileAttachmentCard({
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
   const isMarkdown = file.kind === 'markdown';
+  const isWord = file.kind === 'word';
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
   );
-
-  useEffect(() => {
-    console.log('[CliOutputBlock][MarkdownCard] file-path-state', {
-      kind: file.kind,
-      rawPath: file.path,
-      projectPath: projectPath ?? null,
-      defaultProjectPath,
-      resolvedPath,
-    });
-  }, [defaultProjectPath, file.kind, file.path, projectPath, resolvedPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -436,11 +503,6 @@ function LocalFileAttachmentCard({
         if (!response.ok) return;
         const payload = (await response.json()) as { path?: string };
         if (!cancelled && typeof payload.path === 'string' && payload.path.trim()) {
-          console.log('[CliOutputBlock][MarkdownCard] loaded default cwd', {
-            kind: file.kind,
-            rawPath: file.path,
-            cwd: payload.path.trim(),
-          });
           setDefaultProjectPath(payload.path.trim());
         }
       } catch {
@@ -460,24 +522,12 @@ function LocalFileAttachmentCard({
     async function loadMeta(): Promise<void> {
       if (!resolvedPath) return;
       try {
-        console.log('[CliOutputBlock][MarkdownCard] request local-file-meta', {
-          kind: file.kind,
-          rawPath: file.path,
-          resolvedPath,
-          projectPath: projectPath ?? null,
-        });
         const response = await apiFetch('/api/workspace/local-file-meta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
         });
         if (!response.ok) {
-          console.log('[CliOutputBlock][MarkdownCard] local-file-meta not ok', {
-            kind: file.kind,
-            rawPath: file.path,
-            resolvedPath,
-            status: response.status,
-          });
           if (!cancelled && status === 'streaming') {
             retryTimer.current = setTimeout(loadMeta, 1000);
           }
@@ -485,22 +535,10 @@ function LocalFileAttachmentCard({
         }
         const payload = (await response.json()) as LocalGeneratedFileMeta;
         if (!cancelled && typeof payload.generatedAt === 'number') {
-          console.log('[CliOutputBlock][MarkdownCard] local-file-meta success', {
-            kind: file.kind,
-            rawPath: file.path,
-            resolvedPath,
-            generatedAt: payload.generatedAt,
-          });
           setGeneratedAt(payload.generatedAt);
           setIsReady(true);
         }
-      } catch (error) {
-        console.log('[CliOutputBlock][MarkdownCard] local-file-meta error', {
-          kind: file.kind,
-          rawPath: file.path,
-          resolvedPath,
-          error,
-        });
+      } catch {
         if (!cancelled) {
           setGeneratedAt(null);
           if (status === 'streaming') {
@@ -544,7 +582,7 @@ function LocalFileAttachmentCard({
 
   return (
     <div
-      data-testid={isMarkdown ? 'cli-output-markdown-card' : 'cli-output-ppt-card'}
+      data-testid={isMarkdown ? 'cli-output-markdown-card' : isWord ? 'cli-output-word-card' : 'cli-output-ppt-card'}
       className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
@@ -553,13 +591,23 @@ function LocalFileAttachmentCard({
           <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
           <g id="ic_normal_white_grid_pptx">
             <g id="编组-236">
-              <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(254,201,176)" fill-rule="evenodd" />
-              <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(255,119,55)" fill-rule="evenodd" />
+              <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(254,201,176)" fillRule="evenodd" />
+              <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(255,119,55)" fillRule="evenodd" />
             </g>
           </g>
-          <path id="矢量 111" d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.31428576" />
-          <path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" stroke-linejoin="round" stroke-width="1.31428576" />
-        </svg> : <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
+          <path id="矢量 111" d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.31428576" />
+          <path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" strokeLinejoin="round" strokeWidth="1.31428576" />
+        </svg> : isWord ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40.000000" height="40.000000" fill="none">
+          <rect id="Word" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+          <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+          <g id="ic_normal_white_grid_doc">
+            <path id="矩形备份-6" d="M33.4961 11.2512L34.3294 11.2512L34.3294 12.0846L33.4961 12.0846L33.4961 11.2512Z" fill="rgb(255,255,255)" fillRule="evenodd" />
+            <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(59,140,250)" fillRule="evenodd" />
+            <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(173,205,249)" fillRule="evenodd" />
+            <path id="路径-4" d="M14.7913 20.0012L16.9164 28.4888C16.9653 28.684 17.2392 28.693 17.3008 28.5015L19.8447 20.594C19.9042 20.4089 20.1661 20.4091 20.2255 20.5942L22.7576 28.4919C22.8193 28.6842 23.0946 28.6744 23.1424 28.4782L25.2079 20.0012" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeWidth="1.80555582" />
+          </g>
+        </svg>
+        : <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
           <rect id="文件格式/ppt" width="24.000000" height="24.000000" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fillOpacity="0" />
           <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fillRule="evenodd" />
           <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fillRule="evenodd" />
@@ -572,7 +620,7 @@ function LocalFileAttachmentCard({
       </div>
       <button
         type="button"
-        data-testid={isMarkdown ? 'cli-output-markdown-open' : 'cli-output-ppt-open'}
+        data-testid={isMarkdown ? 'cli-output-markdown-open' : isWord ? 'cli-output-word-open' : 'cli-output-ppt-open'}
         onClick={() => {
           void handleOpen();
         }}
@@ -650,7 +698,7 @@ function ToolRow({
         </div>
         {/* Detail — hidden by default, shown on click */}
         {hasDetail && <ChevronIcon expanded={rowExpanded} />}
-      </div>
+      </button>
       {rowExpanded && hasDetail && event.detail && (
         <div
           className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
@@ -784,18 +832,25 @@ export function CliOutputBlock({
     }
   }, [forceExpanded]);
 
-  const localGeneratedFile = useMemo(
-    () => extractLocalMarkdownFile(events) ?? extractLocalPresentationFile(events),
+  const localGeneratedFiles = useMemo(
+    () => {
+      const markdownFile = extractLocalMarkdownFile(events);
+      const wordFile = extractLocalWordFile(events);
+      const presentationFile = extractLocalPresentationFile(events);
+      const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile]);
+      const selectedFiles = officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
+      return selectedFiles;
+    },
     [events],
   );
 
   useEffect(() => {
-    console.log('[CliOutputBlock][MarkdownCard] localGeneratedFile', {
-      localGeneratedFile,
+    console.log('[CliOutputBlock] localGeneratedFiles', {
+      localGeneratedFiles,
       projectPath: projectPath ?? null,
       eventCount: events.length,
     });
-  }, [events.length, localGeneratedFile, projectPath]);
+  }, [events.length, localGeneratedFiles, projectPath]);
 
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -1005,9 +1060,9 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </div>
       </div>
-      {localGeneratedFile && (
-        <LocalFileAttachmentCard file={localGeneratedFile} projectPath={projectPath} status={status} />
-      )}
+      {localGeneratedFiles.map((file) => (
+        <LocalFileAttachmentCard key={`${file.kind}:${file.path}`} file={file} projectPath={projectPath} status={status} />
+      ))}
     </div>
   );
 }

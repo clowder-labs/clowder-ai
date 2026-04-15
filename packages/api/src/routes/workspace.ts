@@ -48,7 +48,14 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
 const LOCAL_AGENT_ROOT = resolve(homedir(), '.jiuwenclaw', 'agent');
-const LOCAL_AGENT_OPENABLE_EXTS = new Set(['.ppt', '.pptx', '.md', '.markdown']);
+const LOCAL_AGENT_OPENABLE_EXTS = new Set([
+  '.ppt',
+  '.pptx',
+  '.doc',
+  '.docx',
+  '.md',
+  '.markdown',
+]);
 
 const MIME_MAP: Record<string, string> = {
   '.ts': 'text/typescript',
@@ -866,7 +873,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
@@ -915,7 +922,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
