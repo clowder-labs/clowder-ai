@@ -123,8 +123,10 @@ describe('F088 Phase B+4 Integration', () => {
       const r1 = await router.route('feishu', 'chat-a', '/new My First Thread', 'cmd-1');
       assert.equal(r1.kind, 'command');
       assert.equal(adapter.sent.length, 1);
-      assert.ok(adapter.sent[0].content.includes('新 thread'));
+      assert.ok(adapter.sent[0].content.includes('新会话'));
       assert.ok(adapter.sent[0].content.includes('My First Thread'));
+      assert.ok(!adapter.sent[0].content.includes('ID:'));
+      assert.ok(!adapter.sent[0].content.includes('http'));
 
       // Capture the first thread ID for later /use
       const firstThreadId = [...threadStore.threads.keys()][0];
@@ -132,9 +134,9 @@ describe('F088 Phase B+4 Integration', () => {
       // 2. /where shows the current binding
       const r2 = await router.route('feishu', 'chat-a', '/where', 'cmd-2');
       assert.equal(r2.kind, 'command');
-      assert.ok(adapter.sent[1].content.includes('当前 thread'));
+      assert.ok(adapter.sent[1].content.includes('当前会话'));
       assert.ok(adapter.sent[1].content.includes('My First Thread'));
-      assert.ok(adapter.sent[1].content.includes('cafe.test'));
+      assert.ok(!adapter.sent[1].content.includes('http'));
 
       // 3. Create a binding from a different chat to build up user index
       // (MemoryStore is keyed by chat, so second /new from same chat overwrites first)
@@ -149,17 +151,22 @@ describe('F088 Phase B+4 Integration', () => {
       const r4 = await router.route('feishu', 'chat-a', '/threads', 'cmd-4');
       assert.equal(r4.kind, 'command');
       const threadsResponse = adapter.sent[3].content;
-      assert.ok(threadsResponse.includes('最近的 threads'));
+      assert.ok(threadsResponse.includes('最近的会话'));
+      assert.ok(threadsResponse.includes('1. My First Thread'));
+      assert.match(threadsResponse, /\d+\. Second Thread/);
+      assert.ok(threadsResponse.includes('/new [标题名]'));
+      assert.ok(threadsResponse.includes('/use [序号]'));
 
-      // 6. /use switches back to first thread via chat-b's binding in user index
-      // Use full threadId as prefix since mock IDs are similar (thread-1, thread-2)
-      const r5 = await router.route('feishu', 'chat-a', `/use ${firstThreadId}`, 'cmd-5');
+      // 6. /use switches back to first thread via numbered list
+      const r5 = await router.route('feishu', 'chat-a', '/use 1', 'cmd-5');
       assert.equal(r5.kind, 'command');
-      assert.ok(adapter.sent[4].content.includes('已切换到'), `Expected "已切换到" in: ${adapter.sent[4].content}`);
+      assert.ok(adapter.sent[4].content.includes('已切换到会话'), `Expected "已切换到会话" in: ${adapter.sent[4].content}`);
       assert.ok(
         adapter.sent[4].content.includes('My First Thread'),
         `Expected "My First Thread" in: ${adapter.sent[4].content}`,
       );
+      assert.ok(!adapter.sent[4].content.includes('ID:'));
+      assert.ok(!adapter.sent[4].content.includes('http'));
 
       // 7. /where confirms we're back on first thread
       const r6 = await router.route('feishu', 'chat-a', '/where', 'cmd-6');

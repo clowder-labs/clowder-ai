@@ -632,7 +632,6 @@ export class WeixinAdapter implements IOutboundAdapter {
       .replace(/~~(.*?)~~/g, '$1') // strikethrough → plain
       .replace(/^[>\s]*>\s?/gm, '') // blockquote markers
       .replace(/^[-*+]\s+/gm, '• ') // unordered list → bullet
-      .replace(/^\d+\.\s+/gm, '') // ordered list markers
       .replace(/^---+$/gm, '') // horizontal rules
       .replace(/\n{3,}/g, '\n\n') // collapse excessive newlines
       .trim();
