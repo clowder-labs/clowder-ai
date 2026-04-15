@@ -149,6 +149,30 @@ skills:
     sop_step: null
     merged_from: null
 
+  weather:
+    description: >
+      天气查询技能。通过 wttr.in 或 Open-Meteo 获取当前天气和短期预报，
+      适用于出行安排、行程准备和日常天气确认。
+    triggers:
+      - "weather"
+      - "天气"
+      - "forecast"
+      - "temperature"
+      - "会下雨吗"
+      - "气温"
+    not_for:
+      - "历史天气数据"
+      - "极端天气预警研判"
+    output: "Current weather conditions / short forecast"
+    dependencies:
+      system:
+        - "curl"
+      services:
+        - "wttr.in or Open-Meteo"
+    next: []
+    sop_step: null
+    merged_from: null
+
   # ═══════════════════════════════════════════════════════════════════════════════
 # 2. 企业协作 (Enterprise Collaboration) — 7 个
 # ═══════════════════════════════════════════════════════════════════════════════

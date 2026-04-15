@@ -14,6 +14,7 @@
 | `minimax-xlsx` | Excel / CSV / TSV 创建、分析、零损编辑与校验 |
 | `official-doc-formatter` | 按国标公文规范格式化 Word 文档 |
 | `pptx-craft` | 多阶段研究、规划、生成一体化 PPT 流程 |
+| `weather` | 天气查询与短期预报，适用于出行和日常工作安排 |
 
 ### 企业协作
 
