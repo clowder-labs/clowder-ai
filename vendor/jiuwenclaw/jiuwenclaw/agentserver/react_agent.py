@@ -603,7 +603,7 @@ class JiuClawReActAgent(ReActAgent):
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
             except Exception as e:
-                logger.error(f"[JiuwenClaw] 尝试修复上下文")
+                logger.error("[JiuwenClaw] 尝试修复上下文, error=%s", e)
                 await self._fix_incomplete_tool_context(context)
                 context_window = await context.get_context_window(
                     system_messages=[],
@@ -670,6 +670,13 @@ class JiuClawReActAgent(ReActAgent):
                     for tc in ai_message.tool_calls:
                         await self._emit_tool_call(session, tc)
 
+                # [ToolCall] 工具调用日志
+                for tc in ai_message.tool_calls:
+                    logger.info(
+                        "[ToolCall] tool=%s session=%s",
+                        tc.name, session_id,
+                    )
+
                 # ---- 权限检查：在执行工具前逐一检查权限 ----
                 allowed_tool_calls, denied_results = await check_tool_permissions(
                     ai_message.tool_calls,
@@ -692,6 +699,10 @@ class JiuClawReActAgent(ReActAgent):
                     from openjiuwen.core.foundation.llm import ToolMessage as _ToolMsg
                     for tc, deny_msg in denied_results:
                         tool_call_id = getattr(tc, "id", "")
+                        logger.info(
+                            "[ToolDenied] tool=%s session=%s",
+                            tc.name, session_id,
+                        )
                         await context.add_messages(_ToolMsg(
                             content=deny_msg,
                             tool_call_id=tool_call_id,
@@ -749,6 +760,10 @@ class JiuClawReActAgent(ReActAgent):
                         for tc in ai_message.tool_calls:
                             tool_call_id = getattr(tc, "id", "")
                             error_msg = f"Tool execution interrupted or failed: {tc.name}"
+                            logger.warning(
+                                "[ToolCancelled] tool=%s reason=interrupted session=%s msg=%s",
+                                tc.name, session_id, error_msg,
+                            )
                             await context.add_messages(ToolMessage(
                                 content=error_msg,
                                 tool_call_id=tool_call_id
