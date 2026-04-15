@@ -87,6 +87,7 @@ from jiuwenclaw.agentserver.tools.multimodal_config import (
     apply_audio_model_config_from_yaml,
     apply_vision_model_config_from_yaml,
     apply_video_model_config_from_yaml,
+    dedicated_multimodal_model_configured,
 )
 from jiuwenclaw.agentserver.runtime_config_yaml import (
     apply_config_yaml_patch,
@@ -413,15 +414,22 @@ class JiuWenClaw:
             except Exception as exc:
                 logger.warning("[JiuWenClaw] task memory tools registration failed: %s", exc)
 
-        # add video_understanding tool
-        try:
-            if not Runner.resource_mgr.get_tool(video_understanding.card.id):
-                Runner.resource_mgr.add_tool(video_understanding)
-            self._instance.ability_manager.add(video_understanding.card)
+        # add video_understanding tool（仅当 models.video 配置了独立 api_key，避免误用主模型 Key）
+        if dedicated_multimodal_model_configured(config_base, "video"):
+            try:
+                if not Runner.resource_mgr.get_tool(video_understanding.card.id):
+                    Runner.resource_mgr.add_tool(video_understanding)
+                self._instance.ability_manager.add(video_understanding.card)
+                self._video_tool_registered = True
+                logger.info("[JiuWenClaw] video_understanding tool registered")
+            except Exception as exc:
+                self._video_tool_registered = False
+                logger.warning("[JiuWenClaw] video_understanding tool registration failed: %s", exc)
+        else:
             self._video_tool_registered = True
-        except Exception as exc:
-            self._video_tool_registered = False
-            logger.warning("[JiuWenClaw] video_understanding tool registration failed: %s", exc)
+            logger.info(
+                "[JiuWenClaw] skip video_understanding: models.video 未配置独立 api_key"
+            )
 
         for mcp_tool in get_mcp_tools():
             Runner.resource_mgr.add_tool(mcp_tool)
@@ -499,19 +507,33 @@ class JiuWenClaw:
         except Exception as exc:
             logger.warning("[JiuWenClaw] browser MCP registration skipped: %s", exc)
 
-        # add vision tools (直接注册方式)
-        try:
-            for tool in [visual_question_answering]:
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
+        # add vision tools（仅当 models.vision 配置了独立 api_key）
+        if dedicated_multimodal_model_configured(config_base, "vision"):
+            try:
+                for tool in [visual_question_answering]:
+                    Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+                self._vision_mcp_registered = True
+                logger.info("[JiuWenClaw] vision tools registered successfully")
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] vision tools registration skipped: %s", exc)
+        else:
             self._vision_mcp_registered = True
-            logger.info("[JiuWenClaw] vision tools registered successfully")
-        except Exception as exc:
-            logger.warning("[JiuWenClaw] vision tools registration skipped: %s", exc)
+            logger.info(
+                "[JiuWenClaw] skip visual_question_answering: models.vision 未配置独立 api_key"
+            )
 
-        # add audio tools (直接注册方式)
+        # add audio tools：大模型问答需 models.audio 独立 api_key；metadata 仍注册（ACR）
         try:
-            for tool in [audio_question_answering, audio_metadata]:
+            if dedicated_multimodal_model_configured(config_base, "audio"):
+                for tool in [audio_question_answering]:
+                    Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+            else:
+                logger.info(
+                    "[JiuWenClaw] skip audio_question_answering: models.audio 未配置独立 api_key"
+                )
+            for tool in [audio_metadata]:
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
             self._audio_mcp_registered = True
@@ -954,27 +976,51 @@ class JiuWenClaw:
                 logger.warning("[JiuWenClaw] ensure task memory tools failed: %s", exc)
 
         if not self._video_tool_registered:
-            try:
-                if not Runner.resource_mgr.get_tool(video_understanding.card.id):
-                    Runner.resource_mgr.add_tool(video_understanding)
-                self._instance.ability_manager.add(video_understanding.card)
+            cfg_video = get_config()
+            if dedicated_multimodal_model_configured(cfg_video, "video"):
+                try:
+                    if not Runner.resource_mgr.get_tool(video_understanding.card.id):
+                        Runner.resource_mgr.add_tool(video_understanding)
+                    self._instance.ability_manager.add(video_understanding.card)
+                    self._video_tool_registered = True
+                except Exception as exc:
+                    logger.warning("[JiuWenClaw] ensure video_understanding tool failed: %s", exc)
+            else:
                 self._video_tool_registered = True
-            except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure video_understanding tool failed: %s", exc)
+                logger.info(
+                    "[JiuWenClaw] skip ensure video_understanding: models.video 未配置独立 api_key"
+                )
 
         if not self._vision_mcp_registered:
-            try:
-                for tool in [visual_question_answering]:
-                    if not Runner.resource_mgr.get_tool(tool.card.id):
-                        Runner.resource_mgr.add_tool(tool)
-                    self._instance.ability_manager.add(tool.card)
+            cfg_vision = get_config()
+            if dedicated_multimodal_model_configured(cfg_vision, "vision"):
+                try:
+                    for tool in [visual_question_answering]:
+                        if not Runner.resource_mgr.get_tool(tool.card.id):
+                            Runner.resource_mgr.add_tool(tool)
+                        self._instance.ability_manager.add(tool.card)
+                    self._vision_mcp_registered = True
+                except Exception as exc:
+                    logger.warning("[JiuWenClaw] ensure vision tools failed: %s", exc)
+            else:
                 self._vision_mcp_registered = True
-            except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure vision tools failed: %s", exc)
+                logger.info(
+                    "[JiuWenClaw] skip ensure visual_question_answering: models.vision 未配置独立 api_key"
+                )
 
         if not self._audio_mcp_registered:
+            cfg_audio = get_config()
             try:
-                for tool in [audio_question_answering, audio_metadata]:
+                if dedicated_multimodal_model_configured(cfg_audio, "audio"):
+                    for tool in [audio_question_answering]:
+                        if not Runner.resource_mgr.get_tool(tool.card.id):
+                            Runner.resource_mgr.add_tool(tool)
+                        self._instance.ability_manager.add(tool.card)
+                else:
+                    logger.info(
+                        "[JiuWenClaw] skip ensure audio_question_answering: models.audio 未配置独立 api_key"
+                    )
+                for tool in [audio_metadata]:
                     if not Runner.resource_mgr.get_tool(tool.card.id):
                         Runner.resource_mgr.add_tool(tool)
                     self._instance.ability_manager.add(tool.card)
