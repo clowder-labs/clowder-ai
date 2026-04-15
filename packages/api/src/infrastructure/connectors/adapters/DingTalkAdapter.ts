@@ -238,10 +238,12 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     const isCallback = envelope.origin === 'callback';
     const headerTitle = isCallback ? `📨 ${envelope.header} · 传话` : envelope.header;
 
-    // Build markdown body for AI Card
-    let body = '';
+    // Build markdown body — agent name as bold header, subtitle demoted to small context line.
+    // DingTalk markdown `title` is notification-only; the visible content is `text`,
+    // so headerTitle must appear prominently inside the body itself.
+    let body = `**${headerTitle}**\n\n`;
     if (envelope.subtitle) {
-      body += `**${envelope.subtitle}**\n\n`;
+      body += `${envelope.subtitle}\n\n`;
     }
     body += envelope.body;
     if (envelope.footer) {
