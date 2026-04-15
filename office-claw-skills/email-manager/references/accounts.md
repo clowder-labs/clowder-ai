@@ -1,145 +1,59 @@
-# 多账号管理
+﻿# 多账号配置
 
-## 配置多个邮箱账号
+推荐做法是每个邮箱账号使用单独的 `config.<name>.json` 文件，并且每个账号的密钥都放在 Windows Credential Manager 中。
 
-### 方式一：多个配置文件
+## 示例
 
-为每个邮箱创建独立配置文件：
+目录结构：
 
-```
+```text
 email-manager/
-├── config.qq.json      ← QQ 邮箱配置
-├── config.gmail.json   ← Gmail 配置
-└── config.163.json     ← 163 邮箱配置
+|- config.qq.json
+|- config.gmail.json
+`- scripts/
 ```
 
-使用时指定配置文件：
-
-```bash
-# 使用 QQ 邮箱发送
-python scripts/smtp_sender.py send --config config.qq.json --to ...
-
-# 使用 Gmail 发送
-python scripts/smtp_sender.py send --config config.gmail.json --to ...
-```
-
-### 方式二：统一配置文件
-
-```json
-{
-  "accounts": {
-    "qq": {
-      "imap_host": "imap.qq.com",
-      "imap_port": 993,
-      "imap_user": "xxx@qq.com",
-      "imap_pass": "授权码",
-      "smtp_host": "smtp.qq.com",
-      "smtp_port": 587
-    },
-    "gmail": {
-      "imap_host": "imap.gmail.com",
-      "imap_port": 993,
-      "imap_user": "xxx@gmail.com",
-      "imap_pass": "应用密码",
-      "smtp_host": "smtp.gmail.com",
-      "smtp_port": 587
-    }
-  },
-  "default": "qq"
-}
-```
-
----
-
-## 使用指定账号
-
-```bash
-# 使用默认账号
-python scripts/smtp_sender.py send --to ...
-
-# 使用指定账号（需修改脚本支持 --account 参数）
-python scripts/smtp_sender.py send --account gmail --to ...
-```
-
----
-
-## 账号切换示例（Python）
-
-```python
-import json
-
-def get_account_config(account_name):
-    with open('config.json') as f:
-        config = json.load(f)
-    return config['accounts'][account_name]
-
-# 使用 QQ 邮箱
-qq_config = get_account_config('qq')
-
-# 使用 Gmail
-gmail_config = get_account_config('gmail')
-```
-
----
-
-## 常见配置模板
-
-### QQ 邮箱
+`config.qq.json`:
 
 ```json
 {
   "imap_host": "imap.qq.com",
   "imap_port": 993,
-  "imap_user": "QQ号@qq.com",
-  "imap_pass": "16位授权码",
+  "imap_user": "user@qq.com",
+  "imap_pass_ref": "wincred://Clowder/email-manager/imap/user%40qq.com",
   "smtp_host": "smtp.qq.com",
   "smtp_port": 587,
-  "smtp_user": "QQ号@qq.com",
-  "smtp_pass": "16位授权码"
+  "smtp_user": "user@qq.com",
+  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/user%40qq.com",
+  "smtp_from": "user@qq.com"
 }
 ```
 
-### Gmail
+`config.gmail.json`:
 
 ```json
 {
   "imap_host": "imap.gmail.com",
   "imap_port": 993,
-  "imap_user": "xxx@gmail.com",
-  "imap_pass": "应用专用密码",
+  "imap_user": "user@gmail.com",
+  "imap_pass_ref": "wincred://Clowder/email-manager/imap/user%40gmail.com",
   "smtp_host": "smtp.gmail.com",
   "smtp_port": 587,
-  "smtp_user": "xxx@gmail.com",
-  "smtp_pass": "应用专用密码"
+  "smtp_user": "user@gmail.com",
+  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/user%40gmail.com",
+  "smtp_from": "user@gmail.com"
 }
 ```
 
-### 163 邮箱
+## 使用指定配置
 
-```json
-{
-  "imap_host": "imap.163.com",
-  "imap_port": 993,
-  "imap_user": "xxx@163.com",
-  "imap_pass": "授权码",
-  "smtp_host": "smtp.163.com",
-  "smtp_port": 465,
-  "smtp_user": "xxx@163.com",
-  "smtp_pass": "授权码"
-}
+```powershell
+python scripts/smtp_sender.py send --config config.qq.json --to "target@example.com" --subject "Test" --body "Hello"
+python scripts/imap_reader.py list --config config.gmail.json --limit 10
 ```
 
-### Outlook
+## 注意
 
-```json
-{
-  "imap_host": "outlook.office365.com",
-  "imap_port": 993,
-  "imap_user": "xxx@outlook.com",
-  "imap_pass": "邮箱密码",
-  "smtp_host": "smtp.office365.com",
-  "smtp_port": 587,
-  "smtp_user": "xxx@outlook.com",
-  "smtp_pass": "邮箱密码"
-}
-```
+- 不要在任意配置文件中写入明文密码
+- 不要设置 `IMAP_PASS` 或 `SMTP_PASS`
+- 每个账号都应该有独立的 `imap_pass_ref` 和 `smtp_pass_ref`
