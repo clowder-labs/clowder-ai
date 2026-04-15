@@ -1252,7 +1252,7 @@ export function ChatInput({
                   className={`relative min-h-[114px] overflow-visible rounded-[24px] border bg-white transition-colors ${
                     whisperMode
                       ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
-                      : 'border-[#dbdbdb] focus-within:border-[#dbdbdb]'
+                      : 'chat-input-shell'
                   } w-full min-w-0`}
                 >
                   <ImagePreview files={images} onRemove={handleRemoveImage} />

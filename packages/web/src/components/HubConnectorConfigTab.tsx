@@ -432,7 +432,7 @@ export function HubConnectorConfigTab() {
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
       <div
-        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6"
+        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[#f0f0f0] px-4 py-6"
         data-testid="connector-left-pane"
       >
         {platforms.map((platform) => {

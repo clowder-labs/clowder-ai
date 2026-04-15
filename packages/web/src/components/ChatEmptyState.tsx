@@ -78,7 +78,7 @@ export function ChatEmptyState({
                 key={card.id}
                 type="button"
                 onClick={() => handleCardClick(card.id)}
-                className="rounded-[16px] border border-[#EEF0F5] bg-white px-6 py-6 text-left transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4D6BFF] focus-visible:ring-offset-2"
+                className="rounded-[16px] border border-[#e6e6e6] px-6 py-6 text-left transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4D6BFF] focus-visible:ring-offset-2"
                 data-testid={`chat-empty-card-${card.id}`}
               >
                 <div className="flex items-start gap-4">
