@@ -107,16 +107,15 @@ export class ConnectorCommandLayer {
     if (!binding) {
       return {
         kind: 'where',
-        response: '📍 当前没有绑定的 thread。发送任意消息会自动创建新 thread，或用 /new 手动创建。',
+        response: '📍 当前还没有会话。发送消息会自动创建新会话，或用 /new [标题名] 手动创建。',
       };
     }
     const thread = await this.deps.threadStore.get(binding.threadId);
-    const title = thread?.title ?? '(无标题)';
-    const deepLink = `${this.deps.frontendBaseUrl}/thread/${binding.threadId}`;
+    const title = this.getSessionTitle(thread?.title);
     return {
       kind: 'where',
       contextThreadId: binding.threadId,
-      response: `📍 当前 thread: ${title}\nID: ${binding.threadId}\n🔗 ${deepLink}`,
+      response: `📍 当前会话：${title}`,
     };
   }
 
@@ -133,13 +132,12 @@ export class ConnectorCommandLayer {
       threadId: thread.id,
       source: 'connector_command',
     });
-    const deepLink = `${this.deps.frontendBaseUrl}/thread/${thread.id}`;
-    const titleDisplay = effectiveTitle ? ` "${effectiveTitle}"` : '';
+    const titleDisplay = effectiveTitle ? `“${effectiveTitle}”` : '';
     return {
       kind: 'new',
       newActiveThreadId: thread.id,
       contextThreadId: thread.id,
-      response: `✨ 新 thread${titleDisplay} 已创建\nID: ${thread.id}\n🔗 ${deepLink}\n\n现在的消息会发到这个 thread。`,
+      response: `✨ 新会话${titleDisplay}已创建\n\n现在的消息会发到这个会话。`,
     };
   }
 
@@ -150,18 +148,18 @@ export class ConnectorCommandLayer {
     // Look up current binding so the command exchange lands in the right thread
     const binding = await this.deps.bindingStore.getByExternal(connectorId, externalChatId);
     if (threads.length === 0) {
-      return { kind: 'threads', response: '📋 还没有 thread。发送消息或用 /new 创建一个吧！' };
+      return { kind: 'threads', response: '📋 还没有会话。\n\n用 /new [标题名] 创建新会话。' };
     }
     // Phase D: resolve feat badges for threads with backlogItemId
     const featBadges = await this.resolveFeatBadges(threads, userId);
     const lines = threads.map((t, i) => {
-      const title = t.title ?? '(无标题)';
+      const title = this.getSessionTitle(t.title);
       const badge = featBadges.get(t.id);
-      return badge ? `${i + 1}. ${title} [${badge}] [${t.id}]` : `${i + 1}. ${title} [${t.id}]`;
+      return badge ? `${i + 1}. ${title} [${badge}]` : `${i + 1}. ${title}`;
     });
     const result: CommandResult = {
       kind: 'threads',
-      response: `📋 最近的 threads:\n\n${lines.join('\n')}\n\n用 /use F088 或 /use 关键词 或 /use 3 切换`,
+      response: `📋 最近的会话：\n\n${lines.join('\n')}\n\n用 /new [标题名] 创建新会话\n\n用 /use [序号] 切换会话`,
     };
     if (binding) {
       return { ...result, contextThreadId: binding.threadId };
@@ -178,7 +176,7 @@ export class ConnectorCommandLayer {
     if (!input) {
       return {
         kind: 'use',
-        response: '❌ 用法: /use F088 | /use 关键词 | /use 3 | /use <ID前缀>\n用 /threads 查看可用列表。',
+        response: '❌ 用法：/use [序号]\n\n先用 /threads 查看会话列表。',
       };
     }
     const allThreads = await this.deps.threadStore.list(userId);
@@ -191,16 +189,18 @@ export class ConnectorCommandLayer {
       this.matchByTitle(input, allThreads);
 
     if (!match) {
-      return { kind: 'use', response: `❌ 找不到匹配 "${input}" 的 thread。用 /threads 查看可用列表。` };
+      return { kind: 'use', response: `❌ 找不到匹配“${input}”的会话。\n\n先用 /threads 查看会话列表。` };
     }
     await this.deps.bindingStore.bind(connectorId, externalChatId, match.id, userId);
-    const title = match.title ?? '(无标题)';
-    const deepLink = `${this.deps.frontendBaseUrl}/thread/${match.id}`;
+    const title = this.getSessionTitle(match.title);
+    const hasTitle = this.hasSessionTitle(match.title);
     return {
       kind: 'use',
       newActiveThreadId: match.id,
       contextThreadId: match.id,
-      response: `🔄 已切换到: ${title}\nID: ${match.id}\n🔗 ${deepLink}`,
+      response: hasTitle
+        ? `🔄 已切换到会话“${title}”\n\n现在的消息会发到这个会话。`
+        : '🔄 已切换到未命名会话\n\n现在的消息会发到这个会话。',
     };
   }
 
@@ -213,42 +213,52 @@ export class ConnectorCommandLayer {
     if (args.length < 2) {
       return {
         kind: 'thread',
-        response: '❌ 用法: /thread <thread_id> <message>\n切换到指定 thread 并发送消息。',
+        response: '❌ 用法：/thread [序号] [消息]\n\n先用 /threads 查看会话列表。',
       };
     }
-    const [threadIdOrPrefix, ...msgParts] = args;
+    const [threadSelector, ...msgParts] = args;
     const message = msgParts.join(' ');
 
-    // Match only within user's own threads (exact ID → prefix)
+    // Match only within user's own threads.
+    // User-facing path prefers numbered selection from /threads,
+    // while keeping ID/prefix compatibility for existing advanced flows.
     const allThreads = await this.deps.threadStore.list(userId);
     const match =
-      allThreads.find((t) => t.id === threadIdOrPrefix) ?? allThreads.find((t) => t.id.startsWith(threadIdOrPrefix!));
+      this.matchByListIndex(threadSelector, allThreads) ??
+      allThreads.find((t) => t.id === threadSelector) ??
+      allThreads.find((t) => t.id.startsWith(threadSelector!));
 
     if (!match) {
-      return { kind: 'thread', response: `❌ 找不到 thread "${threadIdOrPrefix}"。用 /threads 查看可用列表。` };
+      return { kind: 'thread', response: '❌ 找不到对应的会话。\n\n先用 /threads 查看会话列表。' };
     }
     await this.deps.bindingStore.bind(connectorId, externalChatId, match.id, userId);
-    const title = match.title ?? '(无标题)';
+    const title = this.getSessionTitle(match.title);
+    const hasTitle = this.hasSessionTitle(match.title);
     return {
       kind: 'thread',
       newActiveThreadId: match.id,
       contextThreadId: match.id,
       forwardContent: message,
-      response: `📨 → ${title} [${match.id}]`,
+      response: hasTitle
+        ? `📨 已发送到会话“${title}”\n\n当前已切换到这个会话。`
+        : '📨 已发送到未命名会话\n\n当前已切换到这个会话。',
     };
   }
 
   private async handleUnbind(connectorId: string, externalChatId: string): Promise<CommandResult> {
     const binding = await this.deps.bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) {
-      return { kind: 'unbind', response: '⚠️ 当前没有绑定。发送消息或用 /new 创建新 thread。' };
+      return { kind: 'unbind', response: '⚠️ 当前还没有会话。发送消息会自动创建新会话，或用 /new [标题名] 手动创建。' };
     }
     const thread = await this.deps.threadStore.get(binding.threadId);
-    const title = thread?.title ?? '(无标题)';
+    const title = this.getSessionTitle(thread?.title);
+    const hasTitle = this.hasSessionTitle(thread?.title);
     await this.deps.bindingStore.remove(connectorId, externalChatId);
     return {
       kind: 'unbind',
-      response: `🔓 已解绑: ${title} [${binding.threadId}]\n\n下一条消息会自动创建新 thread，或用 /use 切换到已有 thread。`,
+      response: hasTitle
+        ? `🔓 已退出会话“${title}”\n\n发送消息会自动创建新会话，或用 /use [序号] 切换会话。`
+        : '🔓 已退出未命名会话\n\n发送消息会自动创建新会话，或用 /use [序号] 切换会话。',
     };
   }
 
@@ -314,6 +324,17 @@ export class ConnectorCommandLayer {
       kind: 'myid',
       response: `🆔 您的 open_id: ${senderId}\n\n请将此 ID 发送给管理员以添加到白名单。`,
     };
+  }
+
+  private getSessionTitle(title?: string | null): string {
+    const trimmed = title?.trim();
+    if (!trimmed) return '未命名会话';
+    return trimmed;
+  }
+
+  private hasSessionTitle(title?: string | null): boolean {
+    const trimmed = title?.trim();
+    return Boolean(trimmed);
   }
 
   // --- Phase D: matching helpers ---
