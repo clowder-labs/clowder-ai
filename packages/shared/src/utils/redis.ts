@@ -32,11 +32,14 @@ export function createRedisClient(config?: Partial<RedisConfig>): RedisClient {
   const client = new Redis(finalConfig.url, {
     keyPrefix,
     retryStrategy: (times: number) => {
-      if (times > 3) {
+      // Allow up to 30 reconnect attempts (~2-3 minutes total).
+      // This tolerates macOS sleep/wake cycles where the loopback Redis socket
+      // is briefly disrupted and needs time to re-establish.
+      if (times > 30) {
         console.error('[Redis] Max retry attempts reached');
         return null;
       }
-      return Math.min(times * 200, 2000);
+      return Math.min(times * 500, 5000);
     },
     maxRetriesPerRequest: 3,
   });

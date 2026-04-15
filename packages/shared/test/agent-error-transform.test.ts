@@ -49,6 +49,15 @@ describe('classifyError', () => {
     );
   });
 
+  it('classifies daily quota exhaustion errors', () => {
+    assert.equal(
+      classifyError(
+        "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      ),
+      'daily_quota',
+    );
+  });
+
   it('classifies unknown errors', () => {
     assert.equal(classifyError('Something went wrong'), 'unknown');
     assert.equal(classifyError('Random error message'), 'unknown');
@@ -99,6 +108,17 @@ describe('getFriendlyAgentErrorMessage', () => {
     });
     assert.match(msg, /当前请求较多/);
     assert.match(msg, /请稍后重试/);
+  });
+
+  it('generates friendly message for daily quota exhaustion errors', () => {
+    const msg = getFriendlyAgentErrorMessage({
+      catId: 'jiuwen',
+      error:
+        "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      errorCode: 'APIG.0308',
+    });
+    assert.match(msg, /免费模型使用额度已用尽/);
+    assert.match(msg, /华为云MaaS模型服务/);
   });
 
   it('truncates long error messages', () => {

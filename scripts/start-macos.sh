@@ -170,6 +170,7 @@ wait_for_port() {
 cleanup() {
     [ "$CLEANUP_RUNNING" = true ] && return 0
     CLEANUP_RUNNING=true
+    API_WATCHDOG_STOP=true
 
     log "Shutting down services..."
 
@@ -285,8 +286,26 @@ if [ ! -f "$API_DIST" ]; then
     exit 1
 fi
 
-"$BUNDLED_NODE" "$API_DIST" \
-    >> "$LOG_DIR/api-server.log" 2>&1 &
+# Watchdog: restart API server on abnormal exit (e.g. Redis reconnect failure after sleep/wake).
+# Exits without restart only when the server finishes cleanly (exit code 0).
+API_WATCHDOG_STOP=false
+start_api_watchdog() {
+    local restart_count=0
+    local max_restarts=5
+    while [ "$API_WATCHDOG_STOP" = false ] && [ "$restart_count" -lt "$max_restarts" ]; do
+        "$BUNDLED_NODE" "$API_DIST" >> "$LOG_DIR/api-server.log" 2>&1
+        local exit_code=$?
+        [ "$API_WATCHDOG_STOP" = true ] && break
+        if [ "$exit_code" -eq 0 ]; then
+            # Clean shutdown (SIGTERM/SIGINT from the parent cleanup) — do not restart.
+            break
+        fi
+        restart_count=$((restart_count + 1))
+        log "${YELLOW}  API server exited (code $exit_code), restarting in 3s ($restart_count/$max_restarts)...${NC}"
+        sleep 3
+    done
+}
+start_api_watchdog &
 MANAGED_PIDS+=($!)
 
 wait_for_port "$API_PORT" "API Server" 20 || exit 1
