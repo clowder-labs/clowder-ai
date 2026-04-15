@@ -60,6 +60,42 @@ describe('POST /api/connector/test/dingtalk', () => {
     await app.close();
   });
 
+  it('trims surrounding whitespace before calling DingTalk auth API', async () => {
+    const calls = [];
+    globalThis.fetch = async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes('/v1.0/oauth2/accessToken')) {
+        return new Response(JSON.stringify({ accessToken: 'trimmed-token' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+
+    const app = Fastify();
+    await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/test/dingtalk',
+      headers: { 'X-Office-Claw-User': 'tester' },
+      payload: {
+        DINGTALK_APP_KEY: '  test_app_key  ',
+        DINGTALK_APP_SECRET: '\ttest_app_secret \n',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].init.body), {
+      appKey: 'test_app_key',
+      appSecret: 'test_app_secret',
+    });
+
+    await app.close();
+  });
+
   it('rejects requests without credentials', async () => {
     const app = Fastify();
     await app.register(connectorHubRoutes, { threadStore: createThreadStore() });

@@ -584,6 +584,84 @@ describe('HubConnectorConfigTab layout', () => {
     ).toBe(true);
   });
 
+  it('trims connector field values before test and save requests', async () => {
+    let testPayload: Record<string, string> | null = null;
+    let savePayload: { updates?: Array<{ name: string; value: string | null }> } | null = null;
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'dingtalk',
+                name: '钉钉',
+                nameEn: 'DingTalk',
+                configured: false,
+                docsUrl: 'https://open.dingtalk.com/',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [
+                  { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false, currentValue: null },
+                  { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true, currentValue: null },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/connector/test/dingtalk' && init?.method === 'POST') {
+        testPayload = JSON.parse(String(init.body)) as Record<string, string>;
+        return Promise.resolve(jsonResponse({ ok: true, message: '连接测试成功' }));
+      }
+      if (url === '/api/config/env' && init?.method === 'PATCH') {
+        savePayload = JSON.parse(String(init.body)) as { updates?: Array<{ name: string; value: string | null }> };
+        return Promise.resolve(jsonResponse({ runtime: { applied: true } }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const appKeyInput = container.querySelector('[data-testid="field-DINGTALK_APP_KEY"]') as HTMLInputElement | null;
+    const appSecretInput = container.querySelector('[data-testid="field-DINGTALK_APP_SECRET"]') as HTMLInputElement | null;
+    expect(appKeyInput).not.toBeNull();
+    expect(appSecretInput).not.toBeNull();
+
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(appKeyInput, '  ding-app-key  ');
+      appKeyInput!.dispatchEvent(new Event('input', { bubbles: true }));
+      appKeyInput!.dispatchEvent(new Event('change', { bubbles: true }));
+      valueSetter?.call(appSecretInput, '\tding-app-secret \n');
+      appSecretInput!.dispatchEvent(new Event('input', { bubbles: true }));
+      appSecretInput!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const saveButton = container.querySelector('[data-testid="save-dingtalk"]');
+    expect(saveButton).not.toBeNull();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(testPayload).toEqual({
+      DINGTALK_APP_KEY: 'ding-app-key',
+      DINGTALK_APP_SECRET: 'ding-app-secret',
+    });
+    expect(savePayload).toEqual({
+      updates: [
+        { name: 'DINGTALK_APP_KEY', value: 'ding-app-key' },
+        { name: 'DINGTALK_APP_SECRET', value: 'ding-app-secret' },
+      ],
+    });
+  });
+
   it('routes disconnect feedback through the global toast container', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
