@@ -1056,20 +1056,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       : undefined;
     const effectivePrompt = promptWithMission;
 
-    if (provider === 'relayclaw') {
-      log.info(
-        {
-          invocationId,
-          catId: catId as string,
-          threadId,
-          isResume,
-          injectSystemPrompt,
-          promptLength: effectivePrompt.length,
-          systemPromptLength: effectiveSystemPrompt?.length ?? 0,
-        },
-        'jiuwen prompt split prepared',
-      );
-    }
+    log.debug(
+      {
+        invocationId,
+        catId: catId as string,
+        provider,
+        threadId,
+        isResume,
+        injectSystemPrompt,
+        prompt: effectivePrompt,
+        systemPrompt: effectiveSystemPrompt ?? null,
+      },
+      'prompt split prepared',
+    );
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
