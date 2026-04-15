@@ -274,6 +274,8 @@ export function ChatInput({
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [pendingQuickPromptExpand, setPendingQuickPromptExpand] = useState(false);
+  /** 标记专家团思辨卡片是否已点击（用于控制卡片隐藏） */
+  const expertCardClickedRef = useRef(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
@@ -342,6 +344,8 @@ export function ChatInput({
     setInput(next);
     setPendingQuickPromptExpand(false);
     setShowQuickPrompts(true);
+    // 重置专家团思辨点击标记
+    expertCardClickedRef.current = false;
     setTimeout(() => {
       const el = textareaRef.current;
       if (!el) return;
@@ -391,6 +395,55 @@ export function ChatInput({
     [input],
   );
 
+  /** 专家团思辨：插入@智能体和文本内容（保留胶囊token，隐藏卡片） */
+  const handleExpertCardClick = useCallback(
+    (agentName: string, content: string) => {
+      // 注意：@智能体后必须跟空格才能被识别为mention（中文逗号不行）
+      const fullText = `@${agentName} ${content}`;
+
+      // 在token后插入内容，保留token
+      const startIdx = input.indexOf(QUICK_ACTION_TOKEN_PREFIX);
+      const endIdx =
+        startIdx >= 0 ? input.indexOf(QUICK_ACTION_TOKEN_SUFFIX, startIdx + QUICK_ACTION_TOKEN_PREFIX.length) : -1;
+
+      let next = input;
+      let caret = 0;
+      if (startIdx >= 0 && endIdx > startIdx) {
+        // 在token后面插入内容，保留token
+        const tokenEndExclusive = endIdx + QUICK_ACTION_TOKEN_SUFFIX.length;
+        const before = input.slice(0, tokenEndExclusive);
+        const after = input.slice(tokenEndExclusive).replace(/^\s+/, '');
+        const joiner = ' ';
+        const rightJoiner = after.length > 0 ? ' ' : '';
+        next = `${before}${joiner}${fullText}${rightJoiner}${after}`;
+        caret = (before + joiner + fullText).length;
+      } else {
+        // 没有token时，在光标位置插入
+        const ta = textareaRef.current;
+        const start = ta?.getSelectionStart() ?? input.length;
+        const end = ta?.getSelectionEnd() ?? input.length;
+        const before = input.slice(0, start);
+        const after = input.slice(end);
+        const leftJoiner = before.endsWith(' ') || before.length === 0 ? '' : ' ';
+        const rightJoiner = after.startsWith(' ') || after.length === 0 ? '' : ' ';
+        next = `${before}${leftJoiner}${fullText}${rightJoiner}${after}`;
+        caret = (before + leftJoiner + fullText).length;
+      }
+
+      setInput(next);
+      // 标记已点击卡片，隐藏卡片区域，回到胶囊按钮展示
+      expertCardClickedRef.current = true;
+      setShowQuickPrompts(false);
+      setTimeout(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }, 0);
+    },
+    [input],
+  );
+
   const visibleQuickActions = useMemo(() => QUICK_ACTIONS.filter((action) => action.show !== false), []);
 
   useEffect(() => {
@@ -400,6 +453,17 @@ export function ChatInput({
 
   useEffect(() => {
     if (selectedQuickAction) {
+      // 专家团思辨：有 expertCards 但没有 prompts
+      if (selectedQuickAction.expertCards && selectedQuickAction.expertCards.length > 0) {
+        // 如果已点击过卡片，则隐藏卡片区域
+        if (expertCardClickedRef.current) {
+          setShowQuickPrompts(false);
+        } else {
+          setShowQuickPrompts(true);
+        }
+        if (pendingQuickPromptExpand) setPendingQuickPromptExpand(false);
+        return;
+      }
       const hasMatchedPrompt = selectedQuickAction.prompts.some((prompt) => input.includes(prompt));
       // Rule:
       // 1) scene + matched prompt => show quick actions row (hide prompts row)
@@ -1228,19 +1292,39 @@ export function ChatInput({
               {showQuickPrompts && selectedQuickAction && (
                 <div
                   className="mb-2 grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${selectedQuickAction.prompts.length}, minmax(0, 1fr))` }}
+                  style={{
+                    gridTemplateColumns: selectedQuickAction.expertCards
+                      ? 'repeat(3, minmax(0, 1fr))'
+                      : `repeat(${selectedQuickAction.prompts.length}, minmax(0, 1fr))`,
+                  }}
                 >
-                  {selectedQuickAction.prompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => handleQuickPrompt(prompt)}
-                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
-                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+                  {selectedQuickAction.expertCards
+                    ? // 专家团思辨卡片渲染
+                    selectedQuickAction.expertCards.map((card) => (
+                      <button
+                        key={card.agentId}
+                        type="button"
+                        onClick={() => handleExpertCardClick(card.agentName, card.content)}
+                        className="group min-w-0 rounded-[16px] border bg-white px-4 py-3 text-left transition-all hover:bg-[rgba(0,0,0,0.04)] hover:border-[rgba(20,118,255,0.3)]"
+                        style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                      >
+                        <p className="text-[13px] leading-[20px] text-[#666] line-clamp-4">
+                          <span className="font-medium text-[rgba(20,118,255,1)]">@{card.agentName}</span>，{card.content}
+                        </p>
+                      </button>
+                    ))
+                    : // 普通快捷提示卡片渲染
+                    selectedQuickAction.prompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => handleQuickPrompt(prompt)}
+                        className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
+                        style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
                 </div>
               )}
 

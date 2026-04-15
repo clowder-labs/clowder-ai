@@ -5,11 +5,19 @@
  *
  */
 
+export interface ExpertCardConfig {
+  agentId: string;
+  agentName: string;
+  content: string;
+}
+
 export interface QuickActionConfig {
   label: string;
   icon: string;
   show: boolean;
   prompts: Array<string>;
+  /** 专家团思辨专用：包含智能体信息和内容 */
+  expertCards?: ExpertCardConfig[];
 }
 
 export const QUICK_ACTIONS: QuickActionConfig[] = [
@@ -91,6 +99,29 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
       '基于这份新品发布会的PPT脚本，生成一段30秒的宣传视频。',
       '帮我制作一段员工培训视频，内容是关于新上线的办公系统操作教程，要求画面清晰、步骤讲解详细，添加字幕和操作指引标注，视频时长控制在8分钟以内。',
       '以公司年度大事记为内容，生成一段3分钟的回顾视频，采用温暖怀旧的风格，搭配舒缓的音乐，插入真实的公司活动照片和员工采访片段。',
+    ],
+  },
+  {
+    label: '专家团思辨',
+    icon: '/icons/expert-debate.svg',
+    show: true,
+    prompts: [],
+    expertCards: [
+      {
+        agentId: 'office',
+        agentName: '通用助手',
+        content: '你拉着你的其他小伙伴，讨论一下如何通过场景化运营让AI工具真正融入用户日常工作，提升使用粘性',
+      },
+      {
+        agentId: 'assistant',
+        agentName: '逻辑大师',
+        content: '你拉着你的其他小伙伴，讨论一下传统企业数字化转型战略的规划与落地路径，整合自身核心资源形成差异化竞争力',
+      },
+      {
+        agentId: 'agentteams',
+        agentName: '人文顾问',
+        content: '你拉着你的其他小伙伴，讨论一下企业该如何构建自己的AI技术壁垒，形成长期可持续的竞争力',
+      },
     ],
   },
 ];
