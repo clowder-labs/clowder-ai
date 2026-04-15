@@ -1191,7 +1191,7 @@ export function ChatInput({
       <div className="relative z-10 px-4 pt-2 mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
           {/* Mobile: + toggle button */}
-          <button
+          { false && <button
             onClick={() => setMobileToolbar((v) => !v)}
             className={`p-3 rounded-xl transition-all md:hidden ${
               mobileToolbar
@@ -1207,7 +1207,7 @@ export function ChatInput({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </button> }
 
           <div className="flex-1">
             <div>
