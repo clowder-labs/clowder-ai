@@ -6,10 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
   getAgentErrorToastContent,
   getFriendlyAgentErrorMessage,
+  getRateLimitChatMessage,
   getSensitiveInputErrorToastContent,
+  isRateLimitError,
   isSensitiveInputAgentError,
 } from '@/hooks/agent-error-fallback';
 
@@ -44,6 +47,28 @@ describe('agent sensitive-input error classification', () => {
       title: '检测到敏感词',
       message: '当前对话触发了敏感词校验，请重新打开一个新会话后再试。',
     });
+  });
+});
+
+describe('agent rate-limit error classification', () => {
+  it('detects structured ModelArts rate-limit errors', () => {
+    expect(
+      isRateLimitError({
+        errorCode: MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      }),
+    ).toBe(true);
+  });
+
+  it('returns the fixed retry guidance copy', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        errorCode: MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      }),
+    ).toBe(getRateLimitChatMessage());
   });
 });
 

@@ -40,6 +40,15 @@ describe('classifyError', () => {
     );
   });
 
+  it('classifies temporary model rate limit errors', () => {
+    assert.equal(
+      classifyError(
+        "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      ),
+      'rate_limit',
+    );
+  });
+
   it('classifies unknown errors', () => {
     assert.equal(classifyError('Something went wrong'), 'unknown');
     assert.equal(classifyError('Random error message'), 'unknown');
@@ -79,6 +88,17 @@ describe('getFriendlyAgentErrorMessage', () => {
       error: 'ModelArts.81011: Input text May contain sensitive information',
     });
     assert.match(msg, /敏感词/);
+  });
+
+  it('generates retry guidance for temporary model rate limit errors', () => {
+    const msg = getFriendlyAgentErrorMessage({
+      catId: 'jiuwen',
+      error:
+        "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      errorCode: 'ModelArts.81101',
+    });
+    assert.match(msg, /当前请求较多/);
+    assert.match(msg, /请稍后重试/);
   });
 
   it('truncates long error messages', () => {
