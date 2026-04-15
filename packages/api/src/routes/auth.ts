@@ -108,12 +108,12 @@ const CAS_BACKGROUND_IMAGE_URL = process.env.CAS_BACKGROUND_IMAGE_URL || DEFAULT
 const CAS_PORTAL_IMAGE_URL = process.env.CAS_PORTAL_IMAGE_URL || DEFAULT_CAS_PORTAL_IMAGE_URL;
 const CAS_LOGIN_URL =
   process.env.CAS_LOGIN_URL ||
-  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${encodeURIComponent(CAS_BACKGROUND_IMAGE_URL)}&portal_img_url=${encodeURIComponent(CAS_PORTAL_IMAGE_URL)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}#/login`;
+  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${encodeURIComponent(CAS_BACKGROUND_IMAGE_URL)}&portal_img_url=${encodeURIComponent(CAS_PORTAL_IMAGE_URL)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}#/login`;
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
 const CAS_LOGOUT_URL =
-  `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
+  `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009', 'common.01010004']);
 const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
