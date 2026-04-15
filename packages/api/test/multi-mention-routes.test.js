@@ -139,8 +139,8 @@ function createMockOutboundHook() {
   const deliveries = [];
   const batchDoneCalls = [];
   return {
-    async deliver(threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId) {
-      deliveries.push({ threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId });
+    async deliver(threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId, presentation) {
+      deliveries.push({ threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId, presentation });
     },
     async notifyDeliveryBatchDone(threadId, chainDone) {
       batchDoneCalls.push({ threadId, chainDone });
@@ -265,6 +265,11 @@ describe('Multi-Mention Routes', () => {
     assert.equal(deliveries[0].threadId, 'thread-1');
     assert.equal(deliveries[0].catId, 'opus');
     assert.equal(deliveries[0].origin, 'callback');
+    assert.deepEqual(deliveries[0].presentation, {
+      headerTitle: '共识总结结果汇总',
+      suppressCatPrefix: true,
+      suppressOriginDecoration: true,
+    });
     assert.ok(deliveries[0].content.includes('共识总结结果汇总'));
     assert.ok(deliveries[0].content.includes('Codex says hello'));
     assert.deepEqual(mockOutboundHook.getBatchDoneCalls(), [{ threadId: 'thread-1', chainDone: true }]);

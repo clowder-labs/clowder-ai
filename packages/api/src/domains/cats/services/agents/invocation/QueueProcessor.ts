@@ -64,6 +64,11 @@ export interface OutboundDeliveryHookLike {
     threadMeta?: { threadShortId?: string; threadTitle?: string; deepLinkUrl?: string },
     origin?: string,
     triggerMessageId?: string,
+    presentation?: {
+      headerTitle?: string;
+      suppressCatPrefix?: boolean;
+      suppressOriginDecoration?: boolean;
+    },
   ): Promise<void>;
   notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }

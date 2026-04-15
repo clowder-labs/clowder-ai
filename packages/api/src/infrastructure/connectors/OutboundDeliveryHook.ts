@@ -57,6 +57,12 @@ export interface ThreadMeta {
   readonly deepLinkUrl?: string | undefined;
 }
 
+export interface OutboundPresentation {
+  readonly headerTitle?: string | undefined;
+  readonly suppressCatPrefix?: boolean | undefined;
+  readonly suppressOriginDecoration?: boolean | undefined;
+}
+
 export interface OutboundDeliveryHookOptions {
   readonly bindingStore: IConnectorThreadBindingStore;
   readonly adapters: Map<string, IOutboundAdapter>;
@@ -108,9 +114,16 @@ export class OutboundDeliveryHook {
     threadMeta?: ThreadMeta,
     origin?: MessageOrigin,
     triggerMessageId?: string,
+    presentation?: OutboundPresentation,
   ): Promise<void> {
     this.opts.log.info(
-      { threadId, catId, contentLen: content.length, hasRichBlocks: !!(richBlocks && richBlocks.length) },
+      {
+        threadId,
+        catId,
+        contentLen: content.length,
+        hasRichBlocks: !!(richBlocks && richBlocks.length),
+        hasPresentation: !!presentation,
+      },
       '[OutboundDeliveryHook] deliver() called',
     );
     const bindings = await this.opts.bindingStore.getByThread(threadId);
@@ -139,8 +152,9 @@ export class OutboundDeliveryHook {
 
     const entry = catId ? catRegistry.tryGet(catId) : undefined;
     const catDisplayName = entry?.config.displayName ?? '';
-    const textPrefix = catDisplayName ? `[${catDisplayName}] ` : '';
+    const textPrefix = !presentation?.suppressCatPrefix && catDisplayName ? `[${catDisplayName}] ` : '';
     const finalContent = `${textPrefix}${content}`;
+    const envelopeOrigin = presentation?.suppressOriginDecoration ? undefined : origin;
 
     const hasRichBlocks = richBlocks && richBlocks.length > 0;
     const outMeta = replyToSender ? { replyToSender } : undefined;
@@ -160,18 +174,20 @@ export class OutboundDeliveryHook {
             const envelope = threadMeta
               ? this.formatter.format({
                   catDisplayName: catDisplayName || 'Agent',
+                  headerTitle: presentation?.headerTitle,
                   threadShortId: threadMeta.threadShortId,
                   threadTitle: threadMeta.threadTitle,
                   featId: threadMeta.featId,
                   body: content,
                   deepLinkUrl: threadMeta.deepLinkUrl,
                   timestamp: new Date(),
-                  origin,
+                  origin: envelopeOrigin,
                 })
               : this.formatter.formatMinimal({
                   catDisplayName: catDisplayName || 'Agent',
+                  headerTitle: presentation?.headerTitle,
                   body: content,
-                  origin,
+                  origin: envelopeOrigin,
                 });
             await adapter.sendFormattedReply(binding.externalChatId, envelope, outMeta);
           } else if (hasRichBlocks && adapter.sendRichMessage) {

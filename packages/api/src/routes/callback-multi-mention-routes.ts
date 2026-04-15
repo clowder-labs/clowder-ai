@@ -72,6 +72,11 @@ export interface MultiMentionRouteDeps {
       threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
       origin?: 'callback' | 'agent' | 'system',
       triggerMessageId?: string,
+      presentation?: {
+        headerTitle?: string;
+        suppressCatPrefix?: boolean;
+        suppressOriginDecoration?: boolean;
+      },
     ): Promise<void>;
     notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
   };
@@ -426,7 +431,11 @@ async function flushResult(
 
   if (outboundHook) {
     try {
-      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback');
+      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
+        headerTitle: '共识总结结果汇总',
+        suppressCatPrefix: true,
+        suppressOriginDecoration: true,
+      });
       await outboundHook.notifyDeliveryBatchDone?.(threadId, true);
     } catch (err) {
       log.warn({ err, threadId, requestId }, '[F086] Multi-mention outbound delivery failed');
