@@ -199,7 +199,7 @@ export function CapabilityCard({
 
   return (
     <div
-      className={`ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5 ${isClickable ? 'cursor-pointer' : ''}`}
+      className={`ui-card ui-card-hover group flex flex-col gap-4 ${isClickable ? 'cursor-pointer' : ''}`}
       data-testid={`capability-card-${item.type}-${item.id}`}
       onClick={onClick}
       onKeyDown={
@@ -242,7 +242,7 @@ export function CapabilityCard({
         <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
       </OverflowTooltip>
 
-      <div className="mt-auto flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">
           {showDeleteAction ? (
             <div className="relative">

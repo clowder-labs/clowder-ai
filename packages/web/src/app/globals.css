@@ -1066,7 +1066,7 @@ select:-webkit-autofill:focus {
   .ui-field {
     width: 100%;
     min-height: 28px;
-    border: var(--border-width-default) solid var(--border-default);
+    border: var(--border-width-default) solid var(--input-border);
     border-radius: var(--radius-sm);
     background: var(--surface-panel);
     font-size: 13px;

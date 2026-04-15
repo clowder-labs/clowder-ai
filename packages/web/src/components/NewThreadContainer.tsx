@@ -237,9 +237,7 @@ export function NewThreadContainer() {
           <div className="relative flex-1 min-h-0">
             {sidebarMenu !== 'chat' && (
               <div
-                className={`ui-shell-surface h-full px-8 pt-6 pb-5 ${
-                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
-                }`}
+                className={'ui-shell-surface h-full px-8 py-8'}
               >
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}

@@ -46,7 +46,6 @@ const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
 const INSTALLED_LABEL = '已安装';
-const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索技能';
 const ALL_CATEGORY = '全部';
 const PAGE_SIZE = 24;
@@ -508,7 +507,7 @@ export function HubSkillsTab() {
                 value={searchQuery}
                 onChange={(value) => setSearchQuery(value)}
                 onClear={() => setSearchQuery('')}
-                placeholder={SEARCH_PLACEHOLDER}
+                placeholder={SEARCH_ARIA_LABEL}
                 clearAriaLabel="清除搜索"
               />
             </div>

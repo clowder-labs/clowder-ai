@@ -129,7 +129,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('loads the first file preview and renders the five-field basic info layout', async () => {
+  it('loads the first file preview and renders title badges plus basic info layout', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -150,6 +150,8 @@ describe('SkillDetailView', () => {
     expect(container.querySelector('[data-testid="skill-detail-avatar"]')).not.toBeNull();
     expect(container.querySelector('img[alt="demo-skill avatar"]')?.getAttribute('src')).toBe('/avatars/demo-skill.png');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Automation');
+    expect(container.querySelector('[data-testid="skill-detail-source-badge"]')?.textContent).toBe('内置技能');
+    expect(container.querySelector('[data-testid="skill-detail-status-badge"]')?.textContent).toBe('已启用');
     expect(container.querySelector('[data-testid="skill-detail-description-card"]')).toBeNull();
 
     const basicInfo = container.querySelector('[data-testid="skill-detail-basic-info"]');
@@ -158,10 +160,9 @@ describe('SkillDetailView', () => {
     const basicInfoFields = basicInfo?.querySelectorAll('.space-y-2') ?? [];
 
     expect(basicInfoText).toContain('Skill detail description');
-    expect(basicInfoGrids).toHaveLength(2);
+    expect(basicInfoGrids).toHaveLength(1);
     expect(basicInfoGrids[0]?.className).toContain('md:grid-cols-3');
-    expect(basicInfoGrids[1]?.className).toContain('md:grid-cols-3');
-    expect(basicInfoFields).toHaveLength(5);
+    expect(basicInfoFields).toHaveLength(3);
     expect(basicInfoFields[0]?.querySelector('p')?.className).toContain('text-[var(--text-label-secondary)]');
 
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');

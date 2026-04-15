@@ -460,6 +460,18 @@ export function SkillDetailView({
                     >
                       {categoryLabel}
                     </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-source-badge"
+                    >
+                      {sourceLabel(detail.source)}
+                    </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-status-badge"
+                    >
+                      {statusLabel(detail.enabled)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -473,16 +485,6 @@ export function SkillDetailView({
               </h3>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
-                <BasicInfoField
-                  label="来源"
-                  value={sourceLabel(detail.source)}
-                />
-                <BasicInfoField
-                  label="状态"
-                  value={statusLabel(detail.enabled)}
-                />
-              </div>
-              <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField
                   label="触发词"
                   value={
