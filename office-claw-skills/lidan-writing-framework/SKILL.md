@@ -1,3 +1,8 @@
+---
+name: lidan-writing-framework
+description: Apply Li Dan's seven-step explanatory writing framework to turn complex ideas into clear, teachable long-form writing with stories, contrasts, examples, and reading lists. Use when users want structured knowledge writing, concept explainers, educational essays, public-intellectual style articles, or a repeatable framework for drafting deep but accessible content.
+---
+
 # 李诞七步写作框架
 
 > 让读者看完后，不只是知道"是什么"，而是"懂了，而且能给别人讲明白"。

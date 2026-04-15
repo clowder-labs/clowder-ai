@@ -14,7 +14,6 @@
 | `minimax-xlsx` | Excel / CSV / TSV 创建、分析、零损编辑与校验 |
 | `official-doc-formatter` | 按国标公文规范格式化 Word 文档 |
 | `pptx-craft` | 多阶段研究、规划、生成一体化 PPT 流程 |
-| `smart-report-automation` | Excel 报表自动化与办公文档批量格式转换 |
 | `weather` | 天气查询与短期预报，适用于出行和日常工作安排 |
 
 ### 企业协作
@@ -22,11 +21,7 @@
 | Skill | 触发场景 |
 |-------|----------|
 | `meeting-autopilot-pro` | 会议全生命周期准备、记录、跟进与行动项追踪 |
-| `feishu-calendar-official` | 飞书日历、日程、参会人与忙闲管理 |
-| `feishu-bitable` | 飞书多维表格 App、记录、字段、视图与批量操作 |
 | `email-manager` | 邮件发送、查收、回复、标记与多邮箱管理 |
-| `feishu-task` | 飞书任务与任务清单管理 |
-| `feishu-perm-transfer` | 飞书文档/表格权限转移与批量协作管理 |
 
 ### 自媒体
 
