@@ -11,8 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { mock, test } from 'node:test';
@@ -244,50 +243,6 @@ test('isGitRepositoryPath walks parent directories instead of shelling out to gi
     assert.equal(isGitRepositoryPath(join('/tmp', 'codex-not-a-repo')), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test('promotes generated skills into office-claw-skills after file_change events', async () => {
-  const previousOfficeClawRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
-  const tempRoot = mkdtempSync(join(tmpdir(), 'codex-generated-skill-'));
-  const workspaceRoot = join(tempRoot, 'workspace');
-  const generatedSkillDir = join(workspaceRoot, 'random-output', 'weekly-brief');
-  mkdirSync(generatedSkillDir, { recursive: true });
-  writeFileSync(
-    join(generatedSkillDir, 'SKILL.md'),
-    '---\ndescription: prepare a weekly sales brief\ntriggers:\n  - weekly brief\n---\n\n# Weekly Brief\n',
-    'utf-8',
-  );
-  writeFileSync(join(generatedSkillDir, 'notes.txt'), 'draft\n', 'utf-8');
-  process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
-
-  try {
-    const proc = createMockProcess();
-    const spawnFn = createMockSpawnFn(proc);
-    const service = new CodexAgentService({ spawnFn });
-
-    const promise = collect(service.invoke('create a skill', { workingDirectory: workspaceRoot }));
-    emitCodexEvents(proc, [
-      { type: 'thread.started', thread_id: 't-skill' },
-      {
-        type: 'item.completed',
-        item: {
-          type: 'file_change',
-          status: 'completed',
-          changes: [{ path: 'random-output/weekly-brief/SKILL.md' }, { path: 'random-output/weekly-brief/notes.txt' }],
-        },
-      },
-    ]);
-
-    await promise;
-
-    assert.equal(existsSync(join(tempRoot, 'office-claw-skills', 'weekly-brief', 'SKILL.md')), true);
-    assert.equal(existsSync(join(tempRoot, 'office-claw-skills', 'weekly-brief', 'notes.txt')), true);
-    assert.equal(existsSync(generatedSkillDir), false);
-  } finally {
-    if (previousOfficeClawRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
-    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousOfficeClawRoot;
-    rmSync(tempRoot, { recursive: true, force: true });
   }
 });
 

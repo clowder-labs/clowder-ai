@@ -34,13 +34,12 @@ import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
-import { promoteGeneratedSkills } from '../../skillhub/GeneratedSkillOrganizer.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { CliRawArchive } from '../../session/CliRawArchive.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import type { AuditLogSink, RawArchiveSink } from '../providers/codex-audit-hooks.js';
 import { extractCommandExecutionLifecycle, sanitizeRawEvent } from '../providers/codex-audit-hooks.js';
-import { extractChangedPaths, type CodexStreamState, transformCodexEvent } from '../providers/codex-event-transform.js';
+import { type CodexStreamState, transformCodexEvent } from '../providers/codex-event-transform.js';
 import {
   type CodexSessionContextSnapshotResolver,
   createCodexSessionContextSnapshotResolver,
@@ -557,30 +556,6 @@ export class CodexAgentService implements AgentService {
               // this value may be overwritten by contextSnapshotResolver when available.
               if (typeof u.input_tokens === 'number') usage.lastTurnInputTokens = u.input_tokens;
               metadata.usage = usage;
-            }
-          }
-          if (raw.type === 'item.completed') {
-            const item = raw.item as Record<string, unknown> | undefined;
-            if (item?.type === 'file_change') {
-              const changedPaths = extractChangedPaths(item.changes, options?.workingDirectory);
-              if (changedPaths.length > 0) {
-                try {
-                  await promoteGeneratedSkills({
-                    hostRoot: resolveCatCafeHostRoot(process.cwd()),
-                    workingDirectory: options?.workingDirectory,
-                    changedPaths,
-                  });
-                } catch (err) {
-                  log.warn(
-                    {
-                      err,
-                      changedPaths,
-                      workingDirectory: options?.workingDirectory,
-                    },
-                    '[codex] generated skill promotion failed',
-                  );
-                }
-              }
             }
           }
         }
