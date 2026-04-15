@@ -486,7 +486,7 @@ describe('SkillDetailView', () => {
     expect(workspace?.className).toContain('flex');
 
     const workspaceFrame = workspace?.querySelector('.rounded-\\[20px\\]');
-    expect(workspaceFrame?.className).toContain('min-h-[360px]');
+    expect(workspaceFrame?.className).toContain('h-[626px]');
 
     const panes = workspace?.querySelectorAll('.overflow-y-auto');
     expect(panes?.length).toBeGreaterThanOrEqual(2);
@@ -782,6 +782,9 @@ describe('SkillDetailView', () => {
     await flushEffects();
 
     expect(container.textContent).toContain('用户添加技能');
+    const workspace = container.querySelector('[data-testid="skill-detail-file-workspace"]');
+    const workspaceFrame = workspace?.querySelector('.rounded-\\[20px\\]');
+    expect(workspaceFrame?.className).toContain('h-[486px]');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Productivity');
     expect(container.querySelector('[data-testid="skill-detail-uninstall-button"]')?.textContent).toContain('卸载');
   });

@@ -293,6 +293,7 @@ export function SkillDetailView({
   const categoryLabel = detail?.category?.trim() || "其他";
   const resolvedTitle = detail?.name ?? skillName;
   const resolvedDescription = detail?.description?.trim() || "--";
+  const hasDisclaimer = detail?.source === "external";
   const selectedFileLabel = useMemo(() => {
     if (!selectedPath)
       return detail?.fileTree?.length ? "请选择文件" : "暂无文件";
@@ -517,7 +518,11 @@ export function SkillDetailView({
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
-              <div className="flex overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+              <div
+                className={`flex overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)] ${
+                  hasDisclaimer ? "h-[354px]" : "h-[518px]"
+                }`}
+              >
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">
@@ -614,7 +619,7 @@ export function SkillDetailView({
                 </div>
               </div>
             </section>
-            {detail.source === "external" ? (
+            {hasDisclaimer ? (
               <section
                 className="shrink-0 space-y-3"
                 data-testid="skill-detail-disclaimer"
