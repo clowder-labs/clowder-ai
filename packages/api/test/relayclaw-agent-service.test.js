@@ -209,7 +209,7 @@ describe('RelayClawAgentService', () => {
     });
 
     assert.equal(launch.command, 'C:\\vendor\\jiuwenclaw.exe');
-    assert.deepEqual(launch.args, ['--desktop-run-agentserver']);
+    assert.deepEqual(launch.args, ['--desktop-run-app']);
     assert.equal(launch.cwd, process.platform === 'win32' ? 'C:\\vendor' : '.');
   });
 
