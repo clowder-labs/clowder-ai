@@ -95,9 +95,10 @@ export async function applyConnectorSecretUpdates(
 
   const secretBacked = isLocalSecretStorageEnabled();
   for (const [name, value] of updatesMap) {
+    const normalizedValue = value == null ? null : value.trim();
     const refName = buildConnectorEnvRefVarName(name);
     if (isConnectorSecretBackedEnvVarName(name) && secretBacked) {
-      const trimmed = value?.trim() ?? '';
+      const trimmed = normalizedValue ?? '';
       if (!trimmed) {
         clearConnectorEnvSecret(name);
         delete process.env[name];
@@ -122,14 +123,14 @@ export async function applyConnectorSecretUpdates(
       fileUpdates.set(refName, null);
     }
 
-    if (value == null || value === '') {
+    if (normalizedValue == null || normalizedValue === '') {
       delete process.env[name];
       fileUpdates.set(name, null);
       nextValues.set(name, '');
     } else {
-      process.env[name] = value;
-      fileUpdates.set(name, value);
-      nextValues.set(name, value);
+      process.env[name] = normalizedValue;
+      fileUpdates.set(name, normalizedValue);
+      nextValues.set(name, normalizedValue);
     }
   }
 

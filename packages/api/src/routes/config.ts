@@ -356,9 +356,10 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       const definition = ENV_VARS.find((item) => item.name === name);
       const isConnectorSecret = Boolean(definition && isConnectorSensitiveEditable(definition));
       const refName = buildConnectorEnvRefVarName(name);
+      const normalizedValue = isConnectorEnvVarName(name) ? (value?.trim() ?? '') : value;
 
       if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name) && secretBacked) {
-        const trimmed = value?.trim() ?? '';
+        const trimmed = normalizedValue ?? '';
         if (!trimmed) {
           clearConnectorEnvSecret(name);
           delete process.env[name];
@@ -381,12 +382,12 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         fileUpdates.set(refName, null);
       }
 
-      if (value == null || value === '') {
+      if (normalizedValue == null || normalizedValue === '') {
         delete process.env[name];
         fileUpdates.set(name, null);
       } else {
-        process.env[name] = value;
-        fileUpdates.set(name, value);
+        process.env[name] = normalizedValue;
+        fileUpdates.set(name, normalizedValue);
       }
     }
 
@@ -398,10 +399,14 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       changedKeys.push(name);
     }
 
+    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
+    if (changedConnectorEnv && opts.connectorRuntimeManager?.setOwnerUserId) {
+      await opts.connectorRuntimeManager.setOwnerUserId(operator);
+    }
+
     const runtime = opts.connectorRuntimeManager && changedKeys.length > 0
       ? await opts.connectorRuntimeManager.reconcile(changedKeys)
       : undefined;
-    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
     const needsRestart = changedConnectorEnv && (!runtime || !runtime.applied);
 
     try {

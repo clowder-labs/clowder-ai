@@ -43,13 +43,13 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
 
   const resolveFileIcon = (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    if (ext === 'pdf') return '/icons/file-pdf.svg';
-    if (ext === 'doc' || ext === 'docx') return '/icons/file-docx.svg';
-    if (ext === 'xls' || ext === 'xlsx') return '/icons/file-xlsx.svg';
-    if (ext === 'ppt' || ext === 'pptx') return '/icons/file-ppt.svg';
-    if (ext === 'csv') return '/icons/file-csv.svg';
-    if (ext === 'txt') return '/icons/file-txt.svg';
-    return '/icons/file-html.svg';
+    if (ext === 'pdf') return '/icons/files-pdf.svg';
+    if (ext === 'doc' || ext === 'docx') return '/icons/files-docx.svg';
+    if (ext === 'xls' || ext === 'xlsx') return '/icons/files-xlsx.svg';
+    if (ext === 'ppt' || ext === 'pptx') return '/icons/files-ppt.svg';
+    if (ext === 'csv') return '/icons/files-csv.svg';
+    if (ext === 'txt') return '/icons/files-txt.svg';
+    return '/icons/files-txt.svg';
   };
 
   useEffect(() => {
