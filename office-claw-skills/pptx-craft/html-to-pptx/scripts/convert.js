@@ -270,28 +270,52 @@ async function convertDirectory(input, outputPath, options = {}) {
             }
           }
 
+          // --- 从 body/html/:root/* 规则中提取 background-color 用于合并文档 ---
+          let bodyBgColor = '';
+          function extractBgFromRule(rule) {
+            const match = rule.match(/background-color\s*:\s*([^;]+);/i)
+              || rule.match(/background\s*:\s*([^;]+);/i);
+            if (match) return match[1].trim();
+            return null;
+          }
+
           // --- 给 CSS 规则添加 scope 前缀 ---
           const scopeAttr = `data-page-${pageIdx}`;
-          const scopedRules = cssTexts.map(rule => {
+          const scopedRules = [];
+
+          cssTexts.forEach(rule => {
             // 跳过 @keyframes / @font-face 等 at-rule（不加前缀）
             if (rule.startsWith('@keyframes') || rule.startsWith('@font-face')) {
-              return rule;
+              scopedRules.push(rule);
+              return;
             }
             // @media 等需要处理内部规则
             if (rule.startsWith('@media') || rule.startsWith('@supports') || rule.startsWith('@layer')) {
-              return rule.replace(/([^{}]+)\{/g, (match, selectorPart, offset) => {
-                // 第一个 { 是 at-rule 本身，不处理
+              scopedRules.push(rule.replace(/([^{}]+)\{/g, (match, selectorPart, offset) => {
                 if (offset === rule.indexOf('{')) return match;
-                // 内部选择器加 scope
                 return scopeSelector(selectorPart, scopeAttr) + '{';
-              });
+              }));
+              // 也从 @media 规则中提取 body 背景
+              if (!bodyBgColor && /body|html|:root/.test(rule)) {
+                const bg = extractBgFromRule(rule);
+                if (bg) bodyBgColor = bg;
+              }
+              return;
             }
             // 普通规则：提取选择器部分加 scope
             const braceIdx = rule.indexOf('{');
-            if (braceIdx === -1) return rule;
+            if (braceIdx === -1) { scopedRules.push(rule); return; }
             const selectorPart = rule.substring(0, braceIdx);
             const rest = rule.substring(braceIdx);
-            return scopeSelector(selectorPart, scopeAttr) + rest;
+
+            // 检测 body/html/:root 规则，提取背景色用于合并文档
+            const selectors = selectorPart.split(',').map(s => s.trim());
+            const isBodyRule = selectors.some(s => s === 'body' || s === 'html' || s === ':root');
+            if (isBodyRule && !bodyBgColor) {
+              const bg = extractBgFromRule(rule);
+              if (bg) bodyBgColor = bg;
+            }
+            scopedRules.push(scopeSelector(selectorPart, scopeAttr) + rest);
           });
 
           function scopeSelector(selectorText, attr) {
@@ -337,11 +361,20 @@ async function convertDirectory(input, outputPath, options = {}) {
             return slide.outerHTML;
           });
 
+          // CSS 规则中没有提取到背景色时，使用 computed style 兜底
+          // 适用于 Tailwind 类名（如 bg-gray-50）的情况
+          if (!bodyBgColor) {
+            const csBg = window.getComputedStyle(document.body).backgroundColor;
+            if (csBg && csBg !== 'transparent' && csBg !== 'rgba(0, 0, 0, 0)') {
+              bodyBgColor = csBg;
+            }
+          }
+
           return {
             scopedCss: scopedRules.join('\n'),
             slideHtmls,
             externalLinks,
-            bodyBgColor: window.getComputedStyle(document.body).backgroundColor
+            bodyBgColor
           };
         } catch (err) {
           console.error('页面处理失败:', err.message);
@@ -485,7 +518,7 @@ async function buildMergedHtml(pageResults) {
     }
   }
 
-  // 使用原始页面的 body 背景色（取第一个有效值），避免硬编码颜色覆盖
+  // 使用从原始 CSS 中提取的 body 背景色（而非 computed style），避免硬编码颜色覆盖
   const bodyBgColor = pageResults.find(p => p.bodyBgColor && p.bodyBgColor !== 'transparent')?.bodyBgColor || '#1a1a2e';
 
   // 每页的 slide 包裹在带 scope 属性的 wrapper 中
