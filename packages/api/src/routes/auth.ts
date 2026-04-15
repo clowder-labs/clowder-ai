@@ -42,6 +42,7 @@ export interface UserInfo {
   modelInfo: Record<string, any>;
   principal?: CasUserProfile;
   pendingInvitation?: boolean;
+  serverStartId?: string;
 }
 
 interface ModelInfoResult {
@@ -95,6 +96,10 @@ const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
   'AgentArts.11000008': '邀请码无效，请重新输入',
   'common.01010004': '请确认账号状态，是否已实名认证或非欠费状态',
 };
+// 每次进程启动时生成唯一 token，用于识别本次运行。
+// secureConfig 持久化到磁盘，若 serverStartId 与当前 token 不符，说明服务已重启，session 作废。
+const SERVER_STARTUP_TOKEN = randomBytes(16).toString('hex');
+
 const KEYCHAIN_SERVICE = 'office-claw';
 const KEYCHAIN_ACCOUNT = 'secure-config-encryption-key';
 const LEGACY_ENCRYPTION_KEY = 'clowder-ai-secure-key';
@@ -486,16 +491,25 @@ function isUserInfo(value: unknown): value is UserInfo {
 function getStoredUserInfo(userId: string): UserInfo | null {
   const raw = secureConfig.get(`${userId}-new`);
   if (isUserInfo(raw)) {
+    // serverStartId 不匹配 → 服务已重启，持久化 session 作废
+    if (raw.serverStartId !== SERVER_STARTUP_TOKEN) {
+      clearStoredUserInfo(userId);
+      return null;
+    }
     return raw;
   }
 
+  // legacy key 无 serverStartId，服务重启后一律视为过期
   const legacyRaw = secureConfig.get(userId);
-  return isUserInfo(legacyRaw) ? legacyRaw : null;
+  if (isUserInfo(legacyRaw)) {
+    clearStoredUserInfo(userId);
+  }
+  return null;
 }
 
 function storeUserInfo(userInfo: UserInfo): void {
   secureConfig.set(userInfo.userId, userInfo.expiresAt);
-  secureConfig.set(`${userInfo.userId}-new`, userInfo);
+  secureConfig.set(`${userInfo.userId}-new`, { ...userInfo, serverStartId: SERVER_STARTUP_TOKEN });
 }
 
 function clearStoredUserInfo(userId: string): void {
