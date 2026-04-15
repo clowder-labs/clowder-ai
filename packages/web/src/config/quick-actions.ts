@@ -15,7 +15,7 @@ export interface QuickActionConfig {
 export const QUICK_ACTIONS: QuickActionConfig[] = [
   {
     label: '定时任务',
-    icon: '/icons/scheduled-task.svg',
+    icon: '/icons/time-time.svg',
     show: true,
     prompts: [
       '每日 10:00 提醒我喝水，从今天开始并持续生效，任务创建后设置为立即执行。',
