@@ -901,21 +901,6 @@ class JiuWenClaw:
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
             self._todo_tool_sessions_registered.add(effective_session_id)
-        else:
-            # agent 模式额外注册并行子任务工具
-            config_base = get_config()
-            session_toolkits = MultiSessionToolkit(
-                session_id=effective_session_id,
-                channel_id=channel_id,
-                request_id=request_id,
-                sub_agent_config=self._load_react_config(config_base)
-            )
-            for tool in session_toolkits.get_tools():
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
-            if request_id:
-                self._track_session_toolkit(request_id, effective_session_id, session_toolkits)
-
         # Register send file toolkit
         if not self._send_file_tool_registered:
             send_file_toolkit = SendFileToolkit(
