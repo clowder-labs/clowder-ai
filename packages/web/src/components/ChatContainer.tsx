@@ -194,6 +194,25 @@ export function ChatContainer(props: ChatContainerProps) {
     window.history.replaceState(window.history.state, '', nextUrl || '/');
   }, [skipInitialAuthGate]);
 
+  // Thread pages skip requireLoginCheck to avoid the loading panel flash.
+  // But this leaves cachedAuthChecked=false, causing "新建会话" to show
+  // the loading panel on the home page. Silently warm up the cache here.
+  useEffect(() => {
+    if (props.mode !== 'thread' || props.requireLoginCheck || cachedAuthChecked) return;
+    apiFetch('/api/islogin')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.islogin) {
+          cachedAuthChecked = true;
+          cachedIsLoggedIn = true;
+          setCanCreateModel(Boolean(data?.canCreateModel));
+        }
+      })
+      .catch(() => {});
+    // intentionally run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!props.requireLoginCheck || skipInitialAuthGate) return;
 
