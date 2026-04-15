@@ -19,10 +19,10 @@
       "mentionPatterns": ["@office", "@小九", "@办公智能体"],
       "provider": "relayclaw",
       "providerProfileId": "huawei-maas",
-      "defaultModel": "glm-5",
+      "defaultModel": "glm-5.1",
       "roleDescription": "全局梳理、脉络串联",
       "personality": "专业干练的职场精英，逻辑清晰，善于结构化输出和流程优化。具有冷静的全局观，擅长抓遗漏信息。",
-      "teamStrengths": "全局掌控、信息整合、文档梳理",
+      "teamStrengths": "",
       "strengths": ["document-writing", "meeting-notes", "project-management", "data-analysis"]
     },
     {
@@ -38,7 +38,7 @@
       "defaultModel": "deepseek-v3.2",
       "roleDescription": "硬核逻辑、严谨论证",
       "personality": "拥有极致理性的逻辑人格，只认推导、事实、因果，对模糊/谬误零容忍，发言锋利直接",
-      "teamStrengths": "复杂任务分解、严谨推理、多步骤编排",
+      "teamStrengths": "",
       "strengths": ["daily-qa", "info-organization", "creative-writing", "life-advice"]
     },
     {
@@ -51,10 +51,10 @@
       "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams", "@协作智能体"],
       "provider": "relayclaw",
       "providerProfileId": "huawei-maas",
-      "defaultModel": "Kimi-K2",
+      "defaultModel": "glm-5",
       "roleDescription": "伦理人情、社会视角",
       "personality": "拥有温和通透的人文思想，立足伦理、人性、社会现实，平衡冰冷逻辑，兼顾情理",
-      "teamStrengths": "日常问答、生活建议、人文关怀",
+      "teamStrengths": "",
       "strengths": ["multi-agent", "task-decomposition", "tool-orchestration", "coding"]
     }
   ]
