@@ -7,6 +7,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { skillSourceToLabel } from '@/utils/skill-source-label';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
@@ -107,9 +108,7 @@ export function ExtensionIcon({ className }: { className?: string }) {
 }
 
 function getSourceLabel(source: CapabilityBoardItem['source']): string {
-  if (source === 'builtin') return '内置技能';
-  if (source === 'external') return '用户添加技能';
-  return '其他';
+  return skillSourceToLabel(source);
 }
 
 export function CapabilitySection({

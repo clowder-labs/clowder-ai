@@ -8,6 +8,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/utils/api-client";
+import { skillSourceToLabel } from "@/utils/skill-source-label";
 import { CenteredLoadingState } from "./shared/CenteredLoadingState";
 import { OverflowTooltip } from "./shared/OverflowTooltip";
 import { SkillAvatar } from "./SkillAvatar";
@@ -74,7 +75,7 @@ const IMAGE_FILE_EXTENSIONS = new Set([
 ]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
-  return source === "builtin" ? "官方" : "三方";
+  return skillSourceToLabel(source);
 }
 
 function statusLabel(value: boolean): string {
