@@ -62,7 +62,14 @@ interface OutboundDeliveryHookLike {
     threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
     origin?: string,
     triggerMessageId?: string,
+    presentation?: {
+      headerTitle?: string;
+      suppressCatPrefix?: boolean;
+      suppressOriginDecoration?: boolean;
+      stripLeadingHeaderFromFormattedBody?: boolean;
+    },
   ): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 /** F088 ISSUE-15: Minimal streaming hook interface. */
@@ -1458,8 +1465,15 @@ export async function deliverOutboundFromWeb(
     });
   }
 
-  // F151: Notify adapters (e.g. XiaoYi) that delivery batch is complete
-  if (opts.streamingHook?.notifyDeliveryBatchDone) {
+  // F151: Notify adapters (e.g. Weixin/XiaoYi) that delivery batch is complete.
+  // Prefer outboundHook because single-token outbound adapters flush on this signal.
+  if (opts.outboundHook?.notifyDeliveryBatchDone) {
+    const threadStillBusy =
+      (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+    await opts.outboundHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] notifyDeliveryBatchDone failed');
+    });
+  } else if (opts.streamingHook?.notifyDeliveryBatchDone) {
     const threadStillBusy =
       (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
     await opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {

@@ -98,7 +98,14 @@ export interface CallbackRoutesOptions {
       threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
       origin?: 'callback' | 'agent' | 'system',
       triggerMessageId?: string,
+      presentation?: {
+        headerTitle?: string;
+        suppressCatPrefix?: boolean;
+        suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
+      },
     ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
   };
 }
 
@@ -677,6 +684,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           'callback',
           validatedReplyTo,
         )
+        .then(() => opts.outboundHook?.notifyDeliveryBatchDone?.(effectiveThreadId, true))
         .catch((err: unknown) => {
           app.log.error({ err, threadId: effectiveThreadId }, '[callbacks/post-message] Outbound delivery failed');
         });
@@ -1206,16 +1214,21 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F086: Multi-mention orchestration routes
   if (router && invocationRecordStore) {
-    registerMultiMentionRoutes(app, {
+    // outboundHook is late-bound after connector gateway bootstrap (index.ts).
+    // Use a getter so flushResult() reads the live value at request time,
+    // not the undefined snapshot captured during plugin registration.
+    const multiMentionDeps: Parameters<typeof registerMultiMentionRoutes>[1] = {
       registry,
       messageStore,
       socketManager,
+      get outboundHook() { return opts.outboundHook; },
       router,
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),
       ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
       ...(queueProcessor ? { queueProcessor } : {}),
-    });
+    };
+    registerMultiMentionRoutes(app, multiMentionDeps);
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {
       socketManager.setMultiMentionOrchestrator(getMultiMentionOrchestrator());
