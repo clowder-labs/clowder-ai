@@ -411,6 +411,41 @@ describe('CliOutputBlock', () => {
   });
 
   // ── Cloud P1: tool-row click counts as user interaction ──
+  it('falls back to index-based match when tool_use has toolCallId but tool_result lacks it', () => {
+    const fallbackEvents: CliEvent[] = [
+      { id: 'u1', kind: 'tool_use', timestamp: 1000, label: 'Read foo.ts', toolCallId: 'call-1' },
+      { id: 'r1', kind: 'tool_result', timestamp: 1001, label: 'Read foo.ts', detail: 'ok (legacy result)' },
+    ];
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: fallbackEvents,
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const row = container.querySelector('[data-testid="tool-row-u1"]');
+    expect(row?.querySelector('.animate-spin')).toBeFalsy();
+  });
+
+  it('does not show loading spinner for unmatched tool_use after stream finished', () => {
+    const unmatchedDoneEvents: CliEvent[] = [{ id: 'u1', kind: 'tool_use', timestamp: 1000, label: 'Bash pnpm test' }];
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: unmatchedDoneEvents,
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const row = container.querySelector('[data-testid="tool-row-u1"]');
+    expect(row?.querySelector('.animate-spin')).toBeFalsy();
+  });
+
   it('does NOT auto-collapse if user expanded a tool row', () => {
     // Start streaming
     act(() => {
@@ -700,6 +735,44 @@ describe('CliOutputBlock', () => {
     const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
       path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+    });
+  });
+
+  it('renders a generic generated file card for docx output and opens that file', async () => {
+    const docxEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: D:\\workspace\\output\\weekly-report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: docxEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-file-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('weekly-report.docx');
+
+    const openButton = container.querySelector('[data-testid="cli-output-file-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\workspace\\output\\weekly-report.docx',
     });
   });
 

@@ -223,6 +223,23 @@ describe('Thread delete confirmation (I-1)', () => {
     expect(container.textContent).not.toContain('\u786e\u8ba4\u5220\u9664\u4f1a\u8bdd');
   });
 
+  it('dismisses dialog when pressing Escape', async () => {
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+    await openDeleteDialog();
+
+    expect(container.querySelector('[data-testid="thread-delete-modal-panel"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await flush();
+
+    expect(container.querySelector('[data-testid="thread-delete-modal-panel"]')).toBeNull();
+  });
+
   it('calls DELETE API only after clicking confirm', async () => {
     act(() => {
       root.render(React.createElement(ThreadSidebar));

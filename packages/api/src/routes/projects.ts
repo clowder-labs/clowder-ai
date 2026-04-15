@@ -12,11 +12,12 @@
  */
 
 import { execFile } from 'node:child_process';
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { mkdir, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, posix, resolve, win32 } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { getAllowedRoots, isDenylistMode, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
@@ -259,6 +260,22 @@ export function setListWindowsDriveRootsImpl(fn: () => Promise<ProjectEntry[]>):
   _listWindowsDriveRootsImpl = fn;
 }
 
+async function resolveDefaultWorkspacePath(start = process.cwd()): Promise<string | null> {
+  try {
+    const monorepoRoot = findMonorepoRoot(start);
+    const workspacePath = resolve(monorepoRoot, 'workspace');
+    await mkdir(workspacePath, { recursive: true });
+
+    const resolvedWorkspacePath = await realpath(workspacePath);
+    if (!isUnderAllowedRoot(resolvedWorkspacePath)) return null;
+
+    const info = await stat(resolvedWorkspacePath);
+    return info.isDirectory() ? resolvedWorkspacePath : null;
+  } catch {
+    return null;
+  }
+}
+
 function requireTrustedProjectIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
   const userId = resolveHeaderUserId(request);
   if (!userId) {
@@ -272,7 +289,12 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/projects/cwd - return server's working directory
   app.get('/api/projects/cwd', async () => {
     const cwd = process.cwd();
-    return { path: cwd, name: basename(cwd) };
+    const workspacePath = await resolveDefaultWorkspacePath(cwd);
+    return {
+      path: cwd,
+      name: basename(cwd),
+      ...(workspacePath ? { workspacePath } : {}),
+    };
   });
 
   // POST /api/projects/pick-directory - open native folder picker

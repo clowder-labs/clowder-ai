@@ -60,6 +60,7 @@ describe('FileBlock open action', () => {
 
     const button = container.querySelector('button');
     expect(button).not.toBeNull();
+    expect(container.textContent).toContain('位置: output/demo.pptx');
 
     await act(async () => {
       button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));

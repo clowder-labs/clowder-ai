@@ -103,6 +103,7 @@ function mockOverflow(
 describe('ModelsPanel search', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let previousCanCreateModel: string | undefined;
 
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
@@ -110,6 +111,8 @@ describe('ModelsPanel search', () => {
   });
 
   beforeEach(() => {
+    previousCanCreateModel = process.env.CAN_CREATE_MODEL;
+    process.env.CAN_CREATE_MODEL = '1';
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -199,6 +202,11 @@ describe('ModelsPanel search', () => {
     act(() => root.unmount());
     container.remove();
     mockApiFetch.mockReset();
+    if (previousCanCreateModel === undefined) {
+      delete process.env.CAN_CREATE_MODEL;
+    } else {
+      process.env.CAN_CREATE_MODEL = previousCanCreateModel;
+    }
   });
 
   afterAll(() => {
@@ -278,7 +286,8 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('deepseek-r1');
   });
 
-  it('shows the correct model entry button for skip-auth and non-skip-auth flows', async () => {
+  it('shows the create-model entry button only when CAN_CREATE_MODEL is enabled', async () => {
+    process.env.CAN_CREATE_MODEL = '0';
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -293,7 +302,24 @@ describe('ModelsPanel search', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    process.env.CAN_CREATE_MODEL = '1';
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).not.toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
     mockGetIsSkipAuth.mockReturnValue(true);
+    process.env.CAN_CREATE_MODEL = 'true';
 
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -970,14 +996,14 @@ describe('ModelsPanel search', () => {
     await clickButton(openModal!);
     await flushEffects();
 
-    expect(container.textContent).toContain('新建模型');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     await flushEffects();
 
-    expect(container.textContent).not.toContain('新建模型');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
   });
 
   it('closes the Huawei MaaS access modal when Escape key is pressed', async () => {
@@ -993,14 +1019,14 @@ describe('ModelsPanel search', () => {
     await clickButton(openModal!);
     await flushEffects();
 
-    expect(container.textContent).toContain('接入华为云Maas模型');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     await flushEffects();
 
-    expect(container.textContent).not.toContain('接入华为云Maas模型');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
   });
 
   it('closes the edit-model modal when Escape key is pressed', async () => {
@@ -1016,13 +1042,13 @@ describe('ModelsPanel search', () => {
     await clickButton(editButton!);
     await flushEffects();
 
-    expect(container.textContent).toContain('编辑');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     await flushEffects();
 
-    expect(container.textContent).not.toContain('编辑');
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
   });
 });

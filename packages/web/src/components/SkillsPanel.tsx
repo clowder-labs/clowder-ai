@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useToastStore } from '@/stores/toastStore';
 import { AppModal } from './AppModal';
 import { HubCapabilityTab, type SelectedSkillSummary } from './HubCapabilityTab';
@@ -47,6 +48,11 @@ export function SkillsPanel() {
   const [capabilityRefreshSignal, setCapabilityRefreshSignal] = useState(0);
   const [selectedSkill, setSelectedSkill] = useState<SelectedSkillSummary | null>(null);
   const [showSkillPlazaRiskModal, setShowSkillPlazaRiskModal] = useState(false);
+
+  useEscapeKey({
+    enabled: showSkillPlazaRiskModal,
+    onEscape: () => setShowSkillPlazaRiskModal(false),
+  });
 
   const handleOpenSkillPlaza = () => {
     setSelectedSkill(null);

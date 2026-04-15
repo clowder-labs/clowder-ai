@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
+import { getAgentErrorToastContent, getRateLimitChatMessage, isRateLimitError } from '@/hooks/agent-error-fallback';
 import { getCachedCats } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -674,6 +674,7 @@ export function useAgentMessages() {
           type: 'tool_result',
           label: `${msg.catId} ← result`,
           detail: msg.content ?? '',
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {
@@ -1083,7 +1084,9 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'error') {
         // 理论上后端已转换为 text 消息，但保留降级处理
-        log.warn({ catId: msg.catId }, 'Received raw error event (backend not upgraded or error in transformation)');
+        console.warn('[useAgentMessages] Received raw error event (backend not upgraded or error in transformation)', {
+          catId: msg.catId,
+        });
 
         // 状态清理逻辑（必须保留）
         setCatStatus(msg.catId, 'error');
@@ -1128,13 +1131,25 @@ export function useAgentMessages() {
           ...msg,
           catDisplayName: resolveCatLabel(msg.catId),
         });
-        useToastStore.getState().addToast({
-          type: 'error',
-          title: toast.title,
-          message: toast.message,
-          threadId: useChatStore.getState().currentThreadId,
-          duration: 8000,
-        });
+
+        // 瞬时限流：在对话框中显示固定文案（优先于 toast）
+        if (isRateLimitError(msg)) {
+          addMessage({
+            id: `rate-limit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: 'error',
+            content: getRateLimitChatMessage(),
+            timestamp: Date.now(),
+          });
+        } else {
+          useToastStore.getState().addToast({
+            type: 'error',
+            title: toast.title,
+            message: toast.message,
+            threadId: useChatStore.getState().currentThreadId,
+            duration: 8000,
+          });
+        }
 
         // 清理 loading 状态
         if (msg.isFinal) {

@@ -9,7 +9,7 @@ const path = require('node:path');
 const { describe, it } = require('node:test');
 
 const configPath = path.resolve(__dirname, '../next.config.js');
-const ENV_KEYS = ['NEXT_PUBLIC_API_URL', 'API_SERVER_PORT', 'FRONTEND_PORT'];
+const ENV_KEYS = ['NEXT_PUBLIC_API_URL', 'API_SERVER_PORT', 'FRONTEND_PORT', 'CAN_CREATE_MODEL'];
 
 function withEnv(overrides, run) {
   const snapshot = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -42,6 +42,16 @@ describe('next.config uploads rewrite', () => {
           destination: 'http://localhost:3004/uploads/:path*',
         },
       );
+    });
+  });
+
+  it('exposes CAN_CREATE_MODEL to the client bundle with a default of 0', async () => {
+    await withEnv({}, async (config) => {
+      assert.equal(config.env.CAN_CREATE_MODEL, '0');
+    });
+
+    await withEnv({ CAN_CREATE_MODEL: 'true' }, async (config) => {
+      assert.equal(config.env.CAN_CREATE_MODEL, 'true');
     });
   });
 });

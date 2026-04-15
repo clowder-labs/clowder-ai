@@ -45,6 +45,7 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
+import { appendGeneratedFileLocationDisclosure } from './generated-file-artifacts.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
@@ -636,7 +637,6 @@ export async function* routeSerial(
 
         // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
         const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
-        const storedContent = cleanText;
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...streamRichBlocks];
 
         // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
@@ -654,6 +654,7 @@ export async function* routeSerial(
             }
           }
         }
+        const storedContent = appendGeneratedFileLocationDisclosure(cleanText, allRichBlocks);
 
         // In play mode, CLI stream output (thinking) is hidden from other cats.
         // Only share previousResponses in debug mode where cats see each other's thinking.
@@ -943,7 +944,7 @@ export async function* routeSerial(
             await deps.messageStore.append({
               userId,
               catId,
-              content: '',
+              content: appendGeneratedFileLocationDisclosure('', noTextBlocks),
               mentions: [],
               origin: 'stream',
               timestamp: Date.now(),

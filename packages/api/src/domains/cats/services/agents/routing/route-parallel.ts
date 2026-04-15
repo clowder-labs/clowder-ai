@@ -34,6 +34,7 @@ import { mergeStreams } from '../invocation/stream-merge.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { parseA2AMentions } from '../routing/a2a-mentions.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
+import { appendGeneratedFileLocationDisclosure } from './generated-file-artifacts.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
@@ -537,7 +538,7 @@ export async function* routeParallel(
         const meta = catMeta.get(msg.catId);
         const sanitized = sanitizeInjectedContent(text);
         // F22: Extract cc_rich blocks from text + merge with buffered
-        const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
+        const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         // F34-b: synthesize text-only audio blocks (voice messages)
         // F111: skip synthesis in voiceMode — frontend streams via /api/tts/stream
@@ -551,6 +552,7 @@ export async function* routeParallel(
             }
           }
         }
+        const storedContent = appendGeneratedFileLocationDisclosure(cleanText, allRichBlocks);
         const catTools = catToolEvents.get(msg.catId);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
@@ -727,7 +729,7 @@ export async function* routeParallel(
             await deps.messageStore.append({
               userId,
               catId: msg.catId as CatId,
-              content: '',
+              content: appendGeneratedFileLocationDisclosure('', noTextBlocks),
               mentions: [],
               origin: 'stream',
               timestamp: Date.now(),

@@ -21,14 +21,16 @@ interface FeedbackPopoverState {
   lowScoreSelectedIssues: string[];
   highScoreSelectedIssues: string[];
   lowScoreDetail: string;
-  otherIssueDetail: string;
+  lowScoreOtherIssueDetail: string;
+  highScoreOtherIssueDetail: string;
   setFeedbackPopoverState: (next: Pick<FeedbackPopoverState, 'isFeedbackOpen' | 'isAutoOpenedFeedback'>) => void;
   resetFeedbackPopoverState: () => void;
   setSelectedScore: (next: number | null) => void;
   setLowScoreSelectedIssues: (next: Updater<string[]>) => void;
   setHighScoreSelectedIssues: (next: Updater<string[]>) => void;
   setLowScoreDetail: (next: string) => void;
-  setOtherIssueDetail: (next: string) => void;
+  setLowScoreOtherIssueDetail: (next: string) => void;
+  setHighScoreOtherIssueDetail: (next: string) => void;
   resetFeedbackFormState: () => void;
 }
 
@@ -39,7 +41,8 @@ export const useFeedbackPopoverStore = create<FeedbackPopoverState>((set) => ({
   lowScoreSelectedIssues: [],
   highScoreSelectedIssues: [],
   lowScoreDetail: '',
-  otherIssueDetail: '',
+  lowScoreOtherIssueDetail: '',
+  highScoreOtherIssueDetail: '',
   setFeedbackPopoverState: (next) => set(next),
   resetFeedbackPopoverState: () =>
     set({
@@ -52,13 +55,15 @@ export const useFeedbackPopoverStore = create<FeedbackPopoverState>((set) => ({
   setHighScoreSelectedIssues: (next) =>
     set((state) => ({ highScoreSelectedIssues: resolveUpdater(next, state.highScoreSelectedIssues) })),
   setLowScoreDetail: (lowScoreDetail) => set({ lowScoreDetail }),
-  setOtherIssueDetail: (otherIssueDetail) => set({ otherIssueDetail }),
+  setLowScoreOtherIssueDetail: (lowScoreOtherIssueDetail) => set({ lowScoreOtherIssueDetail }),
+  setHighScoreOtherIssueDetail: (highScoreOtherIssueDetail) => set({ highScoreOtherIssueDetail }),
   resetFeedbackFormState: () =>
     set({
       selectedScore: null,
       lowScoreSelectedIssues: [],
       highScoreSelectedIssues: [],
       lowScoreDetail: '',
-      otherIssueDetail: '',
+      lowScoreOtherIssueDetail: '',
+      highScoreOtherIssueDetail: '',
     }),
 }));
