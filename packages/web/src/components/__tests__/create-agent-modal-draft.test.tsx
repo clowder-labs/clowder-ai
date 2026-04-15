@@ -394,7 +394,7 @@ describe('CreateAgentModal', () => {
         return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
       }
       if (url === '/api/cats' && init?.method === 'POST') {
-        return Promise.resolve(jsonResponse({ error: '鍚嶇О "Duplicate Bot" 宸茶浣跨敤' }, 400));
+        return Promise.resolve(jsonResponse({ error: '名称 "Duplicate Bot" 已被使用' }, 400));
       }
       throw new Error(`Unexpected apiFetch path: ${url}`);
     });
@@ -424,7 +424,7 @@ describe('CreateAgentModal', () => {
     await flushEffects();
 
     const nameError = container.querySelector('[data-testid="create-agent-name-error"]') as HTMLDivElement | null;
-    expect(nameError?.textContent).toBe('鍚嶇О "Duplicate Bot" 宸茶浣跨敤');
+    expect(nameError?.textContent).toBe('名称 "Duplicate Bot" 已被使用');
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
   });
