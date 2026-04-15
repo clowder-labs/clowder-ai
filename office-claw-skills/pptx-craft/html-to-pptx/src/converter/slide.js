@@ -2065,8 +2065,34 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
       }
     }
 
-    // 兜底：如果 root 元素没有任何背景，尝试使用 body 的背景色
-    // 适用于 body { background-color: xxx } 的场景
+    // 兜底：如果 root 元素没有任何背景，逐级向上查找祖先元素的背景色
+    // 适用于合并 HTML 中 [data-page-N] wrapper 携带每页背景色的场景
+    if (!slideBgHex) {
+      let ancestor = root.parentElement;
+      while (ancestor && !slideBgHex) {
+        const ancestorStyle = window.getComputedStyle(ancestor);
+        const ancestorBgObj = parseColor(ancestorStyle.backgroundColor);
+        if (ancestorBgObj.hex && ancestorBgObj.opacity > 0) {
+          slide.background = { color: ancestorBgObj.hex };
+          slideBgHex = ancestorBgObj.hex;
+          break;
+        }
+        // 也检查渐变背景
+        const ancestorBgImg = ancestorStyle.backgroundImage || "";
+        if (ancestorBgImg && ancestorBgImg !== "none" && /gradient\(/.test(ancestorBgImg)) {
+          const fallback = getGradientFallbackColor(ancestorBgImg);
+          const fallbackObj = parseColor(fallback);
+          if (fallbackObj.hex && fallbackObj.opacity > 0) {
+            slide.background = { color: fallbackObj.hex };
+            slideBgHex = fallbackObj.hex;
+            break;
+          }
+        }
+        ancestor = ancestor.parentElement;
+      }
+    }
+
+    // 最终兜底：如果祖先也没有背景，尝试使用 body 的背景色
     if (!slideBgHex) {
       const bodyStyle = window.getComputedStyle(document.body);
       const bodyBgObj = parseColor(bodyStyle.backgroundColor);
