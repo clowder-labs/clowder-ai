@@ -888,7 +888,7 @@ export function CreateAgentModal({
                 </div>
               </div>
               <div className="text-[12px] text-[var(--text-muted)]">
-                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
+                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
               </div>
               {avatarError ? (
                 <div data-testid="create-agent-avatar-error" className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
