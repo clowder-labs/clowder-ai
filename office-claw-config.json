@@ -74,7 +74,8 @@
           "providerProfileId": "huawei-maas",
           "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
           "caution": null,
-          "sessionChain": true
+          "sessionChain": true,
+          "perRequestSystemPrompt": true
         }
       ]
     },
@@ -117,11 +118,12 @@
           "providerProfileId": "huawei-maas",
           "teamStrengths": "日常问答、信息整理、创意写作、生活建议",
           "caution": null,
-          "sessionChain": true
+          "sessionChain": true,
+          "perRequestSystemPrompt": true
         }
       ]
     },
-    
+
     {
       "id": "agentteams",
       "catId": "agentteams",
@@ -158,7 +160,8 @@
           },
           "accountRef": "huawei-maas",
           "providerProfileId": "huawei-maas",
-          "sessionChain": true
+          "sessionChain": true,
+          "perRequestSystemPrompt": true
         }
       ]
     }

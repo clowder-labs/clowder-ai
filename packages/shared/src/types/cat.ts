@@ -103,6 +103,8 @@ export interface CatConfig {
   readonly strengths?: readonly string[];
   /** F127 Screen 3: whether session chain is enabled for this member */
   readonly sessionChain?: boolean;
+  /** Provider rebuilds system messages per request — always inject systemPrompt, even on resume. */
+  readonly perRequestSystemPrompt?: boolean;
   /** F127: Extra CLI --config key=value pairs passed to the client at invocation time. */
   readonly cliConfigArgs?: readonly string[];
   /** F189: OpenCode custom provider name for api_key routing (runtime assembles provider/model). */

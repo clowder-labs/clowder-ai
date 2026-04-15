@@ -103,6 +103,7 @@ const catVariantSchema = z.object({
   embeddedAcpConfig: embeddedAcpConfigSchema,
   roleDescription: z.string().min(1).optional(), // F127 review fix: allow variant-scoped roleDescription override
   sessionChain: z.boolean().optional(), // F127 review fix: allow variant-scoped sessionChain override
+  perRequestSystemPrompt: z.boolean().optional(), // provider rebuilds system msgs per request → always inject
   personality: z.string().optional(),
   strengths: z.array(z.string()).optional(),
   avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
@@ -512,6 +513,9 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
           : breed.features?.sessionChain !== undefined
             ? { sessionChain: breed.features.sessionChain }
             : {}),
+        ...(variant.perRequestSystemPrompt !== undefined
+          ? { perRequestSystemPrompt: variant.perRequestSystemPrompt }
+          : {}),
       };
     }
   }

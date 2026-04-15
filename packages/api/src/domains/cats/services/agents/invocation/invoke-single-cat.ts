@@ -1022,18 +1022,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Cats with sessionChain=false always need it — each turn is effectively new.
     // Note: As of F053, all cats (including Gemini) have sessionChain=true.
     // Exception: compression detected → force re-inject (see _needsReinjection)
+    // Exception: perRequestSystemPrompt=true in cat config → always inject
+    //   (provider rebuilds system messages per request, e.g. jiuwen WebSocket)
     //
-    // Injection method:
-    // - relayclaw: pass static identity via options.systemPrompt. Jiuwen rebuilds
-    //   system messages per request, so this must stay available even on resume.
-    //   Dynamic orchestration/history belongs in the normal query prompt.
-    // - other providers: prepend to prompt string (universal fallback).
-    //   --append-system-prompt proved unreliable across providers.
+    // Delivery: always via options.systemPrompt — each AgentService handles it:
+    //   Claude: --append-system-prompt flag
+    //   Codex/Gemini: prepend to prompt string
+    //   RelayClaw: WebSocket system_prompt field
+    //   Dare: pass-through to runtime config
     const isResume = !!sessionId;
     const canSkipOnResume = isSessionChainEnabled(catId);
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
-    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
+    const perRequestSystemPrompt = catConfig?.perRequestSystemPrompt === true;
+    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection || perRequestSystemPrompt;
     // ACP/open agents read the task prompt more reliably than long static identity.
     // Keep the skill-selection reminder close to the task so they query runtime skills
     // before diving into repository search for compare/handoff requests.
@@ -1042,20 +1044,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? 'ACP skill rule: compare-options/decision/handoff tasks use office_claw_list_skills before office_claw_search_evidence, repo grep, or read. If a close match appears, call office_claw_load_skill immediately before other tools. Map: compare/recommend/decision -> collaborative-thinking; structured handoff -> cross-agent-handoff. If empty, retry once with a likely exact skill name.'
         : '';
 
-    // Prepend staticIdentity to prompt when injection is needed
+    // Build task prompt (dynamic orchestration context + user task)
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
     const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter(
       (part) => typeof part === 'string' && part.trim(),
     );
     const promptWithMission = promptParts.join('\n\n');
-    const relayClawSystemPrompt =
-      provider === 'relayclaw' && params.systemPrompt?.trim() ? params.systemPrompt.trim() : undefined;
-    const effectivePrompt =
-      provider === 'relayclaw'
-        ? promptWithMission
-        : injectSystemPrompt && params.systemPrompt
-          ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
-          : promptWithMission;
+    const effectiveSystemPrompt = injectSystemPrompt && params.systemPrompt?.trim()
+      ? params.systemPrompt.trim()
+      : undefined;
+    const effectivePrompt = promptWithMission;
 
     log.debug(
       {
@@ -1065,8 +1063,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         threadId,
         isResume,
         injectSystemPrompt,
+        perRequestSystemPrompt,
         promptLength: effectivePrompt.length,
-        systemPromptLength: relayClawSystemPrompt?.length ?? (injectSystemPrompt && params.systemPrompt ? params.systemPrompt.length : 0),
+        systemPromptLength: effectiveSystemPrompt?.length ?? 0,
       },
       'prompt split prepared',
     );
@@ -1104,7 +1103,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(signal ? { signal } : {}),
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
       invocationId,
-      ...(relayClawSystemPrompt ? { systemPrompt: relayClawSystemPrompt } : {}),
+      ...(effectiveSystemPrompt ? { systemPrompt: effectiveSystemPrompt } : {}),
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
