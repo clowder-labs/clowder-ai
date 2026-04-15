@@ -977,6 +977,25 @@ describe('ModelsPanel search', () => {
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
   });
 
+  it('shows the model icon upload size hint with uppercase KB', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('200KB');
+    expect(container.textContent).not.toContain('200kb');
+  });
+
   it('closes the create-model modal when Escape key is pressed', async () => {
     mockGetIsSkipAuth.mockReturnValue(true);
 

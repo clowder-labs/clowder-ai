@@ -1177,7 +1177,7 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
                 </div>
               </div>
               <div className="space-y-1">
