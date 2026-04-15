@@ -13,7 +13,7 @@ from jiuwenclaw.agentserver.tools.command_tools import mcp_exec_command
 from jiuwenclaw.agentserver.tools.search_tools import (
     mcp_free_search,
     mcp_paid_search,
-    petal_search_credentials_configured,
+    enable_petal_search,
 )
 from jiuwenclaw.agentserver.tools.web_fetch_tools import mcp_fetch_webpage
 
@@ -225,7 +225,7 @@ def _has_paid_search_api_key() -> bool:
             os.environ.get("SERPER_API_KEY"),
             os.environ.get("JINA_API_KEY"),
         ]
-    ) or petal_search_credentials_configured()
+    ) or enable_petal_search()
 
 
 def get_mcp_tools() -> list[Tool]:
