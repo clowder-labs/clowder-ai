@@ -800,6 +800,10 @@ describe('WeixinAdapter', () => {
       assert.equal(WeixinAdapter.stripMarkdownForWeixin('- item one\n- item two'), '• item one\n• item two');
     });
 
+    it('preserves ordered list markers', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('1. item one\n2. item two'), '1. item one\n2. item two');
+    });
+
     it('strips blockquote markers', () => {
       assert.equal(WeixinAdapter.stripMarkdownForWeixin('> quoted text'), 'quoted text');
     });

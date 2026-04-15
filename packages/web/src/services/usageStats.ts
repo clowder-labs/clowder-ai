@@ -1,6 +1,7 @@
 'use client';
 
-import { apiFetch } from '@/utils/api-client';
+import { API_URL } from '@/utils/api-client';
+import { getUserId } from '@/utils/userId';
 
 export type UsageRange = 'today' | '3d' | '7d' | '30d';
 
@@ -60,6 +61,42 @@ export interface UsageStatsPageQuery {
   page: number;
   pageSize: number;
   range: UsageRange;
+}
+
+export interface UsageStatsFetchOptions {
+  signal?: AbortSignal;
+}
+
+const DEFAULT_USAGE_STATS_TIMEOUT_MS = 60 * 60 * 1000;
+
+function resolveUsageStatsCredentials(): RequestCredentials {
+  const prodApiUrl = process.env.NEXT_PUBLIC_PROD_API_URL;
+  return prodApiUrl && API_URL.includes(prodApiUrl) ? 'include' : 'same-origin';
+}
+
+async function fetchUsageStatsResponse(path: string, signal?: AbortSignal): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_USAGE_STATS_TIMEOUT_MS);
+  const abortFromCaller = () => controller.abort(signal?.reason);
+
+  if (signal?.aborted) {
+    abortFromCaller();
+  } else {
+    signal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
+
+  try {
+    return await fetch(`${API_URL}${path}`, {
+      headers: {
+        'X-Office-Claw-User': getUserId(),
+      },
+      signal: controller.signal,
+      credentials: resolveUsageStatsCredentials(),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', abortFromCaller);
+  }
 }
 
 const RANGE_TO_MS: Record<UsageRange, number> = {
@@ -197,8 +234,8 @@ export function buildUsageStatsPageFromDataset(
   };
 }
 
-export async function fetchUsageStatsDataset(): Promise<UsageStatsDataset> {
-  const threadsResponse = await apiFetch('/api/threads');
+export async function fetchUsageStatsDataset(options?: UsageStatsFetchOptions): Promise<UsageStatsDataset> {
+  const threadsResponse = await fetchUsageStatsResponse('/api/threads', options?.signal);
   if (!threadsResponse.ok) {
     throw new Error(await readApiError(threadsResponse));
   }
@@ -206,7 +243,7 @@ export async function fetchUsageStatsDataset(): Promise<UsageStatsDataset> {
   const threads = normalizeThreads(await threadsResponse.json());
   const sessionEntries = await Promise.all(
     threads.map(async (thread) => {
-      const sessionsResponse = await apiFetch(`/api/threads/${thread.id}/sessions`);
+      const sessionsResponse = await fetchUsageStatsResponse(`/api/threads/${thread.id}/sessions`, options?.signal);
       if (!sessionsResponse.ok) {
         throw new Error(await readApiError(sessionsResponse));
       }

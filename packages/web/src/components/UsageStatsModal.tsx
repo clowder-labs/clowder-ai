@@ -7,6 +7,7 @@ import {
   buildUsageStatsPageFromDataset,
   fetchUsageStatsDataset,
   type UsageRange,
+  type UsageStatsFetchOptions,
   type UsageStatsDataset,
   type UsageStatsPageResult,
 } from '@/services/usageStats';
@@ -19,7 +20,7 @@ import { formatTokenCount } from './status-helpers';
 interface UsageStatsModalProps {
   open: boolean;
   onClose: () => void;
-  fetchDataset?: () => Promise<UsageStatsDataset>;
+  fetchDataset?: (options?: UsageStatsFetchOptions) => Promise<UsageStatsDataset>;
 }
 
 const PAGE_SIZE = 6;
@@ -93,6 +94,34 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
     if (!open) return;
 
     let cancelled = false;
+    const controller = new AbortController();
+    let loadingDelayId: ReturnType<typeof setTimeout> | null = null;
+
+    const waitForMinimumLoadingTime = async (elapsed: number) => {
+      if (cancelled || elapsed >= MIN_LOADING_MS) return;
+
+      await new Promise<void>((resolve) => {
+        const cleanupDelay = () => {
+          if (loadingDelayId != null) {
+            clearTimeout(loadingDelayId);
+            loadingDelayId = null;
+          }
+          controller.signal.removeEventListener('abort', handleAbort);
+        };
+
+        const handleAbort = () => {
+          cleanupDelay();
+          resolve();
+        };
+
+        loadingDelayId = setTimeout(() => {
+          cleanupDelay();
+          resolve();
+        }, MIN_LOADING_MS - elapsed);
+
+        controller.signal.addEventListener('abort', handleAbort, { once: true });
+      });
+    };
 
     const load = async () => {
       const startedAt = Date.now();
@@ -100,18 +129,17 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
       setError(null);
 
       try {
-        const next = await fetchDataset();
+        const next = await fetchDataset({ signal: controller.signal });
         if (cancelled) return;
         setDataset(next);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         setError('用量数据加载失败，请稍后重试');
         setDataset(null);
       } finally {
         const elapsed = Date.now() - startedAt;
-        if (elapsed < MIN_LOADING_MS) {
-          await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
-        }
+        await waitForMinimumLoadingTime(elapsed);
 
         if (!cancelled) {
           setIsLoading(false);
@@ -123,6 +151,11 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
 
     return () => {
       cancelled = true;
+      controller.abort();
+      if (loadingDelayId != null) {
+        clearTimeout(loadingDelayId);
+        loadingDelayId = null;
+      }
     };
   }, [fetchDataset, open, refreshKey]);
 

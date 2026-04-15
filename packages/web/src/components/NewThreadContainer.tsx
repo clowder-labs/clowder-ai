@@ -34,7 +34,7 @@ const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度2
 const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
-const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/time-time.svg';
 const MAX_SESSIONS = 200;
 
 function buildScheduledTaskQuickActionInsertText(): string | null {
@@ -238,7 +238,9 @@ export function NewThreadContainer() {
             {sidebarMenu !== 'chat' && (
               <div
                 className={`ui-shell-surface h-full px-8 pt-6 pb-5 ${
-                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
+                  sidebarMenu === 'models' || sidebarMenu === 'skills' || sidebarMenu === 'scheduledTasks'
+                    ? 'overflow-y-auto'
+                    : 'overflow-hidden'
                 }`}
               >
                 {sidebarMenu === 'models' && <ModelsPanel />}

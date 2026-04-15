@@ -9,9 +9,9 @@
  * Redis-backed thread storage with same interface as in-memory ThreadStore.
  *
  * Redis 数据结构:
- *   cat-cafe:thread:{threadId}              → Hash (对话详情)
- *   cat-cafe:thread:{threadId}:participants  → Set (参与猫)
- *   cat-cafe:threads:user:{userId}          → Sorted Set (用户对话列表, score=lastActiveAt)
+ *   office-claw:thread:{threadId}              → Hash (对话详情)
+ *   office-claw:thread:{threadId}:participants  → Set (参与智能体)
+ *   office-claw:threads:user:{userId}          → Sorted Set (用户对话列表, score=lastActiveAt)
  *
  * TTL 默认 30 天。
  */
