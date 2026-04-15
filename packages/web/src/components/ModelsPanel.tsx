@@ -986,7 +986,7 @@ export function ModelsPanel() {
                           </p>
                         </OverflowTooltip>
 
-                        <div className="mt-auto flex items-end justify-between gap-3">
+                        <div className="flex items-end justify-between gap-3">
                           <div className="min-h-5 text-xs leading-5">
                             {card.protocol !== 'huawei_maas' ? (
                               <div className="relative">

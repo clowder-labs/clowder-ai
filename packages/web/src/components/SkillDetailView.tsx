@@ -293,6 +293,7 @@ export function SkillDetailView({
   const categoryLabel = detail?.category?.trim() || "其他";
   const resolvedTitle = detail?.name ?? skillName;
   const resolvedDescription = detail?.description?.trim() || "--";
+  const hasDisclaimer = detail?.source === "external";
   const selectedFileLabel = useMemo(() => {
     if (!selectedPath)
       return detail?.fileTree?.length ? "请选择文件" : "暂无文件";
@@ -402,7 +403,7 @@ export function SkillDetailView({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 flex-col"
       data-testid="skill-detail-panel"
     >
       <div className="shrink-0 pb-6">
@@ -460,6 +461,18 @@ export function SkillDetailView({
                     >
                       {categoryLabel}
                     </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-source-badge"
+                    >
+                      {sourceLabel(detail.source)}
+                    </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-status-badge"
+                    >
+                      {statusLabel(detail.enabled)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -473,16 +486,6 @@ export function SkillDetailView({
               </h3>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
-                <BasicInfoField
-                  label="来源"
-                  value={sourceLabel(detail.source)}
-                />
-                <BasicInfoField
-                  label="状态"
-                  value={statusLabel(detail.enabled)}
-                />
-              </div>
-              <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField
                   label="触发词"
                   value={
@@ -509,13 +512,17 @@ export function SkillDetailView({
               </div>
             </section>
             <section
-              className="shrink-0 flex flex-col space-y-3"
+              className="flex min-h-0 flex-1 flex-col space-y-3"
               data-testid="skill-detail-file-workspace"
             >
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
-              <div className="flex h-[520px] min-h-[360px] max-h-[70vh] overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+              <div
+                className={`flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)] ${
+                  hasDisclaimer ? "min-h-[378px]" : "min-h-[520px]"
+                }`}
+              >
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">
@@ -612,7 +619,7 @@ export function SkillDetailView({
                 </div>
               </div>
             </section>
-            {detail.source === "external" ? (
+            {hasDisclaimer ? (
               <section
                 className="shrink-0 space-y-3"
                 data-testid="skill-detail-disclaimer"
