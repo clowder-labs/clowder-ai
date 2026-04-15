@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppAuthBootstrap } from '../AppAuthBootstrap';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 const mockReplace = vi.fn();
 const mockRouter = { replace: mockReplace };
@@ -26,11 +26,13 @@ vi.mock('@/utils/api-client', () => ({
 
 vi.mock('@/utils/userId', () => ({
   clearAuthIdentity: vi.fn(),
+  setCanCreateModel: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
 const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
+const mockSetCanCreateModel = vi.mocked(setCanCreateModel);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -63,6 +65,7 @@ describe('AppAuthBootstrap', () => {
     mockReplace.mockReset();
     mockApiFetch.mockReset();
     mockClearAuthIdentity.mockReset();
+    mockSetCanCreateModel.mockReset();
     mockSetIsSkipAuth.mockReset();
   });
 
@@ -77,7 +80,9 @@ describe('AppAuthBootstrap', () => {
   });
 
   it('renders children and stores isskip when startup auth reports logged in', async () => {
-    mockApiFetch.mockImplementation(() => Promise.resolve(jsonResponse({ islogin: true, isskip: true })));
+    mockApiFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ islogin: true, isskip: true, canCreateModel: true })),
+    );
 
     await act(async () => {
       root.render(React.createElement(AppAuthBootstrap, null, React.createElement('div', null, 'ready')));
@@ -86,12 +91,15 @@ describe('AppAuthBootstrap', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(true);
+    expect(mockSetCanCreateModel).toHaveBeenCalledWith(true);
     expect(mockReplace).not.toHaveBeenCalled();
     expect(container.textContent).toContain('ready');
   });
 
   it('redirects to login when startup auth reports not logged in', async () => {
-    mockApiFetch.mockImplementation(() => Promise.resolve(jsonResponse({ islogin: false, isskip: false })));
+    mockApiFetch.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ islogin: false, isskip: false, canCreateModel: false })),
+    );
 
     await act(async () => {
       root.render(React.createElement(AppAuthBootstrap, null, React.createElement('div', null, 'ready')));
@@ -99,6 +107,7 @@ describe('AppAuthBootstrap', () => {
     await flush();
 
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
+    expect(mockSetCanCreateModel).toHaveBeenCalledWith(false);
     expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/login');
     expect(container.textContent).not.toContain('ready');

@@ -27,7 +27,7 @@ import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chat
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, getUserId, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -226,6 +226,7 @@ export function ChatContainer(props: ChatContainerProps) {
         data = await response.json();
         if (cancelled) return;
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
         if (data?.islogin) {
           console.log('ChatContainer: auth success, setting cache');
           setIsLoggedIn(true);
