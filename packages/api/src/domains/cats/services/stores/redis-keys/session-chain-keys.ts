@@ -8,7 +8,7 @@
  * Redis key patterns for SessionChainStore.
  * F24: Session Chain + Context Health.
  *
- * Note: cat-cafe: prefix is auto-added by ioredis keyPrefix.
+ * Note: office-claw: prefix is auto-added by ioredis keyPrefix.
  * All keys here are bare (without prefix).
  */
 

@@ -171,6 +171,19 @@ export class RelayClawAgentService implements AgentService {
     const sendTs = Date.now();
     try {
       const request = buildRequest(requestId, channelId, sessionId, prompt, options);
+      const reqParams = request.params as Record<string, unknown> | undefined;
+      log.debug(
+        {
+          requestId,
+          catId: this.catId,
+          sessionId,
+          queryLength: prompt.length,
+          systemPromptLength: typeof reqParams?.system_prompt === 'string' ? reqParams.system_prompt.length : 0,
+          hasSystemPrompt: !!reqParams?.system_prompt,
+          mode: reqParams?.mode,
+        },
+        'jiuwen request params',
+      );
       log.info({ requestId, catId: this.catId, sessionId, promptLen: prompt.length }, 'jiuwen request sent');
       runtime.connection.send(request);
       yield* this.consumeFrames(runtime, requestId, queue, signal, options, sendTs);

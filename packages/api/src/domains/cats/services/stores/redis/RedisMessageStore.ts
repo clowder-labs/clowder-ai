@@ -9,11 +9,11 @@
  * Redis-backed message storage with same interface as in-memory MessageStore.
  *
  * Redis 数据结构:
- *   cat-cafe:msg:{id}                → Hash (消息详情)
- *   cat-cafe:msg:timeline            → Sorted Set (全局时间线, score=timestamp)
- *   cat-cafe:msg:user:{userId}       → Sorted Set (用户维度)
- *   cat-cafe:msg:mentions:{catId}    → Sorted Set (提及维度)
- *   cat-cafe:msg:thread:{threadId}   → Sorted Set (对话维度)
+ *   office-claw:msg:{id}                → Hash (消息详情)
+ *   office-claw:msg:timeline            → Sorted Set (全局时间线, score=timestamp)
+ *   office-claw:msg:user:{userId}       → Sorted Set (用户维度)
+ *   office-claw:msg:mentions:{catId}    → Sorted Set (提及维度)
+ *   office-claw:msg:thread:{threadId}   → Sorted Set (对话维度)
  *
  * 消息 TTL 可配置 (默认 7 天)。
  */

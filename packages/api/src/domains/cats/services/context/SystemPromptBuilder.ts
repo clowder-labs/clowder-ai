@@ -267,10 +267,10 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
     const mention = pickVariantMention(id, config);
     const strengths = config.teamStrengths ?? config.roleDescription;
     const caution = config.caution ?? '—';
-    rows.push(`| ${label} | ${mention} | ${strengths} | ${caution} |`);
+    rows.push(`| ${label} | ${id} | ${mention} | ${strengths} | ${caution} |`);
   }
 
-  return ['## 队友名册', '| Agent | @mention | 擅长 | 注意 |', '|------|---------|------|------|', ...rows].join('\n');
+  return ['## 队友名册', '| Agent | catId | @mention | 擅长 | 注意 |', '|------|------|---------|------|------|', ...rows].join('\n');
 }
 
 /**

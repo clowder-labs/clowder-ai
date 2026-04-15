@@ -9,8 +9,8 @@
  * Redis-backed task storage with same interface as in-memory TaskStore.
  *
  * Redis 数据结构:
- *   cat-cafe:task:{taskId}              → Hash (任务详情)
- *   cat-cafe:tasks:thread:{threadId}    → Sorted Set (每线程任务列表, score=createdAt)
+ *   office-claw:task:{taskId}              → Hash (任务详情)
+ *   office-claw:tasks:thread:{threadId}    → Sorted Set (每线程任务列表, score=createdAt)
  *
  * TTL 默认 30 天。
  */

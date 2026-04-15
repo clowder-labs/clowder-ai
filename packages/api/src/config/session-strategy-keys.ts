@@ -6,7 +6,7 @@
 
 /**
  * F33 Phase 3: Redis key patterns for session strategy runtime overrides.
- * All keys share the cat-cafe: prefix set by the Redis client.
+ * All keys share the office-claw: prefix set by the Redis client.
  */
 
 export const SessionStrategyKeys = {

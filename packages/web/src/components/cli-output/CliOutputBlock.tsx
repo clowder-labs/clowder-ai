@@ -771,8 +771,7 @@ function ToolRow({
 function findMatchingResult(toolUse: CliEvent, toolResults: CliEvent[], index: number): CliEvent | undefined {
   // Primary: ID-based matching when toolCallId exists
   if (toolUse.toolCallId) {
-    const byId = toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
-    if (byId) return byId;
+    return toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
   }
   // Fallback: index-based matching (backward compatibility)
   return toolResults[index];
