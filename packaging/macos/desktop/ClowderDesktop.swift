@@ -307,44 +307,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
-        let cssScript = WKUserScript(
+        let huaweiScript = WKUserScript(
             source: """
             (function(){
-            function injectCss(){
-            if(document.querySelector('#clawder-login-hide'))return;
-            var s=document.createElement('style');
-            s.id='clawder-login-hide';
-            s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
-            var t=document.head||document.body||document.documentElement;
-            if(t)t.appendChild(s);
-            }
-            injectCss();
-            if(document.readyState!=='complete'){
-            document.addEventListener('DOMContentLoaded',injectCss);
-            new MutationObserver(function(){injectCss();}).observe(document.documentElement,{childList:true,subtree:true});
-            }
+            var urls={
+            '\\u6CE8\\u518C':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyemail.html?themeName=red&access_type=offline&clientID=103493351&loginChannel=88000000&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23&casLoginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&countryCode=th&scope=https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Funified.profile+https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Frisk.idstate&reqClientType=88&state=8d71793cbfd845e38ed4b62fc6801a8a&lang=zh-cn',
+            '\\u5FD8\\u8BB0\\u5BC6\\u7801':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html?reqClientType=88&loginChannel=88000000&regionCode=th&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23%2FhwIDLogin&lang=zh-cn&themeName=lightred&clientID=103493351&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&refererPage=unified_login&srcScenID=6000014&state=dddb5a7aa2dc4704bcac64625193424f#/forgetPwd/forgetbyidrrer',
+            '\\u5FD8\\u8BB0\\u8D26\\u6237\\u540D':'https://reg.huaweicloud.com/registerui/cn/index.html#/account/forgotName'
+            };
+            function isHuaweicloud(){try{var h=location.hostname;return h&&/\\.huaweicloud\\.com$/i.test(h)}catch(e){return false}}
+            function replaceSpans(){if(!isHuaweicloud())return;Object.keys(urls).forEach(function(text){var result=document.evaluate('//span[contains(@class,\"hwid-vertical-align\") and normalize-space(text())=\"'+text+'\"]',document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null);for(var i=0;i<result.snapshotLength;i++){var s=result.snapshotItem(i);if(s.tagName==='A')continue;var a=document.createElement('a');a.href=urls[text];a.target='_blank';a.rel='noopener noreferrer';a.className=s.className;a.textContent=s.textContent;a.style.cssText='font-size:14px;color:#000;';a.addEventListener('click',function(e){e.stopPropagation()});a.addEventListener('mouseenter',function(){this.style.color='#526ecc'});a.addEventListener('mouseleave',function(){this.style.color='#000'});s.parentNode.replaceChild(a,s)}})}
+            replaceSpans();
+            function fixPrivacyLinks(){if(!isHuaweicloud())return;var container=document.querySelector('.privacyMsg');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.target='_blank';a.rel='noopener noreferrer'}}
+            fixPrivacyLinks();
+            function hideElements(){if(!isHuaweicloud())return;var idp=document.getElementById('idpLinkDiv');if(idp)idp.style.display='none';var eChannel=document.getElementById('eChannelLinkDiv');if(eChannel)eChannel.style.display='none'}
+            hideElements();
+            if(document.readyState!=='complete'){document.addEventListener('DOMContentLoaded',function(){replaceSpans();fixPrivacyLinks();hideElements()})}
+            new MutationObserver(function(){replaceSpans();fixPrivacyLinks();hideElements()}).observe(document.documentElement,{childList:true,subtree:true});
             })();
             """,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         )
-        config.userContentController.addUserScript(cssScript)
-
-        let cssScriptEnd = WKUserScript(
-            source: """
-            (function(){
-            if(document.querySelector('#clawder-login-hide'))return;
-            var s=document.createElement('style');
-            s.id='clawder-login-hide';
-            s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
-            var t=document.head||document.body||document.documentElement;
-            if(t)t.appendChild(s);
-            })();
-            """,
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: false
-        )
-        config.userContentController.addUserScript(cssScriptEnd)
+        config.userContentController.addUserScript(huaweiScript)
 
         webView = WKWebView(frame: window.contentView!.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
@@ -359,17 +344,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func injectLoginCss() {
-        let cssScript = """
+        let huaweiScript = """
         (function(){
-        if(document.querySelector('#clawder-login-hide'))return;
-        var s=document.createElement('style');
-        s.id='clawder-login-hide';
-        s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
-        var t=document.head||document.body||document.documentElement;
-        if(t)t.appendChild(s);
+        var urls={
+        '注册':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyemail.html?themeName=red&access_type=offline&clientID=103493351&loginChannel=88000000&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23&casLoginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&countryCode=th&scope=https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Funified.profile+https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Frisk.idstate&reqClientType=88&state=8d71793cbfd845e38ed4b62fc6801a8a&lang=zh-cn',
+        '忘记密码':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html?reqClientType=88&loginChannel=88000000&regionCode=th&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23%2FhwIDLogin&lang=zh-cn&themeName=lightred&clientID=103493351&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&refererPage=unified_login&srcScenID=6000014&state=dddb5a7aa2dc4704bcac64625193424f#/forgetPwd/forgetbyidrrer',
+        '忘记账号名':'https://reg.huaweicloud.com/registerui/cn/index.html#/account/forgotName'
+        };
+        function isHuaweicloud(){try{var h=location.hostname;return h&&/\\.huaweicloud\\.com$/i.test(h)}catch(e){return false}}
+        function replaceSpans(){if(!isHuaweicloud())return;Object.keys(urls).forEach(function(text){var result=document.evaluate('//span[contains(@class,\"hwid-vertical-align\") and normalize-space(text())=\"'+text+'\"]',document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null);for(var i=0;i<result.snapshotLength;i++){var s=result.snapshotItem(i);if(s.tagName==='A')continue;var a=document.createElement('a');a.href=urls[text];a.target='_blank';a.rel='noopener noreferrer';a.className=s.className;a.textContent=s.textContent;a.style.cssText='font-size:14px;color:#000;';a.addEventListener('click',function(e){e.stopPropagation()});a.addEventListener('mouseenter',function(){this.style.color='#526ecc'});a.addEventListener('mouseleave',function(){this.style.color='#000'});s.parentNode.replaceChild(a,s)}})}
+        replaceSpans();
+        function fixPrivacyLinks(){if(!isHuaweicloud())return;var container=document.querySelector('.privacyMsg');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.target='_blank';a.rel='noopener noreferrer'}}
+        fixPrivacyLinks();
+        function hideElements(){if(!isHuaweicloud())return;var idp=document.getElementById('idpLinkDiv');if(idp)idp.style.display='none';var eChannel=document.getElementById('eChannelLinkDiv');if(eChannel)eChannel.style.display='none'}
+        hideElements();
         })();
         """
-        webView.evaluateJavaScript(cssScript, completionHandler: nil)
+        webView.evaluateJavaScript(huaweiScript, completionHandler: nil)
     }
 
     // MARK: - Runtime State
