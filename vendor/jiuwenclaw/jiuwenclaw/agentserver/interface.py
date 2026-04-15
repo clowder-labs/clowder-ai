@@ -2043,6 +2043,20 @@ class JiuWenClaw:
                         result["usage"] = usage
                     return result
 
+                if chunk_type == "tool_calls.delta":
+                    if isinstance(payload, dict):
+                        result = {
+                            "event_type": "chat.tool_calls.delta",
+                            "tool_calls": payload.get("tool_calls", []),
+                        }
+                        if "source" in payload:
+                            result["source"] = payload.get("source")
+                        return result
+                    return {
+                        "event_type": "chat.tool_calls.delta",
+                        "tool_calls": payload,
+                    }
+
                 if chunk_type == "tool_call":
                     tool_info = (
                         payload.get("tool_call", payload)
