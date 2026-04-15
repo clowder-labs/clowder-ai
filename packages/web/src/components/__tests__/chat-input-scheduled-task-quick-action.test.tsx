@@ -37,7 +37,7 @@ vi.mock('@/utils/skill-options-cache', () => ({
   seedSkillOptionsCache: vi.fn(),
 }));
 
-const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === '/icons/scheduled-task.svg');
+const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === '/icons/time-time.svg');
 
 if (!scheduledTaskAction) {
   throw new Error('Missing scheduled task quick action config');
