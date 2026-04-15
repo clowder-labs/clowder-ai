@@ -218,6 +218,9 @@ async function collectAutoFonts(elements) {
  * @param {string} [options.company] - Company name
  * @param {string} [options.title] - Document title
  * @param {string} [options.subject] - Document subject
+ * @param {string | { text: string }} [options.watermark] - 隐藏水印，默认自动生成（时间戳+随机ID）
+ *        传 false 禁用水印；传字符串或 { text } 自定义水印内容
+ *        水印以隐藏 XML 节点注入每页 slide，正常浏览不可见，解压 .pptx 可提取溯源
  * @returns {Promise<Blob>} - Returns the generated PPTX Blob
  */
 export async function exportToPptx(target, options = {}) {
@@ -250,6 +253,17 @@ export async function exportToPptx(target, options = {}) {
   if (options.subject) pptx.subject = options.subject;
 
   const elements = Array.isArray(target) ? target : [target];
+
+  // 设置隐藏水印（在 exportPresentation 阶段注入到每页 slide XML 中）
+  // 默认生成时间戳 + 随机标识，用户可通过 options.watermark 自定义，传 false 禁用
+  if (options.watermark !== false) {
+    const watermarkText =
+      typeof options.watermark === "string"
+        ? options.watermark
+        : options.watermark?.text ||
+          `hwcld:${new Date().toISOString().replace(/\.\d{3}Z$/, "")}:${Math.random().toString(36).slice(2, 10)}`;
+    pptx._watermark = watermarkText;
+  }
 
   for (let i = 0; i < elements.length; i++) {
     try {

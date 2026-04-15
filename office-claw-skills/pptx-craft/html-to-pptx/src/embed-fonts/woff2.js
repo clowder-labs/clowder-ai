@@ -17,7 +17,7 @@ export async function initWoff2(wasmUrl) {
   // 使用动态 import 加载 fonteditor-core/woff2
   // 在浏览器环境中，这会在运行时从 CDN 加载
   // 使用 CDN URL 替代包名，避免 esbuild external 问题
-  const cdnUrl = "https://unpkg.com/fonteditor-core@2.6.3/woff2/index.js";
+  const cdnUrl = "https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/fonteditor-core@2.6.3/woff2/index.js";
   const mod = await import(/* @vite-ignore */ cdnUrl);
   woff2Module = mod.default || mod;
   const url = wasmUrl || getConfig("woff2.wasmUrl");

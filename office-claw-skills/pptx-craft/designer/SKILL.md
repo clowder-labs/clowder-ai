@@ -610,35 +610,7 @@ npx playwright install-deps chromium
 
 ### 字体系统
 
-**西文字体**：
-
-- `Liter` - 现代几何无衬线，理性专业
-- `HedvigLettersSans` - 个性鲜明，品牌感强
-- `Oranienbaum` - 高对比衬线，优雅古典
-- `QuattrocentoSans` - 人文无衬线，温和易读
-- `SortsMillGoudy` - 古典印刷风格
-- `Unna` - 新古典衬线
-- `Coda` - 圆润友好
-
-**中文字体**：
-
-- `MiSans` - 小米系统字体，现代简洁
-- `Noto Sans SC` - 思源黑体，标准中性
-- `siyuanSongti` - 思源宋体，优雅阅读
-- `alimamadaoliti` - 阿里妈妈刀隶体，力量感
-- `alimamashuheiti` - 阿里妈妈数黑体，商业感
-- `zhankuwenyiti` - 站酷文艺体，清新手写感
-- `deyihei` - 得意黑，现代斜体
-- `LXGW Bright` - 霞鹜文楷，温润清晰
-- `ZCOOL KuaiLe` - 站酷快乐体，活泼卡通
-- `xiawuxinzhisong` - 霞鹜新致宋，明亮优雅
-
-**字体搭配建议**：
-
-- 商务专业：`MiSans + Liter`
-- 优雅高端：`siyuanSongti + Oranienbaum`
-- 科技创新：`deyihei + HedvigLettersSans`
-- 活泼创意：`ZCOOL KuaiLe + Coda`
+- `Noto Sans SC` - 思源黑体，统一标准（所有风格共用）
 
 ---
 
@@ -659,7 +631,7 @@ npx playwright install-deps chromium
     <!-- Tailwind CSS（必选） -->
     <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js"></script>
 
-    <!-- 字体引用（按需：使用了 MiSans/Liter 等自定义字体时引入） -->
+    <!-- 字体引用（按需：使用了 Noto Sans SC 时引入） -->
     <link
       href="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/css/fonts.css"
       rel="stylesheet"
@@ -692,8 +664,7 @@ npx playwright install-deps chromium
               textLight: "#F8F7F5",
             },
             fontFamily: {
-              sans: ["MiSans", "Liter", "sans-serif"],
-              serif: ["siyuanSongti", "Oranienbaum", "serif"],
+              sans: ["Noto Sans SC", "sans-serif"],
             },
           },
         },
@@ -955,6 +926,7 @@ tailwind.config = {
 3. 禁止在非 flex 父元素内使用 `flex-1`
 4. **必须禁用动画**：`animation: false`（PPT 是静态输出，动画会导致截图/转换时图表未渲染完成）
 5. **必须使用 SVG 渲染器**：`echarts.init(document.getElementById('xxx'), null, { renderer: 'svg' })`（SVG 可被 html-to-pptx 引擎直接提取矢量图）
+6. **图表容器 ID 命名规范**：所有 ECharts 图表容器的 `id` **必须**包含 `chart` 子字符串（如 `chart-1`、`principle-chart`、`market-chart`）。全局 CSS 防御规则通过 `[id*="chart"]` 匹配图表容器以确保高度传递，不符合命名规范的 ID 将导致图表高度为 0
 
 ```html
 <script>
@@ -1102,7 +1074,6 @@ tailwind.config = {
               <div id="market-chart" class="w-full h-full"></div>
             </div>
           </div>
-
         </main>
 
         <!-- 页脚 -->

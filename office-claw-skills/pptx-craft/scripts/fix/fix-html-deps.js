@@ -9,29 +9,31 @@
  * 4. 自动补充缺失的依赖到 </head> 之前
  *
  * 用法：
- * node check-html-deps.js <html 目录>
- * node check-html-deps.js ./output/pages/
+ * node fix-html-deps.js <html 目录>
+ * node fix-html-deps.js ./output/pages/
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log, warn, error, configureFromArgs } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 获取命令行参数
 const args = process.argv.slice(2);
+configureFromArgs(args);
 if (args.length === 0) {
-  console.error('用法：node check-html-deps.js <html 目录>');
-  console.error('示例：node check-html-deps.js ./output/pages/');
+  error('用法：node fix-html-deps.js <html 目录>');
+  error('示例：node fix-html-deps.js ./output/pages/');
   process.exit(1);
 }
 
 const targetDir = args[0];
 
 if (!fs.existsSync(targetDir)) {
-  console.error(`错误：目录不存在 - ${targetDir}`);
+  error(`错误：目录不存在 - ${targetDir}`);
   process.exit(1);
 }
 
@@ -140,7 +142,7 @@ function processFile(filePath) {
   // 分割 <head> 和其余内容
   const headEndMatch = content.match(/<\/head>/i);
   if (!headEndMatch) {
-    console.warn(`  ⚠️  跳过（未找到 </head> 标签）：${path.basename(filePath)}`);
+    warn(`  ⚠️  跳过（未找到 </head> 标签）：${path.basename(filePath)}`);
     return result;
   }
 
@@ -162,7 +164,7 @@ function processFile(filePath) {
   // Step 2: 重新分割 head/body（因为内容可能已变化）
   const headEndMatch2 = content.match(/<\/head>/i);
   if (!headEndMatch2) {
-    console.warn(`  ⚠️  跳过（替换后未找到 </head> 标签）：${path.basename(filePath)}`);
+    warn(`  ⚠️  跳过（替换后未找到 </head> 标签）：${path.basename(filePath)}`);
     return result;
   }
 
@@ -188,7 +190,7 @@ function processFile(filePath) {
 
   // Step 4: 注入缺失的依赖
   if (missingDeps.length > 0) {
-    const lines = ['\n    <!-- CDN 依赖自动补充 (check-html-deps.js) -->'];
+    const lines = ['\n    <!-- CDN 依赖自动补充 (fix-html-deps.js) -->'];
     for (const dep of missingDeps) {
       lines.push(`    <!-- ${dep.name} -->`);
       lines.push(dep.cdnSnippet);
@@ -253,14 +255,14 @@ function scanAndFix(directory) {
         result.injected.forEach(depId => {
           report.depCounts[depId] = (report.depCounts[depId] || 0) + 1;
         });
-        console.log(`  🔧 已修复：${result.file}（补充 ${result.injected.length} 个依赖：${result.injected.join(', ')}）`);
+        log(`  🔧 已修复：${result.file}（补充 ${result.injected.length} 个依赖：${result.injected.join(', ')}）`);
       } else {
-        console.log(`  ✓ 依赖完整：${result.file}`);
+        log(`  ✓ 依赖完整：${result.file}`);
       }
 
       report.details.push(result);
     } catch (error) {
-      console.error(`  ❌ 处理失败：${file} - ${error.message}`);
+      warn(`  ❌ 处理失败：${file} - ${error.message}`);
     }
   }
 
@@ -268,23 +270,23 @@ function scanAndFix(directory) {
 }
 
 // 执行扫描和修复
-console.log(`🔍 开始依赖检测与 CDN 补充：${targetDir}`);
-console.log('='.repeat(60));
+log(`🔍 开始依赖检测与 CDN 补充：${targetDir}`);
+log('='.repeat(60));
 
 const report = scanAndFix(targetDir);
 
-console.log('='.repeat(60));
-console.log('📊 检测报告：');
-console.log(`   扫描文件数：${report.scanned}`);
-console.log(`   已修复文件：${report.filesFixed}`);
-console.log(`   注入依赖总数：${report.totalInjected}`);
+log('='.repeat(60));
+log('📊 检测报告：');
+log(`   扫描文件数：${report.scanned}`);
+log(`   已修复文件：${report.filesFixed}`);
+log(`   注入依赖总数：${report.totalInjected}`);
 
 if (Object.keys(report.depCounts).length > 0) {
-  console.log('   依赖注入详情：');
+  log('   依赖注入详情：');
   for (const [depId, count] of Object.entries(report.depCounts)) {
     const dep = DEPENDENCY_REGISTRY.find(d => d.id === depId);
-    console.log(`     ${dep ? dep.name : depId}: ${count} 个文件`);
+    log(`     ${dep ? dep.name : depId}: ${count} 个文件`);
   }
 }
 
-console.log('\n✨ 完成！');
+log('\n✨ 完成！');

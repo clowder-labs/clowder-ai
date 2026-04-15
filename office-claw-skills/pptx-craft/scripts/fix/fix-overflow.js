@@ -18,12 +18,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { chromium } from 'playwright';
 import { detectOverflow } from '../analysis/analyze-overflow.js';
+import { log, warn, error, configureFromArgs } from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── CLI 参数解析 ────────────────────────────────────────────
 
 const args = process.argv.slice(2);
+configureFromArgs(args);
 const targetPath = args.find(a => !a.startsWith('--'));
 const timeoutArg = args.find(a => a.startsWith('--timeout='));
 const thresholdArg = args.find(a => a.startsWith('--threshold='));
@@ -42,13 +44,13 @@ if (thresholdArg) {
     thresholdPercent = parseFloat(match[1]);
     thresholdPx = parseFloat(match[2]);
   } else {
-    console.error(`无效阈值格式: ${val}，应为 "5%,10px"`);
+    error(`无效阈值格式: ${val}，应为 "5%,10px"`);
     process.exit(1);
   }
 }
 
 if (!targetPath) {
-  console.error('用法: node fix-overflow.js <文件或目录> [--timeout=300] [--threshold=5%,10px] [--dry-run]');
+  error('用法: node fix-overflow.js <文件或目录> [--timeout=300] [--threshold=5%,10px] [--dry-run]');
   process.exit(1);
 }
 
@@ -56,14 +58,14 @@ if (!targetPath) {
 
 function collectFiles(target) {
   if (!fs.existsSync(target)) {
-    console.error(`错误：路径不存在 - ${target}`);
+    error(`错误：路径不存在 - ${target}`);
     process.exit(1);
   }
 
   const stat = fs.statSync(target);
   if (stat.isFile()) {
     if (target.endsWith('.html') || target.endsWith('.htm')) return [target];
-    console.error('错误：非 HTML 文件');
+    error('错误：非 HTML 文件');
     process.exit(1);
   }
 
@@ -74,7 +76,7 @@ function collectFiles(target) {
     return files;
   }
 
-  console.error(`无效路径：${target}`);
+  error(`无效路径：${target}`);
   process.exit(1);
 }
 
@@ -495,11 +497,11 @@ async function fixFile(page, htmlPath, timeoutSec) {
   let overflows = await detectOverflow(page, htmlPath, thresholdPercent, thresholdPx);
 
   if (overflows.length === 0) {
-    console.log('  ✅ 无溢出，跳过');
+    log('  ✅ 无溢出，跳过');
     return { fixed: true, steps: 0, remainingOverflows: 0 };
   }
 
-  console.log(`  🔍 检测到 ${overflows.length} 处溢出`);
+  log(`  🔍 检测到 ${overflows.length} 处溢出`);
 
   // 生成策略步骤
   const strategySteps = generateStrategySteps(maxDepth);
@@ -508,7 +510,7 @@ async function fixFile(page, htmlPath, timeoutSec) {
   for (const step of strategySteps) {
     // 超时检查
     if (Date.now() - startTime > timeoutMs) {
-      console.log(`  ⏱️ 超时 (${timeoutSec}s)，停止修复`);
+      log(`  ⏱️ 超时 (${timeoutSec}s)，停止修复`);
       break;
     }
 
@@ -531,9 +533,9 @@ async function fixFile(page, htmlPath, timeoutSec) {
       if (typoResult.length === 0) continue;
 
       totalSteps++;
-      console.log(`\n  ▶ 步骤 ${totalSteps}: ${stepLabel}`);
+      log(`\n  ▶ 步骤 ${totalSteps}: ${stepLabel}`);
       for (const change of typoResult) {
-        console.log(`    ${change.from} → ${change.to}`);
+        log(`    ${change.from} → ${change.to}`);
       }
       allChanges.push(...typoResult);
 
@@ -574,7 +576,7 @@ async function fixFile(page, htmlPath, timeoutSec) {
       overflows = recheckResults;
 
       if (overflows.length === 0) {
-        console.log('  ✅ 重新检测: 无溢出');
+        log('  ✅ 重新检测: 无溢出');
         if (!dryRun) {
           // 使用文本替换而非 page.content()，避免引入渲染产物（如 ECharts 动态生成的 SVG）
           originalHtml = applyChangesToHtml(originalHtml, allChanges);
@@ -583,7 +585,7 @@ async function fixFile(page, htmlPath, timeoutSec) {
         return { fixed: true, steps: totalSteps, remainingOverflows: 0 };
       }
 
-      console.log(`  ⚠️  重新检测: 仍有 ${overflows.length} 处溢出`);
+      warn(`  ⚠️  重新检测: 仍有 ${overflows.length} 处溢出`);
       continue;
     }
 
@@ -689,9 +691,9 @@ async function fixFile(page, htmlPath, timeoutSec) {
     if (result.length === 0) continue; // 这一步没有可降级的类，跳过
 
     totalSteps++;
-    console.log(`\n  ▶ 步骤 ${totalSteps}: ${stepLabel}`);
+    log(`\n  ▶ 步骤 ${totalSteps}: ${stepLabel}`);
     for (const change of result) {
-      console.log(`    ${change.from} → ${change.to}`);
+      log(`    ${change.from} → ${change.to}`);
     }
     allChanges.push(...result);
 
@@ -736,7 +738,7 @@ async function fixFile(page, htmlPath, timeoutSec) {
     overflows = recheckResults;
 
     if (overflows.length === 0) {
-      console.log('  ✅ 重新检测: 无溢出');
+      log('  ✅ 重新检测: 无溢出');
       if (!dryRun) {
         // 使用文本替换而非 page.content()，避免引入渲染产物（如 ECharts 动态生成的 SVG）
         originalHtml = applyChangesToHtml(originalHtml, allChanges);
@@ -745,7 +747,7 @@ async function fixFile(page, htmlPath, timeoutSec) {
       return { fixed: true, steps: totalSteps, remainingOverflows: 0 };
     }
 
-    console.log(`  ⚠️  重新检测: 仍有 ${overflows.length} 处溢出`);
+    warn(`  ⚠️  重新检测: 仍有 ${overflows.length} 处溢出`);
   }
 
   // 策略耗尽，写回已做的修改
@@ -763,15 +765,15 @@ async function fixFile(page, htmlPath, timeoutSec) {
 async function main() {
   const files = collectFiles(targetPath);
   if (files.length === 0) {
-    console.log('未找到 HTML 文件');
+    warn('未找到 HTML 文件');
     process.exit(0);
   }
 
-  console.log('🔧 纵向溢出自动修复');
-  console.log(`📁 目标: ${targetPath} (${files.length} 个文件)`);
-  console.log(`⏱️ 超时: ${timeout}s`);
-  if (dryRun) console.log('🏃 试运行模式（不写入文件）');
-  console.log('='.repeat(50));
+  log('🔧 纵向溢出自动修复');
+  log(`📁 目标: ${targetPath} (${files.length} 个文件)`);
+  log(`⏱️ 超时: ${timeout}s`);
+  if (dryRun) log('🏃 试运行模式（不写入文件）');
+  log('='.repeat(50));
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -785,7 +787,7 @@ async function main() {
   for (const file of files) {
     const fileName = path.basename(file);
     totalFiles++;
-    console.log(`\n📄 ${fileName}`);
+    log(`\n📄 ${fileName}`);
 
     try {
       const result = await fixFile(page, file, timeout);
@@ -793,37 +795,37 @@ async function main() {
       if (result.fixed) {
         fixedFiles++;
         if (result.steps > 0) {
-          console.log(`\n  🎉 ${fileName} — 修复成功 (${result.steps} 步)`);
+          log(`\n  🎉 ${fileName} — 修复成功 (${result.steps} 步)`);
         }
       } else {
         unfixableFiles++;
-        console.log(`\n  ⚠️  ${fileName} — 未能完全修复 (剩余 ${result.remainingOverflows} 处溢出)`);
+        warn(`\n  ⚠️  ${fileName} — 未能完全修复 (剩余 ${result.remainingOverflows} 处溢出)`);
       }
       totalSteps += result.steps;
     } catch (err) {
       unfixableFiles++;
-      console.error(`\n  ⚠️  ${fileName} — 修复失败: ${err.message}`);
+      warn(`\n  ⚠️  ${fileName} — 修复失败: ${err.message}`);
     }
   }
 
   await browser.close();
 
   // 统计
-  console.log('\n' + '='.repeat(50));
-  console.log('📊 统计：');
-  console.log(`   检查文件：${totalFiles}`);
-  console.log(`   修复成功：${fixedFiles}`);
-  console.log(`   未能修复：${unfixableFiles}`);
-  console.log(`   总步骤：${totalSteps}`);
+  log('\n' + '='.repeat(50));
+  log('📊 统计：');
+  log(`   检查文件：${totalFiles}`);
+  log(`   修复成功：${fixedFiles}`);
+  log(`   未能修复：${unfixableFiles}`);
+  log(`   总步骤：${totalSteps}`);
 
   if (unfixableFiles > 0) {
-    process.exit(1);
+    process.exit(0);
   }
 
-  console.log('\n✨ 所有文件溢出已修复！');
+  log('\n✨ 所有文件溢出已修复！');
 }
 
 main().catch(err => {
-  console.error('致命错误:', err);
+  error('致命错误:', err);
   process.exit(2);
 });

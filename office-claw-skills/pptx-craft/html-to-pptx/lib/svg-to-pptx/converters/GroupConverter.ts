@@ -5,7 +5,7 @@ import { ElementConverter } from './ElementConverter'
 import { ShapeConverter } from './ShapeConverter'
 import { PathConverter } from './PathConverter'
 import { TextConverter } from './TextConverter'
-import { GradientImageGenerator } from '../utils/GradientImageGenerator'
+import { GradientConverter } from './GradientConverter'
 
 /**
  * 分组转换器
@@ -13,9 +13,13 @@ import { GradientImageGenerator } from '../utils/GradientImageGenerator'
  */
 export class GroupConverter extends ElementConverter {
   private converters: Map<string, ElementConverter>
+  private gradientConverterInstance: GradientConverter
 
   constructor() {
     super()
+    this.gradientConverterInstance = new GradientConverter()
+    this.gradientConverter = this.gradientConverterInstance
+
     this.converters = new Map()
     this.converters.set('rect', new ShapeConverter())
     this.converters.set('circle', new ShapeConverter())
@@ -37,19 +41,7 @@ export class GroupConverter extends ElementConverter {
     for (const converter of this.converters.values()) {
       if (converter !== this) {
         converter.setGradients(gradients)
-      }
-    }
-  }
-
-  /**
-   * 设置渐变图片生成器，并传递给所有子转换器
-   */
-  setGradientGenerator(generator: GradientImageGenerator): void {
-    this.gradientGenerator = generator
-    // 传递给所有子转换器
-    for (const converter of this.converters.values()) {
-      if (converter !== this) {
-        converter.setGradientGenerator(generator)
+        converter.setGradientConverter(this.gradientConverterInstance)
       }
     }
   }

@@ -3,7 +3,6 @@ import { SVGParser } from './SVGParser'
 import { PPTXBuilder } from './PPTXBuilder'
 import { CoordinateMapper } from '../utils/CoordinateMapper'
 import { GroupConverter } from '../converters/GroupConverter'
-import { GradientImageGenerator } from '../utils/GradientImageGenerator'
 import type { PlatformInterfaces } from '../platform'
 
 export type { ConverterConfig, ConversionResult }
@@ -23,7 +22,6 @@ export class Converter {
   private mapper: CoordinateMapper
   private pptxBuilder: PPTXBuilder
   private groupConverter: GroupConverter
-  private gradientGenerator: GradientImageGenerator
   private platform: PlatformInterfaces
 
   constructor(config: ConverterConfig = {}, platform?: PlatformInterfaces) {
@@ -51,7 +49,6 @@ export class Converter {
     this.mapper = new CoordinateMapper(this.config.pxToInch)
     this.pptxBuilder = new PPTXBuilder()
     this.groupConverter = new GroupConverter()
-    this.gradientGenerator = new GradientImageGenerator(this.platform.imageGenerator)
   }
 
   /**
@@ -69,9 +66,8 @@ export class Converter {
       throw new Error('Failed to parse SVG string')
     }
 
-    // 传递渐变定义和生成器到转换器
+    // 传递渐变定义到转换器
     this.groupConverter.setGradients(gradients)
-    this.groupConverter.setGradientGenerator(this.gradientGenerator)
 
     // 2. 获取 SVG 尺寸
     const width = parseFloat(svgTree.attributes.width || svgTree.attributes.viewBox?.split(' ')[2] || '800')

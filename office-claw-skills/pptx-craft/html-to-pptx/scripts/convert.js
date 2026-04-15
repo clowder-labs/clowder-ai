@@ -340,14 +340,16 @@ async function convertDirectory(input, outputPath, options = {}) {
           return {
             scopedCss: scopedRules.join('\n'),
             slideHtmls,
-            externalLinks
+            externalLinks,
+            bodyBgColor: window.getComputedStyle(document.body).backgroundColor
           };
         } catch (err) {
           console.error('页面处理失败:', err.message);
           return {
             scopedCss: '',
             slideHtmls: [],
-            externalLinks: []
+            externalLinks: [],
+            bodyBgColor: ''
           };
         }
       }, { sel: selector, pageIdx: pageIndex });
@@ -360,7 +362,8 @@ async function convertDirectory(input, outputPath, options = {}) {
           pageIndex,
           scopedCss: result.scopedCss,
           slideHtmls: result.slideHtmls,
-          externalLinks: result.externalLinks
+          externalLinks: result.externalLinks,
+          bodyBgColor: result.bodyBgColor
         });
       }
     } catch (err) {
@@ -482,6 +485,9 @@ async function buildMergedHtml(pageResults) {
     }
   }
 
+  // 使用原始页面的 body 背景色（取第一个有效值），避免硬编码颜色覆盖
+  const bodyBgColor = pageResults.find(p => p.bodyBgColor && p.bodyBgColor !== 'transparent')?.bodyBgColor || '#1a1a2e';
+
   // 每页的 slide 包裹在带 scope 属性的 wrapper 中
   const allSlides = pageResults.map(p => {
     const attr = `data-page-${p.pageIndex}`;
@@ -494,7 +500,7 @@ async function buildMergedHtml(pageResults) {
   <meta charset="UTF-8">
 ${linkTags}
   <style>
-    body { background: #1a1a2e; margin: 0; padding: 40px; }
+    body { background: ${bodyBgColor}; margin: 0; padding: 40px; }
 ${allCss}
   </style>
 ${localInlineCss ? `  <style>\n${localInlineCss}\n  </style>` : ''}
