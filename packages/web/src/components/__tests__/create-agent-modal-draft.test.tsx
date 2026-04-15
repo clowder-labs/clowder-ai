@@ -379,6 +379,55 @@ describe('CreateAgentModal', () => {
     ).toBe(false);
   });
 
+  it('shows /api/cats duplicate-name errors beneath the name input instead of the global error area', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: '名称 "Duplicate Bot" 已被使用' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Duplicate Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[aria-label="Name"]') as HTMLInputElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const nameError = container.querySelector('[data-testid="create-agent-name-error"]') as HTMLDivElement | null;
+    expect(nameError?.textContent).toBe('名称 "Duplicate Bot" 已被使用');
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
+  });
+
   it('shows inline validation when name starts or ends with spaces', async () => {
     mockModalBootApi();
 
@@ -445,7 +494,10 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('仅支持上传 png、jpeg、jpg 格式图片');
+    expect(container.querySelector('[data-testid="create-agent-avatar-error"]')?.textContent).toContain(
+      '仅支持上传 png、jpeg、jpg 格式图片',
+    );
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
   });
 
@@ -479,7 +531,10 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('头像大小不能超过 200KB');
+    expect(container.querySelector('[data-testid="create-agent-avatar-error"]')?.textContent).toContain(
+      '头像大小不能超过 200KB',
+    );
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
   });
 
