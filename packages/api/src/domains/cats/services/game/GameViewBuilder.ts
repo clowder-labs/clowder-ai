@@ -176,8 +176,8 @@ export class GameViewBuilder {
     return false;
   }
 
-  /** H6: Enrich actorId to "breed(actorId)" format.
-   *  e.g. "opus" → "布偶猫(opus)", "codex" → "缅因猫(codex)" */
+  /** H6: Enrich actorId to "displayName(actorId)" format.
+   *  e.g. "office" → "办公智能体(office)", "assistant" → "通用智能体(assistant)" */
   private static enrichDisplayName(actorId: string): string {
     const entry = catRegistry.tryGet(actorId);
     if (!entry) return actorId;

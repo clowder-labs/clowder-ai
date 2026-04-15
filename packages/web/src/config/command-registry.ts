@@ -33,8 +33,8 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, string> = {
 
 export const COMMANDS: CommandDefinition[] = [
   // --- connector (F088, Telegram/飞书等跨平台命令) ---
-  { name: '/where', usage: '/where', description: '查看当前绑定的 thread', category: 'connector' },
-  { name: '/new', usage: '/new [标题]', description: '创建新 thread 并切换', category: 'connector' },
-  { name: '/threads', usage: '/threads', description: '列出最近的 threads', category: 'connector' },
-  { name: '/use', usage: '/use <F号|序号|关键词>', description: '切换到指定 thread', category: 'connector' },
+  { name: '/where', usage: '/where', description: '查看当前会话', category: 'connector' },
+  { name: '/new', usage: '/new [标题名]', description: '创建新会话并切换', category: 'connector' },
+  { name: '/threads', usage: '/threads', description: '列出最近的会话', category: 'connector' },
+  { name: '/use', usage: '/use [序号]', description: '切换到指定会话', category: 'connector' },
 ];

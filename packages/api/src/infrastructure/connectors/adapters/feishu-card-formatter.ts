@@ -21,6 +21,7 @@ interface LarkCardElement {
 export interface LarkCard {
   header: { title: { content: string; tag: string }; template: string };
   elements: LarkCardElement[];
+  [key: string]: unknown;
 }
 
 function blockToElements(block: RichBlock): LarkCardElement[] {

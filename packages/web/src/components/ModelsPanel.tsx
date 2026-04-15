@@ -12,7 +12,7 @@ import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth } from '@/utils/userId';
+import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
@@ -325,6 +325,7 @@ function isEnvFlagEnabled(value: string | undefined): boolean {
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
+  const [canCreateModel, setCanCreateModel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
@@ -358,7 +359,6 @@ export function ModelsPanel() {
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
 
-  const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
@@ -474,6 +474,7 @@ export function ModelsPanel() {
 
   useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
+    setCanCreateModel(getCanCreateModel() || isEnvFlagEnabled(process.env.CAN_CREATE_MODEL));
   }, []);
 
   useEffect(() => {
@@ -1176,7 +1177,7 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1265,7 +1266,7 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--icon-delete-hover)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[--text-accent]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />

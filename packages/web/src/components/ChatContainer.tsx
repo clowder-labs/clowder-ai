@@ -27,7 +27,7 @@ import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chat
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, getUserId, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -65,7 +65,7 @@ const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度2
 const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
-const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/time-time.svg';
 
 function buildScheduledTaskQuickActionInsertText(): string | null {
   const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
@@ -226,6 +226,7 @@ export function ChatContainer(props: ChatContainerProps) {
         data = await response.json();
         if (cancelled) return;
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
         if (data?.islogin) {
           console.log('ChatContainer: auth success, setting cache');
           setIsLoggedIn(true);
@@ -770,8 +771,10 @@ function ThreadModeChatContainer({
         <div className="relative flex-1 min-h-0">
           {sidebarMenu !== 'chat' && (
             <div
-              className={`ui-shell-surface h-full px-12 pt-12 pb-5 ${
-                sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
+              className={`ui-shell-surface h-full px-12 py-8 ${
+                sidebarMenu === 'models' || sidebarMenu === 'skills' || sidebarMenu === 'scheduledTasks'
+                  ? 'overflow-y-auto'
+                  : 'overflow-hidden'
               }`}
             >
               {sidebarMenu === 'models' && <ModelsPanel />}

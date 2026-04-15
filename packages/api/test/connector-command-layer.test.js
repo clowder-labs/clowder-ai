@@ -84,11 +84,9 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/where');
     assert.equal(result.kind, 'where');
-    assert.ok(result.response.includes('thread-a'));
-    assert.ok(result.response.includes('飞书测试'));
-    assert.ok(result.response.includes('cafe.example.com'));
-    assert.ok(result.response.includes('/thread/thread-abc123def'));
-    assert.ok(!result.response.includes('/threads/thread-abc123def'));
+    assert.equal(result.response, '📍 当前会话：飞书测试');
+    assert.ok(!result.response.includes('ID:'));
+    assert.ok(!result.response.includes('http'));
   });
 
   it('/where returns helpful message when no binding exists', async () => {
@@ -99,7 +97,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/where');
     assert.equal(result.kind, 'where');
-    assert.ok(result.response.includes('没有'));
+    assert.equal(result.response, '📍 当前还没有会话。发送消息会自动创建新会话，或用 /new [标题名] 手动创建。');
   });
 
   it('/where is case-insensitive on command name', async () => {
@@ -137,10 +135,9 @@ describe('ConnectorCommandLayer', () => {
     const result = await layer.handle('feishu', 'chat1', 'user1', '/new 新话题');
     assert.equal(result.kind, 'new');
     assert.ok(result.newActiveThreadId);
-    assert.ok(result.response.includes('新话题'));
-    assert.ok(result.response.includes('cafe.example.com'));
-    assert.ok(result.response.includes(`/thread/${result.newActiveThreadId}`));
-    assert.ok(!result.response.includes(`/threads/${result.newActiveThreadId}`));
+    assert.equal(result.response, '✨ 新会话“新话题”已创建\n\n现在的消息会发到这个会话。');
+    assert.ok(!result.response.includes('ID:'));
+    assert.ok(!result.response.includes('http'));
     assert.deepEqual(socketEvents, [
       {
         userId: 'user1',
@@ -169,6 +166,7 @@ describe('ConnectorCommandLayer', () => {
     const result = await layer.handle('feishu', 'chat1', 'user1', '/new');
     assert.equal(result.kind, 'new');
     assert.ok(result.newActiveThreadId);
+    assert.equal(result.response, '✨ 新会话已创建\n\n现在的消息会发到这个会话。');
   });
 
   it('/threads lists recent threads with titles (cross-platform)', async () => {
@@ -184,12 +182,16 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
     assert.equal(result.kind, 'threads');
+    assert.ok(result.response.includes('最近的会话'));
+    assert.ok(result.response.includes('1. 飞书Bug'));
+    assert.ok(result.response.includes('2. 新功能讨论'));
     assert.ok(result.response.includes('飞书Bug'));
     assert.ok(result.response.includes('新功能讨论'));
-    assert.ok(result.response.includes('/use'));
+    assert.ok(result.response.includes('/new [标题名]'));
+    assert.ok(result.response.includes('/use [序号]'));
   });
 
-  it('/threads shows full thread IDs (not truncated)', async () => {
+  it('/threads omits thread IDs and keeps numbered titles', async () => {
     const threadStore = stubThreadStore([
       { id: 'thread_mmj4lhqgcy0najsb', title: '飞书Bug' },
       { id: 'thread_mmvjdaq22cdzohww', title: '新功能讨论' },
@@ -200,8 +202,30 @@ describe('ConnectorCommandLayer', () => {
       frontendBaseUrl: 'https://cafe.example.com',
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
-    assert.ok(result.response.includes('thread_mmj4lhqgcy0najsb'), 'Should show full ID, not truncated');
-    assert.ok(result.response.includes('thread_mmvjdaq22cdzohww'), 'Should show full ID, not truncated');
+    assert.ok(result.response.includes('1. 飞书Bug'));
+    assert.ok(result.response.includes('2. 新功能讨论'));
+    assert.ok(!result.response.includes('thread_mmj4lhqgcy0najsb'));
+    assert.ok(!result.response.includes('thread_mmvjdaq22cdzohww'));
+  });
+
+  it('/threads keeps IM Hub and auto-generated connector titles visible', async () => {
+    const threadStore = stubThreadStore([
+      { id: 'thread-dm', title: '钉钉 DM' },
+      { id: 'thread-hub', title: '钉钉 IM Hub' },
+      { id: 'thread-user', title: null },
+    ]);
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore,
+      frontendBaseUrl: 'https://cafe.example.com',
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
+    assert.equal(result.kind, 'threads');
+    assert.ok(result.response.includes('1. 钉钉 DM'));
+    assert.ok(result.response.includes('2. 钉钉 IM Hub'));
+    assert.ok(result.response.includes('3. 未命名会话'));
+    assert.ok(result.response.includes('钉钉 DM'));
+    assert.ok(result.response.includes('IM Hub'));
   });
 
   it('/threads returns contextThreadId when binding exists (Phase C P1 fix)', async () => {
@@ -247,7 +271,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
     assert.equal(result.kind, 'threads');
-    assert.ok(result.response.includes('没有'));
+    assert.equal(result.response, '📋 还没有会话。\n\n用 /new [标题名] 创建新会话。');
   });
 
   it('/use switches to an existing thread by prefix (cross-platform)', async () => {
@@ -273,9 +297,7 @@ describe('ConnectorCommandLayer', () => {
     const result = await layer.handle('feishu', 'chat1', 'user1', '/use thread-ta');
     assert.equal(result.kind, 'use');
     assert.equal(result.newActiveThreadId, 'thread-target-xyz');
-    assert.ok(result.response.includes('目标Thread'));
-    assert.ok(result.response.includes('/thread/thread-target-xyz'));
-    assert.ok(!result.response.includes('/threads/thread-target-xyz'));
+    assert.equal(result.response, '🔄 已切换到会话“目标Thread”\n\n现在的消息会发到这个会话。');
   });
 
   it('/use with no match returns error', async () => {
@@ -297,7 +319,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/use');
     assert.equal(result.kind, 'use');
-    assert.ok(result.response.includes('ID'));
+    assert.equal(result.response, '❌ 用法：/use [序号]\n\n先用 /threads 查看会话列表。');
   });
 
   // --- Phase D: /use fuzzy matching ---
@@ -550,6 +572,8 @@ describe('ConnectorCommandLayer', () => {
     assert.ok(result.response.includes('[F088]'), 'Should show feat badge');
     assert.ok(result.response.includes('飞书Bug'));
     assert.ok(result.response.includes('无feat的thread'));
+    assert.ok(!result.response.includes('thread-aaa'));
+    assert.ok(!result.response.includes('thread-bbb'));
   });
 
   it('/threads omits feat badges when backlogStore unavailable', async () => {
@@ -602,7 +626,7 @@ describe('ConnectorCommandLayer', () => {
 
   // --- /thread: cross-thread message routing ---
 
-  it('/thread switches to target thread and returns forwardContent', async () => {
+  it('/thread switches to target thread by list index and returns forwardContent', async () => {
     const bindings = new Map();
     const store = {
       ...stubStore(),
@@ -621,11 +645,11 @@ describe('ConnectorCommandLayer', () => {
       threadStore,
       frontendBaseUrl: 'https://cafe.example.com',
     });
-    const result = await layer.handle('feishu', 'chat1', 'user1', '/thread thread_mmvjdaq22cdzohww hi');
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/thread 1 hi');
     assert.equal(result.kind, 'thread');
     assert.equal(result.newActiveThreadId, 'thread_mmvjdaq22cdzohww');
     assert.equal(result.forwardContent, 'hi');
-    assert.ok(result.response.includes('F088讨论'));
+    assert.equal(result.response, '📨 已发送到会话“F088讨论”\n\n当前已切换到这个会话。');
   });
 
   it('/thread matches by ID prefix', async () => {
@@ -649,6 +673,7 @@ describe('ConnectorCommandLayer', () => {
     assert.equal(result.kind, 'thread');
     assert.equal(result.newActiveThreadId, 'thread_mmvjdaq22cdzohww');
     assert.equal(result.forwardContent, '你好呀');
+    assert.equal(result.response, '📨 已发送到会话“目标Thread”\n\n当前已切换到这个会话。');
   });
 
   it('/thread with multi-word message preserves full content', async () => {
@@ -692,7 +717,7 @@ describe('ConnectorCommandLayer', () => {
     // Try to /thread to a foreign thread by exact ID
     const result = await layer.handle('feishu', 'chat1', 'user1', '/thread thread-foreign-secret hi');
     assert.equal(result.kind, 'thread');
-    assert.ok(result.response.includes('找不到'), 'Should reject foreign thread');
+    assert.equal(result.response, '❌ 找不到对应的会话。\n\n先用 /threads 查看会话列表。');
     assert.equal(result.forwardContent, undefined, 'Should NOT forward to foreign thread');
   });
 
@@ -704,7 +729,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/thread nonexistent hi');
     assert.equal(result.kind, 'thread');
-    assert.ok(result.response.includes('找不到'));
+    assert.equal(result.response, '❌ 找不到对应的会话。\n\n先用 /threads 查看会话列表。');
     assert.equal(result.forwardContent, undefined);
   });
 
@@ -716,18 +741,18 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/thread');
     assert.equal(result.kind, 'thread');
-    assert.ok(result.response.includes('用法'));
+    assert.equal(result.response, '❌ 用法：/thread [序号] [消息]\n\n先用 /threads 查看会话列表。');
   });
 
-  it('/thread with only thread ID but no message returns usage hint', async () => {
+  it('/thread with only selector but no message returns usage hint', async () => {
     const layer = new ConnectorCommandLayer({
       bindingStore: stubStore(),
       threadStore: stubThreadStore([{ id: 'thread-abc', title: '测试' }]),
       frontendBaseUrl: 'https://cafe.example.com',
     });
-    const result = await layer.handle('feishu', 'chat1', 'user1', '/thread thread-abc');
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/thread 1');
     assert.equal(result.kind, 'thread');
-    assert.ok(result.response.includes('用法'));
+    assert.equal(result.response, '❌ 用法：/thread [序号] [消息]\n\n先用 /threads 查看会话列表。');
   });
 
   it('/threads shows all feat badges for multi-feat thread (P1 fix)', async () => {
@@ -758,7 +783,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/unbind');
     assert.equal(result.kind, 'unbind');
-    assert.ok(result.response.includes('没有绑定'));
+    assert.equal(result.response, '⚠️ 当前还没有会话。发送消息会自动创建新会话，或用 /new [标题名] 手动创建。');
   });
 
   it('/unbind removes active binding and returns thread info', async () => {
@@ -777,8 +802,7 @@ describe('ConnectorCommandLayer', () => {
     });
     const result = await layer.handle('feishu', 'chat1', 'user1', '/unbind');
     assert.equal(result.kind, 'unbind');
-    assert.ok(result.response.includes('已解绑'));
-    assert.ok(result.response.includes('My Thread'));
+    assert.equal(result.response, '🔓 已退出会话“My Thread”\n\n发送消息会自动创建新会话，或用 /use [序号] 切换会话。');
     assert.equal(removedKey, 'feishu:chat1');
   });
 });

@@ -79,6 +79,7 @@ class EventType(Enum):
     CHAT_FINAL = "chat.final"
     CHAT_MEDIA = "chat.media"
     CHAT_FILE = "chat.file"
+    CHAT_TOOL_CALL_DELTA = "chat.tool_calls.delta"
     CHAT_TOOL_CALL = "chat.tool_call"
     CHAT_TOOL_RESULT = "chat.tool_result"
     CONTEXT_COMPRESSED = "context.compressed"

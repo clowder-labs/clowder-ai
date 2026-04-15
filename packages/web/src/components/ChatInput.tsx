@@ -102,7 +102,7 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
 const MAX_INPUT_LENGTH = 5000;
-const MAX_ATTACHMENT_FILES = 10;
+const MAX_ATTACHMENT_FILES = 5;
 const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
@@ -262,6 +262,7 @@ export function ChatInput({
   const skillOptionsRequestSeqRef = useRef(0);
   const skillOptionsMountedRef = useRef(true);
   const [images, setImages] = useState<File[]>([]);
+  const imagesRef = useRef<File[]>([]);
   const isPreparingImages = false;
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
@@ -285,6 +286,10 @@ export function ChatInput({
   const folderButtonLabel = selectedFolderName?.trim() || '选择工作空间';
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
   // F63-AC15: consume pendingChatInsert from workspace (thread-guarded)
   const pendingChatInsert = useChatStore((s) => s.pendingChatInsert);
@@ -834,13 +839,9 @@ export function ChatInput({
       }
 
       if (supportedFiles.length > 0) {
-        let dropped = 0;
-        setImages((prev) => {
-          const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
-          dropped = result.dropped;
-          return result.files;
-        });
-        if (dropped > 0) {
+        const result = mergeFilesByName(imagesRef.current, supportedFiles, MAX_ATTACHMENT_FILES);
+        setImages(result.files);
+        if (result.dropped > 0) {
           addToast({
             type: 'error',
             title: '附件数量已达上限',
@@ -906,13 +907,9 @@ export function ChatInput({
 
       if (supportedFiles.length === 0) return;
       e.preventDefault();
-      let dropped = 0;
-      setImages((prev) => {
-        const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
-        dropped = result.dropped;
-        return result.files;
-      });
-      if (dropped > 0) {
+      const result = mergeFilesByName(imagesRef.current, supportedFiles, MAX_ATTACHMENT_FILES);
+      setImages(result.files);
+      if (result.dropped > 0) {
         addToast({
           type: 'error',
           title: '附件数量已达上限',
@@ -1191,7 +1188,7 @@ export function ChatInput({
       <div className="relative z-10 px-4 pt-2 mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
           {/* Mobile: + toggle button */}
-          <button
+          { false && <button
             onClick={() => setMobileToolbar((v) => !v)}
             className={`p-3 rounded-xl transition-all md:hidden ${
               mobileToolbar
@@ -1207,7 +1204,7 @@ export function ChatInput({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </button> }
 
           <div className="flex-1">
             <div>

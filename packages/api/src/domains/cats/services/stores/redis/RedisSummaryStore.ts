@@ -9,8 +9,8 @@
  * Redis-backed summary storage with same interface as in-memory SummaryStore.
  *
  * Redis 数据结构:
- *   cat-cafe:summary:{summaryId}              → Hash (纪要详情)
- *   cat-cafe:summaries:thread:{threadId}      → Sorted Set (每线程纪要列表, score=createdAt)
+ *   office-claw:summary:{summaryId}              → Hash (纪要详情)
+ *   office-claw:summaries:thread:{threadId}      → Sorted Set (每线程纪要列表, score=createdAt)
  *
  * TTL 默认 30 天。
  */

@@ -1118,10 +1118,155 @@ internal sealed class LauncherForm : Form
 
         await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
             "(function(){" +
+            "var LOGIN_STYLE_ID='clawder-login-hide';" +
+            "var EXTERNAL_STYLE_ID='clawder-external-window-controls-style';" +
+            "var EXTERNAL_ROOT_ID='clawder-external-window-controls';" +
+            "var HEADER_BAR_ID='clawder-huawei-header-bar';" +
+            "var MSG_MIN='window.minimize';" +
+            "var MSG_MAX='window.toggleMaximize';" +
+            "var MSG_CLOSE='window.close';" +
+            "var MSG_SYNC='window.syncState';" +
+            "var MSG_DRAG='window.startDrag';" +
+            "function getBridge(){return window.chrome&&window.chrome.webview?window.chrome.webview:null;}" +
+            "function post(msg){try{var b=getBridge();if(b&&b.postMessage)b.postMessage(msg);}catch(_){}}" +
+            "function isLocalHost(){" +
+            "try{" +
+            "var host=(window.location&&window.location.hostname?window.location.hostname:'').toLowerCase();" +
+            "if(!host)return false;" +
+            "return host==='127.0.0.1'||host==='localhost'||host==='::1'||host==='[::1]';" +
+            "}catch(_){return true;}" +
+            "}" +
+            "function isHuaweicloud(){" +
+            "try{" +
+            "var host=(window.location&&window.location.hostname?window.location.hostname:'').toLowerCase();" +
+            "if(!host)return false;" +
+            "return /\\.huaweicloud\\.com$/i.test(host);" +
+            "}catch(_){return false;}" +
+            "}" +
+            "function ensureLoginCss(){" +
+            "if(document.getElementById(LOGIN_STYLE_ID))return;" +
             "var style=document.createElement('style');" +
-            "style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+            "style.id=LOGIN_STYLE_ID;" +
             "var target=document.head||document.documentElement;" +
             "if(target)target.appendChild(style);" +
+            "}" +
+            "function ensureExternalControlsCss(){" +
+            "if(document.getElementById(EXTERNAL_STYLE_ID))return;" +
+            "var style=document.createElement('style');" +
+            "style.id=EXTERNAL_STYLE_ID;" +
+            "style.textContent='"
+            + "#" + HEADER_BAR_ID + "{position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483647;"
+            + "background:transparent;display:flex;align-items:center;justify-content:flex-end;"
+            + "font-family:Segoe UI,Arial,sans-serif;-webkit-app-region:drag;app-region:drag;"
+            + "user-select:none;-webkit-user-select:none;}"
+            + "#" + HEADER_BAR_ID + " .clawder-header-controls{-webkit-app-region:no-drag;app-region:no-drag;"
+            + "display:flex;align-items:center;gap:20px;padding-right:12px;}"
+            + "#" + HEADER_BAR_ID + " button{appearance:none;-webkit-appearance:none;width:36px;height:36px;border:none;"
+            + "background:transparent;color:#434343;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;"
+            + "transition:background-color .15s ease,color .15s ease;-webkit-app-region:no-drag;app-region:no-drag;}"
+            + "#" + HEADER_BAR_ID + " button:hover{background:rgba(0,0,0,.08);color:#1f1f1f}"
+            + "#" + HEADER_BAR_ID + " button[data-role=close]:hover{background:#e5484d;color:#fff}"
+            + "#" + HEADER_BAR_ID + " button:focus-visible{outline:2px solid #2563eb;outline-offset:-2px}"
+            + "#" + HEADER_BAR_ID + " svg{width:16px;height:16px;pointer-events:none}"
+            + "#" + HEADER_BAR_ID + " .clawder-restore{display:none}"
+            + "#" + HEADER_BAR_ID + "[data-maximized=true] .clawder-max{display:none}"
+            + "#" + HEADER_BAR_ID + "[data-maximized=true] .clawder-restore{display:block}"
+            + "#clawder-external-window-controls{position:fixed;top:0;right:0;z-index:2147483647;display:flex;align-items:center;"
+            + "background:rgba(255,255,255,.85);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
+            + "border:1px solid rgba(0,0,0,.08);border-top:none;border-right:none;border-bottom-left-radius:10px;"
+            + "overflow:hidden;font-family:Segoe UI,Arial,sans-serif}"
+            + "#clawder-external-window-controls button{appearance:none;-webkit-appearance:none;width:38px;height:30px;border:none;"
+            + "background:transparent;color:#434343;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;"
+            + "transition:background-color .15s ease,color .15s ease}"
+            + "#clawder-external-window-controls button:hover{background:rgba(0,0,0,.08);color:#1f1f1f}"
+            + "#clawder-external-window-controls button[data-role=close]:hover{background:#e5484d;color:#fff}"
+            + "#clawder-external-window-controls button:focus-visible{outline:2px solid #2563eb;outline-offset:-2px}"
+            + "#clawder-external-window-controls svg{width:14px;height:14px;pointer-events:none}"
+            + "#clawder-external-window-controls .clawder-restore{display:none}"
+            + "#clawder-external-window-controls[data-maximized=true] .clawder-max{display:none}"
+            + "#clawder-external-window-controls[data-maximized=true] .clawder-restore{display:block}"
+            + "';" +
+            "var target=document.head||document.documentElement;" +
+            "if(target)target.appendChild(style);" +
+            "}" +
+            "function setMaximizedState(isMax){" +
+            "var header=document.getElementById(HEADER_BAR_ID);" +
+            "if(header){header.setAttribute('data-maximized',isMax?'true':'false');"
+            + "var maxBtn=header.querySelector('button[data-role=maximize]');"
+            + "if(maxBtn){maxBtn.title=isMax?'还原':'最大化';maxBtn.setAttribute('aria-label',isMax?'还原':'最大化');}}" +
+            "var root=document.getElementById(EXTERNAL_ROOT_ID);" +
+            "if(!root)return;" +
+            "root.setAttribute('data-maximized',isMax?'true':'false');" +
+            "var maxBtn=root.querySelector('button[data-role=maximize]');" +
+            "if(maxBtn){maxBtn.title=isMax?'还原':'最大化';maxBtn.setAttribute('aria-label',isMax?'还原':'最大化');}" +
+            "}" +
+            "function createHeaderBar(){" +
+            "var bridge=getBridge();" +
+            "if(!bridge)return;" +
+            "if(!isHuaweicloud())return;" +
+            "ensureExternalControlsCss();" +
+            "if(document.getElementById(HEADER_BAR_ID))return;" +
+            "var header=document.createElement('div');" +
+            "header.id=HEADER_BAR_ID;" +
+            "header.setAttribute('data-maximized','false');" +
+            "header.innerHTML='" +
+            "<div class=\"clawder-header-controls\">"
+            + "<button type=\"button\" data-role=\"minimize\" title=\"最小化\" aria-label=\"最小化\">"
+            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 8H12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "</button>"
+            + "<button type=\"button\" data-role=\"maximize\" title=\"最大化\" aria-label=\"最大化\">"
+            + "<svg class=\"clawder-max\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" rx=\"1\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>"
+            + "<svg class=\"clawder-restore\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"1\" y=\"5\" width=\"10\" height=\"10\" rx=\"1\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M5 1H14C14.5523 1 15 1.4477 15 2V11\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "</button>"
+            + "<button type=\"button\" data-role=\"close\" title=\"关闭\" aria-label=\"关闭\">"
+            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 4L12 12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><path d=\"M12 4L4 12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "</button>"
+            + "</div>';" +
+            "var parent=document.body||document.documentElement;" +
+            "if(parent)parent.appendChild(header);" +
+            "var minBtn=header.querySelector('button[data-role=minimize]');" +
+            "var maxBtn=header.querySelector('button[data-role=maximize]');" +
+            "var closeBtn=header.querySelector('button[data-role=close]');" +
+            "if(minBtn)minBtn.addEventListener('click',function(e){e.stopPropagation();post(MSG_MIN);});" +
+            "if(maxBtn)maxBtn.addEventListener('click',function(e){e.stopPropagation();post(MSG_MAX);});" +
+            "if(closeBtn)closeBtn.addEventListener('click',function(e){e.stopPropagation();post(MSG_CLOSE);});" +
+            "header.addEventListener('mousedown',function(e){if(e.target.closest('button'))return;post(MSG_DRAG);});" +
+            "post(MSG_SYNC);" +
+            "}" +
+            "function ensureExternalControls(){" +
+            "var bridge=getBridge();" +
+            "if(!bridge){return;}" +
+            "if(!isHuaweicloud()){" +
+            "var oldRoot=document.getElementById(EXTERNAL_ROOT_ID);" +
+            "if(oldRoot&&oldRoot.parentNode)oldRoot.parentNode.removeChild(oldRoot);" +
+            "var oldHeader=document.getElementById(HEADER_BAR_ID);" +
+            "if(oldHeader&&oldHeader.parentNode)oldHeader.parentNode.removeChild(oldHeader);" +
+            "return;" +
+            "}" +
+            "}" +
+            "function bindStateListener(){" +
+            "var bridge=getBridge();" +
+            "if(!bridge||!bridge.addEventListener||window.__clawderExternalWindowControlsBound)return;" +
+            "window.__clawderExternalWindowControlsBound=true;" +
+            "bridge.addEventListener('message',function(event){" +
+            "var data=event?event.data:null;" +
+            "if(!data||typeof data!=='object')return;" +
+            "if(data.type!=='window.state')return;" +
+            "var payload=data.payload||{};" +
+            "setMaximizedState(!!payload.isMaximized);" +
+            "});" +
+            "}" +
+            "function boot(){" +
+            "ensureLoginCss();" +
+            "bindStateListener();" +
+            "createHeaderBar();" +
+            "ensureExternalControls();" +
+            "}" +
+            "if(document.readyState==='loading'){" +
+            "document.addEventListener('DOMContentLoaded',boot,{once:true});" +
+            "}else{" +
+            "boot();" +
+            "}" +
             "})();"
         ).ConfigureAwait(true);
 
@@ -1197,18 +1342,32 @@ internal sealed class LauncherForm : Form
 
         try
         {
-            var cssScript =
-                "if(!document.querySelector('#clawder-login-hide')){" +
-                "var s=document.createElement('style');" +
-                "s.id='clawder-login-hide';" +
-                "s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
-                "(document.head||document.body||document.documentElement).appendChild(s);" +
-                "}";
-            await _webView.CoreWebView2.ExecuteScriptAsync(cssScript).ConfigureAwait(true);
+            var huaweiScript =
+                "(function(){" +
+                "var urls={" +
+                "'注册':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyemail.html?themeName=red&access_type=offline&clientID=103493351&loginChannel=88000000&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23&casLoginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&countryCode=th&scope=https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Funified.profile+https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Frisk.idstate&reqClientType=88&state=8d71793cbfd845e38ed4b62fc6801a8a&lang=zh-cn'," +
+                "'忘记密码':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html?reqClientType=88&loginChannel=88000000&regionCode=th&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23%2FhwIDLogin&lang=zh-cn&themeName=lightred&clientID=103493351&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&refererPage=unified_login&srcScenID=6000014&state=dddb5a7aa2dc4704bcac64625193424f#/forgetPwd/forgetbyidrrer'," +
+                "'忘记账号名':'https://reg.huaweicloud.com/registerui/cn/index.html#/account/forgotName'" +
+                "};" +
+                "function isHuaweicloud(){try{var h=location.hostname;return h&&/\\.huaweicloud\\.com$/i.test(h)}catch(e){return false}}" +
+                "function replaceSpans(){if(!isHuaweicloud())return;Object.keys(urls).forEach(function(text){var result=document.evaluate('//span[contains(@class,\"hwid-vertical-align\") and normalize-space(text())=\"'+text+'\"]',document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null);for(var i=0;i<result.snapshotLength;i++){var s=result.snapshotItem(i);if(s.tagName==='A')continue;var a=document.createElement('a');a.href=urls[text];a.target='_blank';a.rel='noopener noreferrer';a.className=s.className;a.textContent=s.textContent;a.style.cssText='font-size:14px;color:#000;';a.addEventListener('click',function(e){e.stopPropagation()});a.addEventListener('mouseenter',function(){this.style.color='#526ecc'});a.addEventListener('mouseleave',function(){this.style.color='#000'});s.parentNode.replaceChild(a,s)}})}" +
+                "replaceSpans();" +
+                "function fixPrivacyLinks(){if(!isHuaweicloud())return;var container=document.querySelector('.privacyMsg');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.target='_blank';a.rel='noopener noreferrer'}}" +
+                "fixPrivacyLinks();" +
+                "function hideElements(){if(!isHuaweicloud())return;var idp=document.getElementById('idpLinkDiv');if(idp)idp.style.display='none';var eChannel=document.getElementById('eChannelLinkDiv');if(eChannel)eChannel.style.display='none';var vmall=document.getElementById('vmallLinkDiv');if(vmall)vmall.style.display='none';var idpLogin=document.getElementById('idpLoginLinkDiv');if(idpLogin)idpLogin.style.display='none';var intervals=document.querySelectorAll('#hwAccountLinkDiv ~ .intervalDiv');for(var i=0;i<intervals.length;i++){intervals[i].style.display='none'}}" +
+                "hideElements();" +
+                "function fixForgetPwdLink(){if(!isHuaweicloud())return;var container=document.querySelector('.forgetPwdLink');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];if(a.textContent.trim()==='忘记密码'){a.parentNode.removeChild(a)}}var newA=document.createElement('a');newA.className='loginBottomColor';newA.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';newA.target='_blank';newA.rel='noopener noreferrer';newA.textContent='忘记密码';newA.addEventListener('click',function(e){e.stopPropagation()});container.appendChild(newA)}" +
+                "fixForgetPwdLink();" +
+                "function styleLoginAdv(){if(!isHuaweicloud())return;var container=document.getElementById('loginAdv');if(!container)return;container.style.marginRight='20px';var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.removeAttribute('href');a.removeAttribute('target')}}" +
+                "styleLoginAdv();" +
+                "if(document.readyState!=='complete'){document.addEventListener('DOMContentLoaded',function(){replaceSpans();fixPrivacyLinks();hideElements();fixForgetPwdLink();styleLoginAdv()})}" +
+                "new MutationObserver(function(){replaceSpans();fixPrivacyLinks();hideElements();fixForgetPwdLink();styleLoginAdv()}).observe(document.documentElement,{childList:true,subtree:true});" +
+                "})();";
+            await _webView.CoreWebView2.ExecuteScriptAsync(huaweiScript).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            AppendLog("Failed to inject login CSS: " + ex.Message);
+            AppendLog("Failed to inject Huawei register link script: " + ex.Message);
         }
     }
 

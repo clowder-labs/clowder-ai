@@ -8,24 +8,24 @@
   "roster": {
     "office": {
       "family": "office",
-      "roles": ["assistant", "office"],
+      "roles": ["assistant"],
       "lead": true,
       "available": true,
-      "evaluation": "九问Office，商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析"
+      "evaluation": "通用助手"
     },
     "assistant": {
       "family": "assistant",
       "roles": ["assistant"],
       "lead": false,
       "available": true,
-      "evaluation": "九问助理，擅长日常问答、信息整理、创意写作和生活建议"
+      "evaluation": "逻辑大师"
     },
     "agentteams": {
       "family": "agentteams",
-      "roles": ["coding", "multi-agent", "complex-task"],
+      "roles": ["assistant"],
       "lead": false,
       "available": true,
-      "evaluation": "协作引擎，多智能体协作引擎，擅长复杂任务拆解与多步骤编排"
+      "evaluation": "人文顾问"
     }
   },
   "reviewPolicy": {

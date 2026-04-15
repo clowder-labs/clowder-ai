@@ -138,10 +138,14 @@ describe('Callback Routes', () => {
 
     let deliverCalled = false;
     let deliverArgs = null;
+    const batchDoneCalls = [];
     const outboundHook = {
       async deliver(threadId, content, catId, richBlocks, threadMeta, origin) {
         deliverCalled = true;
         deliverArgs = { threadId, content, catId, richBlocks, threadMeta, origin };
+      },
+      async notifyDeliveryBatchDone(threadId, chainDone) {
+        batchDoneCalls.push({ threadId, chainDone });
       },
     };
 
@@ -178,6 +182,7 @@ describe('Callback Routes', () => {
     assert.ok(deliverArgs.threadMeta.threadShortId, 'threadMeta should have threadShortId');
     assert.ok(deliverArgs.threadMeta.deepLinkUrl, 'threadMeta should have deepLinkUrl');
     assert.equal(deliverArgs.origin, 'callback', 'origin should be callback for post-message');
+    assert.deepEqual(batchDoneCalls, [{ threadId: 'thread-1', chainDone: true }]);
   });
 
   test('POST post-message returns 401 for invalid token', async () => {
@@ -541,6 +546,38 @@ describe('Callback Routes', () => {
     assert.equal(body.messages.length, 2);
     assert.equal(body.messages[0].content, 'Message 1');
     assert.equal(body.messages[1].content, 'Reply 1');
+  });
+
+  test('GET thread-context filters scheduler trigger placeholder but keeps agent reply', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'scheduler',
+      catId: 'system',
+      content: '[定时任务] 该喝水啦！',
+      mentions: [],
+      timestamp: 1,
+      source: { connector: 'scheduler', label: '定时任务', icon: 'scheduler' },
+    });
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: '好的，已经到时间了！记得喝水哦～',
+      mentions: [],
+      timestamp: 2,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].catId, 'opus');
+    assert.equal(body.messages[0].content, '好的，已经到时间了！记得喝水哦～');
   });
 
   test('GET thread-context respects limit parameter', async () => {

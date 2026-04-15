@@ -184,12 +184,19 @@ Function LicensePageCreate
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 46uu 10u "2.了解和同意"
+  ${NSD_CreateLabel} 10u 40u 46u 10u "2.了解和同意"
   Pop $0
 
   ${NSD_CreateLink} 56u 40u 100% 10u "AgentArts服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
+
+  ${NSD_CreateLabel} 10u 55u 46u 10u "3.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 56u 55u 100% 10u "华为云公测试用服务协议"
+  Pop $1
+  ${NSD_OnClick} $1 "OnTestServiceLinkClick"
 
   ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(&A)"
   Pop $AgreeRadio
@@ -212,6 +219,11 @@ FunctionEnd
 Function OnServiceLinkClick
   Pop $0
   ExecShell "open" "https://www.huaweicloud.com/declaration/agentarts.html"
+FunctionEnd
+
+Function OnTestServiceLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/fsa_test.html"
 FunctionEnd
 
 Function OnAgreementChanged

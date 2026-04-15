@@ -402,6 +402,14 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'JIUWENCLAW_DATA_DIR',
+    defaultValue: '(未设置)',
+    description:
+      'jiuwenclaw 用户数据根目录的绝对路径；未设置时 sidecar 使用 OFFICE_CLAW_DATA_DIR/.jiuwenclaw',
+    category: 'cli',
+    sensitive: false,
+  },
+  {
     name: 'OFFICE_CLAW_CALLBACK_TOKEN',
     defaultValue: '(未设置)',
     description: 'Callback 鉴权 token',

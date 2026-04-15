@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
@@ -24,6 +24,7 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
 
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
         if (data?.islogin) {
           setAuthReady(true);
           return;

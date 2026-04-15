@@ -27,6 +27,9 @@ class PermissionResult:
     matched_rule: str | None = None
     reason: str | None = None
     external_paths: list[str] | None = None  # 外部路径审批时填充，供「总是允许」持久化
+    matched_rules: list[str] | None = None
+    matched_patterns: list[str] | None = None
+    matched_subcommands: list[str] | None = None
 
     @property
     def is_allowed(self) -> bool:
@@ -48,4 +51,3 @@ class PatternRule:
     permission: PermissionLevel
     description: str = ""
     rule_id: str = ""
-

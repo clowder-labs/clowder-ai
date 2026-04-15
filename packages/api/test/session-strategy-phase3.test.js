@@ -327,11 +327,11 @@ describe('session-strategy Phase 3: runtime overrides', () => {
         'session-strategy:override:sonnet': JSON.stringify({ thresholds: { warn: 0.6, action: 0.7 } }),
       };
       const stubRedis = {
-        options: { keyPrefix: 'cat-cafe:' },
+        options: { keyPrefix: 'office-claw:' },
         scan: async (cursor, _match, pattern) => {
           if (cursor !== '0') return ['0', []];
           // Return prefixed keys (as real Redis SCAN would)
-          const keys = Object.keys(storedData).map((k) => `cat-cafe:${k}`);
+          const keys = Object.keys(storedData).map((k) => `office-claw:${k}`);
           return [
             '0',
             keys.filter((k) => {
@@ -455,7 +455,7 @@ describe('session-strategy Phase 3: runtime overrides', () => {
       overridesModule._clearRuntimeOverrides();
 
       const stubRedis = {
-        options: { keyPrefix: 'cat-cafe:' },
+        options: { keyPrefix: 'office-claw:' },
         scan: async () => ['0', []],
         set: async () => {
           throw new Error('Redis write failure');
@@ -483,7 +483,7 @@ describe('session-strategy Phase 3: runtime overrides', () => {
 
       // Pre-seed cache via a stub that works for set
       const stubRedis = {
-        options: { keyPrefix: 'cat-cafe:' },
+        options: { keyPrefix: 'office-claw:' },
         scan: async () => ['0', []],
         set: async () => 'OK',
         del: async () => {

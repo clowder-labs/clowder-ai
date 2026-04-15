@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
 import { findMonorepoRoot } from '../../utils/monorepo-root.js';
+import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import {
   type ConnectorGatewayConfig,
   type ConnectorGatewayDeps,
@@ -105,6 +106,12 @@ function uniqueConnectors(ids: Iterable<ConnectorId>): ConnectorId[] {
 
 function isStreamableAdapter(adapter: IOutboundAdapter): adapter is IStreamableOutboundAdapter {
   return 'sendPlaceholder' in adapter && 'editMessage' in adapter;
+}
+
+function normalizeConnectorOwnerUserId(candidate?: string | null): string | null {
+  const trimmed = candidate?.trim();
+  if (!trimmed || trimmed === FRONTEND_DEFAULT_USER_ID) return null;
+  return trimmed;
 }
 
 function sameList(a: string | undefined, b: string | undefined): boolean {
@@ -849,8 +856,10 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     sttProvider = new WhisperSttProvider({ baseUrl: config.whisperUrl });
   }
 
-  const persistedOwner = ownerStore.load();
-  const effectiveUserId = persistedOwner?.ownerUserId || config.coCreatorUserId || deps.defaultUserId;
+  const persistedOwner = normalizeConnectorOwnerUserId(ownerStore.load()?.ownerUserId);
+  const configuredOwner = normalizeConnectorOwnerUserId(config.coCreatorUserId);
+  const fallbackOwner = normalizeConnectorOwnerUserId(deps.defaultUserId);
+  const effectiveUserId = persistedOwner || configuredOwner || fallbackOwner || '';
   const ownerUserIdState = { current: effectiveUserId };
   const connectorRouter = new ConnectorRouter({
     bindingStore,

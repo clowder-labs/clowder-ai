@@ -33,6 +33,7 @@ export interface MessageEnvelope {
 
 export interface FormatInput {
   readonly catDisplayName: string;
+  readonly headerTitle?: string | undefined;
   readonly threadShortId: string;
   readonly threadTitle?: string | undefined;
   readonly featId?: string | undefined;
@@ -44,25 +45,16 @@ export interface FormatInput {
 
 export class ConnectorMessageFormatter {
   format(input: FormatInput): MessageEnvelope {
-    const header = input.catDisplayName;
+    const header = input.headerTitle?.trim() || input.catDisplayName;
 
-    // Build subtitle: "T12 飞书登录bug排查 · F088"
-    let subtitle = input.threadShortId;
-    if (input.threadTitle) {
-      subtitle += ` ${input.threadTitle}`;
-    }
-    if (input.featId) {
-      subtitle += ` · ${input.featId}`;
-    }
+    const subtitleParts: string[] = [];
+    const normalizedThreadTitle = this.normalizeThreadTitle(input.threadTitle);
+    if (normalizedThreadTitle) subtitleParts.push(normalizedThreadTitle);
+    if (input.featId) subtitleParts.push(input.featId);
+    const subtitle = subtitleParts.join(' · ');
 
-    // Build footer: "📎 在前端查看 · 01:22" or just "01:22"
     const timeStr = input.timestamp.toISOString().slice(11, 16); // HH:MM UTC
-    let footer: string;
-    if (input.deepLinkUrl) {
-      footer = `📎 ${input.deepLinkUrl} · ${timeStr}`;
-    } else {
-      footer = timeStr;
-    }
+    const footer = timeStr;
 
     return { header, subtitle, body: input.body, footer, origin: input.origin };
   }
@@ -73,11 +65,12 @@ export class ConnectorMessageFormatter {
    */
   formatMinimal(input: {
     catDisplayName: string;
+    headerTitle?: string;
     body: string;
     origin?: MessageOrigin;
   }): MessageEnvelope {
     return {
-      header: input.catDisplayName,
+      header: input.headerTitle?.trim() || input.catDisplayName,
       subtitle: '',
       body: input.body,
       footer: new Date().toISOString().slice(11, 16),
@@ -93,5 +86,16 @@ export class ConnectorMessageFormatter {
       body,
       footer: new Date().toISOString().slice(11, 16),
     };
+  }
+
+  private normalizeThreadTitle(title?: string | undefined): string {
+    const trimmed = title?.trim();
+    if (!trimmed) return '';
+    if (this.isConnectorAutoThreadTitle(trimmed)) return '';
+    return trimmed;
+  }
+
+  private isConnectorAutoThreadTitle(title: string): boolean {
+    return /\sDM$/u.test(title) || /群聊\s*·/u.test(title);
   }
 }

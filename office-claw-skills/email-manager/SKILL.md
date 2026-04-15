@@ -1,65 +1,73 @@
----
+﻿---
 name: email-manager
 description: |
   邮件管理工具。支持发送邮件、查收邮件、回复邮件、标记邮件。
-  兼容 QQ邮箱、Gmail、163邮箱、Outlook 等主流邮箱服务。
-  
+  兼容 QQ 邮箱、Gmail、163 邮箱、Outlook 等主流邮箱服务。
+
   触发场景：
   - 用户说"发邮件"、"发送邮件"、"帮我写封邮件"
   - 用户说"查邮件"、"查看邮件"、"有没有新邮件"
   - 用户说"回复邮件"、"回复某某的邮件"
   - 用户说"标记已读"、"标记未读"、"标星"
   - 用户提及邮箱、邮件相关操作
-  
+
   关键词：邮件、发邮件、收邮件、查邮件、回复、已读、未读、标星、QQ邮箱、Gmail、163邮箱、附件。
 ---
 
 # 邮件管理
 
-统一邮件管理工具，通过 IMAP/SMTP 协议收发邮件。支持多邮箱配置。
+统一邮件管理工具，通过 IMAP / SMTP 协议收发邮件。
+
+## 安全要求
+
+- 凭据只允许保存在 Windows Credential Manager
+- 配置文件中只允许保存 `imap_pass_ref` / `smtp_pass_ref`
+- 不支持明文 `imap_pass` / `smtp_pass`
+- 不支持环境变量 `IMAP_PASS` / `SMTP_PASS`
 
 ## 快速开始
 
-### 1. 配置邮箱
+### 1. 写入密钥
 
-首次使用需配置邮箱账号。详见 [references/setup.md](references/setup.md)。
-
-### 2. 常用操作
-
-**发送邮件：**
-```bash
-python scripts/smtp_sender.py send --to "收件人@example.com" --subject "主题" --body "正文"
+```powershell
+python scripts/wincred_store.py set --kind imap --user "your-email@qq.com" --secret "your-imap-secret"
+python scripts/wincred_store.py set --kind smtp --user "your-email@qq.com" --secret "your-smtp-secret"
 ```
 
-**查收邮件：**
-```bash
+### 2. 配置邮箱
+
+参考 [references/setup.md](references/setup.md) 创建 `config.json`，在配置中填写 `imap_pass_ref` 和 `smtp_pass_ref`。
+
+### 3. 常用操作
+
+发送邮件：
+
+```powershell
+python scripts/smtp_sender.py send --to "receiver@example.com" --subject "主题" --body "正文"
+```
+
+查看邮件：
+
+```powershell
 python scripts/imap_reader.py list --limit 10
 ```
 
-**回复邮件：**
-```bash
-python scripts/imap_reader.py reply --id <邮件ID> --body "回复内容"
+标记邮件：
+
+```powershell
+python scripts/imap_reader.py mark --id 123 --action read
 ```
 
-**标记邮件：**
-```bash
-python scripts/imap_reader.py mark --id <邮件ID> --action read    # 标记已读
-python scripts/imap_reader.py mark --id <邮件ID> --action unread  # 标记未读
-python scripts/imap_reader.py mark --id <邮件ID> --action star    # 标星
+联调检查：
+
+```powershell
+python scripts/healthcheck.py all
 ```
 
-## 支持的邮箱服务
+## 文档
 
-| 邮箱 | IMAP 服务器 | SMTP 服务器 |
-|------|------------|-------------|
-| QQ邮箱 | imap.qq.com:993 | smtp.qq.com:587 |
-| Gmail | imap.gmail.com:993 | smtp.gmail.com:587 |
-| 163邮箱 | imap.163.com:993 | smtp.163.com:465 |
-| Outlook | outlook.office365.com:993 | smtp.office365.com:587 |
-
-## 详细文档
-
-- **邮箱配置**：[references/setup.md](references/setup.md)
-- **发送邮件**：[references/send.md](references/send.md)
-- **收件功能**：[references/receive.md](references/receive.md)
-- **多账号管理**：[references/accounts.md](references/accounts.md)
+- [references/setup.md](references/setup.md)
+- [references/send.md](references/send.md)
+- [references/receive.md](references/receive.md)
+- [references/accounts.md](references/accounts.md)
+- [references/user-guide.md](references/user-guide.md)

@@ -10,11 +10,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthHeroShowcase } from '@/components/auth/AuthShell';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 type LoginStatusResponse = {
   islogin?: boolean;
   isskip?: boolean;
+  canCreateModel?: boolean;
   pendingInvitation?: boolean;
   loginUrl?: string;
   userId?: string;
@@ -55,6 +56,7 @@ export default function LoginPage() {
           });
         }
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
 
         if (data?.islogin) {
           router.replace(withAuthSuccessRedirect('/'));

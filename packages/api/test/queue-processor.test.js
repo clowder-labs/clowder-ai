@@ -1021,6 +1021,42 @@ describe('QueueProcessor', () => {
       );
     });
 
+    it('notifies outboundHook when queued delivery batch is complete', async () => {
+      const outboundHook = {
+        deliver: mock.fn(async () => {}),
+        notifyDeliveryBatchDone: mock.fn(async () => {}),
+      };
+      const streamingHook = {
+        onStreamStart: mock.fn(async () => {}),
+        onStreamChunk: mock.fn(async () => {}),
+        onStreamEnd: mock.fn(async () => {}),
+        cleanupPlaceholders: mock.fn(async () => {}),
+      };
+
+      const hookDeps = stubDeps({
+        router: {
+          routeExecution: mock.fn(async function* () {
+            yield { type: 'text', catId: 'opus', content: 'Queued batch reply', timestamp: Date.now() };
+            yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          }),
+          ackCollectedCursors: mock.fn(async () => {}),
+        },
+        outboundHook,
+        streamingHook,
+        threadMetaLookup: mock.fn(async () => undefined),
+      });
+      const hookProcessor = new QueueProcessor(hookDeps);
+
+      const entry = enqueueEntry(hookDeps.queue);
+      hookDeps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+      await hookProcessor.processNext('t1', 'u1');
+      await waitFor(() => outboundHook.notifyDeliveryBatchDone.mock.calls.length >= 1);
+
+      assert.equal(outboundHook.notifyDeliveryBatchDone.mock.calls.length, 1, 'batch-done hook should be called once');
+      assert.deepEqual(outboundHook.notifyDeliveryBatchDone.mock.calls[0].arguments, ['t1', true]);
+    });
+
     it('outboundHook set via late-bind setOutboundHook: deliver is called', async () => {
       const lateDeps = stubDeps({
         router: {

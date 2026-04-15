@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth } from '@/utils/userId';
+import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
 
 vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3004',
@@ -17,10 +17,12 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  getCanCreateModel: vi.fn(() => true),
   getIsSkipAuth: vi.fn(() => false),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockGetCanCreateModel = vi.mocked(getCanCreateModel);
 const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
 const SEARCH_INPUT_SELECTOR = 'input[aria-label="搜索模型"]';
 
@@ -103,7 +105,6 @@ function mockOverflow(
 describe('ModelsPanel search', () => {
   let container: HTMLDivElement;
   let root: Root;
-  let previousCanCreateModel: string | undefined;
 
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
@@ -111,11 +112,11 @@ describe('ModelsPanel search', () => {
   });
 
   beforeEach(() => {
-    previousCanCreateModel = process.env.CAN_CREATE_MODEL;
-    process.env.CAN_CREATE_MODEL = '1';
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockGetCanCreateModel.mockReset();
+    mockGetCanCreateModel.mockReturnValue(true);
     mockGetIsSkipAuth.mockReset();
     mockGetIsSkipAuth.mockReturnValue(false);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
@@ -202,11 +203,6 @@ describe('ModelsPanel search', () => {
     act(() => root.unmount());
     container.remove();
     mockApiFetch.mockReset();
-    if (previousCanCreateModel === undefined) {
-      delete process.env.CAN_CREATE_MODEL;
-    } else {
-      process.env.CAN_CREATE_MODEL = previousCanCreateModel;
-    }
   });
 
   afterAll(() => {
@@ -287,7 +283,7 @@ describe('ModelsPanel search', () => {
   });
 
   it('shows the create-model entry button only when CAN_CREATE_MODEL is enabled', async () => {
-    process.env.CAN_CREATE_MODEL = '0';
+    mockGetCanCreateModel.mockReturnValue(false);
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -302,7 +298,7 @@ describe('ModelsPanel search', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    process.env.CAN_CREATE_MODEL = '1';
+    mockGetCanCreateModel.mockReturnValue(true);
 
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -319,7 +315,7 @@ describe('ModelsPanel search', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockGetIsSkipAuth.mockReturnValue(true);
-    process.env.CAN_CREATE_MODEL = 'true';
+    mockGetCanCreateModel.mockReturnValue(true);
 
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -979,6 +975,25 @@ describe('ModelsPanel search', () => {
     const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(typeof payload.icon).toBe('string');
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
+  });
+
+  it('shows the model icon upload size hint with uppercase KB', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('200KB');
+    expect(container.textContent).not.toContain('200kb');
   });
 
   it('closes the create-model modal when Escape key is pressed', async () => {

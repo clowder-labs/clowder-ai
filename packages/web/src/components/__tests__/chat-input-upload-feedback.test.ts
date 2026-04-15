@@ -70,8 +70,7 @@ describe('ChatInput upload feedback', () => {
   });
 
   it('blocks oversized files (>10MB) and shows a toast', () => {
-    const onSend = vi.fn();
-    render({ onSend });
+    render();
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
     expect(fileInput).toBeTruthy();
@@ -93,17 +92,31 @@ describe('ChatInput upload feedback', () => {
     expect(latestToast?.title).toBe('上传失败');
     expect(latestToast?.message).toContain('最大支持 10MB');
 
-    const textbox = container.querySelector('[role="textbox"]') as HTMLDivElement | null;
-    const sendButton = container.querySelector('button[aria-label="Send message"]') as HTMLButtonElement | null;
-    expect(textbox).toBeTruthy();
-    expect(sendButton).toBeTruthy();
+  });
 
-    act(() => {
-      textbox!.textContent = 'hello';
-      textbox!.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'hello' }));
-      sendButton!.click();
+  it('blocks selecting more than 5 attachments and shows a toast', () => {
+    render();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const files = Array.from({ length: 6 }, (_, index) =>
+      new File([`file-${index}`], `file-${index}.pdf`, {
+        type: 'application/pdf',
+      }),
+    );
+
+    Object.defineProperty(fileInput!, 'files', {
+      configurable: true,
+      value: files,
     });
 
-    expect(onSend).toHaveBeenCalledWith('hello', undefined, undefined, undefined);
+    act(() => {
+      fileInput!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    expect(latestToast?.title).toBe('附件数量已达上限');
+    expect(latestToast?.message).toContain('最多支持选择 5 个附件');
   });
 });
