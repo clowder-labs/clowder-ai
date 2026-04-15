@@ -133,6 +133,7 @@ const WEB_PUBLIC_DIR = join(repoRoot, 'packages', 'web', 'public');
 const ROOT_NODE_MODULES_DIR = join(repoRoot, 'node_modules');
 const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'better-sqlite3',
+  'cross-keychain',
   'node-pty',
   'pino',
   'pino-roll',
