@@ -349,7 +349,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         log.info({ catId: this.catId, elapsedMs: Date.now() - startupTs }, 'jiuwen sidecar app_ready');
       }
 
-      if (await isRelayClawRuntimeReady(runtime, this.tcpProbeFn, this.recentLogs, agentPort, webPort)) {
+      if (await isRelayClawRuntimeReady(this.tcpProbeFn, this.recentLogs, agentPort)) {
         log.info(
           { catId: this.catId, agentPort, webPort, elapsedMs: Date.now() - startupTs },
           'jiuwen sidecar fully ready',
@@ -380,24 +380,22 @@ export function buildRelayClawLaunchCommand(runtime: RelayClawSidecarRuntime): R
   if (runtime.useExecutable) {
     return {
       command: runtime.executablePath,
-      args: ['--desktop-run-app'],
+      args: ['--desktop-run-agentserver'],
       cwd: dirname(runtime.executablePath),
     };
   }
 
   return {
     command: runtime.pythonBin,
-    args: ['-m', 'jiuwenclaw.app'],
+    args: ['-m', 'jiuwenclaw.app_agentserver'],
     cwd: runtime.appDir,
   };
 }
 
 export async function isRelayClawRuntimeReady(
-  runtime: RelayClawSidecarRuntime,
   tcpProbeFn: typeof tcpProbe,
   recentLogs: string,
   agentPort: number,
-  webPort: number,
 ): Promise<boolean> {
   if (!(await tcpProbeFn('127.0.0.1', agentPort, 400))) {
     return false;
@@ -405,10 +403,7 @@ export async function isRelayClawRuntimeReady(
   if (isSidecarReady(recentLogs)) {
     return true;
   }
-  if (await tcpProbeFn('127.0.0.1', webPort, 400)) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
 export function isSidecarReady(recentLogs: string): boolean {
