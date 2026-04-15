@@ -356,6 +356,32 @@ describe('ConnectorGateway Bootstrap', () => {
     }
   });
 
+  it('loadConnectorGatewayConfig trims connector credential env values', async () => {
+    const { loadConnectorGatewayConfig } = await import(
+      '../dist/infrastructure/connectors/connector-gateway-bootstrap.js'
+    );
+    try {
+      process.env.DINGTALK_APP_KEY = '  ding-key  ';
+      process.env.DINGTALK_APP_SECRET = '\tding-secret ';
+      process.env.XIAOYI_AGENT_ID = '  agent-id  ';
+      process.env.XIAOYI_AK = '  ak-value  ';
+      process.env.XIAOYI_SK = '\nsk-value\t';
+
+      const config = loadConnectorGatewayConfig();
+      assert.equal(config.dingtalkAppKey, 'ding-key');
+      assert.equal(config.dingtalkAppSecret, 'ding-secret');
+      assert.equal(config.xiaoyiAgentId, 'agent-id');
+      assert.equal(config.xiaoyiAk, 'ak-value');
+      assert.equal(config.xiaoyiSk, 'sk-value');
+    } finally {
+      delete process.env.DINGTALK_APP_KEY;
+      delete process.env.DINGTALK_APP_SECRET;
+      delete process.env.XIAOYI_AGENT_ID;
+      delete process.env.XIAOYI_AK;
+      delete process.env.XIAOYI_SK;
+    }
+  });
+
   it('restores persisted WeChat bot token across gateway restarts', async () => {
     const hostRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-weixin-'));
     const delayedFetch = async () => {
