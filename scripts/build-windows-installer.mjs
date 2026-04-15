@@ -1,12 +1,17 @@
 import { spawnSync } from 'node:child_process';
 import {
+  closeSync,
   copyFileSync,
   cpSync,
   createWriteStream,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  renameSync,
+  openSync,
   readdirSync,
+  readSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -732,6 +737,54 @@ function stageVendorPythonSources(bundleDir) {
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
+function compileVendorPythonSources(bundleDir) {
+  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+  if (!existsSync(pythonExe)) {
+    throw new Error(`Bundled Python runtime not found for vendor compilation: ${pythonExe}`);
+  }
+
+  const vendorRoots = [join(bundleDir, 'vendor', 'dare-cli'), join(bundleDir, 'vendor', 'jiuwenclaw')];
+  const compilerScriptPath = join(bundleDir, 'tools', 'python', 'compile-vendor-python.py');
+  const compilerScript = `import compileall
+import os
+import py_compile
+import shutil
+import sys
+
+roots = sys.argv[1:]
+if not roots:
+    raise SystemExit("no vendor roots provided")
+
+for root in roots:
+    ok = compileall.compile_dir(
+        root,
+        force=True,
+        quiet=1,
+        legacy=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    )
+    if not ok:
+        raise SystemExit(f"failed to compile python sources under {root}")
+
+for root in roots:
+    for current_root, dirnames, filenames in os.walk(root):
+        for filename in filenames:
+            if filename.endswith(".py"):
+                os.remove(os.path.join(current_root, filename))
+        for dirname in list(dirnames):
+            if dirname == "__pycache__":
+                shutil.rmtree(os.path.join(current_root, dirname), ignore_errors=True)
+`;
+
+  writeFileSync(compilerScriptPath, compilerScript, 'utf8');
+  try {
+    run(pythonExe, [compilerScriptPath, ...vendorRoots]);
+  } finally {
+    rmSync(compilerScriptPath, { force: true });
+  }
+}
+
 function stageInstallerSeed(bundleDir) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
@@ -1149,7 +1202,14 @@ function ensureWindowsBuildNode(options) {
 }
 
 function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
-  run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
+  run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, {
+    cwd: packageWindowsDir,
+    shell: true,
+    env: {
+      // Runtime packaging does not need Puppeteer's postinstall browser download.
+      PUPPETEER_SKIP_DOWNLOAD: '1',
+    },
+  });
 }
 
 function getOfficeSkillPackageDirs(skillsRoot) {
@@ -1359,6 +1419,8 @@ function stripLeadingDirectory(targetDir, predicate) {
 }
 
 async function downloadFile(url, destination) {
+  const tempDestination = `${destination}.partial`;
+  rmSync(tempDestination, { force: true });
   const response = await fetch(url, {
     headers: {
       'user-agent': 'clowder-ai-windows-installer-builder',
@@ -1370,18 +1432,57 @@ async function downloadFile(url, destination) {
     throw new Error(`Download failed for ${url}: ${response.status} ${response.statusText}`);
   }
   ensureDir(dirname(destination));
-  await pipeline(response.body, createWriteStream(destination));
+  try {
+    await pipeline(response.body, createWriteStream(tempDestination));
+    rmSync(destination, { force: true });
+    renameSync(tempDestination, destination);
+  } catch (error) {
+    rmSync(tempDestination, { force: true });
+    throw error;
+  }
+}
+
+function isValidZipArchive(archivePath) {
+  let fd;
+  try {
+    fd = openSync(archivePath, 'r');
+    const stat = fstatSync(fd);
+    if (stat.size < 22) {
+      return false;
+    }
+    const tailLength = Math.min(65557, stat.size);
+    const buffer = Buffer.alloc(tailLength);
+    readSync(fd, buffer, 0, tailLength, stat.size - tailLength);
+    return buffer.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) {
+      closeSync(fd);
+    }
+  }
 }
 
 async function ensureCachedDownload(url, destination) {
   if (existsSync(destination)) {
-    return destination;
+    if (destination.toLowerCase().endsWith('.zip') && !isValidZipArchive(destination)) {
+      rmSync(destination, { force: true });
+    } else {
+      return destination;
+    }
   }
   await downloadFile(url, destination);
+  if (destination.toLowerCase().endsWith('.zip') && !isValidZipArchive(destination)) {
+    rmSync(destination, { force: true });
+    throw new Error(`Downloaded archive is not a valid zip: ${destination}`);
+  }
   return destination;
 }
 
 function extractZip(archivePath, destination) {
+  if (archivePath.toLowerCase().endsWith('.zip') && !isValidZipArchive(archivePath)) {
+    throw new Error(`Zip archive is corrupt or incomplete: ${archivePath}`);
+  }
   resetDir(destination);
   const runners = [];
   if (commandExists('unzip')) {
@@ -1737,6 +1838,9 @@ async function main() {
     const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
   }
+
+  logStep('Compiling vendor Python sources to pyc');
+  compileVendorPythonSources(bundleDir);
 
   logStep('Preparing runtime package payload');
   await stageWorkspacePackages(bundleDir);

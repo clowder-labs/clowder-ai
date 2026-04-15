@@ -10,6 +10,10 @@ import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
 
 const LEGACY_JIUWENCLAW_APP_DIR = '/usr/code/relay-claw';
 
+function hasJiuwenClawAppEntry(appDir: string): boolean {
+  return existsSync(join(appDir, 'jiuwenclaw', 'app.py')) || existsSync(join(appDir, 'jiuwenclaw', 'app.pyc'));
+}
+
 function resolveRepoRoot(): string {
   return resolveCatCafeHostRoot(process.cwd());
 }
@@ -27,7 +31,7 @@ export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
   if (configured) return configured;
 
   const vendored = resolveVendoredJiuwenClawAppDir();
-  if (existsSync(join(vendored, 'jiuwenclaw', 'app.py'))) return vendored;
+  if (hasJiuwenClawAppEntry(vendored)) return vendored;
 
   return LEGACY_JIUWENCLAW_APP_DIR;
 }
@@ -78,5 +82,5 @@ export function jiuwenClawBundleAvailable(): boolean {
 
   const appDir = resolveJiuwenClawAppDir();
   const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
-  return existsSync(join(appDir, 'jiuwenclaw', 'app.py')) && existsSync(pythonBin);
+  return hasJiuwenClawAppEntry(appDir) && existsSync(pythonBin);
 }

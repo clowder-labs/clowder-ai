@@ -625,8 +625,9 @@ function Ensure-WindowsJiuwenClawRuntime {
     }
 
     $appDir = Join-Path $ProjectRoot "vendor\jiuwenclaw"
-    $appEntry = Join-Path $appDir "jiuwenclaw\app.py"
-    if (-not (Test-Path $appEntry)) {
+    $appEntryPy = Join-Path $appDir "jiuwenclaw\app.py"
+    $appEntryPyc = Join-Path $appDir "jiuwenclaw\app.pyc"
+    if (-not (Test-Path $appEntryPy) -and -not (Test-Path $appEntryPyc)) {
         return $false
     }
 
@@ -713,8 +714,9 @@ function Ensure-WindowsDareRuntime {
     }
 
     $appDir = Join-Path $ProjectRoot "vendor\dare-cli"
-    $appEntry = Join-Path $appDir "client\__main__.py"
-    if (-not (Test-Path $appEntry)) {
+    $appEntryPy = Join-Path $appDir "client\__main__.py"
+    $appEntryPyc = Join-Path $appDir "client\__main__.pyc"
+    if (-not (Test-Path $appEntryPy) -and -not (Test-Path $appEntryPyc)) {
         return $false
     }
 
