@@ -28,8 +28,6 @@ const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
 // Chunking disabled: iLink only delivers the first sendmessage per context_token turn.
 // All content is sent in a single call. See BUG-3 in F137 spec.
-/** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
-const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
 /** Typing keepalive interval (ms) — openclaw v2 uses 5s */
 const TYPING_KEEPALIVE_MS = 5_000;
 /** errcode -14 means session expired — need re-login */
@@ -187,15 +185,11 @@ export class WeixinAdapter implements IOutboundAdapter {
   private consecutiveErrors = 0;
   private getUpdatesBuf = '';
   private readonly contextTokens = new Map<string, string>();
-  /** Per-chatId: last consumed token — bounded by chatId count, naturally evicted when new token arrives */
-  private readonly lastConsumedToken = new Map<string, string>();
   private readonly pendingReplies = new Map<
     string,
     {
       token: string;
       parts: string[];
-      timer: ReturnType<typeof setTimeout>;
-      resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }>;
     }
   >();
   private fetchFn: typeof fetch = globalThis.fetch;
@@ -389,7 +383,7 @@ export class WeixinAdapter implements IOutboundAdapter {
             const tokenHash = msg.contextToken.slice(-8);
             this.contextTokens.set(msg.chatId, msg.contextToken);
             this.log.info(
-              { chatId: msg.chatId, tokenHash, consumed: this.lastConsumedToken.get(msg.chatId) === msg.contextToken },
+              { chatId: msg.chatId, tokenHash },
               '[WeixinAdapter] Inbound token cached',
             );
 
@@ -523,15 +517,21 @@ export class WeixinAdapter implements IOutboundAdapter {
   // ── Outbound: Send reply ──
 
   async onDeliveryBatchDone(externalChatId: string, chainDone: boolean): Promise<void> {
-    if (!chainDone) return;
-    this.stopTyping(externalChatId);
+    // BUG-5: token is reusable — flush after each invocation, not just at chain end.
+    // This sends each cat's reply as a separate WeChat message.
+    if (this.pendingReplies.has(externalChatId)) {
+      await this.flushReply(externalChatId);
+    }
+    if (chainDone) {
+      this.stopTyping(externalChatId);
+    }
   }
 
   async sendReply(externalChatId: string, content: string): Promise<void> {
     const currentToken = this.contextTokens.get(externalChatId) ?? '';
     this.log.info(
       { chatId: externalChatId, contentLen: content.length, tokenHash: currentToken.slice(-8) || 'none' },
-      '[WeixinAdapter] sendReply() queued for debounce',
+      '[WeixinAdapter] sendReply() queued for batch delivery',
     );
 
     // No token and no existing pending bucket → skip immediately (don't poison future buckets)
@@ -551,35 +551,27 @@ export class WeixinAdapter implements IOutboundAdapter {
         { chatId: externalChatId, oldTokenHash: existing.token.slice(-8), newTokenHash: currentToken.slice(-8) },
         '[WeixinAdapter] Token changed mid-debounce — flushing old bucket',
       );
-      clearTimeout(existing.timer);
       await this.flushReply(externalChatId);
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const pending = this.pendingReplies.get(externalChatId);
-      if (pending && pending.token === currentToken) {
-        // Same token — safe to merge into existing bucket
-        pending.parts.push(content);
-        pending.resolvers.push({ resolve, reject });
-        clearTimeout(pending.timer);
-        pending.timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
-      } else if (pending) {
-        // Different token bucket exists (created by concurrent sendReply during our flush await)
-        // Refuse cross-token merge — content is still in the thread, not lost
-        this.log.warn(
-          { chatId: externalChatId, ownTokenHash: currentToken.slice(-8), bucketTokenHash: pending.token.slice(-8) },
-          '[WeixinAdapter] Token mismatch during debounce — refusing cross-token merge',
-        );
-        resolve();
-      } else {
-        const timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
-        this.pendingReplies.set(externalChatId, {
-          token: currentToken,
-          parts: [content],
-          timer,
-          resolvers: [{ resolve, reject }],
-        });
-      }
+    const pending = this.pendingReplies.get(externalChatId);
+    if (pending && pending.token === currentToken) {
+      // Same token — keep batching until connector lifecycle confirms the chain is done.
+      pending.parts.push(content);
+      return;
+    }
+    if (pending) {
+      // Different token bucket exists (created by concurrent sendReply during our flush await)
+      // Refuse cross-token merge — content is still in the thread, not lost.
+      this.log.warn(
+        { chatId: externalChatId, ownTokenHash: currentToken.slice(-8), bucketTokenHash: pending.token.slice(-8) },
+        '[WeixinAdapter] Token mismatch during batch queueing — refusing cross-token merge',
+      );
+      return;
+    }
+    this.pendingReplies.set(externalChatId, {
+      token: currentToken,
+      parts: [content],
     });
   }
 
@@ -588,51 +580,41 @@ export class WeixinAdapter implements IOutboundAdapter {
     if (!pending) return;
     this.pendingReplies.delete(externalChatId);
 
-    const { token: boundToken, parts, resolvers } = pending;
+    const { token: boundToken, parts } = pending;
     const merged = parts.join('\n\n');
 
     const tokenHash = boundToken ? boundToken.slice(-8) : 'none';
-    const isConsumed = this.lastConsumedToken.get(externalChatId) === boundToken;
 
     this.log.info(
-      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash, isConsumed },
+      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash },
       '[WeixinAdapter] flushReply() — sending aggregated reply',
     );
 
-    if (!boundToken || isConsumed) {
-      const reason = !boundToken ? 'no token' : 'token already consumed';
+    if (!boundToken) {
       this.log.warn(
-        { chatId: externalChatId, reason, tokenHash },
-        '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
+        { chatId: externalChatId },
+        '[WeixinAdapter] Cannot send — no context_token available',
       );
       this.stopTyping(externalChatId);
-      for (const r of resolvers) r.resolve();
       return;
     }
 
     try {
       const plainContent = WeixinAdapter.stripMarkdownForWeixin(merged);
-      // iLink only delivers the FIRST sendmessage per context_token turn.
-      // Send everything in one call — no chunking. If iLink has a hard limit,
-      // it will truncate server-side, but at least the message arrives.
+      // BUG-5 (2026-03-25): iLink context_token is reusable across turns.
+      // Each invocation's aggregated reply is sent separately.
       await this.sendMessageApi(externalChatId, plainContent, boundToken);
 
-      this.lastConsumedToken.set(externalChatId, boundToken);
-      // Compare-and-delete: only remove if still the same token (a newer token may have arrived)
-      if (this.contextTokens.get(externalChatId) === boundToken) {
-        this.contextTokens.delete(externalChatId);
-      }
+      // Token stays in contextTokens — reusable for subsequent turns (BUG-5).
       this.stopTyping(externalChatId);
       this.log.info(
         { chatId: externalChatId, textLen: plainContent.length, tokenHash },
-        '[WeixinAdapter] flushReply() completed — token consumed',
+        '[WeixinAdapter] flushReply() completed',
       );
-
-      for (const r of resolvers) r.resolve();
     } catch (err) {
       this.stopTyping(externalChatId);
       this.log.error({ err, chatId: externalChatId }, '[WeixinAdapter] flushReply() failed');
-      for (const r of resolvers) r.reject(err instanceof Error ? err : new Error(String(err)));
+      throw err;
     }
   }
 
@@ -806,15 +788,8 @@ export class WeixinAdapter implements IOutboundAdapter {
   async _flushAllPending(): Promise<void> {
     const chatIds = [...this.pendingReplies.keys()];
     for (const chatId of chatIds) {
-      const pending = this.pendingReplies.get(chatId);
-      if (pending) clearTimeout(pending.timer);
       await this.flushReply(chatId);
     }
-  }
-
-  /** @internal Test helper: check if a token was the last consumed for its chatId. */
-  _isTokenConsumed(chatId: string, token: string): boolean {
-    return this.lastConsumedToken.get(chatId) === token;
   }
 
   // ── QR Code Login (static — no adapter instance needed) ──

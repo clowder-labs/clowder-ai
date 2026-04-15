@@ -1005,6 +1005,14 @@ class JiuWenClaw:
             ),
         }]
 
+        # 记录当前注册的工具列表
+        registered_tools = self._instance.ability_manager.list()
+        tool_names = [t.name for t in registered_tools if hasattr(t, 'name')]
+        logger.info(
+            "[JiuWenClaw] _register_runtime_tools complete: request_id=%s session_id=%s tool_count=%d tools=%s",
+            request_id, session_id, len(tool_names), tool_names[:20] if tool_names else [],
+        )
+
         return session_toolkits
 
     async def process_interrupt(self, request: AgentRequest) -> AgentResponse:
@@ -1326,10 +1334,15 @@ class JiuWenClaw:
                         if task_func is None:  # 信号：关闭队列
                             break
 
+                        logger.info(
+                            "[Queue] 开始执行: session=%s priority=%d queue_size=%d",
+                            session_id, priority, queue.qsize(),
+                        )
                         # 执行任务
                         self._session_tasks[session_id] = asyncio.create_task(task_func())
                         try:
                             await self._session_tasks[session_id]
+                            logger.info("[Queue] 执行完成: session=%s", session_id)
                         finally:
                             self._session_tasks[session_id] = None
                             queue.task_done()
@@ -1609,6 +1622,7 @@ class JiuWenClaw:
         # 每次递减，新请求的优先级更高
         self._session_priorities[session_id] -= 1
         priority = self._session_priorities[session_id]
+        logger.info("[Queue] 入队: session=%s priority=%d", session_id, priority)
         await self._session_queues[session_id].put((priority, task_wrapper))
 
         # 等待任务完成
@@ -1810,6 +1824,7 @@ class JiuWenClaw:
         # 使用负数优先级实现先进后出（新请求优先级更高）
         self._session_priorities[session_id] -= 1
         priority = self._session_priorities[session_id]
+        logger.info("[Queue] 入队: session=%s priority=%d", session_id, priority)
         await self._session_queues[session_id].put((priority, task_wrapper))
 
         # 从流式队列中读取并 yield 结果

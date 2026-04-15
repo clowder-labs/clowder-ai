@@ -135,6 +135,25 @@ function createMockInvocationTracker() {
   };
 }
 
+function createMockOutboundHook() {
+  const deliveries = [];
+  const batchDoneCalls = [];
+  return {
+    async deliver(threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId, presentation) {
+      deliveries.push({ threadId, content, catId, richBlocks, threadMeta, origin, triggerMessageId, presentation });
+    },
+    async notifyDeliveryBatchDone(threadId, chainDone) {
+      batchDoneCalls.push({ threadId, chainDone });
+    },
+    getDeliveries() {
+      return deliveries;
+    },
+    getBatchDoneCalls() {
+      return batchDoneCalls;
+    },
+  };
+}
+
 function createMockRouter(responses = {}) {
   const executions = [];
   return {
@@ -161,6 +180,7 @@ describe('Multi-Mention Routes', () => {
   let mockMessageStore;
   let mockInvocationRecordStore;
   let mockInvocationTracker;
+  let mockOutboundHook;
   let mockRouter;
   let creds;
 
@@ -172,6 +192,7 @@ describe('Multi-Mention Routes', () => {
     mockMessageStore = createMockMessageStore();
     mockInvocationRecordStore = createMockInvocationRecordStore();
     mockInvocationTracker = createMockInvocationTracker();
+    mockOutboundHook = createMockOutboundHook();
     mockRouter = createMockRouter({ codex: 'Codex says hello', gemini: 'Gemini says hi' });
 
     // Register a caller invocation (opus calling)
@@ -185,6 +206,7 @@ describe('Multi-Mention Routes', () => {
       registry: mockRegistry,
       messageStore: mockMessageStore,
       socketManager: mockSocket,
+      outboundHook: mockOutboundHook,
       router: mockRouter,
       invocationRecordStore: mockInvocationRecordStore,
       invocationTracker: mockInvocationTracker,
@@ -216,6 +238,42 @@ describe('Multi-Mention Routes', () => {
     const body = JSON.parse(res.body);
     assert.ok(body.requestId);
     assert.equal(body.status, 'running');
+  });
+
+  test('flushes aggregated multi-mention result to outbound delivery hook', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/multi-mention',
+      payload: {
+        invocationId: creds.invocationId,
+        callbackToken: creds.callbackToken,
+        targets: ['codex'],
+        question: 'What do you think?',
+        callbackTo: 'opus',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    const start = Date.now();
+    while (mockOutboundHook.getDeliveries().length === 0 && Date.now() - start < 1000) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    const deliveries = mockOutboundHook.getDeliveries();
+    assert.equal(deliveries.length, 1, 'aggregated result should be delivered outbound once');
+    assert.equal(deliveries[0].threadId, 'thread-1');
+    assert.equal(deliveries[0].catId, 'opus');
+    assert.equal(deliveries[0].origin, 'callback');
+    assert.deepEqual(deliveries[0].presentation, {
+      headerTitle: '共识总结结果汇总',
+      suppressCatPrefix: true,
+      suppressOriginDecoration: true,
+      stripLeadingHeaderFromFormattedBody: true,
+    });
+    assert.ok(deliveries[0].content.startsWith('## 共识总结结果汇总'), 'plain-text connectors need the heading');
+    assert.ok(deliveries[0].content.includes('Codex says hello'));
+    assert.deepEqual(mockOutboundHook.getBatchDoneCalls(), [{ threadId: 'thread-1', chainDone: true }]);
   });
 
   test('rejects invalid callback credentials', async () => {

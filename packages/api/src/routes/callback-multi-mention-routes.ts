@@ -11,7 +11,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
+import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -63,6 +63,24 @@ export interface MultiMentionRouteDeps {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  outboundHook?: {
+    deliver(
+      threadId: string,
+      content: string,
+      catId?: string,
+      richBlocks?: RichBlock[],
+      threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
+      origin?: 'callback' | 'agent' | 'system',
+      triggerMessageId?: string,
+      presentation?: {
+        headerTitle?: string;
+        suppressCatPrefix?: boolean;
+        suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
+      },
+    ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
+  };
   router: AgentRouter;
   invocationRecordStore: IInvocationRecordStore;
   invocationTracker?: InvocationTracker | undefined;
@@ -359,7 +377,7 @@ async function flushResult(
 ): Promise<void> {
   const orch = getMultiMentionOrchestrator();
   const result = orch.getResult(requestId);
-  const { messageStore, socketManager } = deps;
+  const { messageStore, outboundHook, socketManager } = deps;
 
   // Build aggregated result message
   const lines: string[] = [`## 共识总结结果汇总`, '', `**问题**: ${result.request.question}`, ''];
@@ -411,6 +429,20 @@ async function flushResult(
       timestamp: stored.timestamp,
     },
   });
+
+  if (outboundHook) {
+    try {
+      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
+        headerTitle: '共识总结结果汇总',
+        suppressCatPrefix: true,
+        suppressOriginDecoration: true,
+        stripLeadingHeaderFromFormattedBody: true,
+      });
+      await outboundHook.notifyDeliveryBatchDone?.(threadId, true);
+    } catch (err) {
+      log.warn({ err, threadId, requestId }, '[F086] Multi-mention outbound delivery failed');
+    }
+  }
 
   log.info(
     {

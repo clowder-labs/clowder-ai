@@ -29,6 +29,23 @@ export function isSystemUserMessage(msg: Pick<StoredMessage, 'userId' | 'catId'>
 }
 
 /**
+ * Scheduler-triggered placeholder messages are persisted so the scheduler can
+ * wake an agent with a concrete reply target. They should remain stored, but
+ * history queries can hide them to avoid showing duplicate "trigger + agent"
+ * turns to users and agents.
+ */
+export function isScheduledTriggerPlaceholder(
+  msg: Pick<StoredMessage, 'userId' | 'catId' | 'content' | 'source'>,
+): boolean {
+  return (
+    msg.userId === 'scheduler' &&
+    (msg.catId === 'system' || msg.catId === null) &&
+    msg.source?.connector === 'scheduler' &&
+    msg.content.startsWith('[定时任务]')
+  );
+}
+
+/**
  * Per-user thread history queries should still include trusted system messages
  * (scheduler reminders) and cat/agent responses, otherwise a page refresh
  * hides them even though they were persisted and shown in realtime.

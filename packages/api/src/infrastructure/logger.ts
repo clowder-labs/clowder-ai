@@ -16,9 +16,12 @@
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { format as utilFormat } from 'node:util';
 import pino from 'pino';
+
+const require = createRequire(import.meta.url);
 
 /**
  * --debug CLI flag: `node dist/index.js --debug` sets log level to 'debug'.
@@ -92,7 +95,7 @@ const transport = pino.transport({
       level: LOG_LEVEL,
     },
     {
-      target: 'pino-roll',
+      target: require.resolve('pino-roll'),
       options: {
         file: resolve(LOG_DIR, 'api.log'),
         frequency: 'daily',
