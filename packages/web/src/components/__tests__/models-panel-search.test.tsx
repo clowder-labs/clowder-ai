@@ -26,6 +26,8 @@ const mockGetCanCreateModel = vi.mocked(getCanCreateModel);
 const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
 const SEARCH_INPUT_SELECTOR = 'input[aria-label="搜索模型"]';
 
+const CREATE_MODEL_RISK_ACK_KEY = 'create-model-risk-ack:v1';
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -112,6 +114,8 @@ describe('ModelsPanel search', () => {
   });
 
   beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(CREATE_MODEL_RISK_ACK_KEY, 'true');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -397,6 +401,82 @@ describe('ModelsPanel search', () => {
     ) as HTMLInputElement | null;
     expect(defaultNameInput).not.toBeNull();
     expect(defaultNameInput?.placeholder).toBe('请输入模型名称');
+  });
+
+  it('shows a risk modal before opening the create-model form when the user has not agreed', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
+  });
+
+  it('stores the create-model risk agreement and opens the form after the user agrees', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    const confirmButton = container.querySelector(
+      '[data-testid="models-create-model-risk-confirm"]',
+    ) as HTMLButtonElement | null;
+    expect(confirmButton).not.toBeNull();
+    await clickButton(confirmButton!);
+    await flushEffects();
+
+    expect(window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY)).toBe('true');
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
+  });
+
+  it('closes the create-model risk modal when the user cancels', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    const cancelButton = container.querySelector(
+      '[data-testid="models-create-model-risk-cancel"]',
+    ) as HTMLButtonElement | null;
+    expect(cancelButton).not.toBeNull();
+    await clickButton(cancelButton!);
+    await flushEffects();
+
+    expect(window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY)).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
   });
 
   it('shows a red inline validation message for an invalid Huawei MaaS model name', async () => {

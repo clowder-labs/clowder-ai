@@ -14,6 +14,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
+import { AppModal } from './AppModal';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
@@ -38,6 +39,10 @@ const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
+const CREATE_MODEL_RISK_ACK_KEY = 'create-model-risk-ack:v1';
+const CREATE_MODEL_RISK_TITLE = '风险提示';
+const CREATE_MODEL_RISK_MESSAGE =
+  '请注意，当您使用第三方模型时，您承诺将严格遵守第三方的相关条款（包括但不限于 license 协议）。华为云不对第三方产品的合规性和安全性作保证，请您使用前慎重考虑并评估风险。';
 const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云Maas模型';
 const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
@@ -322,6 +327,25 @@ function isEnvFlagEnabled(value: string | undefined): boolean {
   return normalized === '1' || normalized === 'true';
 }
 
+function hasCreateModelRiskAgreed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const value = window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY);
+    return value === 'true' || value === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markCreateModelRiskAgreed(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CREATE_MODEL_RISK_ACK_KEY, 'true');
+  } catch {
+    // ignore storage failure
+  }
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
@@ -330,6 +354,7 @@ export function ModelsPanel() {
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const [showCreateModelRiskModal, setShowCreateModelRiskModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
   const [createModelModalMode, setCreateModelModalMode] = useState<CreateModelModalMode>('default');
   const [createError, setCreateError] = useState<string | null>(null);
@@ -508,9 +533,19 @@ export function ModelsPanel() {
     setHeaderRowErrors(new Map());
   }, []);
 
+  const closeCreateModelRiskModal = useCallback(() => {
+    setShowCreateModelRiskModal(false);
+  }, []);
+
   useEscapeKey({
-    enabled: showCreateModelModal,
-    onEscape: closeCreateModelModal,
+    enabled: showCreateModelModal || showCreateModelRiskModal,
+    onEscape: () => {
+      if (showCreateModelRiskModal) {
+        closeCreateModelRiskModal();
+        return;
+      }
+      closeCreateModelModal();
+    },
   });
 
   const resetCreateModelForm = (mode: CreateModelModalMode = 'default') => {
@@ -535,6 +570,20 @@ export function ModelsPanel() {
     setCreateModelSuccess(null);
     setShowCreateModelModal(true);
     setHeaderErrorRowIndex(null);
+  };
+
+  const handleOpenCreateModelRiskGuard = () => {
+    if (hasCreateModelRiskAgreed()) {
+      handleOpenCreateModelModal('default');
+      return;
+    }
+    setShowCreateModelRiskModal(true);
+  };
+
+  const handleAgreeCreateModelRisk = () => {
+    markCreateModelRiskAgreed();
+    setShowCreateModelRiskModal(false);
+    handleOpenCreateModelModal('default');
   };
 
   const handleOpenEditModelModal = async (card: ModelCardData) => {
@@ -855,7 +904,7 @@ export function ModelsPanel() {
           {canCreateModel ? (
             <button
               type="button"
-              onClick={() => handleOpenCreateModelModal('default')}
+              onClick={handleOpenCreateModelRiskGuard}
               data-testid="models-open-create-model-modal"
               className="ui-button-primary"
             >
@@ -1067,6 +1116,39 @@ export function ModelsPanel() {
             ))}
         </div>
       </div>
+
+      <AppModal
+        open={showCreateModelRiskModal}
+        onClose={closeCreateModelRiskModal}
+        title={CREATE_MODEL_RISK_TITLE}
+        panelClassName="w-[550px]"
+        disableBackdropClose
+        showCloseButton={true}
+        backdropTestId="models-create-model-risk-modal"
+        panelTestId="models-create-model-risk-modal-panel"
+      >
+        <div className="space-y-4 pt-[18px]">
+          <p className="text-[12px] leading-[18px] text-[var(--text-secondary)]">{CREATE_MODEL_RISK_MESSAGE}</p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="ui-button-default text-sm px-[24px] py-[6px]"
+              data-testid="models-create-model-risk-cancel"
+              onClick={closeCreateModelRiskModal}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="ui-button-primary text-sm px-[24px] py-[6px]"
+              data-testid="models-create-model-risk-confirm"
+              onClick={handleAgreeCreateModelRisk}
+            >
+              我已同意
+            </button>
+          </div>
+        </div>
+      </AppModal>
 
       {showCreateModelModal && (
         <div
