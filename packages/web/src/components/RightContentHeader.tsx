@@ -99,44 +99,86 @@ type IssueOption = {
 const SATISFACTION_SCORES = Array.from({ length: 11 }, (_, index) => index);
 const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   {
-    id: 'usability_flow',
-    label: '\u64cd\u4f5c\u4fbf\u5229\u6027',
-    hint: '\uff08\u5982\uff1a\u64cd\u4f5c\u6d41\u7a0b\u590d\u6742\u3001\u529f\u80fd\u5165\u53e3\u96be\u627e\u7b49\uff09',
+    id: 'feature_incomplete',
+    label: '产品功能不完善',
   },
   {
-    id: 'content_clarity',
-    label: '\u5185\u5bb9/\u5e2e\u52a9\u8bf4\u660e\u6e05\u6670\u5ea6',
-    hint: '\uff08\u5982\uff1a\u6587\u6863\u6307\u5f15\u4e0d\u660e\u786e\u3001\u95ee\u9898\u89e3\u7b54\u4e0d\u6e05\u6670\uff09',
+    id: 'docs_unclear',
+    label: '帮助文档难懂不完善',
   },
   {
-    id: 'response_speed',
-    label: '\u54cd\u5e94\u901f\u5ea6\u4e0e\u6548\u7387',
-    hint: '\uff08\u5982\uff1a\u5bf9\u8bdd\u5ef6\u8fdf\u9ad8\u3001\u4efb\u52a1\u5904\u7406\u6162\uff09',
+    id: 'guidance_missing',
+    label: '缺少操作指引',
   },
   {
-    id: 'feature_coverage',
-    label: '\u529f\u80fd\u8986\u76d6\u5168\u9762\u6027',
-    hint: '\uff08\u5982\uff1a\u7f3a\u5c11\u5173\u952e\u4e1a\u52a1\u573a\u666f\u652f\u6301\uff09',
+    id: 'slow_or_error_prone',
+    label: '响应速度慢/报错多',
   },
   {
-    id: 'ui_intuitive',
-    label: '\u754c\u9762\u76f4\u89c2\u4e0e\u6613\u7528\u6027',
-    hint: '\uff08\u5982\uff1a\u5e03\u5c40\u6df7\u4e71\u3001\u6309\u94ae\u8bbe\u8ba1\u4e0d\u5408\u7406\uff09',
+    id: 'info_hard_to_find',
+    label: '找不到我关注的信息',
   },
   {
-    id: 'system_stability',
-    label: '\u7cfb\u7edf\u7a33\u5b9a\u6027',
-    hint: '\uff08\u5982\uff1a\u9891\u7e41\u5361\u987f\u3001\u62a5\u9519\u6216\u5d29\u6e83\uff09',
+    id: 'ui_unattractive',
+    label: '界面不美观',
   },
   {
-    id: 'security_privacy',
-    label: '\u5b89\u5168\u4e0e\u9690\u79c1\u4fdd\u62a4',
-    hint: '\uff08\u5982\uff1a\u6570\u636e\u6743\u9650\u4e0d\u660e\u786e\u3001\u9690\u79c1\u62c5\u5fe7\uff09',
+    id: 'automation_weak',
+    label: '自动化能力不足',
+  },
+  {
+    id: 'privacy_concern',
+    label: '数据权限不明确/隐私担忧',
+  },
+  {
+    id: 'generation_unstable',
+    label: '生成效果不稳定不可靠',
   },
   {
     id: 'other_issue',
-    label: '\u5176\u4ed6\u95ee\u9898',
-    hint: '\uff08\u8bf7\u5177\u4f53\u586b\u5199\uff09',
+    label: '其他原因',
+  },
+];
+const HIGH_SCORE_ISSUE_OPTIONS: IssueOption[] = [
+  {
+    id: 'feature_complete',
+    label: '产品功能完善',
+  },
+  {
+    id: 'docs_clear',
+    label: '帮助文档完善易懂',
+  },
+  {
+    id: 'guidance_clear',
+    label: '操作指引清晰',
+  },
+  {
+    id: 'fast_and_stable',
+    label: '响应速度快/无报错',
+  },
+  {
+    id: 'info_easy_to_find',
+    label: '我关注的信息易见',
+  },
+  {
+    id: 'ui_beautiful',
+    label: '界面美观',
+  },
+  {
+    id: 'automation_strong',
+    label: '自动化能力强',
+  },
+  {
+    id: 'privacy_reassuring',
+    label: '数据权限明确/隐私安全有保障',
+  },
+  {
+    id: 'generation_reliable',
+    label: '生成效果稳定可靠',
+  },
+  {
+    id: 'other_issue',
+    label: '其他原因',
   },
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
@@ -147,7 +189,7 @@ const FEEDBACK_RESURFACE_DAYS = 120;
 const FEEDBACK_AUTO_CLOSE_DELAY_MS = 60_000;
 const FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS = 120;
 const DEFAULT_FEEDBACK_SAVE_SURVEY_ID = 'hwcloudbusurvey_key_fbd25bdbdb87';
-const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'CCS2025081800123';
+const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'OfficeClaw';
 const DEFAULT_FEEDBACK_SAVE_CONTACT_ID = 'global.cf';
 const SCORE_QUESTION_ID = 'question_0';
 const LOW_SCORE_REASON_QUESTION_ID = 'question_1';
@@ -163,6 +205,20 @@ const DETAIL_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u57281
 const DETAIL_PREFILL_TEMPLATE = '\u3010\u4f7f\u7528\u573a\u666f\u3011\uff1a\n\u3010\u4f18\u5316\u610f\u89c1\u3011\uff1a';
 const REQUIRED_SELECT_ERROR_MESSAGE = '\u9009\u62e9\u4e0d\u80fd\u4e3a\u7a7a';
 const REQUIRED_INPUT_ERROR_MESSAGE = '\u8f93\u5165\u4e0d\u80fd\u4e3a\u7a7a';
+const LOW_SCORE_PRIMARY_TITLE = '您在使用过程中遇到了哪些问题？';
+const HIGH_SCORE_PRIMARY_TITLE = '您感到满意的原因是？';
+const PRIMARY_SUBTITLE = '（选择您最关注的三项）';
+const LOW_SCORE_DETAIL_TITLE = '请您反馈遇到的具体问题，帮助我们准确评估并优化';
+const DETAIL_SUBMIT_TITLE = '您还有其它意见和建议吗？';
+const HIGH_SCORE_DETAIL_TITLE = DETAIL_SUBMIT_TITLE;
+const HIGH_SCORE_DETAIL_SUBTITLE = '(可选)';
+
+function hasMeaningfulDetail(value: string): boolean {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return false;
+
+  return normalizedValue !== DETAIL_PREFILL_TEMPLATE.trim();
+}
 
 function getSelectedScoreIconSrc(score: number): string | null {
   if (score <= 6) return '/icons/nss/1.svg';
@@ -203,6 +259,11 @@ function hasCompletedOneDialogueRound(messages: ChatMessage[]): boolean {
 
 function getFeedbackUserId(): string {
   return process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || getDomainId();
+}
+
+function getFeedbackCloseStorageKey(): string {
+  const domainId = getDomainId()?.trim();
+  return domainId ? `${FEEDBACK_CLOSE_TIME_KEY}:${domainId}` : FEEDBACK_CLOSE_TIME_KEY;
 }
 
 export function __resetFeedbackAutoOpenSessionForTests() {
@@ -252,18 +313,21 @@ export function RightContentHeader() {
   const lowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.lowScoreSelectedIssues);
   const highScoreSelectedIssues = useFeedbackPopoverStore((s) => s.highScoreSelectedIssues);
   const lowScoreDetail = useFeedbackPopoverStore((s) => s.lowScoreDetail);
-  const otherIssueDetail = useFeedbackPopoverStore((s) => s.otherIssueDetail);
+  const lowScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.lowScoreOtherIssueDetail);
+  const highScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.highScoreOtherIssueDetail);
   const setFeedbackPopoverState = useFeedbackPopoverStore((s) => s.setFeedbackPopoverState);
   const setSelectedScore = useFeedbackPopoverStore((s) => s.setSelectedScore);
   const setLowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setLowScoreSelectedIssues);
   const setHighScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setHighScoreSelectedIssues);
   const setLowScoreDetail = useFeedbackPopoverStore((s) => s.setLowScoreDetail);
-  const setOtherIssueDetail = useFeedbackPopoverStore((s) => s.setOtherIssueDetail);
+  const setLowScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.setLowScoreOtherIssueDetail);
+  const setHighScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.setHighScoreOtherIssueDetail);
   const resetFeedbackFormState = useFeedbackPopoverStore((s) => s.resetFeedbackFormState);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
   const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
+  const [isDetailRequiredError, setIsDetailRequiredError] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -277,27 +341,25 @@ export function RightContentHeader() {
   const isVeryLowScoreDetailVisible = selectedScore != null && selectedScore <= 6;
   const isLowScoreDetailVisible = selectedScore != null && selectedScore <= 8;
   const isHighScoreDetailVisible = selectedScore != null && selectedScore >= 9;
-  const currentIssueOptions = LOW_SCORE_ISSUE_OPTIONS;
+  const currentIssueOptions = isHighScoreDetailVisible ? HIGH_SCORE_ISSUE_OPTIONS : LOW_SCORE_ISSUE_OPTIONS;
   const currentSelectedIssues = isHighScoreDetailVisible ? highScoreSelectedIssues : lowScoreSelectedIssues;
+  const currentOtherIssueDetail = isHighScoreDetailVisible ? highScoreOtherIssueDetail : lowScoreOtherIssueDetail;
   const isOtherIssueSelected = currentSelectedIssues.includes('other_issue');
-  const isOtherIssueTooLong = isOtherIssueSelected && otherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH;
+  const isOtherIssueTooLong = isOtherIssueSelected && currentOtherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH;
   const currentSurveyTitle = '\u60a8\u7684\u4f7f\u7528\u4f53\u9a8c\u5982\u4f55\uff1f\u6211\u4eec\u671f\u5f85\u503e\u542c';
-  const currentPrimaryTitle = isHighScoreDetailVisible
-    ? '\u60a8\u6700\u6ee1\u610f\u6211\u4eec\u7684\u54ea\u4e09\u4e2a\u529f\u80fd\uff1f'
-    : '\u60a8\u6700\u5e0c\u671b\u6211\u4eec\u4f18\u5148\u5904\u7406\u54ea\u4e09\u4e2a\u95ee\u9898\uff1f';
-  const currentPrimarySubtitle = isLowScoreDetailVisible
-    ? '\uff08\u6700\u591a\u9009\u4e09\u9879\uff09'
-    : '';
-  const currentDetailTitle = '\u8bda\u9080\u60a8\u8be6\u7ec6\u63cf\u8ff0\u95ee\u9898\uff0c\u5e2e\u52a9\u6211\u4eec\u51c6\u786e\u8bc4\u4f30\u4e0e\u6539\u8fdb';
-  const currentDetailSubtitle = null;
+  const currentPrimaryTitle = isHighScoreDetailVisible ? HIGH_SCORE_PRIMARY_TITLE : LOW_SCORE_PRIMARY_TITLE;
+  const currentPrimarySubtitle = PRIMARY_SUBTITLE;
+  const currentDetailTitle = isHighScoreDetailVisible ? HIGH_SCORE_DETAIL_TITLE : LOW_SCORE_DETAIL_TITLE;
+  const currentDetailSubtitle = isHighScoreDetailVisible ? HIGH_SCORE_DETAIL_SUBTITLE : null;
   const currentDetailMaxLength = DETAIL_MAX_LENGTH;
-  const currentDetailPlaceholder =
-    '\u8bf7\u63cf\u8ff0\u60a8\u7684\u4f7f\u7528\u573a\u666f\uff1a\n\u8bf7\u63d0\u51fa\u60a8\u7684\u4f18\u5316\u5efa\u8bae\uff1a';
+  const currentDetailPlaceholder = DETAIL_PREFILL_TEMPLATE;
+  const isDetailRequired = isLowScoreDetailVisible;
   const resetFeedbackState = useCallback(() => {
     resetFeedbackFormState();
     setIsDetailTooLong(false);
     setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
+    setIsDetailRequiredError(false);
     setIsSubmittingFeedback(false);
   }, [resetFeedbackFormState]);
   const closeFeedbackPopover = useCallback(() => {
@@ -315,7 +377,7 @@ export function RightContentHeader() {
   }, [resetFeedbackState, setFeedbackPopoverState]);
   const dismissFeedbackPopover = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(FEEDBACK_CLOSE_TIME_KEY, String(Date.now()));
+      window.localStorage.setItem(getFeedbackCloseStorageKey(), String(Date.now()));
     }
     closeFeedbackPopover();
   }, [closeFeedbackPopover]);
@@ -363,7 +425,7 @@ export function RightContentHeader() {
 
     hasAttemptedFeedbackAutoOpenThisSession = true;
 
-    const dismissedAtRaw = window.localStorage.getItem(FEEDBACK_CLOSE_TIME_KEY);
+    const dismissedAtRaw = window.localStorage.getItem(getFeedbackCloseStorageKey());
     const dismissedAt = dismissedAtRaw ? Number(dismissedAtRaw) : Number.NaN;
     if (Number.isFinite(dismissedAt) && isWithinDays(dismissedAt, FEEDBACK_CLOSE_SUPPRESS_DAYS)) {
       return;
@@ -430,6 +492,19 @@ export function RightContentHeader() {
     setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
   }, [isLowScoreDetailVisible]);
+
+  useEffect(() => {
+    if ((isLowScoreDetailVisible || isHighScoreDetailVisible) && !lowScoreDetail.trim()) {
+      setLowScoreDetail(DETAIL_PREFILL_TEMPLATE);
+      setIsDetailTooLong(false);
+      setIsDetailRequiredError(false);
+      return;
+    }
+
+    if (!isLowScoreDetailVisible) {
+      setIsDetailRequiredError(false);
+    }
+  }, [isHighScoreDetailVisible, isLowScoreDetailVisible, lowScoreDetail, setLowScoreDetail]);
 
   useEffect(() => {
     if (!isFeedbackOpen) return;
@@ -499,23 +574,32 @@ export function RightContentHeader() {
         return;
       }
       setIsDetailTooLong(false);
+      if (hasMeaningfulDetail(value)) {
+        setIsDetailRequiredError(false);
+      }
       setLowScoreDetail(value);
     },
-    [currentDetailMaxLength],
+    [currentDetailMaxLength, setLowScoreDetail],
   );
 
   const handleDetailFocus = useCallback(() => {
+    if (!isLowScoreDetailVisible && !isHighScoreDetailVisible) return;
     if (lowScoreDetail.trim().length > 0) return;
     setLowScoreDetail(DETAIL_PREFILL_TEMPLATE);
     setIsDetailTooLong(false);
-  }, [lowScoreDetail]);
+    setIsDetailRequiredError(false);
+  }, [isHighScoreDetailVisible, isLowScoreDetailVisible, lowScoreDetail, setLowScoreDetail]);
 
   const handleOtherIssueDetailChange = useCallback((value: string) => {
-    setOtherIssueDetail(value);
+    if (isHighScoreDetailVisible) {
+      setHighScoreOtherIssueDetail(value);
+    } else {
+      setLowScoreOtherIssueDetail(value);
+    }
     if (value.trim().length > 0) {
       setIsOtherIssueRequiredError(false);
     }
-  }, []);
+  }, [isHighScoreDetailVisible, setHighScoreOtherIssueDetail, setLowScoreOtherIssueDetail]);
 
   const handleSubmitFeedback = useCallback(async () => {
     if (!isLowScoreDetailVisible) {
@@ -537,19 +621,21 @@ export function RightContentHeader() {
     if (isLowScoreDetailVisible || isHighScoreDetailVisible) {
       const hasIssueSelection = currentSelectedIssues.length > 0;
       const needOtherIssueInput = currentSelectedIssues.includes('other_issue');
-      const hasOtherIssueInput = otherIssueDetail.trim().length > 0;
+      const hasOtherIssueInput = currentOtherIssueDetail.trim().length > 0;
+      const isDetailMissing = isDetailRequired && !hasMeaningfulDetail(lowScoreDetail);
 
       setIsIssueRequiredError(!hasIssueSelection);
       setIsOtherIssueRequiredError(needOtherIssueInput && !hasOtherIssueInput);
+      setIsDetailRequiredError(isDetailMissing);
 
       if (!hasIssueSelection) {
         return;
       }
-      if (needOtherIssueInput && !hasOtherIssueInput) {
+      if ((needOtherIssueInput && !hasOtherIssueInput) || isDetailMissing) {
         return;
       }
     }
-    if (currentSelectedIssues.includes('other_issue') && otherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH) {
+    if (currentSelectedIssues.includes('other_issue') && currentOtherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH) {
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -574,16 +660,16 @@ export function RightContentHeader() {
     const w3account = getFeedbackUserId();
     const scoreValue = String(selectedScore);
     const selectedIssueCodes = currentIssueOptions
-      .map((issue, index) => (currentSelectedIssues.includes(issue.id) ? String(index + 1) : ''))
+      .map((issue, index) => (currentSelectedIssues.includes(issue.id) ? String(index) : ''))
       .filter(Boolean)
       .join(',');
     const selectedIssueLabels = currentIssueOptions
       .filter((issue) => currentSelectedIssues.includes(issue.id))
       .map((issue) => issue.label)
       .join(',');
-    const detailText = lowScoreDetail.trim();
+    const detailText = hasMeaningfulDetail(lowScoreDetail) ? lowScoreDetail.trim() : '';
     const otherIssueReason = currentSelectedIssues.includes('other_issue')
-      ? otherIssueDetail.trim()
+      ? currentOtherIssueDetail.trim()
       : SCORE_REASON_DEFAULT_REASON;
     const scoreReasonQuestionId = selectedScore >= 9 ? HIGH_SCORE_REASON_QUESTION_ID : LOW_SCORE_REASON_QUESTION_ID;
     const answers: FeedbackSubmitAnswer[] = [
@@ -598,9 +684,7 @@ export function RightContentHeader() {
       {
         questionId: scoreReasonQuestionId,
         subQuestionId: null,
-        subName: isLowScoreDetailVisible
-          ? '\u60a8\u5728\u4f7f\u7528\u8fc7\u7a0b\u4e2d\u9047\u5230\u4e86\u54ea\u4e9b\u95ee\u9898\uff1f'
-          : '\u60a8\u611f\u5230\u6ee1\u610f\u7684\u539f\u56e0\u662f\uff1f',
+        subName: currentPrimaryTitle,
         answer: selectedIssueCodes,
         subRemark: selectedIssueLabels,
         reason: otherIssueReason || SCORE_REASON_DEFAULT_REASON,
@@ -608,9 +692,9 @@ export function RightContentHeader() {
       {
         questionId: DETAIL_QUESTION_ID,
         subQuestionId: null,
-        subName: currentDetailTitle,
+        subName: DETAIL_SUBMIT_TITLE,
         answer: detailText,
-        subRemark: DETAIL_DEFAULT_SUB_REMARK,
+        subRemark: detailText ? DETAIL_DEFAULT_SUB_REMARK : '',
         reason: DETAIL_DEFAULT_REASON,
       },
     ];
@@ -695,12 +779,14 @@ export function RightContentHeader() {
     currentDetailMaxLength,
     currentIssueOptions,
     currentSelectedIssues,
+    currentPrimaryTitle,
     closeFeedbackPopover,
+    isDetailRequired,
     isHighScoreDetailVisible,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
-    otherIssueDetail,
+    currentOtherIssueDetail,
     selectedScore,
   ]);
 
@@ -934,7 +1020,7 @@ export function RightContentHeader() {
                               type="text"
                               className="ui-input"
                               placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
-                              value={otherIssueDetail}
+                              value={currentOtherIssueDetail}
                               onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
                             />
                             {isOtherIssueRequiredError ? (
@@ -973,7 +1059,11 @@ export function RightContentHeader() {
                             {lowScoreDetail.length}/{currentDetailMaxLength}
                           </span>
                         </div>
-                        {isDetailTooLong ? (
+                        {isDetailRequiredError ? (
+                          <p className="ui-content-header-feedback-detail-error">
+                            {REQUIRED_INPUT_ERROR_MESSAGE}
+                          </p>
+                        ) : isDetailTooLong ? (
                           <p className="ui-content-header-feedback-detail-error">
                             {DETAIL_LENGTH_ERROR_MESSAGE}
                           </p>
