@@ -92,9 +92,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
         </div>
         <button
           onClick={dismiss}
-          className="text-gray-300 hover:text-gray-500 flex-shrink-0 p-0.5"
-          title="关闭"
-          aria-label="关闭"
+          className="text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
         >
           <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path

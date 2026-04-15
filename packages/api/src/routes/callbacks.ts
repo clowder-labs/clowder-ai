@@ -27,7 +27,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import { hydrateReplyPreview, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
+import { canViewMessage, isScheduledTriggerPlaceholder } from '../domains/cats/services/stores/visibility.js';
 import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
@@ -98,7 +98,14 @@ export interface CallbackRoutesOptions {
       threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
       origin?: 'callback' | 'agent' | 'system',
       triggerMessageId?: string,
+      presentation?: {
+        headerTitle?: string;
+        suppressCatPrefix?: boolean;
+        suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
+      },
     ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
   };
 }
 
@@ -677,6 +684,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           'callback',
           validatedReplyTo,
         )
+        .then(() => opts.outboundHook?.notifyDeliveryBatchDone?.(effectiveThreadId, true))
         .catch((err: unknown) => {
           app.log.error({ err, threadId: effectiveThreadId }, '[callbacks/post-message] Outbound delivery failed');
         });
@@ -881,6 +889,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         if (batch.length === 0) break;
 
         for (const item of batch) {
+          if (isScheduledTriggerPlaceholder(item)) continue;
           if (!canViewMessage(item, viewer)) continue;
           if (!matchesExtraFilters(item)) continue;
           visible.push(item);
@@ -909,6 +918,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         if (batch.length === 0) break; // no more messages
 
         for (const item of batch) {
+          if (isScheduledTriggerPlaceholder(item)) continue;
           // F35: Skip whispers not intended for this cat
           if (!canViewMessage(item, viewer)) continue;
           // Visible in play mode: user messages, own cat's messages,
@@ -1206,16 +1216,21 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F086: Multi-mention orchestration routes
   if (router && invocationRecordStore) {
-    registerMultiMentionRoutes(app, {
+    // outboundHook is late-bound after connector gateway bootstrap (index.ts).
+    // Use a getter so flushResult() reads the live value at request time,
+    // not the undefined snapshot captured during plugin registration.
+    const multiMentionDeps: Parameters<typeof registerMultiMentionRoutes>[1] = {
       registry,
       messageStore,
       socketManager,
+      get outboundHook() { return opts.outboundHook; },
       router,
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),
       ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
       ...(queueProcessor ? { queueProcessor } : {}),
-    });
+    };
+    registerMultiMentionRoutes(app, multiMentionDeps);
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {
       socketManager.setMultiMentionOrchestrator(getMultiMentionOrchestrator());

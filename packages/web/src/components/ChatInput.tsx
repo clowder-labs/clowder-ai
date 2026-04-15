@@ -1081,7 +1081,7 @@ export function ChatInput({
         <div className="px-4 pt-2 hidden items-center gap-2 mx-auto w-[80%]">
           <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
           <span className="text-xs text-[#9B7EBD] font-medium">正在回复中...</span>
-          <span className="text-xs text-gray-400">继续输入，消息会排队</span>
+          <span className="text-xs text-gray-400 hidden">继续输入，消息会排队</span>
         </div>
       )}
 
@@ -1191,7 +1191,7 @@ export function ChatInput({
       <div className="relative z-10 px-4 pt-2 mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
           {/* Mobile: + toggle button */}
-          <button
+          { false && <button
             onClick={() => setMobileToolbar((v) => !v)}
             className={`p-3 rounded-xl transition-all md:hidden ${
               mobileToolbar
@@ -1207,7 +1207,7 @@ export function ChatInput({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </button> }
 
           <div className="flex-1">
             <div>
@@ -1268,7 +1268,7 @@ export function ChatInput({
                       onPaste={handlePaste}
                       onScroll={handleTextareaScroll}
                       placeholder={
-                        hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
+                        hasActiveInvocation ? '描述你想研究的主题或@助手协助工作' : '描述你想研究的主题或@助手协助工作'
                       }
                       className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent py-4 px-[18px] whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}

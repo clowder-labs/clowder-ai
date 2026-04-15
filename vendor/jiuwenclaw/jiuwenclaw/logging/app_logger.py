@@ -4,8 +4,7 @@ import re
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-USER_HOME = Path.home()
-USER_WORKSPACE_DIR = USER_HOME / ".jiuwenclaw"
+from jiuwenclaw.runtime_paths import USER_WORKSPACE_DIR
 
 _MASK = "******"
 # 匹配常见敏感字段键值对（不要求值必须带引号），用于覆盖:

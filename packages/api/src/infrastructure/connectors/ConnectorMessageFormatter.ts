@@ -33,6 +33,7 @@ export interface MessageEnvelope {
 
 export interface FormatInput {
   readonly catDisplayName: string;
+  readonly headerTitle?: string | undefined;
   readonly threadShortId: string;
   readonly threadTitle?: string | undefined;
   readonly featId?: string | undefined;
@@ -44,7 +45,7 @@ export interface FormatInput {
 
 export class ConnectorMessageFormatter {
   format(input: FormatInput): MessageEnvelope {
-    const header = input.catDisplayName;
+    const header = input.headerTitle?.trim() || input.catDisplayName;
 
     // Build subtitle: "T12 飞书登录bug排查 · F088"
     let subtitle = input.threadShortId;
@@ -73,11 +74,12 @@ export class ConnectorMessageFormatter {
    */
   formatMinimal(input: {
     catDisplayName: string;
+    headerTitle?: string;
     body: string;
     origin?: MessageOrigin;
   }): MessageEnvelope {
     return {
-      header: input.catDisplayName,
+      header: input.headerTitle?.trim() || input.catDisplayName,
       subtitle: '',
       body: input.body,
       footer: new Date().toISOString().slice(11, 16),

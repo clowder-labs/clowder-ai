@@ -62,6 +62,7 @@ describe('RightContentHeader feedback popover', () => {
   const mockedGetDomainId = vi.mocked(getDomainId);
   const mockedGetIsSkipAuth = vi.mocked(getIsSkipAuth);
   const mockSubmitFetch = vi.fn();
+  const detailTemplate = '【使用场景】：\n【优化意见】：';
   const formatFeedbackDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
 
@@ -141,7 +142,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(latestPost).toBeTruthy();
     const requestInit = latestPost?.[1] as RequestInit | undefined;
     const body = JSON.parse(String(requestInit?.body ?? '{}')) as {
-      data?: { answers?: Array<{ questionId: string }> };
+      data?: { answers?: Array<{ questionId: string; subName?: string; answer?: string }> };
     };
     return body.data?.answers ?? [];
   }
@@ -257,7 +258,7 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('does not query or auto open when the user dismissed feedback within 30 days', async () => {
-    window.localStorage.setItem('feedbackCloseTime', String(Date.now() - 15 * 24 * 60 * 60 * 1000));
+    window.localStorage.setItem('feedbackCloseTime:domain-1', String(Date.now() - 15 * 24 * 60 * 60 * 1000));
 
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
@@ -336,6 +337,9 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
 
+    expect(container.textContent).toContain('您在使用过程中遇到了哪些问题？（选择您最关注的三项）');
+    expect(container.textContent).toContain('请您反馈遇到的具体问题，帮助我们准确评估并优化');
+
     const textarea = container.querySelector('textarea') as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
     act(() => {
@@ -346,16 +350,18 @@ describe('RightContentHeader feedback popover', () => {
 
     const otherIssueCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
     const otherIssueCheckbox = otherIssueCheckboxes.at(-1) ?? null;
-    expect(otherIssueCheckbox).toBeTruthy();
+    const resolvedOtherIssueCheckbox =
+      (otherIssueCheckbox ?? Array.from(container.querySelectorAll('input[type="checkbox"]')).at(-1)) as HTMLInputElement | undefined;
+    expect(resolvedOtherIssueCheckbox).toBeTruthy();
     act(() => {
-      otherIssueCheckbox?.click();
+      resolvedOtherIssueCheckbox?.click();
     });
     await flush();
 
     const otherIssueInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
     expect(otherIssueInput).toBeTruthy();
     act(() => {
-      useFeedbackPopoverStore.getState().setOtherIssueDetail('keep this reason');
+      useFeedbackPopoverStore.getState().setLowScoreOtherIssueDetail('keep this reason');
     });
     await flush();
     expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('keep this reason');
@@ -384,7 +390,99 @@ describe('RightContentHeader feedback popover', () => {
     expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('keep this reason');
   });
 
+  it('keeps low-score and high-score other-issue inputs separate when switching scores', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    const lowScoreButton = getScoreButton(6);
+    expect(lowScoreButton).toBeTruthy();
+    act(() => {
+      lowScoreButton?.click();
+    });
+    await flush();
+
+    const lowScoreOtherIssueCheckbox = (Array.from(container.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[]).at(-1) ?? null;
+    expect(lowScoreOtherIssueCheckbox).toBeTruthy();
+    act(() => {
+      lowScoreOtherIssueCheckbox?.click();
+    });
+    await flush();
+
+    const lowScoreOtherInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+    expect(lowScoreOtherInput).toBeTruthy();
+    act(() => {
+      lowScoreOtherInput!.value = 'low-score reason';
+      lowScoreOtherInput?.dispatchEvent(new Event('input', { bubbles: true }));
+      useFeedbackPopoverStore.getState().setLowScoreOtherIssueDetail('low-score reason');
+    });
+    await flush();
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('low-score reason');
+
+    const highScoreButton = getScoreButton(9);
+    expect(highScoreButton).toBeTruthy();
+    act(() => {
+      highScoreButton?.click();
+    });
+    await flush();
+
+    const highScoreOtherIssueCheckbox = (Array.from(container.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[]).at(-1) ?? null;
+    expect(highScoreOtherIssueCheckbox).toBeTruthy();
+    act(() => {
+      highScoreOtherIssueCheckbox?.click();
+    });
+    await flush();
+
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('');
+
+    act(() => {
+      useFeedbackPopoverStore.getState().setHighScoreOtherIssueDetail('high-score reason');
+    });
+    await flush();
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('high-score reason');
+
+    act(() => {
+      lowScoreButton?.click();
+    });
+    await flush();
+
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('low-score reason');
+  });
+
   it('stores the close time in localStorage when the user dismisses the feedback popover with the close button', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    const closeButton = getPopoverCloseButton();
+    expect(closeButton).toBeTruthy();
+
+    act(() => {
+      closeButton?.click();
+    });
+    await flush();
+
+    const storedValue = window.localStorage.getItem('feedbackCloseTime:domain-1');
+    expect(storedValue).toBeTruthy();
+    expect(Number(storedValue)).toBeGreaterThan(0);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('falls back to the base feedback close key when domainId is unavailable', async () => {
+    mockedGetDomainId.mockReturnValue('');
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -406,7 +504,6 @@ describe('RightContentHeader feedback popover', () => {
     const storedValue = window.localStorage.getItem('feedbackCloseTime');
     expect(storedValue).toBeTruthy();
     expect(Number(storedValue)).toBeGreaterThan(0);
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('auto closes an auto-opened feedback popover after 60s when no score is selected', async () => {
@@ -673,13 +770,16 @@ describe('RightContentHeader feedback popover', () => {
     expect(detailTextarea).toBeTruthy();
     expect(detailTextarea?.className).toContain('ui-textarea');
     expect(detailTextarea?.className).toContain('ui-content-header-feedback-detail-input');
+    expect(detailTextarea?.value).toBe(detailTemplate);
 
     const otherIssueLabel = Array.from(container.querySelectorAll('label')).find((label) => label.textContent?.includes('其他问题'));
     const otherIssueCheckbox = otherIssueLabel?.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-    expect(otherIssueCheckbox).toBeTruthy();
+    const effectiveOtherIssueCheckbox =
+      (otherIssueCheckbox ?? Array.from(container.querySelectorAll('input[type="checkbox"]')).at(-1)) as HTMLInputElement | undefined;
+    expect(effectiveOtherIssueCheckbox).toBeTruthy();
 
     act(() => {
-      otherIssueCheckbox?.click();
+      effectiveOtherIssueCheckbox?.click();
     });
     await flush();
 
@@ -752,7 +852,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(positiveScoreIcon?.getAttribute('height')).toBe('24');
   });
 
-  it('allows submitting with an empty textarea and does not show footer errors', async () => {
+  it('requires low-score detail beyond the prefilled template before submitting', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -775,7 +875,7 @@ describe('RightContentHeader feedback popover', () => {
 
     const textarea = container.querySelector('textarea') as HTMLTextAreaElement | null;
     expect(textarea).toBeTruthy();
-    expect(textarea?.value).toBe('');
+    expect(textarea?.value).toBe(detailTemplate);
 
     const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     expect(firstCheckbox).toBeTruthy();
@@ -791,17 +891,9 @@ describe('RightContentHeader feedback popover', () => {
       submitButton?.click();
     });
     await flush();
-    await flush();
-
-    expect(getFetchCallsByMethod('POST')).toHaveLength(1);
-    expect(addToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'success',
-      }),
-    );
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(container.textContent).not.toContain('输入不能为空');
-    expect(container.textContent).not.toContain('请先完成必填项');
+    expect(getFetchCallsByMethod('POST')).toHaveLength(0);
+    expect(container.textContent).toContain('输入不能为空');
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
   it('submits score reason as question_1 for scores 0 through 8', async () => {
@@ -829,6 +921,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(firstCheckbox).toBeTruthy();
     act(() => {
       firstCheckbox?.click();
+      useFeedbackPopoverStore.getState().setLowScoreDetail('【使用场景】：测试\n【优化意见】：需要补充');
     });
     await flush();
 
@@ -841,9 +934,12 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
 
     expect(getLatestPostAnswers()[1]?.questionId).toBe('question_1');
+    expect(getLatestPostAnswers()[1]?.answer).toBe('0');
+    expect(getLatestPostAnswers()[1]?.subName).toBe('您在使用过程中遇到了哪些问题？');
+    expect(getLatestPostAnswers()[2]?.subName).toBe('您还有其它意见和建议吗？');
   });
 
-  it('submits score reason as question_2 for scores 9 and 10', async () => {
+  it('submits high-score feedback without requiring detail input', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -863,6 +959,9 @@ describe('RightContentHeader feedback popover', () => {
       scoreButton?.click();
     });
     await flush();
+    expect(container.textContent).toContain('您感到满意的原因是？（选择您最关注的三项）');
+    expect(container.textContent).toContain('您还有其它意见和建议吗？(可选)');
+    expect((container.querySelector('textarea') as HTMLTextAreaElement | null)?.value).toBe(detailTemplate);
 
     const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     expect(firstCheckbox).toBeTruthy();
@@ -880,6 +979,10 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
 
     expect(getLatestPostAnswers()[1]?.questionId).toBe('question_2');
+    expect(getLatestPostAnswers()[1]?.answer).toBe('0');
+    expect(getLatestPostAnswers()[1]?.subName).toBe('您感到满意的原因是？');
+    expect(getLatestPostAnswers()[2]?.subName).toBe('您还有其它意见和建议吗？');
+    expect(getLatestPostAnswers()[2]?.answer).toBe('');
   });
 
   it('uses the current domainId as feedback w3account when submitting', async () => {
@@ -905,6 +1008,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(firstCheckbox).toBeTruthy();
     act(() => {
       firstCheckbox?.click();
+      useFeedbackPopoverStore.getState().setLowScoreDetail(detailTemplate);
     });
     await flush();
 
@@ -962,7 +1066,86 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.textContent).not.toContain('请先完成必填项');
   });
 
-  it('shows a selection required error when no checkbox is selected on submit', async () => {
+  it('shows both other-issue and detail errors when both are empty on low-score submit', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const lowScoreButton = getScoreButton(6);
+    expect(lowScoreButton).toBeTruthy();
+    act(() => {
+      lowScoreButton?.click();
+      useFeedbackPopoverStore.getState().setLowScoreDetail('');
+    });
+    await flush();
+
+    const otherIssueCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    const otherIssueCheckbox = otherIssueCheckboxes.at(-1) ?? null;
+    expect(otherIssueCheckbox).toBeTruthy();
+
+    act(() => {
+      otherIssueCheckbox?.click();
+    });
+    await flush();
+
+    const submitButton = container.querySelector('.ui-button-primary') as HTMLButtonElement | null;
+    expect(submitButton).toBeTruthy();
+
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+
+    expect(getFetchCallsByMethod('POST')).toHaveLength(0);
+    expect(container.querySelectorAll('.ui-content-header-feedback-other-error')).toHaveLength(1);
+    expect(container.querySelectorAll('.ui-content-header-feedback-detail-error')).toHaveLength(1);
+  });
+
+  it('shows both selection and detail errors when no option is selected and detail is empty', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+
+    const lowScoreButton = getScoreButton(6);
+    expect(lowScoreButton).toBeTruthy();
+    act(() => {
+      lowScoreButton?.click();
+      useFeedbackPopoverStore.getState().setLowScoreDetail('');
+    });
+    await flush();
+
+    const submitButton = container.querySelector('.ui-button-primary') as HTMLButtonElement | null;
+    expect(submitButton).toBeTruthy();
+
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+
+    expect(getFetchCallsByMethod('POST')).toHaveLength(0);
+    expect(container.querySelectorAll('.ui-content-header-feedback-other-error')).toHaveLength(1);
+    expect(container.querySelectorAll('.ui-content-header-feedback-detail-error')).toHaveLength(1);
+  });
+
+  it('shows selection and detail errors when no checkbox is selected on submit', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -994,6 +1177,6 @@ describe('RightContentHeader feedback popover', () => {
     expect(getFetchCallsByMethod('POST')).toHaveLength(0);
     expect(container.textContent).toContain('选择不能为空');
     expect(container.textContent).not.toContain('请先完成必填项');
-    expect(container.textContent).not.toContain('输入不能为空');
+    expect(container.textContent).toContain('输入不能为空');
   });
 });

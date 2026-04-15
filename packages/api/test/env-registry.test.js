@@ -290,6 +290,7 @@ describe('PATCH /api/config/env (route)', () => {
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'FEISHU_APP_ID=old-app\n', 'utf8');
     const reconcileCalls = [];
+    const ownerCalls = [];
 
     const app = Fastify({ logger: false });
     try {
@@ -297,6 +298,9 @@ describe('PATCH /api/config/env (route)', () => {
         projectRoot: tempRoot,
         envFilePath,
         connectorRuntimeManager: {
+          async setOwnerUserId(userId) {
+            ownerCalls.push(userId);
+          },
           async reconcile(keys) {
             reconcileCalls.push(keys);
             return {
@@ -326,9 +330,64 @@ describe('PATCH /api/config/env (route)', () => {
       assert.equal(body.ok, true);
       assert.equal(body.requiresRestart, false);
       assert.equal(body.runtime.applied, true);
+      assert.deepEqual(ownerCalls, ['codex']);
       assert.deepEqual(reconcileCalls, [['FEISHU_APP_ID']]);
     } finally {
       await app.close();
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('trims connector credentials before persisting them to .env', async () => {
+    const { configRoutes } = await import('../dist/routes/config.js');
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const envFilePath = resolve(tempRoot, '.env');
+    const reconcileCalls = [];
+
+    const app = Fastify({ logger: false });
+    try {
+      await configRoutes(app, {
+        projectRoot: tempRoot,
+        envFilePath,
+        connectorRuntimeManager: {
+          async reconcile(keys) {
+            reconcileCalls.push(keys);
+            return {
+              applied: true,
+              attemptedConnectors: ['dingtalk'],
+              appliedConnectors: ['dingtalk'],
+              unchangedConnectors: [],
+              failedConnectors: [],
+            };
+          },
+        },
+        auditLog: { append: async () => {} },
+      });
+      await app.ready();
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/config/env',
+        headers: { 'x-office-claw-user': 'codex' },
+        payload: {
+          updates: [
+            { name: 'DINGTALK_APP_KEY', value: '  ding-key  ' },
+            { name: 'DINGTALK_APP_SECRET', value: '\nding-secret\t' },
+          ],
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.ok, true);
+      assert.equal(process.env.DINGTALK_APP_KEY, 'ding-key');
+      assert.equal(process.env.DINGTALK_APP_SECRET, 'ding-secret');
+      assert.equal(readFileSync(envFilePath, 'utf8'), 'DINGTALK_APP_KEY=ding-key\nDINGTALK_APP_SECRET=ding-secret\n');
+      assert.deepEqual(reconcileCalls, [['DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET']]);
+    } finally {
+      await app.close();
+      delete process.env.DINGTALK_APP_KEY;
+      delete process.env.DINGTALK_APP_SECRET;
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });

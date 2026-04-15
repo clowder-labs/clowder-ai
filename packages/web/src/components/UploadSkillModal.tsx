@@ -368,6 +368,9 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   const metadataValidationError = !fileValidationIssue && files.length > 0
     ? getSkillMetadataValidationError({ name: parsedName, description })
     : null;
+  const parseResultError = error
+    ?? (fileValidationIssue && fileValidationIssue.kind !== 'empty' ? fileValidationIssue.message : null)
+    ?? metadataValidationError;
   const nameValidationError = validateSkillName(name);
   const editingNameValidationError = isEditingName ? nameValidationError : null;
   const uploadDisabledReason = (() => {
@@ -608,7 +611,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
       <div
         role="dialog"
         aria-modal="true"
-        className="flex h-[380px] w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
+        className="flex w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
       >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-sm font-bold">导入技能</h3>
@@ -624,9 +627,9 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <Alert mode="prompt" closable={false} className="mb-4">
-            1. 支持上传文件或者文件夹，单个文件大小不能超过1MB，文件数量不能超过100，总文件大小不能超过4MB。
+            1.支持上传文件或文件夹：单个文件 ≤ 1MB，文件总数 ≤ 100 个，总大小 ≤ 4MB；
             <br />
-            2. 上传的文件中必须包含一个名为 SKILL.md 的文件，且必须位于根目录下。
+            2.上传内容的根目录必须包含 `SKILL.md` 文件。
           </Alert>
 
           <div className="mb-4 flex gap-2">
@@ -645,8 +648,6 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
               选择文件夹
             </button>
           </div>
-
-          {error ? <p className="mb-4 text-xs text-red-500">{error}</p> : null}
 
           <input
             ref={fileInputRef}
@@ -705,16 +706,19 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                   </button>
                 ) : null}
               </div>
-            ) : (
-              <div className="text-xs text-[#8A93A3]">暂未选择文件</div>
-            )}
+            ) : null}
           </div>
 
           {files.length > 0 ? (
             <div>
             <div className="mb-3 text-xs font-medium text-[#5F6775]">解析结果</div>
 
-            <div className="space-y-3">
+            {parseResultError ? (
+              <p data-testid="parsed-skill-error" className="text-xs text-[var(--state-error-text)]">
+                {parseResultError}
+              </p>
+            ) : (
+              <div className="space-y-3">
               <div className="flex items-start gap-3 text-xs">
                 <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
                 <div className="min-w-0 flex-1">
@@ -790,7 +794,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                   </span>
                 </div>
               </div>
-            </div>
+              </div>
+            )}
             </div>
           ) : null}
 

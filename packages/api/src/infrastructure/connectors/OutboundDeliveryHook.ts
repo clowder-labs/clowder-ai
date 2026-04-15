@@ -57,6 +57,13 @@ export interface ThreadMeta {
   readonly deepLinkUrl?: string | undefined;
 }
 
+export interface OutboundPresentation {
+  readonly headerTitle?: string | undefined;
+  readonly suppressCatPrefix?: boolean | undefined;
+  readonly suppressOriginDecoration?: boolean | undefined;
+  readonly stripLeadingHeaderFromFormattedBody?: boolean | undefined;
+}
+
 export interface OutboundDeliveryHookOptions {
   readonly bindingStore: IConnectorThreadBindingStore;
   readonly adapters: Map<string, IOutboundAdapter>;
@@ -108,9 +115,16 @@ export class OutboundDeliveryHook {
     threadMeta?: ThreadMeta,
     origin?: MessageOrigin,
     triggerMessageId?: string,
+    presentation?: OutboundPresentation,
   ): Promise<void> {
     this.opts.log.info(
-      { threadId, catId, contentLen: content.length, hasRichBlocks: !!(richBlocks && richBlocks.length) },
+      {
+        threadId,
+        catId,
+        contentLen: content.length,
+        hasRichBlocks: !!(richBlocks && richBlocks.length),
+        hasPresentation: !!presentation,
+      },
       '[OutboundDeliveryHook] deliver() called',
     );
     const bindings = await this.opts.bindingStore.getByThread(threadId);
@@ -139,8 +153,9 @@ export class OutboundDeliveryHook {
 
     const entry = catId ? catRegistry.tryGet(catId) : undefined;
     const catDisplayName = entry?.config.displayName ?? '';
-    const textPrefix = catDisplayName ? `[${catDisplayName}] ` : '';
+    const textPrefix = !presentation?.suppressCatPrefix && catDisplayName ? `[${catDisplayName}] ` : '';
     const finalContent = `${textPrefix}${content}`;
+    const envelopeOrigin = presentation?.suppressOriginDecoration ? undefined : origin;
 
     const hasRichBlocks = richBlocks && richBlocks.length > 0;
     const outMeta = replyToSender ? { replyToSender } : undefined;
@@ -157,21 +172,27 @@ export class OutboundDeliveryHook {
           // This ensures each cat's reply is a distinct card with identity header,
           // preventing Feishu from merging multiple cats' plain-text into one bubble.
           if (adapter.sendFormattedReply && !hasRichBlocks) {
+            const formattedBody =
+              presentation?.stripLeadingHeaderFromFormattedBody && presentation.headerTitle
+                ? this.stripLeadingMarkdownHeader(content, presentation.headerTitle)
+                : content;
             const envelope = threadMeta
               ? this.formatter.format({
                   catDisplayName: catDisplayName || 'Agent',
+                  headerTitle: presentation?.headerTitle,
                   threadShortId: threadMeta.threadShortId,
                   threadTitle: threadMeta.threadTitle,
                   featId: threadMeta.featId,
-                  body: content,
+                  body: formattedBody,
                   deepLinkUrl: threadMeta.deepLinkUrl,
                   timestamp: new Date(),
-                  origin,
+                  origin: envelopeOrigin,
                 })
               : this.formatter.formatMinimal({
                   catDisplayName: catDisplayName || 'Agent',
-                  body: content,
-                  origin,
+                  headerTitle: presentation?.headerTitle,
+                  body: formattedBody,
+                  origin: envelopeOrigin,
                 });
             await adapter.sendFormattedReply(binding.externalChatId, envelope, outMeta);
           } else if (hasRichBlocks && adapter.sendRichMessage) {
@@ -294,5 +315,10 @@ export class OutboundDeliveryHook {
     const filePath = join(tmpdir(), `cat-cafe-img-${randomBytes(8).toString('hex')}.${ext}`);
     await writeFile(filePath, buffer);
     return filePath;
+  }
+
+  private stripLeadingMarkdownHeader(content: string, headerTitle: string): string {
+    const escaped = headerTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return content.replace(new RegExp(`^##\\s+${escaped}\\n+`), '');
   }
 }

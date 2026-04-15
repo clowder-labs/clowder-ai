@@ -617,6 +617,20 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     return `<at user_id="${sender.id}">${sender.name ?? '用户'}</at> ${text}`;
   }
 
+  private async sendInteractiveWithFallback(
+    externalChatId: string,
+    card: Record<string, unknown>,
+    fallbackText: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
+    } catch (err) {
+      this.log.warn({ err, externalChatId }, '[FeishuAdapter] interactive send failed, falling back to text');
+      await this.sendReply(externalChatId, fallbackText, metadata);
+    }
+  }
+
   async sendReply(externalChatId: string, content: string, metadata?: Record<string, unknown>): Promise<void> {
     const sender = (metadata as { replyToSender?: { id: string; name?: string } } | undefined)?.replyToSender;
     const text = this.prependAtMention(content, sender);
@@ -633,7 +647,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     const sender = (metadata as { replyToSender?: { id: string; name?: string } } | undefined)?.replyToSender;
     const text = this.prependAtMention(textContent, sender);
     const card = formatFeishuCard(blocks, catDisplayName, text);
-    await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
+    await this.sendInteractiveWithFallback(externalChatId, card, textContent, metadata);
   }
 
   async sendFormattedReply(
@@ -664,7 +678,8 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       },
       elements,
     };
-    await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
+    const fallbackText = [headerTitle, envelope.subtitle, envelope.body, envelope.footer].filter(Boolean).join('\n\n');
+    await this.sendInteractiveWithFallback(externalChatId, card, fallbackText, metadata);
   }
 
   /**

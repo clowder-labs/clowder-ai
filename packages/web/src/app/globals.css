@@ -1535,11 +1535,10 @@ select:-webkit-autofill:focus {
   }
 
   .ui-content-header-feedback-low-score-subtitle {
-    margin-left: 8px;
     font-size: 12px;
     line-height: 1.4;
     font-weight: 500;
-    color: #8f8f8f;
+    color: #808080;
   }
 
   .ui-content-header-feedback-low-score-options {
@@ -1678,7 +1677,6 @@ select:-webkit-autofill:focus {
     }
 
     .ui-content-header-feedback-low-score-subtitle {
-      margin-left: 6px;
       font-size: 12px;
     }
 

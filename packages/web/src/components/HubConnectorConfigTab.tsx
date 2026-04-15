@@ -155,6 +155,21 @@ function parseDocsLink(rawUrl: string): { href: string; hostname: string } | nul
   }
 }
 
+function normalizeConnectorFieldValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function collectConfiguredFieldEntries(
+  fields: PlatformFieldStatus[],
+  fieldValues: Record<string, string>,
+): Array<[string, string]> {
+  return fields.flatMap((field) => {
+    const value = normalizeConnectorFieldValue(fieldValues[field.envName]);
+    return value ? [[field.envName, value]] : [];
+  });
+}
+
 export function HubConnectorConfigTab() {
   const addToast = useToastStore((s) => s.addToast);
   const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
@@ -217,9 +232,8 @@ export function HubConnectorConfigTab() {
   };
 
   const handleSave = async (platform: PlatformStatus) => {
-    const updates = platform.fields
-      .filter((f) => fieldValues[f.envName] !== undefined && fieldValues[f.envName] !== '')
-      .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
+    const fieldEntries = collectConfiguredFieldEntries(platform.fields, fieldValues);
+    const updates = fieldEntries.map(([name, value]) => ({ name, value }));
 
     if (updates.length === 0) {
       addToast({
@@ -235,11 +249,7 @@ export function HubConnectorConfigTab() {
     setSaveResult(null);
 
     if (TESTABLE_PLATFORMS.includes(platform.id)) {
-      const payload = Object.fromEntries(
-        platform.fields
-          .map((field) => [field.envName, fieldValues[field.envName]])
-          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
-      );
+      const payload = Object.fromEntries(fieldEntries);
       const testRes = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -329,11 +339,7 @@ export function HubConnectorConfigTab() {
     setTesting(true);
     setSaveResult(null);
     try {
-      const payload = Object.fromEntries(
-        platform.fields
-          .map((field) => [field.envName, fieldValues[field.envName]])
-          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
-      );
+      const payload = Object.fromEntries(collectConfiguredFieldEntries(platform.fields, fieldValues));
       const res = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
