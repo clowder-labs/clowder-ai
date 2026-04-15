@@ -121,6 +121,15 @@ export class ShapeConverter extends ElementConverter {
     const fillOpts = this.getPptxFillOptions(element, mapper)
     const lineOpts = this.getPptxLineOptions(element, mapper)
 
+    // 渐变填充：调用 GradientConverter 生成 SVG data URL image
+    if (fillOpts.fill?.type === 'gradient-ref' && this.gradientConverter) {
+      const gradientId = fillOpts.fill.gradientId
+      const gradient = this.gradients!.get(gradientId)!
+      const fillOpacityStr = element.attributes['fill-opacity'] || element.style.fillOpacity
+      const fillOpacity = fillOpacityStr !== undefined ? parseFloat(String(fillOpacityStr)) : 1
+      return this.convertGradientShape(gradient, x, y, w, h, transform, mapper, lineOpts, isNaN(fillOpacity) ? 1 : fillOpacity)
+    }
+
     // 判断是否为纯平移变换（无旋转/缩放/倾斜）
     const isTranslationOnly = Math.abs(transform.a - 1) < 0.001
       && Math.abs(transform.b) < 0.001
@@ -196,6 +205,19 @@ export class ShapeConverter extends ElementConverter {
 
     const fillOpts = this.getPptxFillOptions(element, mapper)
     const lineOpts = this.getPptxLineOptions(element, mapper)
+
+    // 渐变填充：调用 GradientConverter 生成 SVG data URL image
+    if (fillOpts.fill?.type === 'gradient-ref' && this.gradientConverter) {
+      const gradientId = fillOpts.fill.gradientId
+      const gradient = this.gradients!.get(gradientId)!
+      const left = cx - rx
+      const top = cy - ry
+      const width = rx * 2
+      const height = ry * 2
+      const fillOpacityStr = element.attributes['fill-opacity'] || element.style.fillOpacity
+      const fillOpacity = fillOpacityStr !== undefined ? parseFloat(String(fillOpacityStr)) : 1
+      return this.convertGradientShape(gradient, left, top, width, height, transform, mapper, lineOpts, isNaN(fillOpacity) ? 1 : fillOpacity)
+    }
 
     // 判断是否为纯平移变换
     const isTranslationOnly = Math.abs(transform.a - 1) < 0.001
@@ -305,38 +327,18 @@ export class ShapeConverter extends ElementConverter {
       const w = maxX - minX
       const h = maxY - minY
 
-      // 检查是否是渐变填充的矩形（用于 legend）
-      const fillAttr = element.attributes.fill || ''
-      if (fillAttr.startsWith('url(') && this.gradients && this.gradientGenerator) {
-        const gradientId = fillAttr.match(/url\(#([^)]+)\)/)?.[1]
-        if (gradientId && this.gradients.has(gradientId)) {
-          const gradient = this.gradients.get(gradientId)!
-          // 将英寸转换为像素（假设 96 DPI）
-          const widthPx = Math.max(1, Math.round(w * 96))
-          const heightPx = Math.max(1, Math.round(h * 96))
-          
-          try {
-            const imagePath = await this.gradientGenerator.generateGradientImage(
-              gradient,
-              widthPx,
-              heightPx,
-              gradientId
-            )
-            
-            // 返回图片对象
-            return {
-              type: 'image',
-              x: minX,
-              y: minY,
-              w,
-              h,
-              path: imagePath,
-              ...lineOpts
-            }
-          } catch (e) {
-            console.warn(`Failed to generate gradient image: ${e}`)
-            // 回退到普通填充
-          }
+      // 渐变填充：调用 GradientConverter 生成 SVG data URL image
+      if (fillOpts.fill?.type === 'gradient-ref' && this.gradientConverter) {
+        const gradientId = fillOpts.fill.gradientId
+        const gradient = this.gradients!.get(gradientId)!
+        // 提取描边信息
+        const strokeOpts = lineOpts.line ? { color: lineOpts.line.color, width: lineOpts.line.width } : undefined
+        // 提取 fill-opacity
+        const fillOpacityStr = element.attributes['fill-opacity'] || element.style.fillOpacity
+        const fillOpacity = fillOpacityStr !== undefined ? parseFloat(String(fillOpacityStr)) : 1
+        const imageObj = this.gradientConverter.convert(gradient, { x: minX, y: minY, w, h }, transform, undefined, strokeOpts, undefined, isNaN(fillOpacity) ? 1 : fillOpacity)
+        if (imageObj) {
+          return { ...imageObj }
         }
       }
 
@@ -391,5 +393,54 @@ export class ShapeConverter extends ElementConverter {
       fill: undefined,
       ...lineOpts
     }
+  }
+
+  /**
+   * 将渐变填充的形状转换为 image 对象
+   * 计算变换后的包围盒，作为 GradientConverter 的 bounds
+   */
+  private convertGradientShape(
+    gradient: any,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    transform: ReturnType<typeof TransformParser.parseTransform>,
+    mapper: CoordinateMapper,
+    lineOpts: Record<string, any>,
+    fillOpacity: number = 1
+  ): any {
+    // 将形状的四个角点经过变换后映射到 PPTX 坐标
+    const corners = [
+      { x, y },
+      { x: x + w, y },
+      { x: x + w, y: y + h },
+      { x, y: y + h }
+    ]
+
+    const mappedCorners = corners.map(p => {
+      const tp = TransformParser.applyTransformToPoint(transform, p)
+      return mapper.mapPoint(tp)
+    })
+
+    // 计算变换后的包围盒
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const p of mappedCorners) {
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x)
+      maxY = Math.max(maxY, p.y)
+    }
+
+    const bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+    // 提取描边信息
+    const strokeOpts = lineOpts.line ? { color: lineOpts.line.color, width: lineOpts.line.width } : undefined
+    const imageObj = this.gradientConverter!.convert(gradient, bounds, transform, undefined, strokeOpts, undefined, fillOpacity)
+    if (imageObj) {
+      return { ...imageObj }
+    }
+
+    // 降级：返回空（GradientConverter 返回 null 说明不支持该渐变类型）
+    return { type: 'rect', ...bounds }
   }
 }

@@ -1,7 +1,7 @@
 import { SVGElementNode, Gradient } from '../types'
 import { CoordinateMapper } from '../utils/CoordinateMapper'
 import { ColorParser } from '../utils/ColorParser'
-import { GradientImageGenerator } from '../utils/GradientImageGenerator'
+import { GradientConverter } from './GradientConverter'
 
 /**
  * 元素转换器基类
@@ -9,7 +9,7 @@ import { GradientImageGenerator } from '../utils/GradientImageGenerator'
  */
 export abstract class ElementConverter {
   protected gradients?: Map<string, Gradient>
-  protected gradientGenerator?: GradientImageGenerator
+  protected gradientConverter?: GradientConverter
 
   /**
    * 设置渐变定义映射表
@@ -19,10 +19,30 @@ export abstract class ElementConverter {
   }
 
   /**
-   * 设置渐变图片生成器
+   * 设置渐变转换器
    */
-  setGradientGenerator(generator: GradientImageGenerator): void {
-    this.gradientGenerator = generator
+  setGradientConverter(converter: GradientConverter): void {
+    this.gradientConverter = converter
+  }
+
+  /**
+   * 检测元素是否使用了渐变填充
+   */
+  protected hasGradientFill(element: SVGElementNode): boolean {
+    const fillAttr = element.attributes.fill || element.style.fill || ''
+    if (!fillAttr.startsWith('url(')) return false
+    const gradientId = fillAttr.match(/url\(#([^)]+)\)/)?.[1]
+    return !!gradientId && !!this.gradients?.has(gradientId)
+  }
+
+  /**
+   * 提取元素渐变填充的 gradientId
+   * @returns gradientId 或 undefined
+   */
+  protected getGradientId(element: SVGElementNode): string | undefined {
+    const fillAttr = element.attributes.fill || element.style.fill || ''
+    if (!fillAttr.startsWith('url(')) return undefined
+    return fillAttr.match(/url\(#([^)]+)\)/)?.[1]
   }
 
   /**
@@ -63,16 +83,9 @@ export abstract class ElementConverter {
     if (fillAttr.startsWith('url(')) {
       const gradientId = fillAttr.match(/url\(#([^)]+)\)/)?.[1]
       if (gradientId && this.gradients?.has(gradientId)) {
-        const gradient = this.gradients.get(gradientId)!
-        // PptxGenJS 不支持渐变，使用第一个停止点的颜色作为回退
-        const firstStop = gradient.stops[0]
-        if (firstStop) {
-          options.fill = {
-            type: 'solid',
-            color: ColorParser.colorToPptxHex(firstStop.color),
-            ...(transparency !== undefined ? { transparency } : {})
-          }
-        }
+        // 返回渐变引用标记，由具体形状转换器处理
+        options.fill = { type: 'gradient-ref', gradientId }
+        return options
       }
       return options
     }

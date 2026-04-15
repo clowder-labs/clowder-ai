@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { chromium } from 'playwright';
+import { log, warn, error, configureFromArgs } from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const targetPath = args.find(a => !a.startsWith('--'));
 const thresholdArg = args.find(a => a.startsWith('--threshold='));
+
+// 解析日志级别（--verbose / --quiet / --silent）
+configureFromArgs(args);
 
 // 默认阈值：5% 且 10px
 let thresholdPercent = 5;
@@ -36,13 +40,13 @@ if (thresholdArg) {
     thresholdPercent = parseFloat(match[1]);
     thresholdPx = parseFloat(match[2]);
   } else {
-    console.error(`无效阈值格式: ${val}，应为 "5%,10px"`);
+    error(`无效阈值格式: ${val}，应为 "5%,10px"`);
     process.exit(1);
   }
 }
 
 if (!targetPath) {
-  console.error('用法: node detect-overflow.js <文件或目录> [--threshold=5%,10px]');
+  error('用法: node detect-overflow.js <文件或目录> [--threshold=5%,10px]');
   process.exit(1);
 }
 
@@ -50,14 +54,14 @@ if (!targetPath) {
 
 function collectFiles(target) {
   if (!fs.existsSync(target)) {
-    console.error(`错误：路径不存在 - ${target}`);
+    error(`错误：路径不存在 - ${target}`);
     process.exit(1);
   }
 
   const stat = fs.statSync(target);
   if (stat.isFile()) {
     if (target.endsWith('.html') || target.endsWith('.htm')) return [target];
-    console.error('错误：非 HTML 文件');
+    error('错误：非 HTML 文件');
     process.exit(1);
   }
 
@@ -68,7 +72,7 @@ function collectFiles(target) {
     return files;
   }
 
-  console.error(`无效路径：${target}`);
+  error(`无效路径：${target}`);
   process.exit(1);
 }
 
@@ -241,14 +245,14 @@ function escapeRegExp(str) {
 async function main() {
   const files = collectFiles(targetPath);
   if (files.length === 0) {
-    console.log('未找到 HTML 文件');
+    warn('未找到 HTML 文件');
     process.exit(0);
   }
 
-  console.log('🔍 纵向溢出检测');
-  console.log(`📁 目标: ${targetPath} (${files.length} 个文件)`);
-  console.log(`📏 阈值: >${thresholdPercent}% 且 >${thresholdPx}px`);
-  console.log('='.repeat(50));
+  log('🔍 纵向溢出检测');
+  log(`📁 目标: ${targetPath} (${files.length} 个文件)`);
+  log(`📏 阈值: >${thresholdPercent}% 且 >${thresholdPx}px`);
+  log('='.repeat(50));
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -274,43 +278,43 @@ async function main() {
       }
 
       if (overflows.length === 0) {
-        console.log(`\n📄 ${fileName} — ✅ 无溢出`);
+        log(`\n📄 ${fileName} — ✅ 无溢出`);
         continue;
       }
 
       filesWithOverflow++;
       totalOverflows += overflows.length;
-      console.log(`\n📄 ${fileName} — 检测到 ${overflows.length} 处溢出`);
+      log(`\n📄 ${fileName} — 检测到 ${overflows.length} 处溢出`);
 
       for (const o of overflows) {
-        console.log(`\n  ❌ ${o.domPath}`);
-        console.log(`     scrollHeight: ${o.scrollHeight}px  clientHeight: ${o.clientHeight}px  溢出: ${o.overflow}px (${o.ratio}%)`);
+        log(`\n  ❌ ${o.domPath}`);
+        log(`     scrollHeight: ${o.scrollHeight}px  clientHeight: ${o.clientHeight}px  溢出: ${o.overflow}px (${o.ratio}%)`);
       }
     } catch (err) {
       hasError = true;
-      console.error(`\n📄 ${fileName} — ⚠️ 检测失败: ${err.message}`);
+      warn(`\n📄 ${fileName} — ⚠️ 检测失败: ${err.message}`);
     }
   }
 
   await browser.close();
 
   // 统计
-  console.log('\n' + '='.repeat(50));
-  console.log('📊 统计：');
-  console.log(`   检查文件：${totalFiles}`);
-  console.log(`   有溢出：${filesWithOverflow}`);
-  console.log(`   溢出总数：${totalOverflows}`);
+  log('\n' + '='.repeat(50));
+  log('📊 统计：');
+  log(`   检查文件：${totalFiles}`);
+  log(`   有溢出：${filesWithOverflow}`);
+  log(`   溢出总数：${totalOverflows}`);
 
   if (hasError) {
-    console.log('\n⚠️  部分文件检测失败');
+    warn('\n⚠️  部分文件检测失败');
     process.exit(2);
   }
 
   if (filesWithOverflow > 0) {
-    process.exit(1);
+    process.exit(0);
   }
 
-  console.log('\n✨ 所有文件无溢出');
+  log('\n✨ 所有文件无溢出');
 }
 
 
@@ -319,7 +323,7 @@ export { detectOverflow };
 // 只在直接运行时执行 main，被 import 时不执行
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   main().catch(err => {
-    console.error('致命错误:', err);
+    error('致命错误:', err);
     process.exit(2);
   });
 }

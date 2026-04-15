@@ -71,13 +71,25 @@ export class SVGParser {
   }
 
   /**
+   * 解析百分比值，返回 0-1 范围的小数
+   * SVG 渐变坐标可以是百分比（如 "50%"）或小数（如 "0.5"）
+   */
+  private parsePercentage(value: string): number {
+    const trimmed = value.trim()
+    if (trimmed.includes('%')) {
+      return parseFloat(trimmed) / 100
+    }
+    return parseFloat(trimmed)
+  }
+
+  /**
    * 解析线性渐变
    */
   private parseLinearGradient(element: DOMNode): LinearGradient | null {
-    const x1 = parseFloat(element.getAttribute('x1') || '0')
-    const y1 = parseFloat(element.getAttribute('y1') || '0')
-    const x2 = parseFloat(element.getAttribute('x2') || '0')
-    const y2 = parseFloat(element.getAttribute('y2') || '1')
+    const x1 = this.parsePercentage(element.getAttribute('x1') || '0')
+    const y1 = this.parsePercentage(element.getAttribute('y1') || '0')
+    const x2 = this.parsePercentage(element.getAttribute('x2') || '0')
+    const y2 = this.parsePercentage(element.getAttribute('y2') || '1')
 
     const stops = this.parseGradientStops(element)
     if (stops.length === 0) return null
@@ -93,9 +105,9 @@ export class SVGParser {
    * 解析径向渐变
    */
   private parseRadialGradient(element: DOMNode): RadialGradient | null {
-    const cx = parseFloat(element.getAttribute('cx') || '0.5')
-    const cy = parseFloat(element.getAttribute('cy') || '0.5')
-    const r = parseFloat(element.getAttribute('r') || '0.5')
+    const cx = this.parsePercentage(element.getAttribute('cx') || '0.5')
+    const cy = this.parsePercentage(element.getAttribute('cy') || '0.5')
+    const r = this.parsePercentage(element.getAttribute('r') || '0.5')
 
     const stops = this.parseGradientStops(element)
     if (stops.length === 0) return null
@@ -127,6 +139,18 @@ export class SVGParser {
 
       const color = this.parseColorString(colorStr)
       if (color) {
+        // 处理 stop-opacity 属性
+        const stopOpacity = stop.getAttribute('stop-opacity')
+        if (stopOpacity !== null) {
+          color.a = parseFloat(stopOpacity)
+        }
+
+        // 处理 style 属性中的 stop-opacity
+        const stopOpacityStyleMatch = style.match(/stop-opacity:\s*([^;]+)/)
+        if (stopOpacityStyleMatch) {
+          color.a = parseFloat(stopOpacityStyleMatch[1])
+        }
+
         stops.push({ offset, color })
       }
     }

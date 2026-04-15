@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { error } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,7 +13,7 @@ const baseDir = process.argv[2] || 'output';
 
 // 参数校验
 if (!baseDir || typeof baseDir !== 'string' || baseDir.trim() === '') {
-  console.error('错误：输出目录路径不能为空');
+  error('错误：输出目录路径不能为空');
   process.exit(1);
 }
 
@@ -33,8 +34,8 @@ try {
     fs.mkdirSync(baseDir, { recursive: true });
   }
 } catch (err) {
-  console.error(`错误：无法创建基础目录 - ${baseDir}`);
-  console.error(`  ${err.message}`);
+  error(`错误：无法创建基础目录 - ${baseDir}`);
+  error(`  ${err.message}`);
   process.exit(1);
 }
 
@@ -43,7 +44,7 @@ const MAX_SEQ = 1000;
 let seq = 0;
 while (fs.existsSync(path.join(baseDir, `${timestampPrefix}_${String(seq).padStart(3, '0')}`))) {
   if (seq >= MAX_SEQ) {
-    console.error(`错误：同前缀目录数已达上限 (${MAX_SEQ})`);
+    error(`错误：同前缀目录数已达上限 (${MAX_SEQ})`);
     process.exit(1);
   }
   seq++;
@@ -54,8 +55,8 @@ const timestampDir = path.join(baseDir, `${timestampPrefix}_${String(seq).padSta
 try {
   fs.mkdirSync(timestampDir, { recursive: true });
 } catch (err) {
-  console.error(`错误：无法创建输出目录 - ${timestampDir}`);
-  console.error(`  ${err.message}`);
+  error(`错误：无法创建输出目录 - ${timestampDir}`);
+  error(`  ${err.message}`);
   process.exit(1);
 }
 

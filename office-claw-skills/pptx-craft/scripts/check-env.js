@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log } from './utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
@@ -221,7 +222,7 @@ function main() {
     }
   }
   
-  console.log(lines.join('\n'));
+  log(lines.join('\n'));
   process.exit(allOk ? 0 : 1);
 }
 

@@ -337,18 +337,18 @@ Main agent 与用户交互，收集三项必需信息：
   multiSelect: false
   options:（固定选项，基于内置风格）
     - label: "华为风格", description: "红色主题、严谨专业、高信息密度"
-    - label: "Apple 风格", description: "极简黑白、SF Pro 字体、产品为中心的设计"
-    - label: "Claude 风格", description: "温暖羊皮纸、陶土色强调、有机插图风格"
-    - label: "NVIDIA 风格", description: "黑底绿边、工业科技、高对比度设计"
+    - label: "浅色科技风", description: "极简黑白、光学尺寸字体、产品为中心的设计"
+    - label: "纸质人文风", description: "温暖羊皮纸、陶土色强调、有机插图风格"
+    - label: "深绿科技风", description: "黑底绿边、工业科技、高对比度设计"
     - label: "自由发挥", description: "不限定风格，由 AI 根据主题自动设计"
   （用户可选 Other 描述自定义风格）
 ```
 
 **风格结果处理**：
 - 用户选择了"华为风格" → 记录 `style_id` 为 `huawei`
-- 用户选择了"Apple 风格" → 记录 `style_id` 为 `apple`
-- 用户选择了"Claude 风格" → 记录 `style_id` 为 `claude`
-- 用户选择了"NVIDIA 风格" → 记录 `style_id` 为 `nvidia`
+- 用户选择了"浅色科技风" → 记录 `style_id` 为 `light-tech`
+- 用户选择了"纸质人文风" → 记录 `style_id` 为 `paper-humanities`
+- 用户选择了"深绿科技风" → 记录 `style_id` 为 `dark-tech`
 - 用户选择"自由发挥" → 记录 `style_id` 为 `free`
 - 用户选择 Other 并描述自定义风格 → 记录 `style_id` 为 `custom`，保存用户描述
 
@@ -686,10 +686,10 @@ output/
 
 请读取 planner/SKILL.md 获取方法论，按照方法论生成完整的 ppt_plan.md。
 风格「{style_id}」的配色和字体信息：
-- huawei（华为风格）：红色主题 #c7020e，字体：中文微软雅黑/英文 Arial，标题 28pt，正文 14pt，辅助 11pt，行距 1.5 倍，顶部红线布局
-- apple（Apple 风格）：极简黑白配色，纯黑 #000000 与浅灰 #f5f5f7 交替，Apple Blue #0071e3 作为唯一强调色，字体：SF Pro Display/Text，标题 56px 加粗，行高紧凑 1.07-1.14，大量留白，产品为中心的设计
-- claude（Claude 风格）：温暖羊皮纸色调 #f5f4ed，陶土色品牌强调 #c96442，字体：Anthropic Serif（标题）/Sans（正文），标题 64px 中等字重，行高 1.10-1.60，有机插图风格，暖色调中性色
-- nvidia（NVIDIA 风格）：黑底白字高对比，NVIDIA 绿 #76b900 作为边框/下划线强调，字体：NVIDIA-EMEA/Arial，标题 36px 加粗，行高 1.25，工业科技感，锐利直角设计
+- huawei（华为风格）：红色主题 #c7020e，字体：Noto Sans SC，标题 28pt，正文 14pt，辅助 11pt，行距 1.5 倍，顶部红线布局
+- dark-tech（深色科技风）：黑底白字高对比，绿色 #76b900 作为边框/下划线强调，字体：Noto Sans SC，标题 36px 加粗，行高 1.25，工业科技感，锐利直角设计
+- light-tech（浅色科技风）：极简黑白配色，纯黑 #000000 与浅灰 #f5f5f7 交替，科技蓝 #0071e3 作为唯一强调色，字体：Noto Sans SC，标题 56px 加粗，行高紧凑 1.07-1.14，大量留白，产品为中心的设计
+- paper-humanities（纸质人文风）：温暖羊皮纸色调 #f5f4ed，陶土色品牌强调 #c96442，字体：Noto Sans SC，标题 64px 中等字重，行高 1.10-1.60，有机插图风格，暖色调中性色
 - free（自由发挥）：AI 根据主题自动选择配色和字体
 - custom（自定义）：使用用户描述的配色和字体
 将结果写入 {output_dir}/ppt_plan.md。
@@ -721,10 +721,9 @@ output/
 
 请读取 planner/SKILL.md 获取方法论，按照方法论生成完整的 ppt_plan.md。
 风格「{style_id}」的配色和字体信息：
-- huawei（华为风格）：红色主题 #c7020e，字体：中文微软雅黑/英文 Arial，标题 28pt，正文 14pt，辅助 11pt，行距 1.5 倍，顶部红线布局
-- apple（Apple 风格）：极简黑白配色，纯黑 #000000 与浅灰 #f5f5f7 交替，Apple Blue #0071e3 作为唯一强调色，字体：SF Pro Display/Text，标题 56px 加粗，行高紧凑 1.07-1.14，大量留白，产品为中心的设计
-- claude（Claude 风格）：温暖羊皮纸色调 #f5f4ed，陶土色品牌强调 #c96442，字体：Anthropic Serif（标题）/Sans（正文），标题 64px 中等字重，行高 1.10-1.60，有机插图风格，暖色调中性色
-- nvidia（NVIDIA 风格）：黑底白字高对比，NVIDIA 绿 #76b900 作为边框/下划线强调，字体：NVIDIA-EMEA/Arial，标题 36px 加粗，行高 1.25，工业科技感，锐利直角设计
+- dark-tech（绿色科技风）：黑底白字高对比，绿色 #76b900 作为边框/下划线强调，字体：Noto Sans SC，标题 36px 加粗，行高 1.25，工业科技感，锐利直角设计
+- light-tech（浅色科技风）：极简黑白配色，纯黑 #000000 与浅灰 #f5f5f7 交替，科技蓝 #0071e3 作为唯一强调色，字体：Noto Sans SC，标题 56px 加粗，行高紧凑 1.07-1.14，大量留白，产品为中心的设计
+- paper-humanities（纸质人文风）：温暖羊皮纸色调 #f5f4ed，陶土色品牌强调 #c96442，字体：Noto Sans SC，标题 64px 中等字重，行高 1.10-1.60，有机插图风格，暖色调中性色
 - free（自由发挥）：AI 根据主题自动选择配色和字体
 - custom（自定义）：使用用户描述的配色和字体
 将结果写入 {output_dir}/ppt_plan.md。
@@ -741,15 +740,15 @@ Main Agent 根据 `style_id` 查找对应的风格定义文件，并在 Charlie 
 | `style_id` | 风格文件绝对路径 |
 |------------|-----------------|
 | `huawei`   | `{skills_root}/pptx-craft/styles/huawei.md` |
-| `apple`    | `{skills_root}/pptx-craft/styles/apple.md` |
-| `claude`   | `{skills_root}/pptx-craft/styles/anthropic.md` |
-| `nvidia`   | `{skills_root}/pptx-craft/styles/nvidia.md` |
+| `light-tech`    | `{skills_root}/pptx-craft/styles/light-tech.md` |
+| `paper-humanities`   | `{skills_root}/pptx-craft/styles/paper-humanities.md` |
+| `dark-tech`   | `{skills_root}/pptx-craft/styles/dark-tech.md` |
 | `free`     | 无（AI 自动选择，不读取风格文件） |
 | `custom`   | 无（使用用户描述的自定义风格，不读取风格文件） |
 
-> **注意**：`claude` 风格对应 `anthropic.md` 文件。`{skills_root}` 为 skills 目录的绝对路径。
+> **注意**：`{skills_root}` 为 skills 目录的绝对路径。
 
-**风格文件读取指令模板**（当 `style_id` 为 `huawei`/`apple`/`nvidia` 时注入）：
+**风格文件读取指令模板**（当 `style_id` 为 `huawei`/`light-tech`/`paper-humanities`/`dark-tech` 时注入）：
 
 ```
 在开始生成之前，请先读取风格定义文件，严格遵循其中的视觉规范：
@@ -809,11 +808,11 @@ Main Agent 根据 `style_id` 查找对应的风格定义文件，并在 Charlie 
    - 背景、装饰元素可以使用全部 1280×720 空间
 
 **CDN 依赖（按需引入，缺失会导致页面功能异常）**：
-- 必选：Tailwind CSS
-- 使用了 FontAwesome 图标（fa-solid/fa-regular 等）→ 引入 FontAwesome CDN
-- 使用了 ECharts 图表（echarts.init/echarts.setOption）→ 引入 ECharts CDN
-- 使用了数学公式（MathJax/\frac/\sqrt）→ 引入 MathJax CDN
-- 使用了自定义字体（MiSans/Liter 等）→ 引入 font-v2.css
+- 必选：[Tailwind CSS](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js)
+- 使用了 FontAwesome 图标（fa-solid/fa-regular 等）→ 引入 [FontAwesome CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/fontawesome/css/all.min.css)
+- 使用了 ECharts 图表（echarts.init/echarts.setOption）→ 引入 [ECharts CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/echarts.min.js)
+- 使用了数学公式（MathJax/\frac/\sqrt）→ 引入 [MathJax CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/mathjax/tex-svg.min.js)
+- 使用了字体定义 (Noto Sans SC)→ 引入 [font.css](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/css/fonts.css)
 
 **初始生成 Prompt**（首次生成时使用）：
 

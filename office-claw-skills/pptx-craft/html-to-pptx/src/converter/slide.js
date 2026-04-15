@@ -2064,6 +2064,28 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
         }
       }
     }
+
+    // 兜底：如果 root 元素没有任何背景，尝试使用 body 的背景色
+    // 适用于 body { background-color: xxx } 的场景
+    if (!slideBgHex) {
+      const bodyStyle = window.getComputedStyle(document.body);
+      const bodyBgObj = parseColor(bodyStyle.backgroundColor);
+      if (bodyBgObj.hex && bodyBgObj.opacity > 0) {
+        slide.background = { color: bodyBgObj.hex };
+        slideBgHex = bodyBgObj.hex;
+      } else {
+        // body 也没有纯色背景时，检查 body 的渐变
+        const bodyBgImg = bodyStyle.backgroundImage || "";
+        if (bodyBgImg && bodyBgImg !== "none" && /gradient\(/.test(bodyBgImg)) {
+          const fallback = getGradientFallbackColor(bodyBgImg);
+          const fallbackObj = parseColor(fallback);
+          if (fallbackObj.hex && fallbackObj.opacity > 0) {
+            slide.background = { color: fallbackObj.hex };
+            slideBgHex = fallbackObj.hex;
+          }
+        }
+      }
+    }
   }
 
   const renderQueue = [];
