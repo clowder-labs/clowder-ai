@@ -1266,7 +1266,7 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--icon-delete-hover)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[--text-accent]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
