@@ -148,8 +148,6 @@ export const sessions = new Map<string, UserInfo>();
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
   const skipAuth =
-    process.env.OFFICE_CLAW_SKIP_AUTH === '1' ||
-    process.env.OFFICE_CLAW_SKIP_AUTH === 'true' ||
     process.env.CAT_CAFE_SKIP_AUTH === '1' ||
     process.env.CAT_CAFE_SKIP_AUTH === 'true';
 
@@ -571,7 +569,7 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
         method: 'GET',
       },
     );
-    console.log('===============validateCasTicket result: ', response);
+    console.log('===============validateCasTicket response: ', response);
     if (!response.ok) {
       const { error_code, error_message } = await getErrorMessage(response);
       return {
@@ -581,6 +579,7 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
     }
 
     const data = await response.json();
+    console.log('===============validateCasTicket json result: ', data);
     const profile = normalizeCasUserProfile(data);
     if (!profile) {
       return { success: false, message: '票据校验成功，但未返回有效用户信息' };
@@ -665,6 +664,7 @@ async function subscriptionClaw(
       body: requestBody,
     });
 
+    console.log('===============subscriptionClaw response: ', subResponse);
     if (!subResponse.ok) {
       const { error_code, error_message } = await getErrorMessage(subResponse);
       const needCode = PROMOTION_CODE_ERROR_CODES.has(error_code);
@@ -675,6 +675,7 @@ async function subscriptionClaw(
     }
 
     const data = await subResponse.json();
+    console.log('===============subscriptionClaw json result: ', data);
     const payload = unwrapPayload(data);
     const modelInfo = extractModelInfo(payload);
     if (!isRecord(modelInfo)) {
