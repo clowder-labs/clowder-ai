@@ -130,6 +130,12 @@ const LEGACY_ENCRYPTION_KEY = 'clowder-ai-secure-key';
 const SECURE_CONFIG_PROJECT_NAME = 'secure-config';
 const SECURE_CONFIG_PROJECT_SUFFIX = 'nodejs';
 
+function isEnvFlagEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
+}
+
 async function getOrCreateEncryptionKey(): Promise<string> {
   const existingKey = await getPassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
   if (existingKey) {
@@ -176,6 +182,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     process.env.OFFICE_CLAW_SKIP_AUTH === 'true' ||
     process.env.CAT_CAFE_SKIP_AUTH === '1' ||
     process.env.CAT_CAFE_SKIP_AUTH === 'true';
+  const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request) => {
@@ -186,6 +193,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
         userId: 'debug-user',
         userName: 'debug-user',
         isskip: true,
+        canCreateModel,
         loginUrl: CAS_LOGIN_URL,
         logoutUrl: CAS_LOGOUT_URL,
       };
@@ -213,6 +221,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
         userId: storedUserInfo.userId,
         userName: storedUserInfo.userName,
         pendingInvitation: true,
+        canCreateModel,
       };
     }
 
@@ -228,6 +237,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       userId: storedUserInfo.userId,
       userName: storedUserInfo.userName,
       isskip: false,
+      canCreateModel,
       loginUrl: CAS_LOGIN_URL,
       logoutUrl: CAS_LOGOUT_URL,
     };
@@ -549,6 +559,7 @@ function buildLoggedOutPayload() {
     islogin: false,
     hascode: false,
     isskip: false,
+    canCreateModel: isEnvFlagEnabled(process.env.CAN_CREATE_MODEL),
     loginUrl: CAS_LOGIN_URL,
     logoutUrl: CAS_LOGOUT_URL,
   };

@@ -12,7 +12,7 @@ import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth } from '@/utils/userId';
+import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
@@ -325,6 +325,7 @@ function isEnvFlagEnabled(value: string | undefined): boolean {
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
+  const [canCreateModel, setCanCreateModel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
@@ -358,7 +359,6 @@ export function ModelsPanel() {
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
 
-  const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
@@ -474,6 +474,7 @@ export function ModelsPanel() {
 
   useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
+    setCanCreateModel(getCanCreateModel() || isEnvFlagEnabled(process.env.CAN_CREATE_MODEL));
   }, []);
 
   useEffect(() => {

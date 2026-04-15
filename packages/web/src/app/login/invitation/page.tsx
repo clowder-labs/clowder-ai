@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
 type InvitationResponse = {
   success?: boolean;
@@ -23,6 +23,7 @@ type InvitationResponse = {
   islogin?: boolean;
   pendingInvitation?: boolean;
   isskip?: boolean;
+  canCreateModel?: boolean;
 };
 
 const INVITATION_LINK_URL = 'https://placeholder.officeclaw.example/invitation';
@@ -99,6 +100,7 @@ export default function InvitationPage() {
           });
         }
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
 
         if (data?.islogin) {
           router.replace(withAuthSuccessRedirect('/'));
