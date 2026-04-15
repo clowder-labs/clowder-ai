@@ -322,8 +322,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             fixPrivacyLinks();
             function hideElements(){if(!isHuaweicloud())return;var idp=document.getElementById('idpLinkDiv');if(idp)idp.style.display='none';var eChannel=document.getElementById('eChannelLinkDiv');if(eChannel)eChannel.style.display='none'}
             hideElements();
-            if(document.readyState!=='complete'){document.addEventListener('DOMContentLoaded',function(){replaceSpans();fixPrivacyLinks();hideElements()})}
-            new MutationObserver(function(){replaceSpans();fixPrivacyLinks();hideElements()}).observe(document.documentElement,{childList:true,subtree:true});
+            function styleLoginAdv(){if(!isHuaweicloud())return;var container=document.getElementById('loginAdv');if(!container)return;container.style.padding='20px';var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.removeAttribute('href');a.removeAttribute('target')}var imgs=container.querySelectorAll('img');for(var i=0;i<imgs.length;i++){imgs[i].style.maxWidth='100%';imgs[i].style.height='auto'}}
+            styleLoginAdv();
+            if(document.readyState!=='complete'){document.addEventListener('DOMContentLoaded',function(){replaceSpans();fixPrivacyLinks();hideElements();styleLoginAdv()})}
+            new MutationObserver(function(){replaceSpans();fixPrivacyLinks();hideElements();styleLoginAdv()}).observe(document.documentElement,{childList:true,subtree:true});
             })();
             """,
             injectionTime: .atDocumentStart,
@@ -360,6 +362,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hideElements();
         function fixForgetPwdLink(){if(!isHuaweicloud())return;var container=document.querySelector('.forgetPwdLink');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];if(a.textContent.trim()==='忘记密码'){a.className='loginBottomColor';a.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';a.target='_blank';a.rel='noopener noreferrer';a.addEventListener('click',function(e){e.stopPropagation()});break}}var spans=container.querySelectorAll('span');for(var i=0;i<spans.length;i++){var s=spans[i];if(s.textContent.trim()==='忘记密码'){var a=document.createElement('a');a.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';a.target='_blank';a.rel='noopener noreferrer';a.textContent='忘记密码';a.style.cssText='font-size:14px;color:rgba(0,0,0,.5);';a.addEventListener('click',function(e){e.stopPropagation()});a.addEventListener('mouseenter',function(){this.style.color='#526ecc';this.style.textDecoration='none'});a.addEventListener('mouseleave',function(){this.style.color='rgba(0,0,0,.5)'});s.parentNode.replaceChild(a,s);break}}}
         fixForgetPwdLink();
+        function styleLoginAdv(){if(!isHuaweicloud())return;var container=document.getElementById('loginAdv');if(!container)return;container.style.padding='20px';var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.removeAttribute('href');a.removeAttribute('target')}var imgs=container.querySelectorAll('img');for(var i=0;i<imgs.length;i++){imgs[i].style.maxWidth='100%';imgs[i].style.height='auto'}}
+        styleLoginAdv();
         })();
         """
         webView.evaluateJavaScript(huaweiScript, completionHandler: nil)
