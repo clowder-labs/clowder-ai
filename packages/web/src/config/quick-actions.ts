@@ -5,22 +5,53 @@
  *
  */
 
+export interface ExpertCardConfig {
+  agentId: string;
+  agentName: string;
+  content: string;
+}
+
 export interface QuickActionConfig {
   label: string;
   icon: string;
   show: boolean;
   prompts: Array<string>;
+  /** 专家团思辨专用：包含智能体信息和内容 */
+  expertCards?: ExpertCardConfig[];
 }
 
 export const QUICK_ACTIONS: QuickActionConfig[] = [
   {
     label: '定时任务',
-    icon: '/icons/scheduled-task.svg',
+    icon: '/icons/time-time.svg',
     show: true,
     prompts: [
       '每日 10:00 提醒我喝水，从今天开始并持续生效，任务创建后设置为立即执行。',
       '设置每天为我推送当天最新的10条科技新闻，每条新闻总结要精简。',
       '设置每天生成一个3-5分钟的睡前故事，并在每日10:00推送给我。',
+    ],
+  },
+  {
+    label: '专家团思辨',
+    icon: '/icons/expert-debate.svg',
+    show: true,
+    prompts: [],
+    expertCards: [
+      {
+        agentId: 'office',
+        agentName: '通用助手',
+        content: '你拉着你的其他小伙伴，讨论一下如何通过场景化运营让AI工具真正融入用户日常工作，提升使用粘性',
+      },
+      {
+        agentId: 'assistant',
+        agentName: '逻辑大师',
+        content: '你拉着你的其他小伙伴，讨论一下传统企业数字化转型战略的规划与落地路径，整合自身核心资源形成差异化竞争力',
+      },
+      {
+        agentId: 'agentteams',
+        agentName: '人文顾问',
+        content: '你拉着你的其他小伙伴，讨论一下企业该如何构建自己的AI技术壁垒，形成长期可持续的竞争力',
+      },
     ],
   },
   {

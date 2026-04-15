@@ -23,7 +23,9 @@ type AgentManagementIconName =
   | 'delete'
   | 'refresh'
   | 'random'
-  | 'add';
+  | 'add'
+  | 'information'
+  | 'link';
 
 const ICON_PATHS: Record<AgentManagementIconName, string> = {
   persona: '/images/agent-management-icons/agent-persona.svg',
@@ -38,6 +40,8 @@ const ICON_PATHS: Record<AgentManagementIconName, string> = {
   refresh: '/images/agent-management-icons/agent-refresh.svg',
   random: '/images/agent-management-icons/agent-random-avatar.svg',
   add: '/images/add.svg',
+  link: '/images/link.svg',
+  information: '/images/information.svg',
 };
 
 function DeleteIcon({ className }: { className?: string }) {
@@ -64,6 +68,18 @@ function CloseSvgIcon({ className }: { className?: string }) {
   );
 }
 
+function AddSvgIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M8.6002 7.4006V2.59961C8.6002 2.26862 8.33119 1.9996 8.0002 1.9996C7.6682 1.9996 7.40019 2.26862 7.40019 2.59961V7.4006H2.60001C2.269 7.4006 2 7.66861 2 7.9996C2 8.3306 2.269 8.59961 2.60001 8.59961H7.40019V13.4006C7.40019 13.7316 7.6682 13.9996 8.0002 13.9996C8.33119 13.9996 8.6002 13.7316 8.6002 13.4006V8.59961H13.4C13.732 8.59961 14 8.3306 14 7.9996C14 7.66861 13.732 7.4006 13.4 7.4006H8.6002Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 export function AgentManagementIcon({
   name,
   className,
@@ -77,6 +93,10 @@ export function AgentManagementIcon({
 
   if (name === 'close') {
     return <CloseSvgIcon className={className} />;
+  }
+
+  if (name === 'add') {
+    return <AddSvgIcon className={className} />;
   }
 
   const imageClassName = [name === 'edit' && !preserveOriginalColor ? 'brightness-0' : null, className]

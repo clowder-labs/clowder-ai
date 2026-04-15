@@ -18,6 +18,8 @@ const mockWindowOpen = vi.fn();
 const mockLocationAssign = vi.fn();
 const originalLocation = window.location;
 let currentTheme: 'business' | 'warm' = 'business';
+let currentUserId = 'user:Alice';
+let currentUserName = 'Alice';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -32,7 +34,8 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
-  getUserId: () => 'user:Alice',
+  getUserId: () => currentUserId,
+  getUserName: () => currentUserName,
   getIsSkipAuth: () => false,
   clearAuthIdentity: vi.fn(),
 }));
@@ -111,6 +114,8 @@ describe('UserProfile overlay classes', () => {
   }
 
   it('renders a stable fallback name on the server before browser user state loads', async () => {
+    currentUserId = 'default-user';
+    currentUserName = '';
     expect(renderToString(React.createElement(UserProfile))).toContain('未登录');
 
     act(() => {
@@ -118,7 +123,7 @@ describe('UserProfile overlay classes', () => {
     });
     await flush();
 
-    expect(container.textContent).toContain('Alice');
+    expect(container.textContent).toContain('未登录');
   });
 
   it('opens the theme popover on click instead of hover', async () => {
@@ -321,7 +326,7 @@ describe('UserProfile overlay classes', () => {
     expect(warmBadge?.style.backgroundColor).toBe('rgb(204, 109, 26)');
   });
 
-  it('opens the help document when the help action is clicked', async () => {
+  it('opens the about popover and reuses the help action inside it', async () => {
     act(() => {
       root.render(React.createElement(UserProfile));
     });
@@ -336,14 +341,57 @@ describe('UserProfile overlay classes', () => {
     await flush();
 
     const helpButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('帮助'));
-    expect(helpButton).toBeTruthy();
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent?.trim() === '帮助')).toBe(false);
 
     act(() => {
-      helpButton?.click();
+      (container.querySelector('[data-testid="user-profile-about-trigger"]') as HTMLButtonElement | null)?.click();
     });
+    await flush();
+
+    expect(container.querySelector('[data-testid="user-about-popover"]')).toBeTruthy();
+
+    act(() => {
+      (container.querySelector('[data-testid="user-about-help-action"]') as HTMLButtonElement | null)?.click();
+    });
+    await flush();
 
     expect(mockWindowOpen).toHaveBeenCalledWith(
       'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+  it('opens the privacy declaration from the about popover in a new tab', async () => {
+    currentUserId = 'user:Alice';
+    currentUserName = 'Alice';
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    act(() => {
+      (container.querySelector('[data-testid="user-profile-about-trigger"]') as HTMLButtonElement | null)?.click();
+    });
+    await flush();
+
+    expect(container.querySelector('[data-testid="user-about-popover"]')).toBeTruthy();
+
+    act(() => {
+      (container.querySelector('[data-testid="user-about-privacy-action"]') as HTMLButtonElement | null)?.click();
+    });
+    await flush();
+
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      'https://www.huaweicloud.com/declaration/sa_prp.html',
       '_blank',
       'noopener,noreferrer',
     );
@@ -414,7 +462,7 @@ describe('UserProfile overlay classes', () => {
     });
     await flush();
 
-    expect(container.querySelector('[data-testid="user-profile-panel"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="user-profile-panel"]')).toBeNull();
     expect(mockWindowOpen).not.toHaveBeenCalled();
   });
 
@@ -444,12 +492,7 @@ describe('UserProfile overlay classes', () => {
  	     expect(actionButtons.indexOf(usageButton as HTMLButtonElement)).toBeLessThan(
  	       actionButtons.indexOf(versionButton as HTMLButtonElement),
  	     );
- 	     expect(usageStatsModalSpy).toHaveBeenLastCalledWith(
- 	       expect.objectContaining({
- 	         open: false,
- 	         onClose: expect.any(Function),
- 	       }),
- 	     );
+ 	     expect(usageStatsModalSpy).not.toHaveBeenCalled();
  	 
  	     act(() => {
  	       usageButton?.click();

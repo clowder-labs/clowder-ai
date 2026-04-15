@@ -71,7 +71,7 @@ export function AuthHeroShowcase({ layout = 'split' }: { layout?: 'split' | 'sta
       </div>
 
       <p className={`mt-2 mb-10 text-center text-[18px] font-normal leading-[30px] text-[#191919] ${descriptionClassName}`}>
-        AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
+        AI深度赋能全场景办公，专家团协作决策，安全高效更懂你
       </p>
 
       <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">

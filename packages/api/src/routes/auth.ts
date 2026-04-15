@@ -154,8 +154,6 @@ export const sessions = new Map<string, UserInfo>();
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
   const skipAuth =
-    process.env.OFFICE_CLAW_SKIP_AUTH === '1' ||
-    process.env.OFFICE_CLAW_SKIP_AUTH === 'true' ||
     process.env.CAT_CAFE_SKIP_AUTH === '1' ||
     process.env.CAT_CAFE_SKIP_AUTH === 'true';
   const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
@@ -582,7 +580,6 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
         method: 'GET',
       },
     );
-    console.log('===============validateCasTicket result: ', response);
     if (!response.ok) {
       const { error_code, error_message } = await getErrorMessage(response);
       return {

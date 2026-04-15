@@ -177,6 +177,34 @@ describe('useAgentMessages error toast fallback', () => {
     expect(mockAddToast).not.toHaveBeenCalled();
   });
 
+  it('pushes a fixed system bubble for daily quota exhaustion error events', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
+        catId: 'codex',
+        errorCode: 'APIG.0308',
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'error',
+        content: `您好，截至目前您今日的免费模型使用额度已用尽。
+如需继续使用服务，可选择[购买](https://console.huaweicloud.com/modelarts/?region=cn-southwest-2#/model-studio/deployment)华为云MaaS模型服务进行接入；或于次日再次访问，系统将为您重置免费额度。`,
+      }),
+    );
+    expect(mockAddToast).not.toHaveBeenCalled();
+  });
+
   it('uses toast instead of assistant bubble for generic agent failures', () => {
     act(() => {
       root.render(React.createElement(Harness));
