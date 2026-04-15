@@ -2779,12 +2779,12 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
-  it('keeps relayclaw query on the clean user task and moves orchestration context into systemPrompt', async () => {
+  it('keeps relayclaw orchestration context in the user prompt and systemPrompt static', async () => {
     const seen = [];
     const service = {
       async *invoke(prompt, options) {
         seen.push({ prompt, options: options ?? {} });
-        yield { type: 'done', catId: 'jiuwenclaw', timestamp: Date.now() };
+        yield { type: 'done', catId: 'office', timestamp: Date.now() };
       },
     };
 
@@ -2800,7 +2800,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     await collect(
       invokeSingleCat(makeDeps(), {
-        catId: 'jiuwenclaw',
+        catId: 'office',
         service,
         prompt: orchestratedPrompt,
         userPrompt: '帮我做一页 PPT',
@@ -2812,10 +2812,45 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     );
 
     assert.equal(seen.length, 1);
-    assert.equal(seen[0].prompt, '帮我做一页 PPT');
-    assert.match(String(seen[0].options.systemPrompt ?? ''), /Identity: 办公智能体\/office/);
-    assert.match(String(seen[0].options.systemPrompt ?? ''), /Dispatch Mission Context/);
-    assert.match(String(seen[0].options.systemPrompt ?? ''), /对话历史增量/);
+    assert.equal(seen[0].prompt, orchestratedPrompt);
+    assert.equal(seen[0].options.systemPrompt, 'Identity: 办公智能体/office');
+    assert.doesNotMatch(String(seen[0].options.systemPrompt ?? ''), /Dispatch Mission Context/);
+    assert.doesNotMatch(String(seen[0].options.systemPrompt ?? ''), /对话历史增量/);
+  });
+
+  it('keeps relayclaw static systemPrompt on resume because jiuwen rebuilds system messages per request', async () => {
+    const seen = [];
+    const service = {
+      async *invoke(prompt, options) {
+        seen.push({ prompt, options: options ?? {} });
+        yield { type: 'done', catId: 'office', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'catcafe_existing_jiuwen_session',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'office',
+        service,
+        prompt: 'dynamic context + task',
+        userPrompt: 'task only',
+        userId: 'user-relayclaw-resume-system-prompt',
+        threadId: 'thread-relayclaw-resume-system-prompt',
+        systemPrompt: 'Identity: 办公智能体/office',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].prompt, 'dynamic context + task');
+    assert.equal(seen[0].options.cliSessionId, 'catcafe_existing_jiuwen_session');
+    assert.equal(seen[0].options.systemPrompt, 'Identity: 办公智能体/office');
   });
 
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {

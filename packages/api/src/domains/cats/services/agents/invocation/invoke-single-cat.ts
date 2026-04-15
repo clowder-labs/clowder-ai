@@ -1024,8 +1024,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Exception: compression detected → force re-inject (see _needsReinjection)
     //
     // Injection method:
-    // - relayclaw: pass request-scoped system prompt via options.systemPrompt so Jiuwen
-    //   can append it to its own system prompt channel without polluting user query.
+    // - relayclaw: pass static identity via options.systemPrompt. Jiuwen rebuilds
+    //   system messages per request, so this must stay available even on resume.
+    //   Dynamic orchestration/history belongs in the normal query prompt.
     // - other providers: prepend to prompt string (universal fallback).
     //   --append-system-prompt proved unreliable across providers.
     const isResume = !!sessionId;
@@ -1047,19 +1048,29 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       (part) => typeof part === 'string' && part.trim(),
     );
     const promptWithMission = promptParts.join('\n\n');
-    const relayClawQueryPrompt = provider === 'relayclaw' ? params.userPrompt?.trim() || promptWithMission : undefined;
     const relayClawSystemPrompt =
-      provider === 'relayclaw'
-        ? [injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '', promptWithMission]
-            .filter((part) => typeof part === 'string' && part.trim())
-            .join('\n\n---\n\n') || undefined
-        : undefined;
+      provider === 'relayclaw' && params.systemPrompt?.trim() ? params.systemPrompt.trim() : undefined;
     const effectivePrompt =
       provider === 'relayclaw'
-        ? (relayClawQueryPrompt ?? promptWithMission)
+        ? promptWithMission
         : injectSystemPrompt && params.systemPrompt
           ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
           : promptWithMission;
+
+    if (provider === 'relayclaw') {
+      log.debug(
+        {
+          invocationId,
+          catId: catId as string,
+          threadId,
+          isResume,
+          queryPromptLength: effectivePrompt.length,
+          staticSystemPromptLength: relayClawSystemPrompt?.length ?? 0,
+          cleanUserPromptLength: params.userPrompt?.trim().length ?? 0,
+        },
+        'RelayClaw prompt split prepared',
+      );
+    }
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
