@@ -6,7 +6,7 @@
 
 /**
  * Redis key patterns for thread storage (预留 for Redis ThreadStore).
- * All keys share the cat-cafe: prefix set by the Redis client.
+ * All keys share the office-claw: prefix set by the Redis client.
  */
 
 export const ThreadKeys = {

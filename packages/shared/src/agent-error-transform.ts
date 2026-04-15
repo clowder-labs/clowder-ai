@@ -4,8 +4,11 @@
 
 export const MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE = 'ModelArts.81011';
 export const MODEL_ARTS_RATE_LIMIT_ERROR_CODE = 'ModelArts.81101';
+export const APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE = 'APIG.0308';
 const MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT = 'Input text May contain sensitive information';
 const MODEL_ARTS_RATE_LIMIT_MESSAGE = '当前请求较多，模型暂时限流，请稍后重试。';
+const DAILY_QUOTA_EXHAUSTED_MESSAGE = `您好，截至目前您今日的免费模型使用额度已用尽。
+如需继续使用服务，可选择[购买](https://console.huaweicloud.com/modelarts/?region=cn-southwest-2#/model-studio/deployment)华为云MaaS模型服务进行接入；或于次日再次访问，系统将为您重置免费额度。`;
 
 export type ErrorFallbackKind =
   | 'timeout' // 响应超时
@@ -14,6 +17,7 @@ export type ErrorFallbackKind =
   | 'abrupt_exit' // CLI 异常退出
   | 'max_iterations' // 达到最大迭代次数
   | 'rate_limit' // 模型瞬时限流
+  | 'daily_quota' // 当日额度耗尽
   | 'sensitive_input' // 敏感词校验
   | 'unknown'; // 未分类错误
 
@@ -63,6 +67,18 @@ export function isRateLimitError(msg: ErrorLike | string): boolean {
   if (!rawError) return false;
   const normalized = normalizeQuotedText(rawError);
   return normalized.includes(MODEL_ARTS_RATE_LIMIT_ERROR_CODE);
+}
+
+export function isDailyQuotaExhaustedError(msg: ErrorLike | string): boolean {
+  if (typeof msg === 'string') {
+    const normalized = normalizeQuotedText(msg);
+    return normalized.includes(APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE);
+  }
+  if (msg.errorCode === APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE) return true;
+  const rawError = msg.error?.trim();
+  if (!rawError) return false;
+  const normalized = normalizeQuotedText(rawError);
+  return normalized.includes(APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE);
 }
 
 function isTimeoutError(rawError: string): boolean {
@@ -123,6 +139,7 @@ function getConfigurationErrorMessage(rawError: string): string {
 
 export function classifyError(rawError: string): ErrorFallbackKind {
   if (isRateLimitError(rawError)) return 'rate_limit';
+  if (isDailyQuotaExhaustedError(rawError)) return 'daily_quota';
   if (isSensitiveInputError(rawError)) return 'sensitive_input';
   if (isTimeoutError(rawError)) return 'timeout';
   if (isAbruptExitError(rawError)) return 'abrupt_exit';
@@ -136,6 +153,10 @@ export function getRateLimitMessage(): string {
   return MODEL_ARTS_RATE_LIMIT_MESSAGE;
 }
 
+export function getDailyQuotaExhaustedMessage(): string {
+  return DAILY_QUOTA_EXHAUSTED_MESSAGE;
+}
+
 export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   let rawError = msg.error?.trim() || 'Unknown error';
 
@@ -147,6 +168,10 @@ export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
 
   if (isRateLimitError(msg)) {
     return getRateLimitMessage();
+  }
+
+  if (isDailyQuotaExhaustedError(msg)) {
+    return getDailyQuotaExhaustedMessage();
   }
 
   if (isSensitiveInputError(msg)) {

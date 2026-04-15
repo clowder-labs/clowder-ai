@@ -202,7 +202,7 @@ export function ChatMessage({
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
           {isFollowup && <span className="mr-1">🔗</span>}
-          {message.content}
+          {isError ? <MarkdownContent content={message.content} disableCommandPrefix /> : message.content}
           {isFollowup && <span className="block mt-1 text-xs text-purple-500">输入 @智能体 跟进 来发起 follow-up</span>}
         </div>
       </div>

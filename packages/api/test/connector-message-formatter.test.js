@@ -42,11 +42,10 @@ describe('ConnectorMessageFormatter', () => {
       timestamp: new Date('2026-03-10T01:22:00Z'),
     });
 
-    assert.equal(envelope.header, '🐱 布偶猫/宪宪');
-    assert.equal(envelope.subtitle, 'T12 飞书登录bug排查 · F088');
+    assert.equal(envelope.header, '布偶猫/宪宪');
+    assert.equal(envelope.subtitle, '飞书登录bug排查 · F088');
     assert.equal(envelope.body, '看了一下回调逻辑，问题出在 OAuth token 过期。');
-    assert.ok(envelope.footer.includes('cafe.clowder-ai.com/t/abc123'));
-    assert.ok(envelope.footer.includes('01:22'));
+    assert.equal(envelope.footer, '01:22');
   });
 
   it('omits featId from subtitle when not provided', async () => {
@@ -63,7 +62,7 @@ describe('ConnectorMessageFormatter', () => {
       timestamp: new Date('2026-03-10T02:00:00Z'),
     });
 
-    assert.equal(envelope.subtitle, 'T7 周报整理');
+    assert.equal(envelope.subtitle, '周报整理');
     assert.ok(!envelope.subtitle.includes('·'));
   });
 
@@ -80,7 +79,7 @@ describe('ConnectorMessageFormatter', () => {
       timestamp: new Date('2026-03-10T03:00:00Z'),
     });
 
-    assert.equal(envelope.subtitle, 'T3');
+    assert.equal(envelope.subtitle, '');
   });
 
   it('handles missing deepLinkUrl gracefully', async () => {
@@ -95,9 +94,25 @@ describe('ConnectorMessageFormatter', () => {
       timestamp: new Date('2026-03-10T04:00:00Z'),
     });
 
-    // Footer should still have time, but no link
-    assert.ok(envelope.footer.includes('04:00'));
+    assert.equal(envelope.footer, '04:00');
     assert.ok(!envelope.footer.includes('http'));
+  });
+
+  it('hides auto-generated connector DM titles from subtitle', async () => {
+    const mod = await import('../dist/infrastructure/connectors/ConnectorMessageFormatter.js');
+    const formatter = new mod.ConnectorMessageFormatter();
+
+    const envelope = formatter.format({
+      catDisplayName: '通用智能体',
+      threadShortId: 'thread_mnzvgxvg',
+      threadTitle: '钉钉 DM',
+      body: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
+      deepLinkUrl: 'http://localhost:3003/threads/thread_mnzvgxvgw2vu63t8',
+      timestamp: new Date('2026-04-15T09:52:00Z'),
+    });
+
+    assert.equal(envelope.subtitle, '');
+    assert.equal(envelope.footer, '09:52');
   });
 
   it('returns a well-typed MessageEnvelope with all 4 fields', async () => {

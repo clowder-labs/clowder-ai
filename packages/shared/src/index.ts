@@ -24,9 +24,12 @@ export * from './text-utils.js';
 export * from './types/index.js';
 // Export agent error transform utilities
 export {
+  APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+  getDailyQuotaExhaustedMessage,
   getFriendlyAgentErrorMessage,
   getRateLimitMessage,
   classifyError,
+  isDailyQuotaExhaustedError,
   isRateLimitError,
   isSensitiveInputError,
   MODEL_ARTS_RATE_LIMIT_ERROR_CODE,

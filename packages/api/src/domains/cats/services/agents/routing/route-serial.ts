@@ -166,6 +166,7 @@ export async function* routeSerial(
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
       const catConfig: CatConfig | undefined =
         catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+      const isRelayClaw = catConfig?.provider === 'relayclaw';
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
       const streamReplyTo = worklistEntry.a2aTriggerMessageId.get(catId);
@@ -183,7 +184,12 @@ export async function* routeSerial(
       // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
       // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
-      const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
+      const staticIdentity = buildStaticIdentity(catId, {
+        mcpAvailable,
+        ...(isRelayClaw
+          ? { omitMagicWords: true, omitRichBlockToolLine: true, omitRichBlockReference: true }
+          : {}),
+      });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable)
         ? buildMcpCallbackInstructions({

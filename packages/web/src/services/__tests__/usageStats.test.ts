@@ -2,16 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchUsageStatsPage } from '../usageStats';
 
 const mocks = vi.hoisted(() => ({
-  apiFetch: vi.fn(),
+  fetch: vi.fn(),
+  getUserId: vi.fn(() => 'test-user'),
 }));
 
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  API_URL: 'http://test-api',
+}));
+
+vi.mock('@/utils/userId', () => ({
+  getUserId: () => mocks.getUserId(),
 }));
 
 describe('usageStats service', () => {
   beforeEach(() => {
-    mocks.apiFetch.mockReset();
+    mocks.fetch.mockReset();
+    mocks.getUserId.mockClear();
+    vi.stubGlobal('fetch', mocks.fetch);
   });
 
   it('fetches threads and sessions, then filters and paginates by range on the frontend', async () => {
@@ -56,7 +63,7 @@ describe('usageStats service', () => {
       },
     ];
 
-    mocks.apiFetch
+    mocks.fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
@@ -80,10 +87,42 @@ describe('usageStats service', () => {
 
     const result = await fetchUsageStatsPage({ page: 1, pageSize: 1, range: 'today' });
 
-    expect(mocks.apiFetch).toHaveBeenNthCalledWith(1, '/api/threads');
-    expect(mocks.apiFetch).toHaveBeenNthCalledWith(2, '/api/threads/thread-1/sessions');
-    expect(mocks.apiFetch).toHaveBeenNthCalledWith(3, '/api/threads/thread-2/sessions');
-    expect(mocks.apiFetch).toHaveBeenNthCalledWith(4, '/api/threads/thread-3/sessions');
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      1,
+      'http://test-api/api/threads',
+      expect.objectContaining({
+        headers: { 'X-Office-Claw-User': 'test-user' },
+        credentials: 'same-origin',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      2,
+      'http://test-api/api/threads/thread-1/sessions',
+      expect.objectContaining({
+        headers: { 'X-Office-Claw-User': 'test-user' },
+        credentials: 'same-origin',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      3,
+      'http://test-api/api/threads/thread-2/sessions',
+      expect.objectContaining({
+        headers: { 'X-Office-Claw-User': 'test-user' },
+        credentials: 'same-origin',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      4,
+      'http://test-api/api/threads/thread-3/sessions',
+      expect.objectContaining({
+        headers: { 'X-Office-Claw-User': 'test-user' },
+        credentials: 'same-origin',
+        signal: expect.any(AbortSignal),
+      }),
+    );
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
@@ -98,7 +137,7 @@ describe('usageStats service', () => {
   it('sums input and output tokens across all sessions inside the selected range', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
 
-    mocks.apiFetch
+    mocks.fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -141,7 +180,7 @@ describe('usageStats service', () => {
   it('sorts by the latest session updatedAt inside the selected range', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
 
-    mocks.apiFetch
+    mocks.fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -170,7 +209,7 @@ describe('usageStats service', () => {
   });
 
   it('throws the api error message when the thread request fails', async () => {
-    mocks.apiFetch.mockResolvedValueOnce({
+    mocks.fetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: () => Promise.resolve({ error: 'threads failed' }),

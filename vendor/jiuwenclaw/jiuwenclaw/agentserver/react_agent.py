@@ -155,6 +155,21 @@ def _chunk_text(text: str, chunk_size: int) -> List[str]:
     return chunks
 
 
+def _serialize_tool_call_delta(tool_call: Any) -> Dict[str, Any]:
+    """Serialize a streamed tool call delta for WS/history transport."""
+    arguments = getattr(tool_call, "arguments", "")
+    if arguments is None:
+        arguments = ""
+    return {
+        "id": getattr(tool_call, "id", "") or "",
+        "tool_call_id": getattr(tool_call, "id", "") or "",
+        "type": getattr(tool_call, "type", "function") or "function",
+        "name": getattr(tool_call, "name", "") or "",
+        "arguments": arguments,
+        "index": getattr(tool_call, "index", 0),
+    }
+
+
 class JiuClawReActAgent(ReActAgent):
     """Inherits ReActAgent, overrides invoke/stream to support todo.updated events."""
 
@@ -345,6 +360,22 @@ class JiuClawReActAgent(ReActAgent):
                     accumulated_chunk = chunk
                 else:
                     accumulated_chunk = accumulated_chunk + chunk
+
+                if chunk.tool_calls:
+                    await session.write_stream(
+                        OutputSchema(
+                            type="tool_calls.delta",
+                            index=chunk_count,
+                            payload={
+                                "tool_calls": [
+                                    _serialize_tool_call_delta(tc)
+                                    for tc in chunk.tool_calls
+                                ],
+                                "source": "llm_stream",
+                            },
+                        )
+                    )
+                    chunk_count += 1
 
                 if chunk.reasoning_content:
                     reasoning_trace_pending.append(
@@ -1072,8 +1103,14 @@ class JiuClawReActAgent(ReActAgent):
 
         always_allow_hint = ""
         #shell_injection_warning = ""
-        if tool_name == "mcp_exec_command":
-            cmd = tool_args.get("command", tool_args.get("cmd", "")) if isinstance(tool_args, dict) else ""
+        if tool_name in {"mcp_exec_command", "run_command"}:
+            cmd = ""
+            if isinstance(tool_args, dict):
+                for key in ("command", "cmd", "bash_command"):
+                    value = tool_args.get(key, "")
+                    if isinstance(value, str) and value.strip():
+                        cmd = value
+                        break
             if cmd:
                 # import re as _re
                 # _ops_re = _re.compile(r'[;&|`<>]|\$[({]|\r?\n')
@@ -1102,6 +1139,8 @@ class JiuClawReActAgent(ReActAgent):
         meta: dict = {
             "tool_name": tool_name,
             "tool_args": tool_args,
+            "matched_patterns": getattr(result, "matched_patterns", None) or [],
+            "matched_subcommands": getattr(result, "matched_subcommands", None) or [],
         }
         if result.matched_rule and "external_directory" in result.matched_rule:
             meta["external_paths"] = getattr(result, "external_paths", None) or []
@@ -1371,6 +1410,8 @@ class JiuClawReActAgent(ReActAgent):
                     persist_permission_allow_rule(
                         meta.get("tool_name", ""),
                         meta.get("tool_args", {}),
+                        meta.get("matched_patterns") or [],
+                        meta.get("matched_subcommands") or [],
                     )
             future.set_result("allow_always")
             logger.info("[ReActAgent] Permission approval: request_id=%s decision=allow_always", request_id)

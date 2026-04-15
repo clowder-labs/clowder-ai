@@ -12,6 +12,7 @@
  * Mapping (event_type → AgentMessageType):
  *   chat.delta              → text   (streaming text fragment)
  *   chat.final              → (skip; completion marker only)
+ *   chat.tool_calls.delta   → (skip; partial tool-call fragment)
  *   chat.tool_call          → tool_use
  *   chat.tool_result        → tool_result
  *   chat.error              → error
@@ -77,6 +78,10 @@ export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): 
     }
 
     case 'chat.final': {
+      return null;
+    }
+
+    case 'chat.tool_calls.delta': {
       return null;
     }
 

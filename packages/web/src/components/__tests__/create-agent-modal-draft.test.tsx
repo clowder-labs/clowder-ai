@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -17,7 +17,8 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const AGENT_NAME_VALIDATION_MESSAGE = '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+const AGENT_NAME_VALIDATION_MESSAGE =
+  '创建智能体名称支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -192,7 +193,7 @@ describe('CreateAgentModal', () => {
     await flushEffects();
 
     expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
-    expect(container.textContent).not.toContain('Agent 客户端');
+    expect(container.textContent).not.toContain('Client');
 
     const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
     expect(createButton).toBeTruthy();
@@ -263,7 +264,7 @@ describe('CreateAgentModal', () => {
     await flushEffects();
 
     expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
-    expect(container.textContent).not.toContain('Agent 客户端');
+    expect(container.textContent).not.toContain('Client');
 
     const saveButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
     expect(saveButton).toBeTruthy();
@@ -393,7 +394,7 @@ describe('CreateAgentModal', () => {
         return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
       }
       if (url === '/api/cats' && init?.method === 'POST') {
-        return Promise.resolve(jsonResponse({ error: '名称 "Duplicate Bot" 已被使用' }, 400));
+        return Promise.resolve(jsonResponse({ error: '鍚嶇О "Duplicate Bot" 宸茶浣跨敤' }, 400));
       }
       throw new Error(`Unexpected apiFetch path: ${url}`);
     });
@@ -423,7 +424,7 @@ describe('CreateAgentModal', () => {
     await flushEffects();
 
     const nameError = container.querySelector('[data-testid="create-agent-name-error"]') as HTMLDivElement | null;
-    expect(nameError?.textContent).toBe('名称 "Duplicate Bot" 已被使用');
+    expect(nameError?.textContent).toBe('鍚嶇О "Duplicate Bot" 宸茶浣跨敤');
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
   });
@@ -499,6 +500,27 @@ describe('CreateAgentModal', () => {
     );
     expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
+  });
+
+  it('shows the avatar upload size hint with uppercase KB', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Avatar Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain('200KB');
+    expect(container.textContent).not.toContain('200kb');
   });
 
   it('blocks oversized avatar files before upload', async () => {
