@@ -50,7 +50,7 @@ function normalizeWorkspacePath(rawPath: string, workingDirectory?: string): str
   return normalized.startsWith('../') || normalized === '..' ? null : normalized;
 }
 
-function extractChangedPaths(changes: unknown, workingDirectory?: string): string[] {
+export function extractChangedPaths(changes: unknown, workingDirectory?: string): string[] {
   if (!Array.isArray(changes)) return [];
   const paths: string[] = [];
 
