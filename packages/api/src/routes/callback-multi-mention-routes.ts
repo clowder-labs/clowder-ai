@@ -76,6 +76,7 @@ export interface MultiMentionRouteDeps {
         headerTitle?: string;
         suppressCatPrefix?: boolean;
         suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
       },
     ): Promise<void>;
     notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
@@ -431,12 +432,11 @@ async function flushResult(
 
   if (outboundHook) {
     try {
-      // Strip the leading heading — card header already shows it via headerTitle.
-      const outboundContent = content.replace(/^## 共识总结结果汇总\n+/, '');
-      await outboundHook.deliver(threadId, outboundContent, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
+      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
         headerTitle: '共识总结结果汇总',
         suppressCatPrefix: true,
         suppressOriginDecoration: true,
+        stripLeadingHeaderFromFormattedBody: true,
       });
       await outboundHook.notifyDeliveryBatchDone?.(threadId, true);
     } catch (err) {

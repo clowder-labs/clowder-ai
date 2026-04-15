@@ -101,6 +101,7 @@ export interface CallbackRoutesOptions {
         headerTitle?: string;
         suppressCatPrefix?: boolean;
         suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
       },
     ): Promise<void>;
     notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;

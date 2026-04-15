@@ -269,8 +269,9 @@ describe('Multi-Mention Routes', () => {
       headerTitle: '共识总结结果汇总',
       suppressCatPrefix: true,
       suppressOriginDecoration: true,
+      stripLeadingHeaderFromFormattedBody: true,
     });
-    assert.ok(!deliveries[0].content.startsWith('## 共识总结结果汇总'), 'heading must be stripped — card header shows it');
+    assert.ok(deliveries[0].content.startsWith('## 共识总结结果汇总'), 'plain-text connectors need the heading');
     assert.ok(deliveries[0].content.includes('Codex says hello'));
     assert.deepEqual(mockOutboundHook.getBatchDoneCalls(), [{ threadId: 'thread-1', chainDone: true }]);
   });

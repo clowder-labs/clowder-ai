@@ -61,6 +61,7 @@ export interface OutboundPresentation {
   readonly headerTitle?: string | undefined;
   readonly suppressCatPrefix?: boolean | undefined;
   readonly suppressOriginDecoration?: boolean | undefined;
+  readonly stripLeadingHeaderFromFormattedBody?: boolean | undefined;
 }
 
 export interface OutboundDeliveryHookOptions {
@@ -171,6 +172,10 @@ export class OutboundDeliveryHook {
           // This ensures each cat's reply is a distinct card with identity header,
           // preventing Feishu from merging multiple cats' plain-text into one bubble.
           if (adapter.sendFormattedReply && !hasRichBlocks) {
+            const formattedBody =
+              presentation?.stripLeadingHeaderFromFormattedBody && presentation.headerTitle
+                ? this.stripLeadingMarkdownHeader(content, presentation.headerTitle)
+                : content;
             const envelope = threadMeta
               ? this.formatter.format({
                   catDisplayName: catDisplayName || 'Agent',
@@ -178,7 +183,7 @@ export class OutboundDeliveryHook {
                   threadShortId: threadMeta.threadShortId,
                   threadTitle: threadMeta.threadTitle,
                   featId: threadMeta.featId,
-                  body: content,
+                  body: formattedBody,
                   deepLinkUrl: threadMeta.deepLinkUrl,
                   timestamp: new Date(),
                   origin: envelopeOrigin,
@@ -186,7 +191,7 @@ export class OutboundDeliveryHook {
               : this.formatter.formatMinimal({
                   catDisplayName: catDisplayName || 'Agent',
                   headerTitle: presentation?.headerTitle,
-                  body: content,
+                  body: formattedBody,
                   origin: envelopeOrigin,
                 });
             await adapter.sendFormattedReply(binding.externalChatId, envelope, outMeta);
@@ -310,5 +315,10 @@ export class OutboundDeliveryHook {
     const filePath = join(tmpdir(), `cat-cafe-img-${randomBytes(8).toString('hex')}.${ext}`);
     await writeFile(filePath, buffer);
     return filePath;
+  }
+
+  private stripLeadingMarkdownHeader(content: string, headerTitle: string): string {
+    const escaped = headerTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return content.replace(new RegExp(`^##\\s+${escaped}\\n+`), '');
   }
 }

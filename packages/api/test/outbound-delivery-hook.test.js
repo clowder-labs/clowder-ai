@@ -141,6 +141,44 @@ describe('OutboundDeliveryHook', () => {
     assert.equal(feishuMock.sent[0].content, '## 共识总结结果汇总');
   });
 
+  it('keeps summary heading for plain-text adapters but strips it from formatted card bodies', async () => {
+    const formattedCalls = [];
+    const formattedAdapter = {
+      connectorId: 'feishu',
+      async sendReply(externalChatId, content) {
+        feishuMock.sent.push({ externalChatId, content });
+      },
+      async sendFormattedReply(externalChatId, envelope) {
+        formattedCalls.push({ externalChatId, envelope });
+      },
+    };
+    const plainMock = mockAdapter('weixin');
+    hook = new OutboundDeliveryHook({
+      bindingStore,
+      adapters: new Map([
+        ['feishu', formattedAdapter],
+        ['weixin', plainMock.adapter],
+      ]),
+      log: noopLog(),
+    });
+    bindingStore.bind('feishu', 'chat-feishu', 'thread-abc', 'user-1');
+    bindingStore.bind('weixin', 'chat-weixin', 'thread-abc', 'user-1');
+
+    const content = '## 共识总结结果汇总\n\n**问题**: What do you think?';
+    await hook.deliver('thread-abc', content, 'opus', undefined, undefined, 'callback', undefined, {
+      headerTitle: '共识总结结果汇总',
+      stripLeadingHeaderFromFormattedBody: true,
+      suppressCatPrefix: true,
+      suppressOriginDecoration: true,
+    });
+
+    assert.equal(formattedCalls.length, 1);
+    assert.equal(formattedCalls[0].envelope.header, '共识总结结果汇总');
+    assert.equal(formattedCalls[0].envelope.body, '**问题**: What do you think?');
+    assert.equal(plainMock.sent.length, 1);
+    assert.equal(plainMock.sent[0].content, content);
+  });
+
   it('sends plain content when catId is omitted (backward compat)', async () => {
     bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
     await hook.deliver('thread-abc', 'Hello!');
