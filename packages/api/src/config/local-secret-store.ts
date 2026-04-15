@@ -192,6 +192,11 @@ function getBackend(): LocalSecretBackend | null {
   return backendOverride !== undefined ? backendOverride : defaultBackend();
 }
 
+function normalizeConnectorEnvValue(value: string | undefined | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export function setLocalSecretBackendForTests(backend: LocalSecretBackend | null | undefined): void {
   backendOverride = backend;
 }
@@ -243,16 +248,14 @@ export function deleteSecretRef(ref: string | undefined | null): void {
 }
 
 export function getConnectorEnvValue(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
-  const direct = env[name];
-  if (direct != null && direct !== '') return direct;
+  const direct = normalizeConnectorEnvValue(env[name]);
+  if (direct != null) return direct;
   if (!isConnectorSecretBackedEnvVarName(name)) return undefined;
-  const resolved = readSecretRef(env[buildConnectorEnvRefVarName(name)]);
-  return resolved != null && resolved !== '' ? resolved : undefined;
+  return normalizeConnectorEnvValue(readSecretRef(env[buildConnectorEnvRefVarName(name)]));
 }
 
 export function hasConnectorEnvValue(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  const direct = env[name];
-  if (direct != null && direct !== '') return true;
+  if (normalizeConnectorEnvValue(env[name]) != null) return true;
   if (!isConnectorSecretBackedEnvVarName(name)) return false;
   const ref = env[buildConnectorEnvRefVarName(name)];
   return typeof ref === 'string' && ref.trim().length > 0;
