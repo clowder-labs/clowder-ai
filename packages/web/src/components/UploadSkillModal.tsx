@@ -608,7 +608,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
       <div
         role="dialog"
         aria-modal="true"
-        className="flex h-[380px] w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
+        className="flex w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
       >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-sm font-bold">导入技能</h3>
@@ -624,7 +624,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <Alert mode="prompt" closable={false} className="mb-4">
-            1. 支持上传文件或者文件夹，单个文件大小不能超过1MB，文件数量不能超过100，总文件大小不能超过4MB。
+            1. 支持上传文件夹，单个文件大小不能超过1MB，文件数量不能超过100个，总文件大小不能超过4MB；
             <br />
             2. 上传的文件中必须包含一个名为 SKILL.md 的文件，且必须位于根目录下。
           </Alert>
