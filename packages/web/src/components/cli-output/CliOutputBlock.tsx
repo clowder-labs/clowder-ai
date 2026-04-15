@@ -42,7 +42,7 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
-type LocalGeneratedFileKind = 'ppt' | 'markdown';
+type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'docx' | 'xlsx' | 'pdf';
 
 interface LocalGeneratedFile {
   name: string;
@@ -64,6 +64,13 @@ const PRESENTATION_PATH_PATTERNS = [
   /(\/[^\r\n`'"]+?\.pptx?)/gi,
 ];
 const RELATIVE_PRESENTATION_PATH_TOKENS = /[^\s"'`<>]+\.pptx?\b/gi;
+const GENERATED_DOCUMENT_PATH_PATTERNS = [
+  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel)[^:\n\r]*[:锛歖\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel)[^:\n\r]*[:锛歖\s*[`'"]?(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
+  /([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
+  /(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
+];
+const RELATIVE_DOCUMENT_PATH_TOKENS = /[^\s"'`<>]+\.(?:docx?|xlsx?|pdf)\b/gi;
 const MARKDOWN_PATH_PATTERNS = [
   /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:md|markdown))/gi,
   /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?(\/[^\r\n`'"]+?\.(?:md|markdown))/gi,
@@ -139,6 +146,18 @@ function collectRelativePresentationCandidates(text: string): string[] {
   return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativePresentationPath(match));
 }
 
+function isLikelyRelativeDocumentPath(path: string): boolean {
+  if (isAbsolutePresentationPath(path)) return false;
+  if (!/[\\/]/.test(path)) return false;
+  if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
+  return /\.(?:docx?|xlsx?|pdf)$/i.test(path);
+}
+
+function collectRelativeDocumentCandidates(text: string): string[] {
+  const matches = text.match(RELATIVE_DOCUMENT_PATH_TOKENS) ?? [];
+  return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativeDocumentPath(match));
+}
+
 function isLikelyRelativeMarkdownPath(path: string): boolean {
   if (isAbsolutePresentationPath(path)) return false;
   if (!/[\\/]/.test(path)) return false;
@@ -179,6 +198,15 @@ function fileNameFromPath(path: string): string {
   return normalized.slice(normalized.lastIndexOf('/') + 1);
 }
 
+function inferLocalGeneratedFileKind(path: string): LocalGeneratedFileKind {
+  const normalized = path.toLowerCase();
+  if (/\.(?:md|markdown)$/.test(normalized)) return 'markdown';
+  if (/\.docx?$/.test(normalized)) return 'docx';
+  if (/\.xlsx?$/.test(normalized)) return 'xlsx';
+  if (/\.pdf$/.test(normalized)) return 'pdf';
+  return 'ppt';
+}
+
 function formatGeneratedDate(timestamp: number | null): string {
   if (timestamp == null || Number.isNaN(timestamp)) return '生成时间获取中...';
   const date = new Date(timestamp);
@@ -188,12 +216,13 @@ function formatGeneratedDate(timestamp: number | null): string {
 function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | null {
   const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
   const candidates: string[] = [];
+  const pathPatterns = [...PRESENTATION_PATH_PATTERNS, ...GENERATED_DOCUMENT_PATH_PATTERNS];
 
   for (const text of searchSpace) {
-    for (const pattern of PRESENTATION_PATH_PATTERNS) {
+    for (const pattern of pathPatterns) {
       pattern.lastIndex = 0;
       for (const match of text.matchAll(pattern)) {
-        const rawPath = match[1];
+        const rawPath = match[1] ?? match[2];
         if (!rawPath) continue;
         const fullMatch = match[0] ?? '';
         const normalized = normalizePresentationPath(rawPath);
@@ -212,11 +241,15 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | 
     for (const relativeCandidate of collectRelativePresentationCandidates(text)) {
       pushPresentationCandidate(candidates, relativeCandidate);
     }
+
+    for (const relativeCandidate of collectRelativeDocumentCandidates(text)) {
+      pushPresentationCandidate(candidates, relativeCandidate);
+    }
   }
 
   const path = candidates.at(-1);
   if (!path) return null;
-  return { name: fileNameFromPath(path), path, kind: 'ppt' };
+  return { name: fileNameFromPath(path), path, kind: inferLocalGeneratedFileKind(path) };
 }
 
 function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null {
@@ -409,6 +442,19 @@ function LocalFileAttachmentCard({
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
   const isMarkdown = file.kind === 'markdown';
+  const isPresentation = file.kind === 'ppt';
+  const cardTestId = isMarkdown ? 'cli-output-markdown-card' : isPresentation ? 'cli-output-ppt-card' : 'cli-output-file-card';
+  const openTestId = isMarkdown ? 'cli-output-markdown-open' : isPresentation ? 'cli-output-ppt-open' : 'cli-output-file-open';
+  const badgeLabel =
+    file.kind === 'markdown'
+      ? 'MD'
+      : file.kind === 'docx'
+        ? 'DOC'
+        : file.kind === 'xlsx'
+          ? 'XLS'
+          : file.kind === 'pdf'
+            ? 'PDF'
+            : 'PPT';
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
@@ -544,10 +590,13 @@ function LocalFileAttachmentCard({
 
   return (
     <div
-      data-testid={isMarkdown ? 'cli-output-markdown-card' : 'cli-output-ppt-card'}
+      data-testid={cardTestId}
       className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
-      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
+      <div
+        title={badgeLabel}
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]"
+      >
         {isMarkdown ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40.000000" height="40.000000" fill="none">
           <rect id="MD" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
           <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
@@ -572,7 +621,7 @@ function LocalFileAttachmentCard({
       </div>
       <button
         type="button"
-        data-testid={isMarkdown ? 'cli-output-markdown-open' : 'cli-output-ppt-open'}
+        data-testid={openTestId}
         onClick={() => {
           void handleOpen();
         }}
@@ -598,12 +647,14 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 function ToolRow({
   event,
   isActive,
+  status,
   hasResultMatch,
   onUserInteract,
   accent,
 }: {
   event: CliEvent;
   isActive: boolean;
+  status: CliStatus;
   /** F142: Whether a matching tool_result was found for this tool_use */
   hasResultMatch?: boolean;
   onUserInteract?: () => void;
@@ -611,8 +662,9 @@ function ToolRow({
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasDetail = event.detail != null;
-  // F142: Show loading if active OR if tool_use has no matching result yet
-  const isWaitingForResult = event.kind === 'tool_use' && !hasResultMatch;
+  // F142: Only show waiting spinner while stream is active; once finalized,
+  // unmatched rows should not spin forever.
+  const isWaitingForResult = status === 'streaming' && event.kind === 'tool_use' && !hasResultMatch;
   const showLoading = isActive || isWaitingForResult;
   const showCheck = hasResultMatch && !showLoading;
   // Design: active = breed bg 20% + left border 2px + lighter text
@@ -671,7 +723,8 @@ function ToolRow({
 function findMatchingResult(toolUse: CliEvent, toolResults: CliEvent[], index: number): CliEvent | undefined {
   // Primary: ID-based matching when toolCallId exists
   if (toolUse.toolCallId) {
-    return toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
+    const byId = toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
+    if (byId) return byId;
   }
   // Fallback: index-based matching (backward compatibility)
   return toolResults[index];
@@ -723,6 +776,7 @@ function ToolsSection({
                 key={e.id}
                 event={{ ...e, detail: result?.detail ?? e.detail }}
                 isActive={e.id === lastToolId}
+                status={status}
                 hasResultMatch={result != null}
                 onUserInteract={onUserInteract}
                 accent={accent}
@@ -785,7 +839,7 @@ export function CliOutputBlock({
   }, [forceExpanded]);
 
   const localGeneratedFile = useMemo(
-    () => extractLocalMarkdownFile(events) ?? extractLocalPresentationFile(events),
+    () => extractLocalPresentationFile(events) ?? extractLocalMarkdownFile(events),
     [events],
   );
 

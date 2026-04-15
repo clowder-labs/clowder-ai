@@ -82,6 +82,9 @@ export function FileBlock({ block }: { block: RichFileBlock }) {
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#1F2937]">{block.fileName}</div>
         <div className="text-xs text-[#8C8C8C]">{secondaryText}</div>
+        {block.workspacePath ? (
+          <div className="mt-1 break-all text-[11px] text-[#A3A3A3]">位置: {block.workspacePath}</div>
+        ) : null}
       </div>
       {isWorkspaceFile ? (
         <button

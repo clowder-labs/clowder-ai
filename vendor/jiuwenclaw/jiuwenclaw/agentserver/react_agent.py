@@ -1600,7 +1600,7 @@ class JiuClawReActAgent(ReActAgent):
         original = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
         if lang == "zh":
             directive = (
-                "\n\n[技能文档已加载] 如果你要执行此技能，请先调用 todo_create 为文档中定义的每个步骤创建 todo 项。"
+                "\n\n[技能文档已加载] 如果你要执行此技能，请在回复中用任务列表格式为文档中定义的每个步骤创建 todo 项。"
                 "如果只是查阅信息则无需创建。\n"
                 "⚠️ Skill 脚本执行原则：SKILL.md 中定义的脚本必须按原样执行，"
                 "禁止自行编写代码替代其功能。脚本失败时应修复执行环境（如安装依赖）后重试原脚本。"
@@ -1608,7 +1608,7 @@ class JiuClawReActAgent(ReActAgent):
         else:
             directive = (
                 "\n\n[Skill document loaded] If you intend to execute this skill, "
-                "call todo_create first with one todo item per step. "
+                "create a task list in your response with one todo item per step. "
                 "If you are only reading for reference, no action needed.\n"
                 "Script execution principle: Scripts defined in SKILL.md must be executed as specified. "
                 "Do NOT write your own code to replace their functionality. "
@@ -1660,12 +1660,12 @@ class JiuClawReActAgent(ReActAgent):
             if lang == "zh":
                 suffix = (
                     f"\n\n[技能 {self._active_skill}] "
-                    f"尚未创建 todo 列表。请立即调用 todo_create 为 SKILL.md 中的每个步骤创建 todo 项。"
+                    f"尚未创建 todo 列表。请立即在回复中用任务列表格式为 SKILL.md 中的每个步骤创建 todo 项。"
                 )
             else:
                 suffix = (
                     f"\n\n[Skill {self._active_skill}] "
-                    f"No todo list found. Call todo_create now with one item per step in SKILL.md."
+                    f"No todo list found. Create a task list in your response now with one item per step in SKILL.md."
                 )
         elif state == "in_progress":
             total = summary["total"]
@@ -1675,7 +1675,7 @@ class JiuClawReActAgent(ReActAgent):
                 suffix = (
                     f"\n\n[技能 {self._active_skill} · 进度: {done}/{total}]\n"
                     f"当前待办: '{next_name}'\n"
-                    f"开始执行前，必须先用 todo_insert 将其拆解为原子级子任务"
+                    f"开始执行前，必须在任务列表中将其拆解为原子级子任务"
                     f"——每个 todo 项应对应单一、可独立验证的操作，不可再拆才算合格。\n"
                     f"⚠️ 只执行当前 todo 项，禁止为了效率而合并或批量执行多个步骤。\n"
                     f"⚠️ SKILL.md 中定义的选项、参数、标签必须原样使用，禁止自行增删改。"
@@ -1684,7 +1684,7 @@ class JiuClawReActAgent(ReActAgent):
                 suffix = (
                     f"\n\n[Skill {self._active_skill} · Progress: {done}/{total}]\n"
                     f"Current todo: '{next_name}'\n"
-                    f"Before starting, use todo_insert to break it into atomic sub-tasks"
+                    f"Before starting, break it into atomic sub-tasks in your task list"
                     f"—each todo should be a single, independently verifiable action.\n"
                     f"⚠️ Only execute the current todo item. Do NOT batch or merge multiple steps for efficiency.\n"
                     f"⚠️ Options, parameters, and labels in SKILL.md must be used verbatim."

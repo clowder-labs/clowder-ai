@@ -8,11 +8,14 @@
  * Authentication Routes — 用户登录认证
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import Conf from 'conf';
+import envPaths from 'env-paths';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
+import { getPassword, setPassword } from 'cross-keychain';
 import { getErrorMessage } from '../utils/index.js';
 import { reportMetric, initMetricsServiceFromCredential, startTokenUsageReporter } from '../services/metrics/index.js';
 
@@ -93,10 +96,8 @@ interface SignerModuleLike {
 
 const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
-const DEFAULT_CAS_BACKGROUND_IMAGE_URL =
-  'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/loginbg2.png';
-const DEFAULT_CAS_PORTAL_IMAGE_URL =
-  'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/chatu4.png';
+const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://res.hc-cdn.com/AgentArts-Console/26.3.2/hws/assets/login/bg2.png';
+const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://res.hc-cdn.com/AgentArts-Console/26.3.2/hws/assets/login/ad2.png';
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 const DEFAULT_CAS_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -112,8 +113,7 @@ const CAS_LOGIN_URL =
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
-const CAS_LOGOUT_URL =
-  `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
+const CAS_LOGOUT_URL = `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009', 'common.01010004']);
 const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
@@ -124,11 +124,48 @@ const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
 const require = createRequire(import.meta.url);
 const signer = loadSignerModule();
 
-const secureConfig = new Conf({
-  projectName: 'secure-config',
-  encryptionKey: 'clowder-ai-secure-key',
-  encryptionAlgorithm: 'aes-256-gcm',
-});
+const KEYCHAIN_SERVICE = 'office-claw';
+const KEYCHAIN_ACCOUNT = 'secure-config-encryption-key';
+const LEGACY_ENCRYPTION_KEY = 'clowder-ai-secure-key';
+const SECURE_CONFIG_PROJECT_NAME = 'secure-config';
+const SECURE_CONFIG_PROJECT_SUFFIX = 'nodejs';
+
+async function getOrCreateEncryptionKey(): Promise<string> {
+  const existingKey = await getPassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+  if (existingKey) {
+    return existingKey;
+  }
+  const newKey = randomBytes(32).toString('hex');
+  await setPassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, newKey);
+  return newKey;
+}
+
+function createSecureConfig(key: string): Conf {
+  return new Conf({
+    projectName: SECURE_CONFIG_PROJECT_NAME,
+    projectSuffix: SECURE_CONFIG_PROJECT_SUFFIX,
+    encryptionKey: key,
+    encryptionAlgorithm: 'aes-256-gcm',
+  });
+}
+
+function getSecureConfigPath(): string {
+  const paths = envPaths(SECURE_CONFIG_PROJECT_NAME, { suffix: SECURE_CONFIG_PROJECT_SUFFIX });
+  return `${paths.config}/config.json`;
+}
+
+const encryptionKey = await getOrCreateEncryptionKey();
+
+let secureConfig: Conf;
+try {
+  secureConfig = createSecureConfig(encryptionKey);
+} catch {
+  const configPath = getSecureConfigPath();
+  if (existsSync(configPath)) {
+    unlinkSync(configPath);
+  }
+  secureConfig = createSecureConfig(encryptionKey);
+}
 
 // 简单的 session 存储（生产环境应该使用 Redis 或数据库）
 export const sessions = new Map<string, UserInfo>();
@@ -306,7 +343,12 @@ async function completeCasLogin(
 
     // Initialize AOM metrics from CAS credentials (async, non-blocking)
     const casCredential = resolveCasCredential(session);
-    if (casCredential.accessKey && casCredential.secretKey && casCredential.securityToken && session.credential.project_id) {
+    if (
+      casCredential.accessKey &&
+      casCredential.secretKey &&
+      casCredential.securityToken &&
+      session.credential.project_id
+    ) {
       initMetricsServiceFromCredential(
         {
           access: casCredential.accessKey,

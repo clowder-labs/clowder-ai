@@ -116,6 +116,7 @@ describe('SkillsPanel global upload toast', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     useToastStore.setState({ toasts: [] });
+    window.localStorage.removeItem('cat-cafe:skills-plaza-risk-ack:v1');
   });
 
   afterEach(() => {
@@ -192,5 +193,30 @@ describe('SkillsPanel global upload toast', () => {
 
     expect(container.querySelector('[data-testid="skill-detail-view"]')).toBeNull();
     expect(container.querySelector('[data-testid="installed-panel-import"]')).not.toBeNull();
+  });
+
+  it('closes the skill plaza risk modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(SkillsPanel));
+    });
+
+    const skillPlazaButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('技能广场'),
+    );
+    expect(skillPlazaButton).toBeDefined();
+
+    await act(async () => {
+      skillPlazaButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('风险提示');
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain('风险提示');
   });
 });

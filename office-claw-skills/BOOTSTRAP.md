@@ -32,23 +32,16 @@
 
 | Skill | 触发场景 |
 |-------|----------|
-| `gif-sticker-maker` | 将照片生成 4 张 GIF 表情贴纸 |
-| `minimax-multimodal-toolkit` | MiniMax 语音、音乐、视频、图片与媒体处理 |
 | `daily-briefing` | 每日销售简报、优先级和会前准备 |
 | `knowledge-organizer-xiaping` | 文章/笔记整理、归档、摘要与同步 |
 | `lidan-writing-framework` | 用七步框架把复杂概念写清楚 |
 | `canned-responses-review` | 常见法务询问模板回复与升级识别 |
-| `three-layer-memory` | OpenClaw 三层持久化记忆方案 |
+| `openai-whisper-cn` | 本地语音转文字、音频转录、会议录音转文本 |
 
 ### 开发与工程
 
 | Skill | 触发场景 |
 |-------|----------|
-| `android-native-dev` | Android 原生开发、Compose/UI 与构建排障 |
-| `credential-manager` | 集中管理 `.env` 凭据与密钥，用于安全审计与迁移 |
-| `frontend-dev` | 高质感前端页面、动效、素材与转化文案 |
-| `fullstack-dev` | 全栈应用、API、认证、实时能力与集��� |
-| `github` | 使用 `gh` CLI 处理 issue、PR、Actions/CI 与 GitHub API 查询 |
 | `skill-creator` | 创建、迭代、评估和优化 skill 的开发工作流 |
 | `skill-vetter` | 安全优先的 skill 审核与风险评估，用于安装前审查 |
 
@@ -57,25 +50,7 @@
 - 当前官方清单以 `office-claw-skills/` 顶层目录中的实际 skill 为准。
 - `pptx-craft/designer`、`pptx-craft/planner`、`pptx-craft/outline-research` 是 `pptx-craft` 内部模块，不在本目录中单独注册。
 - `BOOTSTRAP.md` 负责分类速览，`manifest.yaml` 负责路由与元数据。
-
-### 旧版参考文件（`refs/`，按需读取）
-
-| 文件 | 内容 |
-|------|------|
-| `refs/bug-diagnosis-capsule.md` | Bug 诊断胶囊与排障套路 |
-| `refs/chatgpt-browser-automation.md` | ChatGPT 浏览器自动化参考 |
-| `refs/cicd-tracking.md` | CI/CD 跟踪与状态整理 |
-| `refs/claude-ai-browser-automation.md` | Claude 浏览器自动化参考 |
-| `refs/feature-doc-template.md` | Feature 文档模板 |
-| `refs/gemini-browser-automation.md` | Gemini 浏览器自动化参考 |
-| `refs/mcp-callbacks.md` | HTTP callback API 参考 |
-| `refs/mcp-tool-description-standard.md` | MCP 工具描述规范 |
-| `refs/pr-template.md` | PR 模板 |
-| `refs/requirements-checklist-template.md` | 需求点 checklist 模板 |
-| `refs/review-request-template.md` | Review 请求信模板 |
-| `refs/rich-blocks.md` | Rich block 创建指南 |
-| `refs/shared-rules.md` | 通用协作规则与约束 |
-
+- 
 ## 关键规则
 
 1. **Skill 适用就必须使用。**

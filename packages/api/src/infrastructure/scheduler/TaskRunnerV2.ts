@@ -228,7 +228,11 @@ export class TaskRunnerV2 {
   start(): void {
     this.started = true;
     for (const task of this.tasks) {
-      this.scheduleTask(task);
+      // Dynamic tasks (hydrated from SQLite) defer first tick — they're user reminders,
+      // not pollers. Firing at t=0 creates bare trigger messages because invokeTrigger
+      // isn't bound yet (race: scheduler starts before connector wiring completes).
+      const isDynamic = this.dynamicTaskIds.has(task.id);
+      this.scheduleTask(task, isDynamic);
     }
   }
 

@@ -140,6 +140,8 @@ const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'sharp',
   'sqlite-vec',
   'snappy',
+  '@napi-rs/keyring',
+  '@napi-rs/keyring-win32-x64-msvc',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');
