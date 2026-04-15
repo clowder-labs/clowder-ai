@@ -431,7 +431,9 @@ async function flushResult(
 
   if (outboundHook) {
     try {
-      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
+      // Strip the leading heading — card header already shows it via headerTitle.
+      const outboundContent = content.replace(/^## 共识总结结果汇总\n+/, '');
+      await outboundHook.deliver(threadId, outboundContent, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
         headerTitle: '共识总结结果汇总',
         suppressCatPrefix: true,
         suppressOriginDecoration: true,
