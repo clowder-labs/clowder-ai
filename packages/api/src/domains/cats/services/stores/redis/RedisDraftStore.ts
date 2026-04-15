@@ -7,7 +7,7 @@
 /**
  * Redis Draft Store — streaming draft persistence (#80)
  *
- * Redis 数据结构 (cat-cafe: prefix applied by client):
+ * Redis 数据结构 (office-claw: prefix applied by client):
  *   draft:{userId}:{threadId}:{invocationId}  → Hash (draft details)
  *   drafts:idx:{userId}:{threadId}            → Set (invocationId members)
  *
