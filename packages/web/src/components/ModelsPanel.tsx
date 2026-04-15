@@ -33,12 +33,12 @@ const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
-const SELF_HOSTED_MODEL_GROUP_LABEL = '自接入模型';
+const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云 MaaS';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
-const OTHER_MODEL_ACCESS_LABEL = '接入其他模型';
+const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云Maas模型';
 const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
 const TEST_CONNECTION_LABEL = '测试连接';
@@ -269,7 +269,7 @@ function isSelfHuaweiMaaSAccessCard(card: Pick<ModelCardData, 'accessMode' | 'ba
 }
 
 function protocolGroupLabel(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
-  if (isSelfHuaweiMaaSAccessCard(card)) return SELF_HOSTED_MODEL_GROUP_LABEL;
+  if (isSelfHuaweiMaaSAccessCard(card)) return SELF_HUAWEI_MAAS_GROUP_LABEL;
   const trimmed = card.protocol.trim();
   if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
   return CUSTOM_MODEL_GROUP_LABEL;
@@ -838,18 +838,18 @@ export function ModelsPanel() {
           <button
             type="button"
             onClick={() => openHub('provider-profiles')}
-            className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
           >
             ACP / 账号配置
           </button>
           {!isSkipAuth ? (
             <button
               type="button"
-              onClick={() => handleOpenCreateModelModal('default')}
+              onClick={() => handleOpenCreateModelModal('huawei-maas-access')}
               data-testid="models-open-huawei-maas-model-modal"
               className="ui-button-primary"
             >
-              {OTHER_MODEL_ACCESS_LABEL}
+              {HUAWEI_MAAS_ACCESS_LABEL}
             </button>
           ) : null}
           {canCreateModel ? (
@@ -1084,7 +1084,7 @@ export function ModelsPanel() {
             </button>
             <div className="pr-10">
               <h3 className="text-[16px] font-bold">
-                {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? OTHER_MODEL_ACCESS_LABEL : CREATE_MODEL_LABEL}
+                {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? HUAWEI_MAAS_ACCESS_LABEL : CREATE_MODEL_LABEL}
               </h3>
             </div>
 
