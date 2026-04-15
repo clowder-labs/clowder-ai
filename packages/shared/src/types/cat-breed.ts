@@ -103,10 +103,6 @@ export interface CatVariant {
   readonly contextBudget?: ContextBudget;
   /** Optional per-variant override for sessionChain; falls back to breed.features.sessionChain. */
   readonly sessionChain?: boolean;
-  /** Provider rebuilds system messages per request (e.g. jiuwen WebSocket).
-   *  When true, systemPrompt is injected on every turn including resume,
-   *  instead of only on new sessions. Default: false. */
-  readonly perRequestSystemPrompt?: boolean;
   /** F34: Per-cat TTS voice (optional, falls back to defaults in cat-voices.ts) */
   readonly voiceConfig?: VoiceConfig;
   /** F-Ground-3: Human-readable strengths for teammate roster (overrides breed-level) */

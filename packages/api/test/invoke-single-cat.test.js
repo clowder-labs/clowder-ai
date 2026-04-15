@@ -2779,7 +2779,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
-  it('perRequestSystemPrompt=true: always injects systemPrompt even on new session, keeps prompt clean', async () => {
+  it('relayclaw: systemPrompt via options, orchestration context in prompt', async () => {
     const seen = [];
     const service = {
       async *invoke(prompt, options) {
@@ -2818,7 +2818,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.doesNotMatch(String(seen[0].options.systemPrompt ?? ''), /对话历史增量/);
   });
 
-  it('perRequestSystemPrompt=true: keeps systemPrompt on resume (jiuwen rebuilds system messages per request)', async () => {
+  it('relayclaw: keeps systemPrompt on resume (jiuwen rebuilds system messages per request)', async () => {
     const seen = [];
     const service = {
       async *invoke(prompt, options) {

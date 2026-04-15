@@ -1022,8 +1022,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Cats with sessionChain=false always need it — each turn is effectively new.
     // Note: As of F053, all cats (including Gemini) have sessionChain=true.
     // Exception: compression detected → force re-inject (see _needsReinjection)
-    // Exception: perRequestSystemPrompt=true in cat config → always inject
-    //   (provider rebuilds system messages per request, e.g. jiuwen WebSocket)
+    // Exception: relayclaw — jiuwen rebuilds system messages per request,
+    //   so systemPrompt must be sent on every turn including resume.
     //
     // Delivery: always via options.systemPrompt — each AgentService handles it:
     //   Claude: --append-system-prompt flag
@@ -1034,8 +1034,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const canSkipOnResume = isSessionChainEnabled(catId);
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
-    const perRequestSystemPrompt = catConfig?.perRequestSystemPrompt === true;
-    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection || perRequestSystemPrompt;
+    // relayclaw/jiuwen rebuilds system messages per request — always inject
+    const alwaysInjectSystemPrompt = provider === 'relayclaw';
+    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection || alwaysInjectSystemPrompt;
     // ACP/open agents read the task prompt more reliably than long static identity.
     // Keep the skill-selection reminder close to the task so they query runtime skills
     // before diving into repository search for compare/handoff requests.
@@ -1055,20 +1056,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       : undefined;
     const effectivePrompt = promptWithMission;
 
-    log.debug(
-      {
-        invocationId,
-        catId: catId as string,
-        provider,
-        threadId,
-        isResume,
-        injectSystemPrompt,
-        perRequestSystemPrompt,
-        promptLength: effectivePrompt.length,
-        systemPromptLength: effectiveSystemPrompt?.length ?? 0,
-      },
-      'prompt split prepared',
-    );
+    if (provider === 'relayclaw') {
+      log.info(
+        {
+          invocationId,
+          catId: catId as string,
+          threadId,
+          isResume,
+          injectSystemPrompt,
+          promptLength: effectivePrompt.length,
+          systemPromptLength: effectiveSystemPrompt?.length ?? 0,
+        },
+        'jiuwen prompt split prepared',
+      );
+    }
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
