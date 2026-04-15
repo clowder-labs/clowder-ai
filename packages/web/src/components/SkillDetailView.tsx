@@ -436,7 +436,7 @@ export function SkillDetailView({
         ) : null}
 
         {detail ? (
-          <div className="flex h-full min-h-0 flex-col gap-8">
+          <div className="flex min-h-0 flex-col gap-8 pb-2">
             <section className="shrink-0 space-y-5">
               <div className="flex items-start gap-4">
                 <SkillAvatar
@@ -512,14 +512,14 @@ export function SkillDetailView({
               </div>
             </section>
             <section
-              className="flex min-h-0 flex-1 flex-col space-y-3"
+              className="shrink-0 space-y-3"
               data-testid="skill-detail-file-workspace"
             >
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
               <div
-                className={`flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]`}
+                className={`flex h-[420px] overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]`}
               >
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
