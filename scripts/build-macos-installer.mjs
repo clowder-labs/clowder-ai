@@ -479,7 +479,6 @@ function stageVendorPythonSources(bundleDir) {
 
   const vendorDir = join(bundleDir, 'vendor');
   ensureDir(vendorDir);
-  copySourceTree(join(repoRoot, 'vendor', 'dare-cli'), join(vendorDir, 'dare-cli'));
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 

@@ -613,7 +613,7 @@ function writePythonRuntimePth(targetDir, options = {}) {
 
   const pthLines = [`python${PYTHON_MAJOR_MINOR}.zip`, '.', 'Lib/site-packages'];
   if (options.includeVendorPaths) {
-    pthLines.push('../../vendor/dare-cli', '../../vendor/jiuwenclaw');
+    pthLines.push('../../vendor/jiuwenclaw');
   }
   pthLines.push('import site');
 
@@ -728,7 +728,6 @@ function stageVendorPythonSources(bundleDir) {
 
   const vendorDir = join(bundleDir, 'vendor');
   ensureDir(vendorDir);
-  copySourceTree(join(repoRoot, 'vendor', 'dare-cli'), join(vendorDir, 'dare-cli'));
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
