@@ -96,7 +96,7 @@ export function ChatInputMenus({
       {showMentions && (
         <div
           ref={menuRef}
-          className="fixed bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-[200px] z-20 flex flex-col p-2"
+          className="fixed bg-white rounded-xl shadow-lg overflow-hidden w-[200px] z-20 flex flex-col p-2"
           style={mentionMenuStyle}
         >
           <div className="px-1 pt-0 pb-2">
