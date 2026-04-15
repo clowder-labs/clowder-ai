@@ -876,20 +876,18 @@ export function AgentsPanel() {
     }
 
     return (
-      <div className="h-full px-8 pb-6">
-        <div className="h-full">
-          <MarkdownContent
-            content={content}
-            className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
-            disableCommandPrefix
-          />
-        </div>
+      <div data-testid="agent-tab-preview" className="min-h-full px-8 pb-6">
+        <MarkdownContent
+          content={content}
+          className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
+          disableCommandPrefix
+        />
       </div>
     );
   };
 
   const renderMarkdownEditor = () => (
-    <div className="flex h-full min-h-0 flex-col px-8 pb-6">
+    <div data-testid="agent-tab-editor" className="flex min-h-full flex-col px-8 pb-6">
       <div ref={editorSurfaceRef} className="min-h-0 flex-1">
         <textarea
           ref={editorTextareaRef}
@@ -911,8 +909,8 @@ export function AgentsPanel() {
   );
 
   const renderPersonaEmptyEditor = () => (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <div className="px-8 pb-3">
+    <div data-testid="agent-tab-empty-editor" className="relative flex min-h-full flex-col px-8 pb-6">
+      <div className="shrink-0 pb-3">
         <textarea
           value={activeWorkingDraft}
           onChange={(event) => {
@@ -924,8 +922,8 @@ export function AgentsPanel() {
           data-testid="agent-tab-textarea"
         />
       </div>
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6">
-        <div className="mt-auto mx-auto w-full">
+      <div className="relative mt-5 flex flex-col">
+        <div className="mx-auto w-full">
           <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (

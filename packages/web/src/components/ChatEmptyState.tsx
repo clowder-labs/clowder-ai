@@ -67,7 +67,7 @@ export function ChatEmptyState({
                 className="h-[60px] w-auto shrink-0"
               />
             </h2>
-            <p className="mx-auto mt-[8px] max-w-xl text-[20px] font-normal leading-[30px] text-[#191919]">
+            <p className="mx-auto mt-[8px] max-w-xl text-[16px] font-normal leading-[30px] text-[#595959]">
               AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
             </p>
           </div>
@@ -78,7 +78,7 @@ export function ChatEmptyState({
                 key={card.id}
                 type="button"
                 onClick={() => handleCardClick(card.id)}
-                className="rounded-[16px] border border-[#EEF0F5] bg-white px-6 py-6 text-left transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4D6BFF] focus-visible:ring-offset-2"
+                className="rounded-[16px] border border-[#e6e6e6] px-6 py-6 text-left transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4D6BFF] focus-visible:ring-offset-2"
                 data-testid={`chat-empty-card-${card.id}`}
               >
                 <div className="flex items-start gap-4">
