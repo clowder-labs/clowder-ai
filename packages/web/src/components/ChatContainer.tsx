@@ -246,6 +246,26 @@ export function ChatContainer(props: ChatContainerProps) {
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
+          // API 不可用（如服务重启/ERR_FAILED）时，用 sessionStorage 限制重试次数，
+          // 避免 authChecked=true + isLoggedIn=false 导致永久卡在"正在跳转登录页..."。
+          const retries = Number(sessionStorage.getItem('_chat_auth_retry') || '0');
+          if (retries < 2) {
+            sessionStorage.setItem('_chat_auth_retry', String(retries + 1));
+            // 延迟 3s 后 reload，等待 API 服务恢复
+            setTimeout(() => {
+              if (!cancelled) window.location.reload();
+            }, 3000);
+            return; // 不执行 finally 里的 setAuthChecked(true)，保持 loading 状态
+          }
+          // 重试耗尽：跳转 CAS 重新登录
+          sessionStorage.removeItem('_chat_auth_retry');
+          const casUrl = sessionStorage.getItem('_cas_login_url');
+          if (casUrl) {
+            window.location.replace(casUrl);
+          } else {
+            window.location.reload();
+          }
+          return;
         }
       } finally {
         if (!cancelled) {
