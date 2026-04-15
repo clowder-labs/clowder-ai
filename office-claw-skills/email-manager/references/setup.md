@@ -1,95 +1,74 @@
-# 邮箱配置指南
+﻿# 邮箱配置指南
 
-## 一、获取授权码
+`email-manager` 现在只支持通过 Windows Credential Manager 保存邮箱密钥。
 
-不同邮箱获取授权码的方式不同：
+不再支持以下方式：
 
-### QQ 邮箱
+- `config.json` 中的明文 `imap_pass` / `smtp_pass`
+- 环境变量 `IMAP_PASS` / `SMTP_PASS`
 
-1. 登录 [QQ 邮箱](https://mail.qq.com)
-2. 点击 **设置** → **账户**
-3. 找到 **POP3/IMAP/SMTP/Exchange/CardDAV/CalDAV服务**
-4. 开启 **IMAP/SMTP 服务**
-5. 手机验证后生成 **授权码**（16位字符）
-6. 保存授权码（只显示一次）
+## 1. 获取授权码
 
-### Gmail
+常见邮箱都需要先开启 IMAP/SMTP，并生成授权码或应用专用密码。
 
-1. 登录 Google 账户
-2. 开启 **两步验证**
-3. 进入 **账户设置** → **安全** → **应用专用密码**
-4. 生成应用专用密码
+- QQ 邮箱: `imap.qq.com:993` / `smtp.qq.com:587`
+- Gmail: `imap.gmail.com:993` / `smtp.gmail.com:587`
+- 163 邮箱: `imap.163.com:993` / `smtp.163.com:465`
+- Outlook: `outlook.office365.com:993` / `smtp.office365.com:587`
 
-### 163 邮箱
+## 2. 把密钥写入 Windows 凭据管理器
 
-1. 登录 [163 邮箱](https://mail.163.com)
-2. 点击 **设置** → **POP3/SMTP/IMAP**
-3. 开启 **IMAP/SMTP 服务**
-4. 获取 **授权码**
+在 `email-manager` 目录下执行：
 
----
+```powershell
+python scripts/wincred_store.py set --kind imap --user "your-email@qq.com" --secret "your-imap-secret"
+python scripts/wincred_store.py set --kind smtp --user "your-email@qq.com" --secret "your-smtp-secret"
+```
 
-## 二、服务器配置
+命令会返回引用，例如：
 
-| 邮箱 | IMAP 服务器 | IMAP 端口 | SMTP 服务器 | SMTP 端口 |
-|------|------------|----------|------------|----------|
-| QQ邮箱 | imap.qq.com | 993 | smtp.qq.com | 587 |
-| Gmail | imap.gmail.com | 993 | smtp.gmail.com | 587 |
-| 163邮箱 | imap.163.com | 993 | smtp.163.com | 465 |
-| Outlook | outlook.office365.com | 993 | smtp.office365.com | 587 |
+```text
+wincred://Clowder/email-manager/imap/your-email%40qq.com
+wincred://Clowder/email-manager/smtp/your-email%40qq.com
+```
 
----
-
-## 三、创建配置文件
-
-在 Skill 目录下创建 `config.json`：
+## 3. 创建 `config.json`
 
 ```json
 {
   "imap_host": "imap.qq.com",
   "imap_port": 993,
-  "imap_user": "你的邮箱@qq.com",
-  "imap_pass": "授权码",
-  
+  "imap_user": "your-email@qq.com",
+  "imap_pass_ref": "wincred://Clowder/email-manager/imap/your-email%40qq.com",
   "smtp_host": "smtp.qq.com",
   "smtp_port": 587,
-  "smtp_user": "你的邮箱@qq.com",
-  "smtp_pass": "授权码",
-  "smtp_from": "你的邮箱@qq.com"
+  "smtp_user": "your-email@qq.com",
+  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/your-email%40qq.com",
+  "smtp_from": "your-email@qq.com"
 }
 ```
 
----
+## 4. 可选环境变量
 
-## 四、环境变量方式（可选）
+只允许使用非敏感字段和 secret ref：
 
-也可以通过环境变量配置：
+```powershell
+$env:IMAP_HOST="imap.qq.com"
+$env:IMAP_PORT="993"
+$env:IMAP_USER="your-email@qq.com"
+$env:IMAP_PASS_REF="wincred://Clowder/email-manager/imap/your-email%40qq.com"
 
-```bash
-# IMAP
-export IMAP_HOST=imap.qq.com
-export IMAP_PORT=993
-export IMAP_USER=你的邮箱@qq.com
-export IMAP_PASS=授权码
-
-# SMTP
-export SMTP_HOST=smtp.qq.com
-export SMTP_PORT=587
-export SMTP_USER=你的邮箱@qq.com
-export SMTP_PASS=授权码
-export SMTP_FROM=你的邮箱@qq.com
+$env:SMTP_HOST="smtp.qq.com"
+$env:SMTP_PORT="587"
+$env:SMTP_USER="your-email@qq.com"
+$env:SMTP_PASS_REF="wincred://Clowder/email-manager/smtp/your-email%40qq.com"
+$env:SMTP_FROM="your-email@qq.com"
 ```
 
----
+## 5. 测试连接
 
-## 五、测试连接
-
-```bash
-# 测试 SMTP 发送
+```powershell
 python scripts/smtp_sender.py test
-
-# 测试 IMAP 读取
 python scripts/imap_reader.py list --limit 1
+python scripts/healthcheck.py all
 ```
-
-如果返回 `success: true`，说明配置成功。
