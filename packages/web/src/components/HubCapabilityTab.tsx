@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { skillSourceToLabel } from '@/utils/skill-source-label';
 import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
@@ -32,9 +33,7 @@ export interface SelectedSkillSummary {
 }
 
 function sourceToLabel(source: string): string {
-  if (source === 'builtin') return '内置技能';
-  if (source === 'external') return '用户添加技能';
-  return '其他';
+  return skillSourceToLabel(source);
 }
 
 function sortCategoryTabs(categories: string[]): string[] {
@@ -225,7 +224,7 @@ export function HubCapabilityTab({
   const filteredDisplayedSkillItems = useMemo(() => {
     if (!normalizedSearchQuery) return sourceFilteredItems;
     return sourceFilteredItems.filter((item) => {
-      const sourceLabel = item.source === 'builtin' ? '内置技能' : item.source === 'external' ? '用户添加技能' : '其他';
+      const sourceLabel = skillSourceToLabel(item.source);
       const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });

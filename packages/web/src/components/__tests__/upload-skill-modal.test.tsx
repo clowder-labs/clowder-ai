@@ -127,7 +127,7 @@ describe('UploadSkillModal', () => {
   it('hides parsed result section before selecting any files', () => {
     renderModal();
 
-    expect(container.textContent).toContain('暂未选择文件');
+    expect(container.textContent).not.toContain('暂未选择文件');
     expect(container.textContent).not.toContain('解析结果');
   });
 
@@ -508,7 +508,7 @@ name: uploaded-skill
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('暂未选择文件');
+    expect(container.textContent).not.toContain('暂未选择文件');
 
     await selectUploadFiles(fileInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\SKILL.md');
     expect(container.textContent).toContain('SKILL.md');
@@ -539,7 +539,7 @@ name: uploaded-skill
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('暂未选择文件');
+    expect(container.textContent).not.toContain('暂未选择文件');
 
     await selectUploadFiles(folderInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\folder-skill');
     expect(container.textContent).toContain('folder-skill/SKILL.md');
@@ -562,7 +562,9 @@ name: uploaded-skill
     await flushEffects();
 
     expect(container.textContent).toContain('上传内容根目录必须包含名为 SKILL.md 的文件');
-    expect(container.textContent).toContain('--');
+    expect(container.querySelector('[data-testid="parsed-skill-error"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="parsed-skill-name-text"]')).toBeNull();
+    expect(container.querySelector('[data-testid="parsed-skill-description-text"]')).toBeNull();
     expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('导入'),
@@ -613,8 +615,9 @@ description: Missing skill name.
     expect(latestToast?.title).toBe('上传失败');
     expect(latestToast?.message).toBe('技能文件不合法：SKILL.md 头部缺少 name 字段');
     expect(confirmButton?.disabled).toBe(true);
-    expect(container.textContent).toContain('Missing skill name.');
-    expect(container.textContent).toContain('--');
+    expect(container.querySelector('[data-testid="parsed-skill-error"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="parsed-skill-name-text"]')).toBeNull();
+    expect(container.querySelector('[data-testid="parsed-skill-description-text"]')).toBeNull();
     expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
 
     act(() => {
@@ -813,7 +816,9 @@ description: From zip package.
     await flushEffects();
 
     expect(container.textContent).toContain('ZIP 压缩包根目录必须包含名为 SKILL.md 的文件');
-    expect(container.textContent).toContain('--');
+    expect(container.querySelector('[data-testid="parsed-skill-error"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="parsed-skill-name-text"]')).toBeNull();
+    expect(container.querySelector('[data-testid="parsed-skill-description-text"]')).toBeNull();
     expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
   });
 
@@ -841,6 +846,7 @@ description: From zip package.
     expect(latestToast?.type).toBe('error');
     expect(latestToast?.title).toBe('上传失败');
     expect(latestToast?.message).toBe('文件 oversized.txt 单个文件大小不能超过1MB');
+    expect(container.querySelector('[data-testid="parsed-skill-error"]')).toBeTruthy();
     expect(confirmButton?.disabled).toBe(true);
     act(() => {
       submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));

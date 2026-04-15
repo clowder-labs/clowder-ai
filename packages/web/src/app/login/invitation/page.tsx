@@ -26,7 +26,7 @@ type InvitationResponse = {
   canCreateModel?: boolean;
 };
 
-const INVITATION_LINK_URL = 'https://placeholder.officeclaw.example/invitation';
+const INVITATION_LINK_URL = 'https://www.huaweicloud.com/product/agentarts/officeclaw.html';
 
 function withAuthSuccessRedirect(target: string): string {
   if (!target.startsWith('/')) return target;
@@ -209,7 +209,7 @@ export default function InvitationPage() {
               </span>
             </h1>
             <p className="mx-auto max-w-[430px] text-sm font-medium leading-6 text-[#191919]">
-              目前我们正在进行邀测，想要开启体验，请在下方输入你的邀请码
+              产品邀测开放，期待与您一起，共创智能高效的办公方式
             </p>
           </div>
 
