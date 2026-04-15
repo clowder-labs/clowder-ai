@@ -397,7 +397,7 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const modal = container.querySelector('[data-testid="app-modal"]');
+    const modal = container.querySelector('[data-testid="usage-stats-modal-panel"]');
     expect(modal).not.toBeNull();
 
     act(() => {
@@ -405,5 +405,68 @@ describe('UsageStatsModal', () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts the in-flight usage stats request when the modal unmounts', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const abortListener = vi.fn();
+    const fetchDataset = vi.fn(
+      ({ signal }: { signal?: AbortSignal } = {}) =>
+        new Promise<ReturnType<typeof createDataset>>(() => {
+          capturedSignal = signal;
+          signal?.addEventListener('abort', abortListener, { once: true });
+        }),
+    );
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+
+    await flush();
+
+    expect(fetchDataset).toHaveBeenCalledTimes(1);
+    expect(capturedSignal).toBeDefined();
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      root.unmount();
+    });
+
+    expect(abortListener).toHaveBeenCalledTimes(1);
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('clears previously loaded rows when the modal closes before it opens again', async () => {
+    const fetchDataset = vi
+      .fn()
+      .mockResolvedValueOnce(createDataset(1, NOW))
+      .mockImplementationOnce(
+        () =>
+          new Promise<ReturnType<typeof createDataset>>(() => {
+            // Keep the second open in a loading state so stale rows would be visible if not cleared.
+          }),
+      );
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+    await flush(320);
+
+    expect(container.textContent).toContain('session-1');
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: false, onClose: vi.fn(), fetchDataset }));
+    });
+
+    expect(container.textContent).not.toContain('session-1');
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+    await flush();
+
+    expect(fetchDataset).toHaveBeenCalledTimes(2);
+    expect(container.textContent).not.toContain('session-1');
+    expect(container.querySelector('[data-testid="usage-stats-loading-overlay"]')).toBeTruthy();
   });
 });
