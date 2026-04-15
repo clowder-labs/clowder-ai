@@ -368,6 +368,9 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   const metadataValidationError = !fileValidationIssue && files.length > 0
     ? getSkillMetadataValidationError({ name: parsedName, description })
     : null;
+  const parseResultError = error
+    ?? (fileValidationIssue && fileValidationIssue.kind !== 'empty' ? fileValidationIssue.message : null)
+    ?? metadataValidationError;
   const nameValidationError = validateSkillName(name);
   const editingNameValidationError = isEditingName ? nameValidationError : null;
   const uploadDisabledReason = (() => {
@@ -646,8 +649,6 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             </button>
           </div>
 
-          {error ? <p className="mb-4 text-xs text-red-500">{error}</p> : null}
-
           <input
             ref={fileInputRef}
             type="file"
@@ -705,16 +706,19 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                   </button>
                 ) : null}
               </div>
-            ) : (
-              <div className="text-xs text-[#8A93A3]">暂未选择文件</div>
-            )}
+            ) : null}
           </div>
 
           {files.length > 0 ? (
             <div>
             <div className="mb-3 text-xs font-medium text-[#5F6775]">解析结果</div>
 
-            <div className="space-y-3">
+            {parseResultError ? (
+              <p data-testid="parsed-skill-error" className="text-xs text-[var(--state-error-text)]">
+                {parseResultError}
+              </p>
+            ) : (
+              <div className="space-y-3">
               <div className="flex items-start gap-3 text-xs">
                 <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
                 <div className="min-w-0 flex-1">
@@ -790,7 +794,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                   </span>
                 </div>
               </div>
-            </div>
+              </div>
+            )}
             </div>
           ) : null}
 
