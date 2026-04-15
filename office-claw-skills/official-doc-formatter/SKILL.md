@@ -1,3 +1,8 @@
+---
+name: official-doc-formatter
+description: Format Word documents to official Chinese government and enterprise document standards, including requests, plans, attachments, heading hierarchy, spacing, fonts, and punctuation rules. Use when users need to normalize or restyle formal DOCX materials, especially official memos, requests, plans, notices, or attachment documents that must match GB/T-style formatting conventions.
+---
+
 # official-doc-formatter 技能文档
 
 ## 概述
