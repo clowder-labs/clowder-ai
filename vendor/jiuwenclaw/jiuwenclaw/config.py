@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 from ruamel.yaml import YAML
 
+from jiuwenclaw.runtime_paths import USER_WORKSPACE_DIR
 from jiuwenclaw.utils import get_config_file
 
 
@@ -19,8 +20,8 @@ _CONFIG_YAML_PATH = get_config_file()
 _user_config = os.getenv("JIUWENCLAW_CONFIG_DIR")
 if _user_config:
     _CONFIG_MODULE_DIR = Path(_user_config)
-elif (Path.home() / ".jiuwenclaw" / "config").exists():
-    _CONFIG_MODULE_DIR = Path.home() / ".jiuwenclaw" / "config"
+elif (USER_WORKSPACE_DIR / "config").exists():
+    _CONFIG_MODULE_DIR = USER_WORKSPACE_DIR / "config"
 
 # Ensure config directory is in sys.path
 if str(_CONFIG_MODULE_DIR) not in sys.path:
