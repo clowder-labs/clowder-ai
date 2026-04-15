@@ -26,6 +26,7 @@ interface AgentMsg {
   catId: string;
   threadId?: string;
   content?: string;
+  source?: import('../stores/chat-types').ConnectorSourceData;
   error?: string;
   errorCode?: string;
   isFinal?: boolean;
@@ -67,6 +68,16 @@ function safeJsonPreview(value: unknown, maxLength: number): string {
   } catch {
     return '[unserializable input]';
   }
+}
+
+function isScheduledTriggerPlaceholderMessage(msg: Pick<AgentMsg, 'catId' | 'content' | 'origin' | 'source'>): boolean {
+  return (
+    msg.origin === 'callback' &&
+    msg.catId === 'system' &&
+    msg.source?.connector === 'scheduler' &&
+    typeof msg.content === 'string' &&
+    msg.content.startsWith('[定时任务]')
+  );
 }
 
 function resolveCatLabel(catId: string): string {
@@ -514,6 +525,10 @@ export function useAgentMessages() {
       // 在入口处丢弃已被取消的 invocationId 的全部事件（done 事件除外——需要它来
       // 触发最终状态清理；但因为 handleStop 已经做了清理，done 的副作用是幂等的）。
       if (msg.invocationId && cancelledInvocationsRef.current.has(msg.invocationId) && msg.type !== 'done') {
+        return;
+      }
+
+      if (isScheduledTriggerPlaceholderMessage(msg)) {
         return;
       }
 

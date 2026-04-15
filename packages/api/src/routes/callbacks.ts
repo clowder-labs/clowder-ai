@@ -27,7 +27,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import { hydrateReplyPreview, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
+import { canViewMessage, isScheduledTriggerPlaceholder } from '../domains/cats/services/stores/visibility.js';
 import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
@@ -889,6 +889,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         if (batch.length === 0) break;
 
         for (const item of batch) {
+          if (isScheduledTriggerPlaceholder(item)) continue;
           if (!canViewMessage(item, viewer)) continue;
           if (!matchesExtraFilters(item)) continue;
           visible.push(item);
@@ -917,6 +918,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         if (batch.length === 0) break; // no more messages
 
         for (const item of batch) {
+          if (isScheduledTriggerPlaceholder(item)) continue;
           // F35: Skip whispers not intended for this cat
           if (!canViewMessage(item, viewer)) continue;
           // Visible in play mode: user messages, own cat's messages,
