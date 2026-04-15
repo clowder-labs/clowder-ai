@@ -23,7 +23,9 @@ type AgentManagementIconName =
   | 'delete'
   | 'refresh'
   | 'random'
-  | 'add';
+  | 'add'
+  | 'information'
+  | 'link';
 
 const ICON_PATHS: Record<AgentManagementIconName, string> = {
   persona: '/images/agent-management-icons/agent-persona.svg',
@@ -38,6 +40,8 @@ const ICON_PATHS: Record<AgentManagementIconName, string> = {
   refresh: '/images/agent-management-icons/agent-refresh.svg',
   random: '/images/agent-management-icons/agent-random-avatar.svg',
   add: '/images/add.svg',
+  link: '/images/link.svg',
+  information: '/images/information.svg',
 };
 
 function DeleteIcon({ className }: { className?: string }) {

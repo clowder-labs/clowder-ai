@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { clearAuthIdentity, getIsSkipAuth, getUserId, getUserName } from '@/utils/userId';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import SecurityManagementModal from './SecurityManagementModal';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
@@ -35,6 +36,7 @@ const THEME_OPTIONS: Array<{
 ];
 
 const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
+const PRIVACY_DECLARATION_URL = 'https://www.huaweicloud.com/declaration/sa_prp.html';
 const DEFAULT_LOGOUT_URL =
   process.env.NEXT_PUBLIC_CAS_LOGOUT_URL ||
   'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
@@ -42,6 +44,7 @@ const DEFAULT_LOGOUT_URL =
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [showThemePanel, setShowThemePanel] = useState(false);
+  const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [showUsageStats, setShowUsageStats] = useState(false);
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
   const [showSecurityManagement, setShowSecurityManagement] = useState(false);
@@ -49,11 +52,15 @@ export function UserProfile({ className }: UserProfileProps) {
   const [isSkipAuth, setIsSkipAuth] = useState(false);
   const [themePopoverTop, setThemePopoverTop] = useState(0);
   const [themePopoverLeft, setThemePopoverLeft] = useState(0);
+  const [aboutPopoverTop, setAboutPopoverTop] = useState(0);
+  const [aboutPopoverLeft, setAboutPopoverLeft] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
   const themeAnchorRef = useRef<HTMLDivElement>(null);
+  const aboutAnchorRef = useRef<HTMLDivElement>(null);
   const themePopoverRef = useRef<HTMLDivElement>(null);
+  const aboutPopoverRef = useRef<HTMLDivElement>(null);
   const userId = getUserId();
   const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
@@ -61,22 +68,44 @@ export function UserProfile({ className }: UserProfileProps) {
   const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
-    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[14px] font-normal leading-[20px]';
+    'ui-overlay-item flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[14px] font-normal leading-[22px]';
+  const profileSubActionClass =
+    'ui-overlay-item flex w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-[14px] font-normal leading-[22px]';
 
-  const updateThemePopoverPosition = () => {
-    if (!panelRef.current || !profilePanelRef.current || !themeAnchorRef.current) return;
+  const calculatePopoverPosition = (anchorElement: HTMLDivElement | null) => {
+    if (!panelRef.current || !profilePanelRef.current || !anchorElement) return null;
 
     const rootRect = panelRef.current.getBoundingClientRect();
     const profilePanelRect = profilePanelRef.current.getBoundingClientRect();
-    const anchorRect = themeAnchorRef.current.getBoundingClientRect();
-    setThemePopoverTop(anchorRect.top - rootRect.top);
-    setThemePopoverLeft(profilePanelRect.right - rootRect.left);
+    const anchorRect = anchorElement.getBoundingClientRect();
+
+    return {
+      top: anchorRect.top - rootRect.top,
+      left: profilePanelRect.right - rootRect.left,
+    };
+  };
+
+  const updateThemePopoverPosition = () => {
+    const position = calculatePopoverPosition(themeAnchorRef.current);
+    if (!position) return;
+    setThemePopoverTop(position.top);
+    setThemePopoverLeft(position.left);
+  };
+
+  const updateAboutPopoverPosition = () => {
+    const position = calculatePopoverPosition(aboutAnchorRef.current);
+    if (!position) return;
+    setAboutPopoverTop(position.top);
+    setAboutPopoverLeft(position.left);
   };
 
   const handleTogglePanel = () => {
     setShowPanel((prev) => {
       const next = !prev;
-      if (!next) setShowThemePanel(false);
+      if (!next) {
+        setShowThemePanel(false);
+        setShowAboutPanel(false);
+      }
       return next;
     });
   };
@@ -84,6 +113,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const handleOpenUsageStats = () => {
     setShowUsageStats(true);
     setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
   };
 
@@ -94,12 +124,14 @@ export function UserProfile({ className }: UserProfileProps) {
   const handleOpenVersionUpdate = () => {
     setShowVersionUpdate(true);
     setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
   };
 
   const handleOpenSecurityManagement = () => {
     setShowSecurityManagement(true);
     setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
   };
 
@@ -113,6 +145,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const openThemePanel = () => {
     updateThemePopoverPosition();
+    setShowAboutPanel(false);
     setShowThemePanel(true);
   };
 
@@ -127,18 +160,42 @@ export function UserProfile({ className }: UserProfileProps) {
   const handleSelectTheme = (nextTheme: ThemeType) => {
     setTheme(nextTheme);
     setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
   };
 
   const handleOpenHelp = () => {
     window.open(HELP_URL, '_blank', 'noopener,noreferrer');
     setShowThemePanel(false);
+    setShowAboutPanel(false);
+    setShowPanel(false);
+  };
+
+  const openAboutPanel = () => {
+    updateAboutPopoverPosition();
+    setShowThemePanel(false);
+    setShowAboutPanel(true);
+  };
+
+  const handleToggleAboutPanel = () => {
+    if (showAboutPanel) {
+      setShowAboutPanel(false);
+      return;
+    }
+    openAboutPanel();
+  };
+
+  const handleOpenPrivacyDeclaration = () => {
+    window.open(PRIVACY_DECLARATION_URL, '_blank', 'noopener,noreferrer');
+    setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
   };
 
   const finishLogout = (logoutUrl?: string) => {
     clearAuthIdentity();
     setShowThemePanel(false);
+    setShowAboutPanel(false);
     setShowPanel(false);
     window.location.assign(logoutUrl || DEFAULT_LOGOUT_URL);
   };
@@ -177,25 +234,36 @@ export function UserProfile({ className }: UserProfileProps) {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setShowPanel(false);
         setShowThemePanel(false);
+        setShowAboutPanel(false);
       }
     };
 
-    if (showPanel || showThemePanel) {
+    if (showPanel || showThemePanel || showAboutPanel) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPanel, showThemePanel]);
+  }, [showPanel, showThemePanel, showAboutPanel]);
 
   useEffect(() => {
-    if (!showPanel || !showThemePanel) return;
+    if (!showPanel || (!showThemePanel && !showAboutPanel)) return;
 
-    updateThemePopoverPosition();
+    if (showThemePanel) {
+      updateThemePopoverPosition();
+    }
+    if (showAboutPanel) {
+      updateAboutPopoverPosition();
+    }
 
     const handlePositionChange = () => {
-      updateThemePopoverPosition();
+      if (showThemePanel) {
+        updateThemePopoverPosition();
+      }
+      if (showAboutPanel) {
+        updateAboutPopoverPosition();
+      }
     };
 
     const scrollElement = panelScrollRef.current;
@@ -206,7 +274,7 @@ export function UserProfile({ className }: UserProfileProps) {
       window.removeEventListener('resize', handlePositionChange);
       scrollElement?.removeEventListener('scroll', handlePositionChange);
     };
-  }, [showPanel, showThemePanel]);
+  }, [showPanel, showThemePanel, showAboutPanel]);
 
   useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
@@ -313,10 +381,27 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </div>
 
-              <button className={profileActionClass} onClick={handleOpenHelp}>
-                <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
-                帮助
-              </button>
+              <div className="relative" data-testid="user-profile-about-anchor" ref={aboutAnchorRef}>
+                <button
+                  type="button"
+                  className={profileActionClass}
+                  onClick={handleToggleAboutPanel}
+                  data-testid="user-profile-about-trigger"
+                >
+                  <AgentManagementIcon name="information" className="h-5 w-5 shrink-0" />
+                  <span className="flex-1 text-left">关于我们</span>
+                  <svg
+                    data-testid="user-profile-about-arrow"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {!isSkipAuth && (
@@ -384,6 +469,38 @@ export function UserProfile({ className }: UserProfileProps) {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPanel && showAboutPanel && (
+        <div
+          ref={aboutPopoverRef}
+          className="ui-overlay-card absolute z-[60] min-w-[180px] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
+          data-testid="user-about-popover"
+          style={{ top: `${aboutPopoverTop}px`, left: `${aboutPopoverLeft}px` }}
+        >
+          <div className="p-[16px]">
+            <div className="flex flex-col" data-testid="user-about-options">
+              <button
+                type="button"
+                className={profileSubActionClass}
+                data-testid="user-about-privacy-action"
+                onClick={handleOpenPrivacyDeclaration}
+              >
+                <span className="flex-1 text-left">隐私声明</span>
+                <AgentManagementIcon name="link" className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                type="button"
+                className={profileSubActionClass}
+                data-testid="user-about-help-action"
+                onClick={handleOpenHelp}
+              >
+                <span className="flex-1 text-left">帮助文档</span>
+                <AgentManagementIcon name="link" className="h-4 w-4 shrink-0" />
+              </button>
             </div>
           </div>
         </div>
