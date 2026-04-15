@@ -238,7 +238,7 @@ export function NewThreadContainer() {
             {sidebarMenu !== 'chat' && (
               <div
                 className={`ui-shell-surface h-full px-8 pt-6 pb-5 ${
-                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : ''
+                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
                 }`}
               >
                 {sidebarMenu === 'models' && <ModelsPanel />}

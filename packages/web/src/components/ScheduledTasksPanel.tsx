@@ -5,6 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
 import { formatCronFrequency } from './scheduled-task-frequency';
 import { EmptyDataState } from './shared/EmptyDataState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 type ScheduledTasksPanelProps = {
   onCreateTask?: () => void;
@@ -246,7 +247,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
     maskPosition: 'center',
     WebkitMaskSize: 'contain',
     maskSize: 'contain',
-    backgroundColor: 'rgba(194,194,194,1)',
+    backgroundColor: 'var(--text-muted)',
   } as const;
 
   return (
@@ -265,96 +266,102 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
       <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 shadow-none">
         {isLoading ? (
           <div className="flex h-full min-h-0 items-center justify-center">
-            <div className="text-[12px] text-[#9AA3B2]">加载中...</div>
+            <div className="text-[12px] text-[var(--text-muted)]">加载中...</div>
           </div>
         ) : tasks.length === 0 ? (
           <div className="flex h-full min-h-0 items-center justify-center">
             <div className="text-center">
               <EmptyDataState title="暂无定时任务" />
-              <p className="mt-2 text-[12px] text-[#9AA3B2]">暂无数据，您可以点击创建按钮新增定时任务</p>
+              <p className="mt-2 text-[12px] text-[var(--text-muted)]">暂无数据，您可以点击创建按钮新增定时任务</p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-x-4 gap-y-6 overflow-y-auto px-1 pb-4">
-            {tasks.map((task) => (
-              <article
-                key={task.taskId}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedTask(task)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedTask(task);
-                  }
-                }}
-                className="group h-[194px] cursor-pointer rounded-[16px] border border-[#e6e6e6] bg-white p-6 transition-shadow hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
-              >
-                <div className="flex h-full flex-col gap-4">
-                  <div className="flex h-[48px] items-center justify-between gap-3">
-                    <div className="flex h-full min-w-0 items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
-                        <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
+          <div className="h-full min-h-0 overflow-y-auto px-1 pb-4">
+            <div className="grid grid-cols-3 gap-x-4 gap-y-6">
+              {tasks.map((task) => (
+                <article
+                  key={task.taskId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTask(task)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedTask(task);
+                    }
+                  }}
+                  className="group h-[194px] cursor-pointer rounded-[16px] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 transition-shadow hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
+                >
+                  <div className="flex h-full flex-col gap-4">
+                    <div className="flex h-[48px] items-center justify-between gap-3">
+                      <div className="flex h-full min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[var(--surface-card-muted)]">
+                          <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
+                        </div>
+                        <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[var(--text-primary)]">{task.taskName}</h3>
                       </div>
-                      <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
-                    </div>
-                    {task.source === 'dynamic' ? (
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={task.enabled}
-                        aria-label={`${task.taskName}开关`}
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          await handleToggleTask(task);
-                        }}
-                        disabled={togglingTaskIds.has(task.taskId)}
-                        className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full px-1 transition ${
-                          task.enabled ? 'justify-end bg-[#2D7AF8]' : 'justify-start bg-[#D8DDE5]'
-                        }`}
-                      >
-                        <span className="h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.25)]" />
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <p className="line-clamp-2 h-[44px] text-[14px] leading-[22px] text-[#98A1AF]">{task.prompt}</p>
-
-                  <div className="h-[24px]">
-                    <div className="flex items-center gap-1.5 text-[12px] leading-6 text-[#AAB2BE] group-hover:hidden">
-                      <span aria-hidden="true" className="h-4 w-4 shrink-0" style={taskIconMaskStyle} />
-                      <span>{task.frequency}</span>
-                    </div>
-                    <div className="hidden group-hover:flex">
                       {task.source === 'dynamic' ? (
                         <button
                           type="button"
-                          onClick={(event) => {
+                          role="switch"
+                          aria-checked={task.enabled}
+                          aria-label={`${task.taskName}开关`}
+                          onClick={async (event) => {
                             event.stopPropagation();
-                            handleDeleteTask(task);
+                            await handleToggleTask(task);
                           }}
-                          className="bg-transparent p-0 text-[14px] font-normal leading-6 text-[#1476ff]"
+                          disabled={togglingTaskIds.has(task.taskId)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-60 ${
+                            task.enabled ? 'bg-[var(--text-accent)]' : 'bg-[var(--border-default)]'
+                          }`}
                         >
-                          删除
+                          <span
+                            className={`absolute left-1 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.25)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                              task.enabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          aria-disabled="true"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                          }}
-                          className="cursor-not-allowed bg-transparent p-0 text-[14px] font-normal leading-6 text-[#C1C7D0]"
-                        >
-                          删除
-                        </button>
-                      )}
+                      ) : null}
+                    </div>
+
+                    <p className="line-clamp-2 h-[44px] text-[14px] leading-[22px] text-[var(--text-secondary)]">{task.prompt}</p>
+
+                    <div className="h-[24px]">
+                      <div className="flex items-center gap-1.5 text-[12px] leading-6 text-[var(--text-muted)] group-hover:hidden">
+                        <span aria-hidden="true" className="h-4 w-4 shrink-0" style={taskIconMaskStyle} />
+                        <span>{task.frequency}</span>
+                      </div>
+                      <div className="hidden group-hover:flex">
+                        {task.source === 'dynamic' ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteTask(task);
+                            }}
+                            className="bg-transparent p-0 text-[14px] font-normal leading-6 text-[var(--text-accent)]"
+                          >
+                            删除
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                            className="cursor-not-allowed bg-transparent p-0 text-[14px] font-normal leading-6 text-[var(--text-disabled)]"
+                          >
+                            删除
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -378,11 +385,21 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
             </div>
             <div className="flex items-start gap-6">
               <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">描述</div>
-              <div className="min-w-0 flex-1 leading-6">{selectedTask.prompt}</div>
+              <div className="min-w-0 flex-1">
+                <OverflowTooltip content={selectedTask.prompt} className="inline-flex max-w-full align-top">
+                  <div className="min-w-0 leading-6 line-clamp-2">{selectedTask.prompt}</div>
+                </OverflowTooltip>
+              </div>
             </div>
             <div className="flex items-start gap-6">
               <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">执行会话</div>
-              <div className="min-w-0 flex-1 text-[14px] leading-6 text-[#2F3A4B]">{selectedTask.sessionName}</div>
+              <div className="min-w-0 flex-1">
+                <OverflowTooltip content={selectedTask.sessionName} className="inline-flex max-w-full align-top">
+                  <div className="min-w-0 max-w-full truncate text-[14px] leading-6 text-[#2F3A4B]">
+                    {selectedTask.sessionName}
+                  </div>
+                </OverflowTooltip>
+              </div>
             </div>
             <div className="flex justify-end pt-2">
               <button type="button" onClick={() => setSelectedTask(null)} className="ui-button-primary">

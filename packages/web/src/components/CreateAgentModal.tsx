@@ -836,7 +836,7 @@ export function CreateAgentModal({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 transition group-hover:opacity-100">
                     <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                   </span>
                 </button>
