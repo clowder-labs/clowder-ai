@@ -6,12 +6,15 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+  getDailyQuotaExhaustedChatMessage,
   MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
   getAgentErrorToastContent,
   getFriendlyAgentErrorMessage,
   getRateLimitChatMessage,
   getSensitiveInputErrorToastContent,
+  isDailyQuotaExhaustedAgentError,
   isRateLimitError,
   isSensitiveInputAgentError,
 } from '@/hooks/agent-error-fallback';
@@ -69,6 +72,28 @@ describe('agent rate-limit error classification', () => {
           "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
       }),
     ).toBe(getRateLimitChatMessage());
+  });
+});
+
+describe('agent daily quota exhaustion classification', () => {
+  it('detects structured APIG daily quota exhaustion errors', () => {
+    expect(
+      isDailyQuotaExhaustedAgentError({
+        errorCode: APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      }),
+    ).toBe(true);
+  });
+
+  it('returns the fixed daily quota guidance copy', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        errorCode: APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      }),
+    ).toBe(getDailyQuotaExhaustedChatMessage());
   });
 });
 
