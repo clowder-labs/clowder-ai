@@ -1057,17 +1057,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const effectivePrompt = promptWithMission;
 
     log.debug(
-      {
-        invocationId,
-        catId: catId as string,
-        provider,
-        threadId,
-        isResume,
-        injectSystemPrompt,
-        prompt: effectivePrompt,
-        systemPrompt: effectiveSystemPrompt ?? null,
-      },
-      'prompt split prepared',
+      { invocationId, catId: catId as string, provider, threadId, isResume, injectSystemPrompt },
+      'prompt split — query prompt (%d chars):\n%s',
+      effectivePrompt.length,
+      effectivePrompt,
+    );
+    log.debug(
+      { invocationId, catId: catId as string, provider },
+      'prompt split — system prompt (%d chars):\n%s',
+      effectiveSystemPrompt?.length ?? 0,
+      effectiveSystemPrompt ?? '(none)',
     );
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
