@@ -512,15 +512,15 @@ export function SkillDetailView({
               </div>
             </section>
             <section
-              className="shrink-0 flex flex-col space-y-3"
+              className="flex min-h-0 flex-1 flex-col space-y-3"
               data-testid="skill-detail-file-workspace"
             >
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
               <div
-                className={`flex overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)] ${
-                  hasDisclaimer ? "h-[354px]" : "h-[518px]"
+                className={`flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)] ${
+                  hasDisclaimer ? "min-h-[378px]" : "min-h-[520px]"
                 }`}
               >
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
