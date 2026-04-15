@@ -207,7 +207,7 @@ export default function InvitationPage() {
               </span>
             </h1>
             <p className="mx-auto max-w-[430px] text-sm font-medium leading-6 text-[#191919]">
-              目前我们正在进行内测，想要开启体验，请在下方输入你的邀请码
+              目前我们正在进行邀测，想要开启体验，请在下方输入你的邀请码
             </p>
           </div>
 

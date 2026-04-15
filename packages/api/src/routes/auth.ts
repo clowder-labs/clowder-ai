@@ -9,14 +9,13 @@
  */
 
 import { existsSync, unlinkSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import Conf from 'conf';
 import envPaths from 'env-paths';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { getPassword, setPassword } from 'cross-keychain';
 import { getErrorMessage } from '../utils/index.js';
+import * as signer from '../utils/signer.js';
 import { reportMetric, initMetricsServiceFromCredential, startTokenUsageReporter } from '../services/metrics/index.js';
 
 export interface AuthRoutesOptions {
@@ -69,31 +68,6 @@ interface PromotionCodeBody {
   inviteCode?: string;
 }
 
-interface SignerHttpRequestLike {
-  method: string;
-  headers: Record<string, string>;
-  body: string;
-}
-
-interface SignerLike {
-  Key: string;
-  Secret: string;
-  Sign(request: SignerHttpRequestLike): {
-    method: string;
-    headers: Record<string, string>;
-  };
-}
-
-interface SignerModuleLike {
-  HttpRequest: new (
-    method: string,
-    url: string,
-    headers?: Record<string, string>,
-    body?: string,
-  ) => SignerHttpRequestLike;
-  Signer: new () => SignerLike;
-}
-
 const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
 const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://res.hc-cdn.com/AgentArts-Console/26.3.2/hws/assets/login/bg2.png';
@@ -109,11 +83,11 @@ const CAS_BACKGROUND_IMAGE_URL = process.env.CAS_BACKGROUND_IMAGE_URL || DEFAULT
 const CAS_PORTAL_IMAGE_URL = process.env.CAS_PORTAL_IMAGE_URL || DEFAULT_CAS_PORTAL_IMAGE_URL;
 const CAS_LOGIN_URL =
   process.env.CAS_LOGIN_URL ||
-  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${encodeURIComponent(CAS_BACKGROUND_IMAGE_URL)}&portal_img_url=${encodeURIComponent(CAS_PORTAL_IMAGE_URL)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}#/login`;
+  `https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${encodeURIComponent(CAS_BACKGROUND_IMAGE_URL)}&portal_img_url=${encodeURIComponent(CAS_PORTAL_IMAGE_URL)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}#/login`;
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
-const CAS_LOGOUT_URL = `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
+const CAS_LOGOUT_URL = `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009', 'common.01010004']);
 const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
@@ -121,9 +95,6 @@ const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
   'AgentArts.11000008': '邀请码无效，请重新输入',
   'common.01010004': '请确认账号状态，是否已实名认证或非欠费状态',
 };
-const require = createRequire(import.meta.url);
-const signer = loadSignerModule();
-
 const KEYCHAIN_SERVICE = 'office-claw';
 const KEYCHAIN_ACCOUNT = 'secure-config-encryption-key';
 const LEGACY_ENCRYPTION_KEY = 'clowder-ai-secure-key';
@@ -392,15 +363,6 @@ async function completeCasLogin(
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
-}
-
-function loadSignerModule(): SignerModuleLike {
-  const bundledPath = fileURLToPath(new URL('./utils/signer.cjs', import.meta.url));
-  const distPath = fileURLToPath(new URL('../utils/signer.cjs', import.meta.url));
-  const sourcePath = fileURLToPath(new URL('../../src/utils/signer.cjs', import.meta.url));
-  if (existsSync(bundledPath)) return require(bundledPath) as SignerModuleLike;
-  if (existsSync(distPath)) return require(distPath) as SignerModuleLike;
-  return require(sourcePath) as SignerModuleLike;
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {

@@ -11,44 +11,10 @@
  * using the project's SDK-HMAC-SHA256 signer.
  */
 
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 import type { FastifyBaseLogger } from 'fastify';
-
-const require = createRequire(import.meta.url);
+import * as signer from '../../utils/signer.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface SignerHttpRequestLike {
-  method: string;
-  headers: Record<string, string>;
-  body: string;
-  host?: string;
-  uri?: string;
-  query?: Record<string, string[]>;
-}
-
-interface SignerLike {
-  Key: string;
-  Secret: string;
-  Sign(request: SignerHttpRequestLike): {
-    hostname: string;
-    path: string;
-    method: string;
-    headers: Record<string, string>;
-  };
-}
-
-interface SignerModuleLike {
-  HttpRequest: new (
-    method: string,
-    url: string,
-    headers?: Record<string, string>,
-    body?: string,
-  ) => SignerHttpRequestLike;
-  Signer: new () => SignerLike;
-}
 
 export interface CasCredential {
   access: string;
@@ -60,26 +26,6 @@ export interface CasCredential {
 export interface AomAccessCodeResult {
   accessCode: string;
   accessCodeId: string;
-}
-
-// ─── Signer Loader (reuses project's signer.cjs) ────────────────────────────
-
-let signerModule: SignerModuleLike | null = null;
-
-function loadSignerModule(): SignerModuleLike {
-  if (signerModule) return signerModule;
-
-  const bundledPath = fileURLToPath(new URL('./utils/signer.cjs', import.meta.url));
-  const distPath = fileURLToPath(new URL('../../utils/signer.cjs', import.meta.url));
-  const sourcePath = fileURLToPath(new URL('../../../src/utils/signer.cjs', import.meta.url));
-  if (existsSync(bundledPath)) {
-    signerModule = require(bundledPath) as SignerModuleLike;
-  } else if (existsSync(distPath)) {
-    signerModule = require(distPath) as SignerModuleLike;
-  } else {
-    signerModule = require(sourcePath) as SignerModuleLike;
-  }
-  return signerModule;
 }
 
 // ─── Region extraction ──────────────────────────────────────────────────────
@@ -127,8 +73,6 @@ export async function fetchAomAccessCode(
   const url = `https://${host}/v1/${project_id}/access-code`;
 
   try {
-    const signer = loadSignerModule();
-
     const request = new signer.HttpRequest(
       'GET',
       url,
