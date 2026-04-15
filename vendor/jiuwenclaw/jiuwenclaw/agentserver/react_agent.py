@@ -1072,8 +1072,14 @@ class JiuClawReActAgent(ReActAgent):
 
         always_allow_hint = ""
         #shell_injection_warning = ""
-        if tool_name == "mcp_exec_command":
-            cmd = tool_args.get("command", tool_args.get("cmd", "")) if isinstance(tool_args, dict) else ""
+        if tool_name in {"mcp_exec_command", "run_command"}:
+            cmd = ""
+            if isinstance(tool_args, dict):
+                for key in ("command", "cmd", "bash_command"):
+                    value = tool_args.get(key, "")
+                    if isinstance(value, str) and value.strip():
+                        cmd = value
+                        break
             if cmd:
                 # import re as _re
                 # _ops_re = _re.compile(r'[;&|`<>]|\$[({]|\r?\n')
@@ -1102,6 +1108,8 @@ class JiuClawReActAgent(ReActAgent):
         meta: dict = {
             "tool_name": tool_name,
             "tool_args": tool_args,
+            "matched_patterns": getattr(result, "matched_patterns", None) or [],
+            "matched_subcommands": getattr(result, "matched_subcommands", None) or [],
         }
         if result.matched_rule and "external_directory" in result.matched_rule:
             meta["external_paths"] = getattr(result, "external_paths", None) or []
@@ -1371,6 +1379,8 @@ class JiuClawReActAgent(ReActAgent):
                     persist_permission_allow_rule(
                         meta.get("tool_name", ""),
                         meta.get("tool_args", {}),
+                        meta.get("matched_patterns") or [],
+                        meta.get("matched_subcommands") or [],
                     )
             future.set_result("allow_always")
             logger.info("[ReActAgent] Permission approval: request_id=%s decision=allow_always", request_id)

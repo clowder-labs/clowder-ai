@@ -35,6 +35,7 @@ from jiuwenclaw.agentserver.permissions.patterns import (
     match_path,
     match_pattern,
     match_url,
+    split_compound_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -394,15 +395,11 @@ async def assess_command_risk_with_llm(
 
 # ---------- 内部检查器 ----------
 
-# Shell operators that indicate command chaining / injection.
-# If a command matches an allow pattern but also contains these operators,
-# the permission is escalated from ALLOW → ASK as a safety net.
-_SHELL_OPERATORS_RE = re.compile(
-    r'[;&|`<>]'    # ; & | ` < > (covers &&, ||, pipes, redirects, backticks)
-    r'|\$[({]'     # $( or ${ — command / variable substitution
-    r'|\r?\n'      # newline injection
-)
 _COMMAND_EXEC_TOOLS = frozenset({"mcp_exec_command"})
+_COMMAND_LIKE_TOOL_ARGS: dict[str, tuple[str, ...]] = {
+    "mcp_exec_command": ("command", "cmd"),
+    "run_command": ("bash_command",),
+}
 
 # 会操作路径的命令（需做外部目录检测）
 _PATH_AWARE_COMMANDS = frozenset({
@@ -532,65 +529,72 @@ class ToolPermissionChecker:
         tool_name: str,
         tool_args: dict[str, Any],
         channel_id: str = "web",
-    ) -> tuple[PermissionLevel | None, str | None]:
+    ) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None]:
         """按来源优先级匹配，deny 拥有绝对否决权.
 
         1. 收集所有来源的匹配结果
         2. 如果任何来源返回 DENY → 立即返回 DENY（绝对否决）
         3. 否则返回来源优先级最高的结果（ask/allow 按来源排序）
         """
+        if tool_name in _COMMAND_LIKE_TOOL_ARGS:
+            special = self._check_command_like_tool(tool_name, tool_args)
+            if special is not None:
+                return special
+
         checks = [
             lambda: self._check_tool_pattern_rules(tool_name, tool_args),
             lambda: self._check_tool_default(tool_name),
             lambda: self._check_global_default(),
         ]
 
-        first_match: tuple[PermissionLevel, str] | None = None
-        deny_match: tuple[PermissionLevel, str] | None = None
+        first_match: tuple[PermissionLevel, str, dict[str, Any] | None] | None = None
+        deny_match: tuple[PermissionLevel, str, dict[str, Any] | None] | None = None
 
         for fn in checks:
-            result, rule = fn()
+            result, rule, extra = fn()
             if result is not None:
                 if first_match is None:
-                    first_match = (result, rule)
+                    first_match = (result, rule, extra)
                 if result == PermissionLevel.DENY and deny_match is None:
-                    deny_match = (result, rule)
+                    deny_match = (result, rule, extra)
 
         if deny_match is not None:
             return deny_match
 
-        return first_match if first_match is not None else (None, None)
+        return first_match if first_match is not None else (None, None, None)
 
     # -- 工具级模式规则 --
     def _check_tool_pattern_rules(
         self, tool_name: str, tool_args: dict[str, Any]
-    ) -> tuple[PermissionLevel | None, str | None]:
+    ) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None]:
         tools_cfg = self.config.get("tools", {})
         if tool_name not in tools_cfg:
-            return None, None
+            return None, None, None
         return self._check_tool_config(tools_cfg[tool_name], tool_args, f"tools.{tool_name}")
 
     # -- 工具级默认 --
-    def _check_tool_default(self, tool_name: str) -> tuple[PermissionLevel | None, str | None]:
+    def _check_tool_default(
+        self, tool_name: str
+    ) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None]:
         tools_cfg = self.config.get("tools", {})
         if tool_name in tools_cfg and isinstance(tools_cfg[tool_name], str):
-            return PermissionLevel(tools_cfg[tool_name]), f"tools.{tool_name}"
-        return None, None
+            return PermissionLevel(tools_cfg[tool_name]), f"tools.{tool_name}", None
+        return None, None, None
 
     # -- 全局默认 --
-    def _check_global_default(self) -> tuple[PermissionLevel | None, str | None]:
+    def _check_global_default(self) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None]:
         defaults_cfg = self.config.get("defaults", {})
         if "*" in defaults_cfg:
-            return PermissionLevel(defaults_cfg["*"]), "defaults.*"
-        return None, None
+            return PermissionLevel(defaults_cfg["*"]), "defaults.*", None
+        return None, None, None
 
     # -- 辅助方法 --
     def _check_tool_config(
         self, tool_config: Any, tool_args: dict[str, Any], rule_prefix: str
-    ) -> tuple[PermissionLevel | None, str | None]:
+    ) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None]:
         """解析工具配置 (字符串或字典)."""
         if isinstance(tool_config, str):
-            return PermissionLevel(tool_config), rule_prefix
+            return PermissionLevel(tool_config), rule_prefix, None
 
         if isinstance(tool_config, dict):
             if "patterns" in tool_config:
@@ -607,12 +611,13 @@ class ToolPermissionChecker:
                     matched.sort(
                         key=lambda r: self._LEVEL_STRICTNESS.get(r[0], 99)
                     )
-                    return matched[0]
+                    level, rule = matched[0]
+                    return level, rule, None
 
             if "*" in tool_config:
-                return PermissionLevel(tool_config["*"]), f"{rule_prefix}.*"
+                return PermissionLevel(tool_config["*"]), f"{rule_prefix}.*", None
 
-        return None, None
+        return None, None, None
 
     def _match_pattern_config(
         self, pattern_config: dict, tool_args: dict[str, Any]
@@ -640,3 +645,101 @@ class ToolPermissionChecker:
             if match_pattern(pattern, value):
                 return True
         return match_pattern(pattern, str(tool_args))
+
+    def _check_command_like_tool(
+        self, tool_name: str, tool_args: dict[str, Any]
+    ) -> tuple[PermissionLevel | None, str | None, dict[str, Any] | None] | None:
+        arg_keys = _COMMAND_LIKE_TOOL_ARGS.get(tool_name, ())
+        command = ""
+        for key in arg_keys:
+            raw_value = tool_args.get(key)
+            if isinstance(raw_value, str) and raw_value.strip():
+                command = raw_value.strip()
+                break
+        if not command:
+            return None
+
+        subcommands = split_compound_command(command) or [command]
+        tools_cfg = self.config.get("tools", {})
+        tool_config = tools_cfg.get(tool_name)
+        defaults_cfg = self.config.get("defaults", {})
+        global_default = (
+            PermissionLevel(defaults_cfg["*"])
+            if isinstance(defaults_cfg, dict) and "*" in defaults_cfg
+            else None
+        )
+
+        patterns_raw: Any = {}
+        tool_default: PermissionLevel | None = None
+        if isinstance(tool_config, str):
+            tool_default = PermissionLevel(tool_config)
+        elif isinstance(tool_config, dict):
+            patterns_raw = tool_config.get("patterns") or {}
+            if "*" in tool_config:
+                tool_default = PermissionLevel(tool_config["*"])
+
+        sub_results: list[dict[str, Any]] = []
+        for subcommand in subcommands:
+            level: PermissionLevel | None = None
+            rule: str | None = None
+            pattern: str | None = None
+
+            matched: list[tuple[PermissionLevel, str, str]] = []
+            if isinstance(patterns_raw, dict):
+                for pattern_key, perm in patterns_raw.items():
+                    if match_command(pattern_key, subcommand):
+                        matched.append(
+                            (
+                                PermissionLevel(perm),
+                                f"tools.{tool_name}.patterns[{pattern_key!r}]",
+                                pattern_key,
+                            )
+                        )
+
+            if matched:
+                matched.sort(key=lambda r: self._LEVEL_STRICTNESS.get(r[0], 99))
+                level, rule, pattern = matched[0]
+            elif tool_default is not None:
+                level = tool_default
+                rule = f"tools.{tool_name}.*"
+            elif global_default is not None:
+                level = global_default
+                rule = "defaults.*"
+
+            if level is not None and rule is not None:
+                sub_results.append(
+                    {
+                        "subcommand": subcommand,
+                        "permission": level,
+                        "rule": rule,
+                        "pattern": pattern,
+                    }
+                )
+
+        if not sub_results:
+            return None
+
+        def _pick(level: PermissionLevel) -> list[dict[str, Any]]:
+            return [item for item in sub_results if item["permission"] == level]
+
+        for level in (PermissionLevel.DENY, PermissionLevel.ASK, PermissionLevel.ALLOW):
+            picked = _pick(level)
+            if not picked:
+                continue
+            primary = picked[0]
+            extra = {
+                "matched_rules": [item["rule"] for item in picked],
+                "matched_patterns": [
+                    item["pattern"]
+                    for item in picked
+                    if item["permission"] == PermissionLevel.ASK and item["pattern"]
+                ],
+                "matched_subcommands": [
+                    item["subcommand"]
+                    for item in picked
+                    if item["permission"] == PermissionLevel.ASK and item["pattern"] is None
+                ],
+            }
+            return level, primary["rule"], extra
+
+        return None

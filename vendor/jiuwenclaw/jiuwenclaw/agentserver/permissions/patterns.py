@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 # 限制性字符类：仅允许命令参数和路径常见字符，排除 ; | & ` < > $ 等 shell 元字符防注入
 # - 置于开头避免被解析为范围
 _WILDCARD_CHARS = r'[-a-zA-Z0-9 \._/:"\']'
+_COMMAND_WILDCARD_CHARS = r'[^\r\n]'
 
 
-def match_wildcard(value: str, pattern: str) -> bool:
+def match_wildcard(value: str, pattern: str, wildcard_chars: str = _WILDCARD_CHARS) -> bool:
     """通配符匹配.
 
     - * → 限制性字符类* (排除 shell 元字符，防命令拼接)
@@ -51,12 +52,12 @@ def match_wildcard(value: str, pattern: str) -> bool:
     to_escape = set(".+^${}()|[]\\")
     escaped = "".join("\\" + c if c in to_escape else c for c in pat)
     # 2. 先替换 ?（必须在 * 之前，否则会误替换 ")? " 中的 ?）
-    escaped = escaped.replace("?", _WILDCARD_CHARS)
+    escaped = escaped.replace("?", wildcard_chars)
     # 3. * → 限制性字符类*
     if escaped.endswith(" *"):
-        escaped = escaped[:-2] + "( " + _WILDCARD_CHARS + "*)?"
+        escaped = escaped[:-2] + "( " + wildcard_chars + "*)?"
     else:
-        escaped = escaped.replace("*", _WILDCARD_CHARS + "*")
+        escaped = escaped.replace("*", wildcard_chars + "*")
     # 3. 全串锚定
     flags = re.IGNORECASE if sys.platform == "win32" else 0
     try:
@@ -152,7 +153,7 @@ class CommandMatcher:
         """匹配命令字符串 (wildcard 模式，全串锚定)."""
         if not command:
             return False
-        return self._pm.match(pattern, command)
+        return match_wildcard(command, pattern, _COMMAND_WILDCARD_CHARS)
 
     def match_command_any(self, patterns: list[str], command: str) -> bool:
         return any(self.match_command(p, command) for p in patterns)
@@ -181,6 +182,70 @@ def match_command(pattern: str, command: str) -> bool:
     return _command_matcher.match_command(pattern, command)
 
 
+def split_compound_command(command: str) -> list[str]:
+    """按 Windows 常见连接符拆分复合命令.
+
+    第一版统一识别:
+    - &&
+    - ||
+    - &
+    - ;
+
+    仅忽略单引号/双引号中的连接符，不做完整 shell 解析。
+    """
+    if not command or not command.strip():
+        return []
+
+    text = command.strip()
+    parts: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    i = 0
+    length = len(text)
+
+    while i < length:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < length else ""
+
+        if quote is not None:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+
+        if ch in {"'", '"'}:
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+
+        operator_len = 0
+        if ch == "&" and nxt == "&":
+            operator_len = 2
+        elif ch == "|" and nxt == "|":
+            operator_len = 2
+        elif ch in {"&", ";"}:
+            operator_len = 1
+
+        if operator_len:
+            part = "".join(buf).strip()
+            if part:
+                parts.append(part)
+            buf = []
+            i += operator_len
+            continue
+
+        buf.append(ch)
+        i += 1
+
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+
+    return parts or [text]
+
+
 def build_command_allow_pattern(cmd: str) -> str:
     """构建匹配完整命令的通配符模式.
 
@@ -190,6 +255,28 @@ def build_command_allow_pattern(cmd: str) -> str:
         "ls"             → ls *
     """
     return cmd.strip() + " *"
+
+
+def build_subcommand_allow_pattern(command: str) -> str:
+    """为单个子命令生成较宽泛的 allow pattern.
+
+    优先使用命令头，形如:
+    - "echo hello" -> "echo *"
+    - "\"C:/Program Files/tool.exe\" -v" -> "\"C:/Program Files/tool.exe\" *"
+    """
+    text = (command or "").strip()
+    if not text:
+        return ""
+
+    if text[0] in {'"', "'"}:
+        quote = text[0]
+        end = text.find(quote, 1)
+        if end > 1:
+            head = text[: end + 1].strip()
+            return f"{head} *" if head else build_command_allow_pattern(text)
+
+    head = text.split(maxsplit=1)[0].strip()
+    return f"{head} *" if head else build_command_allow_pattern(text)
 
 
 def contains_path(parent: str | Path, child: str | Path) -> bool:
@@ -206,7 +293,12 @@ def contains_path(parent: str | Path, child: str | Path) -> bool:
 # ---------- 权限规则持久化 ----------
 
 
-def persist_permission_allow_rule(tool_name: str, tool_args: dict | str) -> None:
+def persist_permission_allow_rule(
+    tool_name: str,
+    tool_args: dict | str,
+    matched_patterns: list[str] | None = None,
+    matched_subcommands: list[str] | None = None,
+) -> None:
     """用户选择「总是允许」时，将 allow 规则写入 config.yaml.
 
     For mcp_exec_command with a command arg, adds a wildcard pattern.
@@ -242,38 +334,92 @@ def persist_permission_allow_rule(tool_name: str, tool_args: dict | str) -> None
             permissions["tools"] = {}
             tools_section = permissions["tools"]
 
-        if tool_name == "mcp_exec_command":
-            cmd = str(tool_args.get("command", tool_args.get("cmd", "")))
+        if tool_name in {"mcp_exec_command", "run_command"}:
+            cmd = ""
+            for key in ("command", "cmd", "bash_command"):
+                value = tool_args.get(key)
+                if isinstance(value, str) and value.strip():
+                    cmd = value
+                    break
             logger.info("[Persist] Extracted command: '%s'", cmd)
             if cmd:
-                new_pattern = build_command_allow_pattern(cmd)
-                logger.info("[Persist] Built pattern: %s", new_pattern)
-
-                tool_entry = tools_section.get("mcp_exec_command")
+                tool_entry = tools_section.get(tool_name)
                 if not isinstance(tool_entry, dict):
-                    tools_section["mcp_exec_command"] = {"*": "ask", "patterns": {}}
-                    tool_entry = tools_section["mcp_exec_command"]
+                    tools_section[tool_name] = {"*": "ask", "patterns": {}}
+                    tool_entry = tools_section[tool_name]
 
                 patterns = tool_entry.get("patterns")
                 if patterns is None:
                     tool_entry["patterns"] = {}
                     patterns = tool_entry["patterns"]
 
+                updated_any = False
+
                 if isinstance(patterns, dict):
-                    if new_pattern in patterns:
-                        logger.info("[Persist] Pattern already exists, skip")
-                        return
-                    patterns[new_pattern] = "allow"
+                    for pattern in matched_patterns or []:
+                        if patterns.get(pattern) == "ask":
+                            patterns[pattern] = "allow"
+                            updated_any = True
+                            logger.info("[Persist] Upgraded existing ask pattern to allow: %s", pattern)
+
+                    for subcommand in matched_subcommands or []:
+                        new_pattern = build_subcommand_allow_pattern(subcommand)
+                        if not new_pattern:
+                            continue
+                        if new_pattern in patterns:
+                            if patterns[new_pattern] == "ask":
+                                patterns[new_pattern] = "allow"
+                                updated_any = True
+                                logger.info("[Persist] Upgraded generated ask pattern to allow: %s", new_pattern)
+                            continue
+                        patterns[new_pattern] = "allow"
+                        updated_any = True
+                        logger.info("[Persist] Added generated allow pattern: %s", new_pattern)
                 else:
-                    for p in patterns:
-                        if isinstance(p, dict) and p.get("pattern") == new_pattern:
-                            logger.info("[Persist] Pattern already exists, skip")
-                            return
-                    patterns.append({"pattern": new_pattern, "permission": "allow"})
-                logger.info("[Persist] Appended pattern: %s", new_pattern)
+                    existing_by_pattern: dict[str, dict] = {}
+                    for item in patterns:
+                        if isinstance(item, dict) and item.get("pattern"):
+                            existing_by_pattern[str(item["pattern"])] = item
+
+                    for pattern in matched_patterns or []:
+                        entry = existing_by_pattern.get(pattern)
+                        if entry and entry.get("permission") == "ask":
+                            entry["permission"] = "allow"
+                            updated_any = True
+                            logger.info("[Persist] Upgraded existing ask pattern to allow: %s", pattern)
+
+                    for subcommand in matched_subcommands or []:
+                        new_pattern = build_subcommand_allow_pattern(subcommand)
+                        if not new_pattern:
+                            continue
+                        entry = existing_by_pattern.get(new_pattern)
+                        if entry:
+                            if entry.get("permission") == "ask":
+                                entry["permission"] = "allow"
+                                updated_any = True
+                                logger.info("[Persist] Upgraded generated ask pattern to allow: %s", new_pattern)
+                            continue
+                        patterns.append({"pattern": new_pattern, "permission": "allow"})
+                        existing_by_pattern[new_pattern] = {"pattern": new_pattern, "permission": "allow"}
+                        updated_any = True
+                        logger.info("[Persist] Added generated allow pattern: %s", new_pattern)
+
+                if not updated_any:
+                    new_pattern = build_command_allow_pattern(cmd)
+                    logger.info("[Persist] Falling back to full command pattern: %s", new_pattern)
+                    if isinstance(patterns, dict):
+                        if new_pattern not in patterns:
+                            patterns[new_pattern] = "allow"
+                    else:
+                        exists = any(
+                            isinstance(item, dict) and item.get("pattern") == new_pattern
+                            for item in patterns
+                        )
+                        if not exists:
+                            patterns.append({"pattern": new_pattern, "permission": "allow"})
             else:
-                tools_section["mcp_exec_command"] = "allow"
-                logger.info("[Persist] Set mcp_exec_command = allow (no command)")
+                tools_section[tool_name] = "allow"
+                logger.info("[Persist] Set %s = allow (no command)", tool_name)
         else:
             tools_section[tool_name] = "allow"
             logger.info("[Persist] Set %s = allow", tool_name)
@@ -326,4 +472,3 @@ def persist_external_directory_allow(paths: list[str]) -> None:
         logger.info("[Persist] external_directory written, engine hot-reloaded")
     except Exception:
         logger.error("[Persist] FAILED to persist external_directory allow", exc_info=True)
-
