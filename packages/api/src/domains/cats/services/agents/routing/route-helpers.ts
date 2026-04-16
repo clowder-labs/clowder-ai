@@ -174,6 +174,8 @@ export function toStoredToolEvent(msg: AgentMessage): StoredToolEvent | null {
       label: `${msg.catId as string} → ${toolName}`,
       ...(detail ? { detail } : {}),
       timestamp: msg.timestamp,
+      // F142: Preserve toolCallId for precise tool_use/result pairing
+      ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
     };
   }
   if (msg.type === 'tool_result') {
@@ -185,6 +187,8 @@ export function toStoredToolEvent(msg: AgentMessage): StoredToolEvent | null {
       label: `${msg.catId as string} ← result`,
       detail,
       timestamp: msg.timestamp,
+      // F142: Preserve toolCallId for precise tool_use/result pairing
+      ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
     };
   }
   return null;

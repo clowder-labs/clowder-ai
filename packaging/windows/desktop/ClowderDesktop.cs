@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -1160,14 +1160,14 @@ internal sealed class LauncherForm : Form
             + "font-family:Segoe UI,Arial,sans-serif;-webkit-app-region:drag;app-region:drag;"
             + "user-select:none;-webkit-user-select:none;}"
             + "#'+HEADER_BAR_ID+' .clawder-header-controls{-webkit-app-region:no-drag;app-region:no-drag;"
-            + "display:flex;align-items:center;gap:20px;padding-right:12px;}"
+            + "display:flex;align-items:center;padding-right:12px;}"
             + "#'+HEADER_BAR_ID+' button{appearance:none;-webkit-appearance:none;width:36px;height:36px;border:none;"
             + "background:transparent;color:#434343;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;"
             + "transition:background-color .15s ease,color .15s ease;-webkit-app-region:no-drag;app-region:no-drag;}"
             + "#'+HEADER_BAR_ID+' button:hover{background:rgba(0,0,0,.08);color:#1f1f1f}"
             + "#'+HEADER_BAR_ID+' button[data-role=close]:hover{background:#e5484d;color:#fff}"
             + "#'+HEADER_BAR_ID+' button:focus-visible{outline:2px solid #2563eb;outline-offset:-2px}"
-            + "#'+HEADER_BAR_ID+' svg{width:16px;height:16px;pointer-events:none}"
+            + "#'+HEADER_BAR_ID+' svg{width:20px;height:20px;pointer-events:none}"
             + "#'+HEADER_BAR_ID+' .clawder-restore{display:none}"
             + "#'+HEADER_BAR_ID+'[data-maximized=true] .clawder-max{display:none}"
             + "#'+HEADER_BAR_ID+'[data-maximized=true] .clawder-restore{display:block}"
@@ -1181,7 +1181,7 @@ internal sealed class LauncherForm : Form
             + "#clawder-external-window-controls button:hover{background:rgba(0,0,0,.08);color:#1f1f1f}"
             + "#clawder-external-window-controls button[data-role=close]:hover{background:#e5484d;color:#fff}"
             + "#clawder-external-window-controls button:focus-visible{outline:2px solid #2563eb;outline-offset:-2px}"
-            + "#clawder-external-window-controls svg{width:14px;height:14px;pointer-events:none}"
+            + "#clawder-external-window-controls svg{width:20px;height:20px;pointer-events:none}"
             + "#clawder-external-window-controls .clawder-restore{display:none}"
             + "#clawder-external-window-controls[data-maximized=true] .clawder-max{display:none}"
             + "#clawder-external-window-controls[data-maximized=true] .clawder-restore{display:block}"
@@ -1212,14 +1212,14 @@ internal sealed class LauncherForm : Form
             "header.innerHTML='" +
             "<div class=\"clawder-header-controls\">"
             + "<button type=\"button\" data-role=\"minimize\" title=\"最小化\" aria-label=\"最小化\">"
-            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 8H12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 8H12\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\"/></svg>"
             + "</button>"
             + "<button type=\"button\" data-role=\"maximize\" title=\"最大化\" aria-label=\"最大化\">"
-            + "<svg class=\"clawder-max\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" rx=\"1\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>"
-            + "<svg class=\"clawder-restore\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"1\" y=\"5\" width=\"10\" height=\"10\" rx=\"1\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M5 1H14C14.5523 1 15 1.4477 15 2V11\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "<svg class=\"clawder-max\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"4.25\" y=\"4.25\" width=\"7.5\" height=\"7.5\" rx=\"0.9\" stroke=\"currentColor\" stroke-width=\"1.2\"/></svg>"
+            + "<svg class=\"clawder-restore\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M5.75 4.25H10.1C10.984 4.25 11.7 4.966 11.7 5.85V10.2\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M10.25 5.75H5.9C5.016 5.75 4.3 6.466 4.3 7.35V11.1C4.3 11.984 5.016 12.7 5.9 12.7H10.25C11.134 12.7 11.85 11.984 11.85 11.1V7.35C11.85 6.466 11.134 5.75 10.25 5.75Z\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/></svg>"
             + "</button>"
             + "<button type=\"button\" data-role=\"close\" title=\"关闭\" aria-label=\"关闭\">"
-            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M4 4L12 12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><path d=\"M12 4L4 12\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+            + "<svg viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M5 5L11 11\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><path d=\"M11 5L5 11\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\"/></svg>"
             + "</button>"
             + "</div>';" +
             "var parent=document.body||document.documentElement;" +
@@ -1346,7 +1346,7 @@ internal sealed class LauncherForm : Form
                 "(function(){" +
                 "var urls={" +
                 "'注册':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyemail.html?themeName=red&access_type=offline&clientID=103493351&loginChannel=88000000&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23&casLoginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&countryCode=th&scope=https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Funified.profile+https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Frisk.idstate&reqClientType=88&state=8d71793cbfd845e38ed4b62fc6801a8a&lang=zh-cn'," +
-                "'忘记密码':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html?reqClientType=88&loginChannel=88000000&regionCode=th&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23%2FhwIDLogin&lang=zh-cn&themeName=lightred&clientID=103493351&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin&refererPage=unified_login&srcScenID=6000014&state=dddb5a7aa2dc4704bcac64625193424f#/forgetPwd/forgetbyidrrer'," +
+                "'忘记密码':'https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html?reqClientType=88&loginChannel=88000000&regionCode=th&loginUrl=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html%23%2FhwIDLogin&lang=zh-cn&themeName=lightred&clientID=103493351&service=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2FcasLogin%3Fservice%3Dhttps%253A%252F%252Fversatile.cn-north-4.myhuaweicloud.com%252Fv1%252Fclaw%252Fcas%252Flogin%252Fcallback&refererPage=unified_login&srcScenID=6000014&state=3873d9b02024477f910a0c9585fa53ad#/forgetPwd/forgetbyid'," +
                 "'忘记账号名':'https://reg.huaweicloud.com/registerui/cn/index.html#/account/forgotName'" +
                 "};" +
                 "function isHuaweicloud(){try{var h=location.hostname;return h&&/\\.huaweicloud\\.com$/i.test(h)}catch(e){return false}}" +
@@ -1356,9 +1356,9 @@ internal sealed class LauncherForm : Form
                 "fixPrivacyLinks();" +
                 "function hideElements(){if(!isHuaweicloud())return;var idp=document.getElementById('idpLinkDiv');if(idp)idp.style.display='none';var eChannel=document.getElementById('eChannelLinkDiv');if(eChannel)eChannel.style.display='none';var vmall=document.getElementById('vmallLinkDiv');if(vmall)vmall.style.display='none';var idpLogin=document.getElementById('idpLoginLinkDiv');if(idpLogin)idpLogin.style.display='none';var intervals=document.querySelectorAll('#hwAccountLinkDiv ~ .intervalDiv');for(var i=0;i<intervals.length;i++){intervals[i].style.display='none'}}" +
                 "hideElements();" +
-                "function fixForgetPwdLink(){if(!isHuaweicloud())return;var container=document.querySelector('.forgetPwdLink');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];if(a.textContent.trim()==='忘记密码'){a.parentNode.removeChild(a)}}var newA=document.createElement('a');newA.className='loginBottomColor';newA.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';newA.target='_blank';newA.rel='noopener noreferrer';newA.textContent='忘记密码';newA.addEventListener('click',function(e){e.stopPropagation()});container.appendChild(newA)}" +
+                "function fixForgetPwdLink(){if(!isHuaweicloud())return;var container=document.querySelector('.forgetPwdLink');if(!container)return;var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];if(a.textContent.trim()==='忘记密码'){a.className='loginBottomColor';a.removeAttribute('ng-click');a.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';a.target='_blank';a.rel='noopener noreferrer';a.addEventListener('click',function(e){e.stopImmediatePropagation()},true);break}}var spans=container.querySelectorAll('span');for(var i=0;i<spans.length;i++){var s=spans[i];if(s.textContent.trim()==='忘记密码'){var a=document.createElement('a');a.href='https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&UserType=e&service=https%3A%2F%2Fversatile.cn-north-4.myhuaweicloud.com%2Fv1%2Fclaw%2Fcas%2Flogin%2Fcallback#/fpwd';a.target='_blank';a.rel='noopener noreferrer';a.textContent='忘记密码';a.style.cssText='font-size:14px;color:rgba(0,0,0,.5);';a.addEventListener('click',function(e){e.stopPropagation()});a.addEventListener('mouseenter',function(){this.style.color='#526ecc';this.style.textDecoration='none'});a.addEventListener('mouseleave',function(){this.style.color='rgba(0,0,0,.5)'});s.parentNode.replaceChild(a,s);break}}}" +
                 "fixForgetPwdLink();" +
-                "function styleLoginAdv(){if(!isHuaweicloud())return;var container=document.getElementById('loginAdv');if(!container)return;container.style.marginRight='20px';var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.removeAttribute('href');a.removeAttribute('target')}}" +
+                "function styleLoginAdv(){if(!isHuaweicloud())return;var container=document.getElementById('loginAdv');if(!container)return;var img=document.getElementById('loginAdImgDefault');if(img)img.style.marginRight='20px';var links=container.querySelectorAll('a');for(var i=0;i<links.length;i++){var a=links[i];a.removeAttribute('href');a.removeAttribute('target')}}" +
                 "styleLoginAdv();" +
                 "if(document.readyState!=='complete'){document.addEventListener('DOMContentLoaded',function(){replaceSpans();fixPrivacyLinks();hideElements();fixForgetPwdLink();styleLoginAdv()})}" +
                 "new MutationObserver(function(){replaceSpans();fixPrivacyLinks();hideElements();fixForgetPwdLink();styleLoginAdv()}).observe(document.documentElement,{childList:true,subtree:true});" +

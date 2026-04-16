@@ -14,18 +14,18 @@ from pathlib import Path
 
 from openjiuwen.core.foundation.tool import LocalFunction, Tool, ToolCard
 
-from jiuwenclaw.utils import get_agent_skill_source_dirs
+from jiuwenclaw.utils import get_agent_registered_skill_dirs
 from jiuwenclaw.logging.app_logger import logger
 
 # ---------------------------------------------------------------------------
 # 常量
 # ---------------------------------------------------------------------------
 
-_CHUNK_SIZE = 20000  # 每次读取的最大字符数
+_CHUNK_SIZE = 50000  # 每次读取的最大字符数
 
 _SKILL_INITIAL_LOAD_DESC = (
     "初始加载某个 skill 的概览信息。会扫描该 skill 的目录结构，"
-    "并读取 SKILL.md 文件的前 5000 字符作为工作说明。"
+    "并读取 SKILL.md 文件的前 50000 字符作为工作说明。"
     "适用于首次了解某个 skill 的功能和使用方式。"
 )
 
@@ -79,7 +79,7 @@ def _find_skill_dir(skill_name: str) -> Path | None:
         clean = clean.rsplit("/", 1)[-1]
     skill_name = clean
 
-    for base_dir in get_agent_skill_source_dirs():
+    for base_dir in get_agent_registered_skill_dirs():
         if not base_dir.exists():
             continue
         result = _recursive_find_skill(base_dir, skill_name)
@@ -207,7 +207,7 @@ class LoadSkillToolkit:
         ]
 
     async def _skill_initial_load(self, skill_name: str) -> str:
-        """初始加载 skill：扫描目录结构 + 读取 SKILL.md 前 5K 字符。"""
+        """初始加载 skill：扫描目录结构 + 读取 SKILL.md 前 50K 字符。"""
         # 1. 查找 skill 目录
         skill_dir = _find_skill_dir(skill_name)
         if skill_dir is None:
@@ -218,7 +218,7 @@ class LoadSkillToolkit:
         # 2. 构建目录树
         tree = _build_tree(skill_dir)
 
-        # 3. 读取 SKILL.md 前 5K 字符
+        # 3. 读取 SKILL.md 前 50K 字符
         skill_md_path = skill_dir / "SKILL.md"
         chunk, total_size, has_more = _read_file_chunk(str(skill_md_path), offset=0)
 

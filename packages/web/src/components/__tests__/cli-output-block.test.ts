@@ -738,7 +738,7 @@ describe('CliOutputBlock', () => {
     });
   });
 
-  it('renders a generic generated file card for docx output and opens that file', async () => {
+  it('renders a word attachment card for docx output and does not render a ppt card', async () => {
     const docxEvents: CliEvent[] = [
       {
         id: 't1',
@@ -759,9 +759,50 @@ describe('CliOutputBlock', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('[data-testid="cli-output-file-card"]');
+    const card = container.querySelector('[data-testid="cli-output-word-card"]');
     expect(card).toBeTruthy();
     expect(card?.textContent).toContain('weekly-report.docx');
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
+
+    const openButton = container.querySelector('[data-testid="cli-output-word-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\workspace\\output\\weekly-report.docx',
+    });
+  });
+
+  it('renders a generic generated file card for xlsx output and does not render word or ppt cards', async () => {
+    const xlsxEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.xlsx',
+        detail: '[Done] Saved: D:\\workspace\\output\\weekly-report.xlsx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: xlsxEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-file-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('weekly-report.xlsx');
+    expect(container.querySelector('[data-testid="cli-output-word-card"]')).toBeNull();
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
 
     const openButton = container.querySelector('[data-testid="cli-output-file-open"]') as HTMLButtonElement | null;
     expect(openButton).toBeTruthy();
@@ -772,7 +813,7 @@ describe('CliOutputBlock', () => {
 
     const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
-      path: 'D:\\workspace\\output\\weekly-report.docx',
+      path: 'D:\\workspace\\output\\weekly-report.xlsx',
     });
   });
 
@@ -1179,6 +1220,39 @@ describe('CliOutputBlock', () => {
     expect(container.querySelector('[data-testid="cli-output-markdown-card"]')).toBeNull();
     expect(container.textContent).toContain('report.docx');
     expect(container.textContent).toContain('final-deck.pptx');
+  });
+
+  it('renders only a word card when a Word file is mentioned through both word and generic document signals', async () => {
+    const duplicatedWordSignals: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Create word',
+        detail: '[Done] Saved: workspace/output/20260415_100534_000/report.docx',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Final document path: workspace/output/20260415_100534_000/report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicatedWordSignals,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-word-card"]')).toHaveLength(1);
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
+    expect(container.querySelector('[data-testid="cli-output-file-card"]')).toBeNull();
   });
 
   it('prefers the user-facing markdown artifact over internal memory markdown files', async () => {

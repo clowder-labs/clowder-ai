@@ -387,8 +387,14 @@ def _load_llm_default_headers() -> dict[str, str]:
     return {str(k): str(v) for k, v in parsed.items() if v is not None}
 
 
-def petal_search_credentials_configured() -> bool:
-    """True when Petal web-search can run: same API base + default_headers as the LLM client."""
+def enable_petal_search() -> bool:
+    """True when Petal web-search can run: config switch enabled AND same API base + default_headers as the LLM client."""
+    try:
+        from jiuwenclaw.config import get_config_raw
+        if not (get_config_raw().get("enable_petal_search") or False):
+            return False
+    except Exception:
+        return False
     api_base = (
         os.environ.get("API_BASE")
         or os.environ.get("OPENAI_BASE_URL")

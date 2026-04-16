@@ -88,6 +88,32 @@ export class PathConverter extends ElementConverter {
         // 检查子路径是否闭合（有 Z 命令或起点终点重合）
         const subpathClosed = hasClose || this.isPathClosed(subpath)
         if (subpathClosed) {
+          // 渐变填充：用 path 形状 + 渐变生成 image
+          if (fillOpts.fill?.type === 'gradient-ref' && this.gradientConverter) {
+            const gradientId = fillOpts.fill.gradientId
+            const gradient = this.gradients!.get(gradientId)!
+            const bounds = {
+              x: mapper.pxToInch(subBbox.x),
+              y: mapper.pxToInch(subBbox.y),
+              w: mapper.pxToInch(subBbox.w),
+              h: mapper.pxToInch(subBbox.h)
+            }
+            // 将子路径命令转换回 d 属性字符串
+            const subpathD = this.commandsToPathD(subpath)
+            // 计算原始坐标下的包围盒（不应用 transform），直接用于 viewBox
+            // viewBox 坐标必须与 path d 中的绝对坐标匹配
+            const subBboxPx = this.getBbox(subpath, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+            // 提取描边信息
+            const strokeOpts = lineOpts.line ? { color: lineOpts.line.color, width: lineOpts.line.width } : undefined
+            // 提取 fill-opacity
+            const fillOpacityStr = element.attributes['fill-opacity'] || element.attributes.style?.match(/fill-opacity:\s*([^;]+)/)?.[1]
+            const fillOpacity = fillOpacityStr !== undefined ? parseFloat(String(fillOpacityStr)) : 1
+            const imageObj = this.gradientConverter.convert(gradient, bounds, transform, subpathD, strokeOpts, subBboxPx, isNaN(fillOpacity) ? 1 : fillOpacity)
+            if (imageObj) {
+              results.push({ ...imageObj })
+              continue
+            }
+          }
           // 闭合子路径：用几何形状渲染填充
           const points = this.pathToPoints(subpath, mapper, transform, subBbox)
           results.push({
@@ -160,8 +186,34 @@ export class PathConverter extends ElementConverter {
     const isClosedPath = hasClose || this.isPathClosed(commands)
 
     if (isClosedPath) {
-      // 闭合路径：使用自定义几何形状
+      // 闭合路径
       const bbox = this.getBbox(commands, transform)
+
+      // 渐变填充：用 path 形状生成 image（保持原始路径形状）
+      if (fillOpts.fill?.type === 'gradient-ref' && this.gradientConverter) {
+        const gradientId = fillOpts.fill.gradientId
+        const gradient = this.gradients!.get(gradientId)!
+        const bounds = {
+          x: mapper.pxToInch(bbox.x),
+          y: mapper.pxToInch(bbox.y),
+          w: mapper.pxToInch(bbox.w),
+          h: mapper.pxToInch(bbox.h)
+        }
+        // 计算原始坐标下的包围盒（不应用 transform），直接用于 viewBox
+        // viewBox 坐标必须与 path d 中的绝对坐标匹配
+        const bboxPx = this.getBbox(commands, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+        // 提取描边信息
+        const strokeOpts = lineOpts.line ? { color: lineOpts.line.color, width: lineOpts.line.width } : undefined
+        // 提取 fill-opacity
+        const fillOpacityStr = element.attributes['fill-opacity'] || element.attributes.style?.match(/fill-opacity:\s*([^;]+)/)?.[1]
+        const fillOpacity = fillOpacityStr !== undefined ? parseFloat(String(fillOpacityStr)) : 1
+        const imageObj = this.gradientConverter.convert(gradient, bounds, transform, d, strokeOpts, bboxPx, isNaN(fillOpacity) ? 1 : fillOpacity)
+        if (imageObj) {
+          return [{ ...imageObj }]
+        }
+      }
+
+      // 普通填充：使用自定义几何形状
       const points = this.pathToPoints(commands, mapper, transform, bbox)
 
       return [{
@@ -323,6 +375,22 @@ export class PathConverter extends ElementConverter {
     }
 
     return subpaths
+  }
+
+  /**
+   * 将 PathCommand 数组转换为 SVG path d 属性字符串
+   */
+  private commandsToPathD(commands: PathCommand[]): string {
+    const parts: string[] = []
+    for (const cmd of commands) {
+      const params = cmd.params.map(p => String(p)).join(' ')
+      if (params) {
+        parts.push(`${cmd.type}${params}`)
+      } else {
+        parts.push(cmd.type)
+      }
+    }
+    return parts.join(' ')
   }
 
   /**

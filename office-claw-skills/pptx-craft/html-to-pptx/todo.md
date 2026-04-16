@@ -2,25 +2,6 @@
 
 ## 高优先级
 
-### 4. 外部 CDN 依赖存在风险
-
-**问题描述**：
-- `embed-fonts/woff2.js:20` 硬编码了 `unpkg.com` CDN URL
-- `embed-fonts/utils.js:6` 动态加载 `fonteditor-core` 从 unpkg
-- `scripts/convert.js:482` 配置 `wasmUrl` 指向 unpkg
-
-**风险**：
-- unpkg 在中国大陆可能不稳定
-- 没有离线回退方案
-- 运行时从 CDN 动态加载代码有安全风险（供应链攻击）
-
-**建议方案**：
-- 将字体文件打包到项目中
-- 或使用项目自己的 CDN
-- 添加离线回退机制
-
----
-
 ### 6. 缺乏 TypeScript 类型
 
 **问题描述**：

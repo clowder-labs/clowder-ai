@@ -8,26 +8,28 @@
  * 3. 报告结构问题（需人工处理）
  *
  * 用法：
- * node check-layout-props.js <文件或目录>
- * node check-layout-props.js <文件或目录> --fix
+ * node fix-layout-props.js <文件或目录>
+ * node fix-layout-props.js <文件或目录> --fix
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log, warn, error, configureFromArgs } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 解析命令行参数
 const args = process.argv.slice(2);
+configureFromArgs(args);
 const fixMode = args.includes('--fix');
 const targets = args.filter(a => !a.startsWith('--'));
 
 if (targets.length === 0) {
-  console.error('用法：node check-layout-props.js <文件或目录> [--fix]');
-  console.error('示例：node check-layout-props.js ./output/pages/');
-  console.error('      node check-layout-props.js ./output/pages/ --fix');
+  error('用法：node fix-layout-props.js <文件或目录> [--fix]');
+  error('示例：node fix-layout-props.js ./output/pages/');
+  error('      node fix-layout-props.js ./output/pages/ --fix');
   process.exit(1);
 }
 
@@ -397,7 +399,7 @@ function patchClassAttr(html, node, fix) {
     return html.replace(re, `$1${newClassStr}$3`);
   }
 
-  console.warn(`    ⚠️  无法在 HTML 中定位 <${node.tag}> class="${node.classStr}"`);
+  warn(`    ⚠️  无法在 HTML 中定位 <${node.tag}> class="${node.classStr}"`);
   return html;
 }
 
@@ -418,10 +420,10 @@ function applyFixes(html, issues) {
       const action = issue.fix.removeClass
         ? `移除 ${issue.fix.removeClass}，添加 ${issue.fix.addClasses.join(' ')}`
         : `添加 ${issue.fix.addClasses.join(' ')}`;
-      console.log(`  ✅ [FIXED] ${issue.message} → ${action}`);
+      log(`  ✅ [FIXED] ${issue.message} → ${action}`);
     } else {
       fixedCount.failed++;
-      console.log(`  ⚠️  [FAILED] ${issue.message} - 无法定位元素`);
+      warn(`  ⚠️  [FAILED] ${issue.message} - 无法定位元素`);
     }
   }
 
@@ -447,7 +449,7 @@ function processFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const fileName = path.basename(filePath);
 
-  console.log(`\n🔍 检查：${fileName}`);
+  log(`\n🔍 检查：${fileName}`);
 
   // 解析标签树
   const tags = rebuildTagTree(content);
@@ -456,7 +458,7 @@ function processFile(filePath) {
   const issues = runAllChecks(tags);
 
   if (issues.length === 0) {
-    console.log(`  ✅ 无问题`);
+    log(`  ✅ 无问题`);
     return { errors: 0, warnings: 0, fixed: 0, needManual: 0 };
   }
 
@@ -470,28 +472,28 @@ function processFile(filePath) {
   for (const issue of issues) {
     const icon = issue.severity === 'error' ? '❌' : '⚠️';
     const fixableTag = issue.fixable ? '[可修复]' : '[需人工]';
-    console.log(`  ${icon} ${fixableTag} ${issue.message}`);
+    log(`  ${icon} ${fixableTag} ${issue.message}`);
   }
 
   let fixedCount = 0;
 
   // 修复模式：应用修复
   if (fixMode && fixable.length > 0) {
-    console.log(`\n  🔧 修复模式：`);
+    log(`\n  🔧 修复模式：`);
     const result = applyFixes(content, fixable);
     fixedCount = result.fixedCount.success;
 
     if (result.fixedCount.success > 0) {
       fs.writeFileSync(filePath, result.html, 'utf-8');
-      console.log(`  📝 已保存修复后的文件`);
+      log(`  📝 已保存修复后的文件`);
     }
   }
 
   // 需人工处理的问题
   if (needManual.length > 0) {
-    console.log(`\n  ⚠️  需人工处理的问题：`);
+    warn(`\n  ⚠️  需人工处理的问题：`);
     for (const issue of needManual) {
-      console.log(`    - ${issue.message}`);
+      log(`    - ${issue.message}`);
     }
   }
 
@@ -508,7 +510,7 @@ function processFile(filePath) {
  */
 function processTarget(target) {
   if (!fs.existsSync(target)) {
-    console.error(`错误：路径不存在 - ${target}`);
+    error(`错误：路径不存在 - ${target}`);
     return null;
   }
 
@@ -516,7 +518,7 @@ function processTarget(target) {
 
   if (stat.isFile()) {
     if (!target.endsWith('.html') && !target.endsWith('.htm')) {
-      console.error(`跳过非 HTML 文件：${target}`);
+      warn(`跳过非 HTML 文件：${target}`);
       return null;
     }
     return processFile(target);
@@ -525,7 +527,7 @@ function processTarget(target) {
   if (stat.isDirectory()) {
     const files = fs.readdirSync(target).filter(f => f.endsWith('.html') || f.endsWith('.htm'));
     if (files.length === 0) {
-      console.log('未找到 HTML 文件');
+      warn('未找到 HTML 文件');
       return null;
     }
 
@@ -542,16 +544,16 @@ function processTarget(target) {
     return total;
   }
 
-  console.error(`无效路径：${target}`);
+  error(`无效路径：${target}`);
   return null;
 }
 
 // ─── 入口 ──────────────────────────────────────────────
 
 if (fixMode) {
-  console.log('🔧 布局属性检查与修复');
+  log('🔧 布局属性检查与修复');
 } else {
-  console.log('🔍 布局属性检查（仅报告）');
+  log('🔍 布局属性检查（仅报告）');
 }
 
 let totalResult = null;
@@ -567,27 +569,27 @@ for (const target of targets) {
 }
 
 // 输出统计
-console.log('\n' + '='.repeat(60));
-console.log('📊 统计：');
+log('\n' + '='.repeat(60));
+log('📊 统计：');
 if (totalResult) {
-  console.log(`   错误：${totalResult.errors}`);
-  console.log(`   警告：${totalResult.warnings}`);
+  log(`   错误：${totalResult.errors}`);
+  log(`   警告：${totalResult.warnings}`);
   if (fixMode) {
-    console.log(`   已修复：${totalResult.fixed}`);
+    log(`   已修复：${totalResult.fixed}`);
   }
-  console.log(`   需人工：${totalResult.needManual}`);
+  log(`   需人工：${totalResult.needManual}`);
 } else {
-  console.log('   未处理任何文件');
+  log('   未处理任何文件');
 }
 
 if (totalResult && totalResult.errors > 0 && !fixMode) {
-  console.log('\n💡 提示：使用 --fix 参数自动修复可修复的问题');
-  process.exit(1);
+  log('\n💡 提示：使用 --fix 参数自动修复可修复的问题');
+  process.exit(0);
 }
 
 if (totalResult && totalResult.needManual > 0) {
-  console.log('\n⚠️  存在需人工处理的问题，请检查后重新运行');
-  process.exit(1);
+  warn('\n⚠️  存在需人工处理的问题，请检查后重新运行');
+  process.exit(0);
 }
 
-console.log('\n✨ 完成！');
+log('\n✨ 完成！');

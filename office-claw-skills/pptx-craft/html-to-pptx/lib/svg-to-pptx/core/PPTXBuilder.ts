@@ -76,15 +76,25 @@ export class PPTXBuilder {
       case 'text':
         slide.addText(obj.text || '', obj)
         break
-      case 'image':
-        slide.addImage({
-          path: obj.path,
+      case 'image': {
+        const imageOptions: Record<string, any> = {
+          ...(obj.data ? { data: obj.data } : { path: obj.path }),
           x: obj.x,
           y: obj.y,
           w: obj.w,
-          h: obj.h,
-          ...(obj.line ? { line: obj.line, lineSize: obj.lineSize } : {})
-        })
+          h: obj.h
+        }
+        // 使用 PptxGenJS 原生 transparency 参数（0-100 范围）
+        if (obj.transparency !== undefined) {
+          imageOptions.transparency = obj.transparency
+        }
+        if (obj.line) {
+          imageOptions.line = obj.line
+          imageOptions.lineSize = obj.lineSize
+        }
+        slide.addImage(imageOptions)
+        break
+      }
         break
       default:
         console.warn(`Unknown object type: ${obj.type}`)

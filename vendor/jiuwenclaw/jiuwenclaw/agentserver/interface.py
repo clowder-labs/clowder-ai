@@ -38,8 +38,7 @@ from jiuwenclaw.utils import (
     get_agent_registered_skill_dirs,
     get_checkpoint_dir,
     get_env_file,
-    get_workspace_dir,
-    sync_shared_agent_skills_cache,
+    get_workspace_dir
 )
 from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
@@ -334,7 +333,6 @@ class JiuWenClaw:
         # register installed skills (compatible with openjiuwen variants).
         if hasattr(self._instance, "_skill_util"):
             try:
-                sync_shared_agent_skills_cache()
                 skill_paths = [str(path) for path in get_agent_registered_skill_dirs() if path.exists()]
                 if len(skill_paths) == 1:
                     await self._instance.register_skill(skill_paths[0])

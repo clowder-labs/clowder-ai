@@ -483,9 +483,9 @@ You are a helpful assistant that modifies content outlines based on user require
 | 风格 ID | 名称         | 关键词                                                     | 描述                                       |
 | ------- | ------------ | ---------------------------------------------------------- | ------------------------------------------ |
 | huawei  | 华为风格     | 华为、huawei、企业汇报、技术方案                           | 红色主题、严谨专业、高信息密度             |
-| apple   | Apple 风格   | apple、苹果、极简、产品发布、科技                          | 黑白极简、SF Pro 字体、产品为中心的设计    |
-| claude  | Claude 风格  | claude、anthropic、温暖、人文、有机                        | 羊皮纸色调、陶土色强调、有机插图风格       |
-| nvidia  | NVIDIA 风格  | nvidia、英伟达、科技、AI、游戏                             | 黑底绿边、工业科技、高对比度设计           |
+| light-tech  | 浅色科技风   | 浅色、极简、产品发布、科技、light、apple                          | 黑白极简、光学尺寸字体、产品为中心的设计    |
+| paper-humanities  | 纸质人文风  | 纸质、人文、温暖、有机、paper、人文风格                        | 羊皮纸色调、陶土色强调、有机插图风格       |
+| dark-tech  | 深色科技风  | 深色、科技、AI、dark、nvidia                             | 黑底绿边、工业科技、高对比度设计           |
 | free    | 自由发挥     | 自由发挥、自动、随意、free                                 | 不限定风格，由 AI 根据主题自动设计         |
 
 ### 风格匹配逻辑
@@ -493,9 +493,9 @@ You are a helpful assistant that modifies content outlines based on user require
 根据用户输入的关键词，匹配上表中的风格：
 
 - 用户说"华为风格" → 匹配 id: "huawei"
-- 用户说"Apple 风格"或"苹果风格" → 匹配 id: "apple"
-- 用户说"Claude 风格" → 匹配 id: "claude"
-- 用户说"NVIDIA 风格"或"英伟达风格" → 匹配 id: "nvidia"
+- 用户说"浅色科技风"或"极简风格" → 匹配 id: "light-tech"
+- 用户说"纸质人文风"或"温暖风格" → 匹配 id: "paper-humanities"
+- 用户说"深色科技风"或"科技风格" → 匹配 id: "dark-tech"
 - 用户说"企业汇报风格" → 匹配关键词包含"企业汇报"的风格
 - 用户说"自由发挥"或"随意" → 匹配 id: "free"
 

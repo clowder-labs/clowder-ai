@@ -26,6 +26,7 @@ import {
   resolveRelayClawDisabledSkills,
   resolveRelayClawSharedSkillsDirs,
 } from '../../../../../utils/relayclaw-skills.js';
+import { resolveUserSkillsRoot } from '../../skillhub/SkillPaths.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentServiceOptions } from '../../types.js';
 import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
@@ -160,8 +161,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const modelName = this.config.modelName?.trim() || 'gpt-5.4';
     const projectDir = options?.workingDirectory?.trim() || '';
     const projectRoot = projectDir || process.cwd();
+    const hostRoot = resolveCatCafeHostRoot(projectRoot);
     const catCafeMcp = resolveCatCafeMcpServer(options?.workingDirectory);
-    const sharedSkillDirs = resolveRelayClawSharedSkillsDirs();
+    const sharedSkillDirs = [...resolveRelayClawSharedSkillsDirs(), resolveUserSkillsRoot(hostRoot)];
     const disabledSkills = resolveRelayClawDisabledSkills(projectRoot, this.catId as string);
 
     const modelContextWindowRaw = (

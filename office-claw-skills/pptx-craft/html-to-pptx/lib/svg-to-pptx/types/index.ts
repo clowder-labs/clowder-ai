@@ -69,6 +69,16 @@ export interface RadialGradient {
 
 export type Gradient = LinearGradient | RadialGradient
 
+// PPTX 渐变图片对象（将渐变转换为 SVG data URL 嵌入）
+export interface PPTXGradientImage {
+  type: 'image'
+  data: string  // base64 SVG data URL
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 // 坐标点
 export interface Point {
   x: number

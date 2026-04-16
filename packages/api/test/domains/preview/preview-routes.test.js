@@ -303,6 +303,8 @@ describe('POST /api/preview/screenshot', () => {
       payload: { dataUrl: 'not-a-data-url' },
     });
     assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.equal(body.error, '上传失败，请检查文件是否正确或重试');
   });
 
   it('writes screenshot files to UPLOAD_DIR when customized', async () => {

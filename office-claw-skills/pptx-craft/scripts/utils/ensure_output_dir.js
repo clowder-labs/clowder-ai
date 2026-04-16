@@ -5,13 +5,14 @@
 
 import fs from "fs";
 import path from "path";
+import { error } from './logger.js';
 
 const OUTPUT_DIR = process.argv[2];
 
 // 防护检查：拒绝已包含 pages 的路径
 const resolvedPath = path.resolve(OUTPUT_DIR);
 if (path.basename(resolvedPath) === "pages") {
-  console.error("Error: Do not pass a path ending in 'pages' to this script");
+  error("Error: Do not pass a path ending in 'pages' to this script");
   process.exit(1);
 }
 
@@ -21,7 +22,7 @@ fs.mkdirSync(pagesDir, { recursive: true });
 
 // 验证目录存在
 if (!fs.existsSync(pagesDir) || !fs.statSync(pagesDir).isDirectory()) {
-  console.error(`Error: Failed to create directory ${pagesDir}`);
+  error(`Error: Failed to create directory ${pagesDir}`);
   process.exit(1);
 }
 

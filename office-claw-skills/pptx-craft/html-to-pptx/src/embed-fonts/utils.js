@@ -3,7 +3,7 @@ let FontModule = null;
 
 async function getFontModule() {
   if (!FontModule) {
-    FontModule = await import(/* @vite-ignore */ "https://unpkg.com/fonteditor-core@2.6.3/index.js");
+    FontModule = await import(/* @vite-ignore */ "https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/fonteditor-core@2.6.3/index.d.ts");
   }
   return FontModule;
 }

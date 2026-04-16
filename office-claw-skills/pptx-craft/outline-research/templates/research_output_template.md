@@ -108,18 +108,14 @@
 - **建议可视化方案**：{chart_type}（{reason}），备选：{alt_chart_type}
 - **视觉建议**：{visual_recommendation}
 
-#### 引用来源
-
-[N] {作者/机构} ({年份}). "{标题}". {发布平台}. {url}
-
 ---
 
 ## 来源汇总
 
-| # | 来源名称 | URL | 可信度 | 涉及页面 |
-|---|----------|-----|:------:|----------|
-| 1 | Gartner | https://www.gartner.com/en/doc/xxxx | A+ | P2, P3 |
-| 2 | McKinsey | https://www.mckinsey.com/industries/xxxx | A | P4 |
+| # | 来源名称 | 年份 | 标题 | URL | 可信度 | 涉及页面 |
+|---|----------|------|------|-----|:------:|----------|
+| 1 | Gartner | 2025 | AI Market Forecast Q1 | https://www.gartner.com/en/doc/xxxx | A+ | P2, P3 |
+| 2 | McKinsey | 2024 | Global Tech Trends | https://www.mckinsey.com/industries/xxxx | A | P4 |
 
 ---
 
