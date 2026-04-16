@@ -189,7 +189,7 @@ describe('UsageStatsModal', () => {
     );
 
     expect(fetchDataset).toHaveBeenCalledTimes(2);
-    expect(pageEightButton?.className).toContain('bg-[#F5F5F5]');
+    expect(pageEightButton?.className).toContain('bg-[var(--modal-muted-surface)]');
     expect(container.textContent).toContain('session-43');
     expect(container.textContent).not.toContain('session-55');
   });
@@ -212,7 +212,7 @@ describe('UsageStatsModal', () => {
     });
 
     expect(fetchDataset).toHaveBeenCalledTimes(1);
-    expect(pageTwoButton?.className).toContain('bg-[#F5F5F5]');
+    expect(pageTwoButton?.className).toContain('bg-[var(--modal-muted-surface)]');
     expect(container.textContent).toContain('session-7');
   });
 
@@ -337,7 +337,7 @@ describe('UsageStatsModal', () => {
     expect(rangeTrigger?.disabled).toBe(false);
   });
 
-  it('uses 12px and #191919 for the visible range value and default dropdown options without refetching', async () => {
+  it('uses themed modal tokens for the visible range value and dropdown options without refetching', async () => {
     const fetchDataset = vi.fn(async () => createDataset(13, NOW));
 
     act(() => {
@@ -349,7 +349,7 @@ describe('UsageStatsModal', () => {
       '[data-testid="usage-stats-range-trigger"]',
     ) as HTMLButtonElement | null;
     expect(rangeTrigger?.className).toContain('text-[12px]');
-    expect(rangeTrigger?.className).toContain('text-[#191919]');
+    expect(rangeTrigger?.className).toContain('text-[var(--modal-text)]');
 
     act(() => {
       rangeTrigger?.click();
@@ -357,14 +357,14 @@ describe('UsageStatsModal', () => {
 
     const options = Array.from(container.querySelectorAll('[data-testid="usage-stats-range-menu"] button'));
     expect(options).toHaveLength(4);
-    expect(options[0]?.className).toContain('hover:bg-[#F5F5F5]');
+    expect(options[0]?.className).toContain('hover:bg-[var(--modal-muted-surface)]');
 
     const defaultOption = options.find((option) => option.textContent?.trim() === '今日');
     const selectedOption = options.find((option) => option.textContent?.trim() === '近7日');
 
     expect(defaultOption?.className).toContain('text-[12px]');
-    expect(defaultOption?.className).toContain('text-[#191919]');
-    expect(selectedOption?.className).toContain('text-[#1476FF]');
+    expect(defaultOption?.className).toContain('text-[var(--modal-text)]');
+    expect(selectedOption?.className).toContain('text-[var(--modal-accent-text)]');
 
     act(() => {
       options.find((option) => option.textContent?.trim() === '近3日')?.click();
@@ -385,7 +385,7 @@ describe('UsageStatsModal', () => {
     expect(separators[0]?.className).toContain('h-4');
     expect(separators[0]?.className).toContain('w-px');
     expect(separators[0]?.className).toContain('top-1/2');
-    expect(separators[0]?.className).toContain('bg-[#DBDBDB]');
+    expect(separators[0]?.className).toContain('bg-[var(--modal-table-divider)]');
   });
 
   it('closes the modal when Escape key is pressed', async () => {

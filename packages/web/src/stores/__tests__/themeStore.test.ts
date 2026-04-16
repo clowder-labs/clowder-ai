@@ -78,6 +78,15 @@ describe('themeStore', () => {
     expect(document.cookie).toContain(`${THEME_STORAGE_KEY}=warm`);
   });
 
+  it('accepts and persists the dark theme selection', () => {
+    useThemeStore.getState().setTheme('dark');
+
+    const state = useThemeStore.getState();
+    expect(state.theme).toBe('dark');
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'dark');
+    expect(document.cookie).toContain(`${THEME_STORAGE_KEY}=dark`);
+  });
+
   it('prefers the cookie theme so desktop random ports keep the same choice', () => {
     document.cookie = `${THEME_STORAGE_KEY}=warm; path=/`;
 
@@ -87,5 +96,16 @@ describe('themeStore', () => {
     expect(state.theme).toBe('warm');
     expect(state.isLoaded).toBe(true);
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'warm');
+  });
+
+  it('cycles through business, warm, and dark when toggling', () => {
+    useThemeStore.getState().toggleTheme();
+    expect(useThemeStore.getState().theme).toBe('warm');
+
+    useThemeStore.getState().toggleTheme();
+    expect(useThemeStore.getState().theme).toBe('dark');
+
+    useThemeStore.getState().toggleTheme();
+    expect(useThemeStore.getState().theme).toBe('business');
   });
 });

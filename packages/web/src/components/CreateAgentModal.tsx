@@ -115,6 +115,8 @@ const PRESET_AVATARS = [
   '/avatars/agent-avatar-8.png',
   '/avatars/agent-avatar-9.png',
 ];
+const DEFAULT_PRESET_AVATAR = PRESET_AVATARS[0];
+
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
@@ -479,7 +481,7 @@ export function CreateAgentModal({
     if (cat) {
       setDraftAvatar(resolveInitialAvatar(cat));
     } else {
-      setDraftAvatar(getRandomPresetAvatar());
+      setDraftAvatar(DEFAULT_PRESET_AVATAR);
     }
     if (isSkipAuth) {
       setSelectedClient(RELAYCLAW_CLIENT);
@@ -789,9 +791,9 @@ export function CreateAgentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)] px-6 py-8">
       <div
-        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]"
         data-testid="create-agent-modal"
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
@@ -856,11 +858,11 @@ export function CreateAgentModal({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover rounded-full" />
-                  <span className="rounded-full pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-[var(--modal-loading-overlay)] opacity-0 transition group-hover:opacity-100">
                     <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                   </span>
                 </button>
@@ -928,7 +930,7 @@ export function CreateAgentModal({
                           transform: clientOpenAbove ? 'translateY(-100%)' : undefined,
                         }}
                       >
-                        <div className="ui-panel flex max-h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]">
+                        <div className="ui-panel flex max-h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]">
                           <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1">
                             {clientOptions.map((option) => {
                               const isSelected = option.value === selectedClient;
@@ -944,8 +946,8 @@ export function CreateAgentModal({
                                   }}
                                   className={`flex min-h-[32px] w-full items-center px-3 text-left text-[12px] transition-colors ${
                                     isSelected
-                                      ? 'bg-[#f5f5f5] text-[var(--text-primary)]'
-                                      : 'text-[var(--text-primary)] hover:bg-[#f5f5f5]'
+                                      ? 'bg-[var(--modal-muted-surface)] text-[var(--text-primary)]'
+                                      : 'text-[var(--text-primary)] hover:bg-[var(--modal-muted-surface-hover)]'
                                   }`}
                                 >
                                   {option.label}

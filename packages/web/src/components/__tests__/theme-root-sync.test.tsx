@@ -77,6 +77,12 @@ describe('ThemeRootSync', () => {
     });
 
     expect(document.documentElement.dataset.uiTheme).toBe('warm');
+
+    await act(async () => {
+      useThemeStore.getState().setTheme('dark');
+    });
+
+    expect(document.documentElement.dataset.uiTheme).toBe('dark');
   });
 
   it('restores the theme from cookies when the store has not loaded yet', async () => {
@@ -92,5 +98,20 @@ describe('ThemeRootSync', () => {
 
     expect(useThemeStore.getState().theme).toBe('warm');
     expect(document.documentElement.dataset.uiTheme).toBe('warm');
+  });
+
+  it('restores the dark theme from cookies when available', async () => {
+    document.cookie = `${THEME_STORAGE_KEY}=dark; path=/`;
+    useThemeStore.setState({
+      theme: 'business',
+      isLoaded: false,
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ThemeRootSync));
+    });
+
+    expect(useThemeStore.getState().theme).toBe('dark');
+    expect(document.documentElement.dataset.uiTheme).toBe('dark');
   });
 });
