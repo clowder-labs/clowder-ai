@@ -6,6 +6,7 @@
 
 'use client';
 
+import { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
 import { getCachedCats, type CatData } from '@/hooks/useCatData';
@@ -67,7 +68,7 @@ interface ChatMessageProps {
   onOpenSecurityManagement?: () => void;
 }
 
-export function ChatMessage({
+function ChatMessageInner({
   message,
   getCatById,
   pendingAuthRequests,
@@ -428,3 +429,16 @@ export function ChatMessage({
     </div>
   );
 }
+
+function areChatMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): boolean {
+  return (
+    prev.message === next.message &&
+    prev.getCatById === next.getCatById &&
+    prev.pendingAuthRequests === next.pendingAuthRequests &&
+    prev.onAuthRespond === next.onAuthRespond &&
+    prev.onOpenSecurityManagement === next.onOpenSecurityManagement
+  );
+}
+
+export const ChatMessage = memo(ChatMessageInner, areChatMessagePropsEqual);
+ChatMessage.displayName = 'ChatMessage';
