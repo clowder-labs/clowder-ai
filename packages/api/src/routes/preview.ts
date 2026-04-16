@@ -134,7 +134,7 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
     const { dataUrl, threadId } = req.body;
     const match = dataUrl?.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
     if (!match) {
-      return reply.status(400).send({ error: 'Invalid data URL — expected data:image/{png|jpeg|webp};base64,...' });
+      return reply.status(400).send({ error: '上传失败，请检查文件是否正确或重试' });
     }
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1]!;
     const buffer = Buffer.from(match[2]!, 'base64');
