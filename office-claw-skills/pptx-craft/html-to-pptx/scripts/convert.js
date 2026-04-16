@@ -518,13 +518,14 @@ async function buildMergedHtml(pageResults) {
     }
   }
 
-  // 使用从原始 CSS 中提取的 body 背景色（而非 computed style），避免硬编码颜色覆盖
-  const bodyBgColor = pageResults.find(p => p.bodyBgColor && p.bodyBgColor !== 'transparent')?.bodyBgColor || '#1a1a2e';
-
-  // 每页的 slide 包裹在带 scope 属性的 wrapper 中
+  // 每页使用各自的 bodyBgColor 作为 wrapper 背景，避免单页背景覆盖所有页
+  // 每页的 slide 包裹在带 scope 属性的 wrapper 中，wrapper 携带该页的背景色
   const allSlides = pageResults.map(p => {
     const attr = `data-page-${p.pageIndex}`;
-    return p.slideHtmls.map(html => `<div ${attr}>\n${html}\n</div>`).join('\n');
+    const bgStyle = (p.bodyBgColor && p.bodyBgColor !== 'transparent')
+      ? ` style="background-color:${p.bodyBgColor}"`
+      : '';
+    return p.slideHtmls.map(html => `<div ${attr}${bgStyle}>\n${html}\n</div>`).join('\n');
   }).join('\n');
 
   return `<!DOCTYPE html>
@@ -533,7 +534,7 @@ async function buildMergedHtml(pageResults) {
   <meta charset="UTF-8">
 ${linkTags}
   <style>
-    body { background: ${bodyBgColor}; margin: 0; padding: 40px; }
+    body { margin: 0; padding: 40px; }
 ${allCss}
   </style>
 ${localInlineCss ? `  <style>\n${localInlineCss}\n  </style>` : ''}
