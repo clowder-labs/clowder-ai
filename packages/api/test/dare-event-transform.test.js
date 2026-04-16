@@ -36,7 +36,7 @@ describe('transformDareEvent', () => {
   });
 
   // ── tool events ──
-  test('maps tool.invoke → tool_use with enriched toolInput', () => {
+  test('maps tool.invoke → tool_use with toolCallId at top level', () => {
     const event = envelope('tool.invoke', {
       tool_name: 'read_file',
       tool_call_id: 'tc-1',
@@ -49,9 +49,11 @@ describe('transformDareEvent', () => {
     assert.ok(result);
     assert.strictEqual(result.type, 'tool_use');
     assert.strictEqual(result.toolName, 'read_file');
+    assert.strictEqual(result.toolCallId, 'tc-1');
     assert.ok(result.toolInput);
-    assert.strictEqual(result.toolInput.tool_call_id, 'tc-1');
     assert.strictEqual(result.toolInput.capability_id, 'fs');
+    // tool_call_id should NOT be inside toolInput
+    assert.strictEqual(result.toolInput.tool_call_id, undefined);
   });
 
   test('tool.invoke forwards arguments object into toolInput', () => {
@@ -63,19 +65,22 @@ describe('transformDareEvent', () => {
     });
     const result = transformDareEvent(event, catId);
     assert.ok(result);
+    assert.strictEqual(result.toolCallId, 'tc-2');
     assert.strictEqual(result.toolInput?.path, '/tmp/test.txt');
     assert.strictEqual(result.toolInput?.content, 'hello');
-    assert.strictEqual(result.toolInput?.tool_call_id, 'tc-2');
+    // tool_call_id should NOT be inside toolInput
+    assert.strictEqual(result.toolInput?.tool_call_id, undefined);
   });
 
-  test('tool.invoke without tool_call_id yields no toolInput', () => {
+  test('tool.invoke without tool_call_id yields no toolCallId', () => {
     const event = envelope('tool.invoke', { tool_name: 'shell' });
     const result = transformDareEvent(event, catId);
     assert.ok(result);
+    assert.strictEqual(result.toolCallId, undefined);
     assert.strictEqual(result.toolInput, undefined);
   });
 
-  test('maps tool.result → tool_result with output content', () => {
+  test('maps tool.result → tool_result with toolCallId', () => {
     const event = envelope('tool.result', {
       tool_call_id: 'tc-1',
       tool_name: 'read_file',
@@ -86,6 +91,7 @@ describe('transformDareEvent', () => {
     const result = transformDareEvent(event, catId);
     assert.ok(result);
     assert.strictEqual(result.type, 'tool_result');
+    assert.strictEqual(result.toolCallId, 'tc-1');
     assert.strictEqual(result.content, 'file contents here');
   });
 
@@ -99,10 +105,11 @@ describe('transformDareEvent', () => {
     const result = transformDareEvent(event, catId);
     assert.ok(result);
     assert.strictEqual(result.type, 'tool_result');
+    assert.strictEqual(result.toolCallId, 'tc-1');
     assert.strictEqual(result.content, 'read_file completed');
   });
 
-  test('maps tool.error → tool_result with error content', () => {
+  test('maps tool.error → tool_result with toolCallId and error content', () => {
     const event = envelope('tool.error', {
       tool_call_id: 'tc-2',
       tool_name: 'write_file',
@@ -112,6 +119,7 @@ describe('transformDareEvent', () => {
     const result = transformDareEvent(event, catId);
     assert.ok(result);
     assert.strictEqual(result.type, 'tool_result');
+    assert.strictEqual(result.toolCallId, 'tc-2');
     assert.ok(result.content?.includes('Permission denied'));
   });
 

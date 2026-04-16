@@ -19,6 +19,7 @@
  */
 
 import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli-timeout.js';
+import { isHubEnvPatchAllowed } from './env-patch-whitelist.js';
 import { buildConnectorEnvRefVarName, isConnectorSecretBackedEnvVarName } from './local-secret-store.js';
 
 export type EnvCategory =
@@ -125,6 +126,15 @@ export const ENV_VARS: EnvDefinition[] = [
       'Denylist 模式下额外拦截的目录（按系统路径分隔符分隔，会合并到平台默认拦截列表）。仅在未设置 PROJECT_ALLOWED_ROOTS 时生效。',
     category: 'server',
     sensitive: false,
+  },
+  {
+    name: 'OFFICE_CLAW_ENV_PATCH_WHITELIST',
+    defaultValue: '(未设置 → /api/config/env 全部拒绝)',
+    description: 'Hub 环境变量写回白名单；使用分号分隔，例如 DINGTALK_APP_KEY;DINGTALK_APP_SECRET',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+    runtimeEditable: false,
   },
   {
     name: 'FRONTEND_URL',
@@ -957,7 +967,8 @@ export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string 
       : null;
     const currentValue =
       raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
-    return { ...def, currentValue };
+    const runtimeEditable = isHubEnvPatchAllowed(def.name) ? def.runtimeEditable : false;
+    return { ...def, runtimeEditable, currentValue };
   });
 }
 
@@ -975,6 +986,7 @@ export function isConnectorEnvVarName(name: string): boolean {
 }
 
 export function isEditableEnvVarName(name: string): boolean {
+  if (!isHubEnvPatchAllowed(name)) return false;
   return ENV_VARS.some(
     (def) =>
       def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
