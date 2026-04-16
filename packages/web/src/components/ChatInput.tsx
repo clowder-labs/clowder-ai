@@ -338,10 +338,19 @@ export function ChatInput({
     });
   }, []);
 
+  const applyProgrammaticInput = useCallback((next: string, caret: number) => {
+    const el = textareaRef.current;
+    if (el) {
+      el.applyProgrammaticChange(next, caret, caret);
+      return;
+    }
+    setInput(next);
+  }, []);
+
   const handleQuickAction = useCallback((action: QuickActionConfig) => {
     const token = getQuickActionToken(action.label);
     const next = `${token} `;
-    setInput(next);
+    applyProgrammaticInput(next, next.length);
     setPendingQuickPromptExpand(false);
     setShowQuickPrompts(true);
     // 重置专家团思辨点击标记
@@ -382,7 +391,7 @@ export function ChatInput({
         caret = next.length;
       }
 
-      setInput(next);
+      applyProgrammaticInput(next, caret);
       setPendingQuickPromptExpand(false);
       setShowQuickPrompts(false);
       setTimeout(() => {
@@ -392,7 +401,7 @@ export function ChatInput({
         el.setSelectionRange(caret, caret);
       }, 0);
     },
-    [input],
+    [applyProgrammaticInput, input],
   );
 
   /** 专家团思辨：插入@智能体和文本内容（保留胶囊token，隐藏卡片） */
@@ -430,7 +439,7 @@ export function ChatInput({
         caret = (before + leftJoiner + fullText).length;
       }
 
-      setInput(next);
+      applyProgrammaticInput(next, caret);
       // 标记已点击卡片，隐藏卡片区域，回到胶囊按钮展示
       expertCardClickedRef.current = true;
       setShowQuickPrompts(false);
@@ -441,7 +450,7 @@ export function ChatInput({
         el.setSelectionRange(caret, caret);
       }, 0);
     },
-    [input],
+    [applyProgrammaticInput, input],
   );
 
   const visibleQuickActions = useMemo(() => QUICK_ACTIONS.filter((action) => action.show !== false), []);
