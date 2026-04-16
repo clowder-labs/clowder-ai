@@ -610,6 +610,9 @@ function ThreadModeChatContainer({
     sidebarMenu === 'chat' &&
     intentMode === 'execute' &&
     pendingIntentRecognitionTimestamp == null;
+  const handleOpenSecurityManagement = useCallback(() => {
+    setShowSecurityManagement(true);
+  }, []);
 
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
@@ -619,11 +622,11 @@ function ThreadModeChatContainer({
           getCatById={getCatById}
           pendingAuthRequests={pendingAuthorizationByMessageId.get(msg.id)}
           onAuthRespond={authRespond}
-          onOpenSecurityManagement={() => setShowSecurityManagement(true)}
+          onOpenSecurityManagement={handleOpenSecurityManagement}
         />
       </MessageActions>
     ),
-    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond],
+    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond, handleOpenSecurityManagement],
   );
 
   useVoiceAutoPlay();

@@ -11,6 +11,8 @@ import { LoadingPointStyle } from './LoadingPointStyle';
 import { MarkdownContent } from './MarkdownContent';
 import { CliEvent } from '@/stores/chat-types';
 
+const STREAMING_THINKING_RENDER_LIMIT = 12_000;
+
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
   return (
     <>
@@ -104,6 +106,11 @@ export function ThinkingContent({
   }, [expanded]);
   const previewLength = 60;
   const normalizedContent = content;
+  const isStreaming = status === 'streaming';
+  const isStreamingContentTrimmed = isStreaming && normalizedContent.length > STREAMING_THINKING_RENDER_LIMIT;
+  const streamingContent = isStreamingContentTrimmed
+    ? normalizedContent.slice(-STREAMING_THINKING_RENDER_LIMIT)
+    : normalizedContent;
   const preview =
     normalizedContent.length > previewLength ? `${normalizedContent.slice(0, previewLength)}…` : normalizedContent;
 
@@ -115,7 +122,7 @@ export function ThinkingContent({
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="thinking-button w-full flex items-center gap-2 text-[14px] font-mono transition-colors"
+        className="thinking-button w-full flex items-center gap-2 px-2 text-[14px] font-mono transition-colors"
       >
         {status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" />}
         { status === 'done' && 
@@ -237,7 +244,23 @@ export function ThinkingContent({
             style={{ padding: '8px 0 8px 28px' }}
             className="text-[12px] leading-relaxed cli-output-md text-[#595959]"
           >
-            <MarkdownContent content={normalizedContent} className={className} />
+            {isStreaming ? (
+              <div
+                data-testid="thinking-streaming-body"
+                className={`whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#595959] ${
+                  className ?? ''
+                }`}
+              >
+                {isStreamingContentTrimmed && (
+                  <div className="mb-2 text-[11px] text-[#8C8C8C]">
+                    仅展示最近 {STREAMING_THINKING_RENDER_LIMIT.toLocaleString()} 个字符，完整思考将在结束后保留。
+                  </div>
+                )}
+                {streamingContent}
+              </div>
+            ) : (
+              <MarkdownContent content={normalizedContent} className={className} />
+            )}
           </div>
         </div>
       )}

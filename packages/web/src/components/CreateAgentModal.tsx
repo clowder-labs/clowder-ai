@@ -13,6 +13,7 @@ import type { CatData } from '@/hooks/useCatData';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
+import { normalizeAgentSaveErrorMessage } from '@/utils/agent-save-error';
 import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
@@ -141,12 +142,6 @@ function validateAgentName(name: string): string | null {
     return AGENT_NAME_VALIDATION_MESSAGE;
   }
   return null;
-}
-
-function normalizeErrorMessage(message: string | null | undefined): string | null {
-  if (!message) return null;
-  const trimmed = message.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function isDuplicateNameErrorMessage(message: string | null | undefined): boolean {
@@ -762,7 +757,8 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        const nextError = normalizeErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`;
+        const nextError =
+          normalizeAgentSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`;
         if (isDuplicateNameErrorMessage(nextError)) {
           setNameSubmitError(nextError);
         } else {
@@ -777,7 +773,8 @@ export function CreateAgentModal({
       await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
-      const nextError = normalizeErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败');
+      const nextError =
+        normalizeAgentSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败');
       if (isDuplicateNameErrorMessage(nextError)) {
         setNameSubmitError(nextError);
       } else {
