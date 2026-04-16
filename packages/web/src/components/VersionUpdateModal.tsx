@@ -113,16 +113,20 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)]">
       <div
-        className="relative w-[360px] max-w-[90vw] rounded-[16px] bg-white text-center shadow-lg"
+        data-testid="version-update-card"
+        className="relative w-[360px] max-w-[90vw] rounded-[16px] border border-[var(--modal-border)] bg-[var(--modal-surface)] text-center shadow-[var(--modal-shadow)]"
         style={{
           backgroundImage: 'url("/images/version-bg.svg")',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
         }}
       >
-        <button className="absolute right-5 top-5 text-gray-400 hover:text-gray-600" onClick={handleCancel}>
+        <button
+          className="absolute right-5 top-5 text-[var(--modal-close-icon)] transition-colors hover:text-[var(--modal-close-icon-hover)]"
+          onClick={handleCancel}
+        >
           <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
@@ -145,7 +149,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
             )}
           </div>
 
-          <div className="mb-4 text-sm text-gray-500">当前版本V{currentVersion}</div>
+          <div className="mb-4 text-sm text-[var(--modal-text-muted)]">当前版本V{currentVersion}</div>
 
           {hasNewVersion && versionInfo && (
             <div className="mb-6 max-h-[150px] overflow-y-auto rounded-lg text-left text-sm">

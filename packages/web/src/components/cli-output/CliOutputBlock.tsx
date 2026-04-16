@@ -56,9 +56,26 @@ interface LocalGeneratedFileMeta {
 
 function dedupeLocalGeneratedFiles(files: Array<LocalGeneratedFile | null>): LocalGeneratedFile[] {
   const deduped = new Map<string, LocalGeneratedFile>();
+  const kindPriority: Record<LocalGeneratedFileKind, number> = {
+    word: 5,
+    ppt: 4,
+    markdown: 3,
+    docx: 2,
+    xlsx: 2,
+    pdf: 2,
+  };
+
+  function normalizeFileKey(path: string): string {
+    return path.replace(/\\/g, '/').toLowerCase();
+  }
+
   for (const file of files) {
     if (!file) continue;
-    deduped.set(`${file.kind}:${file.path}`, file);
+    const key = normalizeFileKey(file.path);
+    const existing = deduped.get(key);
+    if (!existing || kindPriority[file.kind] > kindPriority[existing.kind]) {
+      deduped.set(key, file);
+    }
   }
   return [...deduped.values()];
 }
@@ -259,10 +276,9 @@ function formatGeneratedDate(timestamp: number | null): string {
 function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | null {
   const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
   const candidates: string[] = [];
-  const pathPatterns = [...PRESENTATION_PATH_PATTERNS, ...GENERATED_DOCUMENT_PATH_PATTERNS];
 
   for (const text of searchSpace) {
-    for (const pattern of pathPatterns) {
+    for (const pattern of PRESENTATION_PATH_PATTERNS) {
       pattern.lastIndex = 0;
       for (const match of text.matchAll(pattern)) {
         const rawPath = match[1] ?? match[2];
@@ -284,15 +300,11 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalGeneratedFile | 
     for (const relativeCandidate of collectRelativePresentationCandidates(text)) {
       pushPresentationCandidate(candidates, relativeCandidate);
     }
-
-    for (const relativeCandidate of collectRelativeDocumentCandidates(text)) {
-      pushPresentationCandidate(candidates, relativeCandidate);
-    }
   }
 
   const path = candidates.at(-1);
   if (!path) return null;
-  return { name: fileNameFromPath(path), path, kind: inferLocalGeneratedFileKind(path) };
+  return { name: fileNameFromPath(path), path, kind: 'ppt' };
 }
 
 function extractLocalMarkdownFile(events: CliEvent[]): LocalGeneratedFile | null {
@@ -377,6 +389,49 @@ function extractLocalWordFile(events: CliEvent[]): LocalGeneratedFile | null {
   const path = candidates.at(-1) ?? fallbackCandidates.at(-1);
   if (!path) return null;
   return { name: fileNameFromPath(path), path, kind: 'word' };
+}
+
+function extractLocalGenericDocumentFile(events: CliEvent[]): LocalGeneratedFile | null {
+  const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
+  const candidates: LocalGeneratedFile[] = [];
+
+  function pushGenericCandidate(candidatePath: string): void {
+    const kind = inferLocalGeneratedFileKind(candidatePath);
+    if (kind === 'ppt' || kind === 'markdown' || kind === 'word' || kind === 'docx') return;
+    const candidate = { name: fileNameFromPath(candidatePath), path: candidatePath, kind };
+    const hasMoreSpecificCandidate = candidates.some(
+      (existing) => existing.path.length > candidate.path.length && existing.path.endsWith(candidate.path),
+    );
+    if (!hasMoreSpecificCandidate) {
+      candidates.push(candidate);
+    }
+  }
+
+  for (const text of searchSpace) {
+    for (const pattern of GENERATED_DOCUMENT_PATH_PATTERNS) {
+      pattern.lastIndex = 0;
+      for (const match of text.matchAll(pattern)) {
+        const rawPath = match[1] ?? match[2];
+        if (!rawPath) continue;
+        const fullMatch = match[0] ?? '';
+        const normalized = normalizePresentationPath(rawPath);
+        if (normalized.startsWith('/') && typeof match.index === 'number') {
+          const pathStart = match.index + fullMatch.indexOf(rawPath);
+          const previousChar = pathStart > 0 ? text[pathStart - 1] : '';
+          if (previousChar && /[A-Za-z0-9_.-]/.test(previousChar)) {
+            continue;
+          }
+        }
+        pushGenericCandidate(normalized);
+      }
+    }
+
+    for (const relativeCandidate of collectRelativeDocumentCandidates(text)) {
+      pushGenericCandidate(relativeCandidate);
+    }
+  }
+
+  return candidates.at(-1) ?? null;
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -520,8 +575,8 @@ function LocalFileAttachmentCard({
   const isMarkdown = file.kind === 'markdown';
   const isWord = file.kind === 'word';
   const isPresentation = file.kind === 'ppt';
-  const cardTestId = isMarkdown ? 'cli-output-markdown-card' : isPresentation ? 'cli-output-ppt-card' : 'cli-output-file-card';
-  const openTestId = isMarkdown ? 'cli-output-markdown-open' : isPresentation ? 'cli-output-ppt-open' : 'cli-output-file-open';
+  const cardTestId = isMarkdown ? 'cli-output-markdown-card' : isWord ? 'cli-output-word-card' : isPresentation ? 'cli-output-ppt-card' : 'cli-output-file-card';
+  const openTestId = isMarkdown ? 'cli-output-markdown-open' : isWord ? 'cli-output-word-open' : isPresentation ? 'cli-output-ppt-open' : 'cli-output-file-open';
   const badgeLabel =
     file.kind === 'markdown'
       ? 'MD'
@@ -628,7 +683,7 @@ function LocalFileAttachmentCard({
 
   return (
     <div
-      data-testid={isMarkdown ? 'cli-output-markdown-card' : isWord ? 'cli-output-word-card' : 'cli-output-ppt-card'}
+      data-testid={cardTestId}
       className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div
@@ -669,7 +724,7 @@ function LocalFileAttachmentCard({
       </div>
       <button
         type="button"
-        data-testid={isMarkdown ? 'cli-output-markdown-open' : isWord ? 'cli-output-word-open' : 'cli-output-ppt-open'}
+        data-testid={openTestId}
         onClick={() => {
           void handleOpen();
         }}
@@ -890,7 +945,8 @@ export function CliOutputBlock({
       const markdownFile = extractLocalMarkdownFile(events);
       const wordFile = extractLocalWordFile(events);
       const presentationFile = extractLocalPresentationFile(events);
-      const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile]);
+      const genericDocumentFile = extractLocalGenericDocumentFile(events);
+      const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile, genericDocumentFile]);
       const selectedFiles = officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
       return selectedFiles;
     },

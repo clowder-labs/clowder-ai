@@ -41,7 +41,7 @@ const DETAIL_WIDTH = 596;
 
 function SearchIcon() {
   return (
-    <svg className="h-4 w-4 text-[#A5ADBA]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-4 w-4 text-[var(--modal-text-subtle)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
       <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
@@ -70,7 +70,7 @@ function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
     <div className="h-full overflow-y-auto">
       <MarkdownContent
         content={item.content}
-        className="text-[12px] leading-7 text-[#191919] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#191919] [&_p]:text-[#191919]"
+        className="text-[12px] leading-7 text-[var(--modal-text)] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[var(--modal-text)] [&_p]:text-[var(--modal-text)]"
         disableCommandPrefix
       />
     </div>
@@ -156,15 +156,15 @@ export function PromptSelectionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/35 px-6 pb-[50px] pt-[100px]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--overlay-backdrop-strong)] px-6 pb-[50px] pt-[100px]"
       data-testid="prompt-selection-modal"
     >
       <div
-        className="flex w-full max-w-[900px] flex-col overflow-y-auto rounded-[8px] bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
+        className="flex w-full max-w-[900px] flex-col overflow-y-auto rounded-[8px] border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]"
         style={{ width: MODAL_WIDTH, maxHeight: `calc(100vh - ${MODAL_VIEWPORT_OFFSET}px)` }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-semibold leading-none text-[#1F2329]">{title}</h2>
+          <h2 className="text-[18px] font-semibold leading-none text-[var(--modal-title-text)]">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -177,7 +177,7 @@ export function PromptSelectionModal({
 
         <div className="mt-4 flex min-h-0 flex-col">
           <div className="flex items-center gap-3">
-            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[6px] border border-[#D9E0EA] bg-white px-3">
+            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[6px] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] px-3">
               <SearchIcon />
               <input
                 value={query}
@@ -190,7 +190,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#D9E0EA] bg-white transition hover:bg-[#F7F9FC]"
+              className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] transition hover:bg-[var(--modal-muted-surface-hover)]"
               aria-label="清空搜索"
             >
               <RefreshIcon />
@@ -201,7 +201,7 @@ export function PromptSelectionModal({
             {hasNoMatches ? (
               <section
                 data-testid="prompt-empty-state"
-                className="flex min-h-[420px] flex-1 items-center justify-center rounded-[10px] border border-[#E7ECF3] bg-white px-8 py-10"
+                className="flex min-h-[420px] flex-1 items-center justify-center rounded-[10px] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] px-8 py-10"
               >
                 <NoSearchResultsState
                   onClear={() => setQuery('')}
@@ -213,7 +213,7 @@ export function PromptSelectionModal({
             ) : (
               <>
                 <aside
-                  className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-white pr-2"
+                  className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-[var(--modal-surface)] pr-2"
                   style={{ width: LIST_SCROLL_CONTAINER_WIDTH }}
                 >
                   {filteredItems.map((item) => {
@@ -225,16 +225,16 @@ export function PromptSelectionModal({
                         onClick={() => setSelectedId(item.id)}
                         className={`block h-[68px] min-h-[68px] shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
                           isSelected
-                            ? 'border border-[#1476ff] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
-                            : 'border border-[#f0f0f0] bg-[#fafafa] hover:bg-white'
+                            ? 'border border-[var(--modal-selected-border)] bg-[var(--modal-surface)] shadow-[var(--modal-selected-shadow)]'
+                            : 'border border-[var(--modal-muted-border)] bg-[var(--modal-muted-surface)] hover:bg-[var(--modal-surface)]'
                         }`}
                         data-testid={`prompt-list-item-${item.id}`}
                       >
                         <div className="flex h-full min-w-0 w-full flex-col justify-center overflow-hidden">
-                          <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[#191919]">
+                          <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[var(--modal-text)]">
                             {item.title}
                           </div>
-                          <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#595959]">
+                          <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[var(--modal-text-muted)]">
                             {buildItemSummary(item)}
                           </div>
                         </div>
@@ -245,13 +245,13 @@ export function PromptSelectionModal({
 
                 <section
                   data-testid="prompt-detail-panel"
-                  className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-[#E7ECF3] bg-white p-4"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] p-4"
                   style={{ width: DETAIL_WIDTH }}
                 >
                   {selectedItem ? (
                     <PromptDetailContent item={selectedItem} />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-[13px] text-[#8C8C8C]">请选择左侧提示词</div>
+                    <div className="flex h-full items-center justify-center text-[13px] text-[var(--modal-empty-text)]">请选择左侧提示词</div>
                   )}
                 </section>
               </>
@@ -262,7 +262,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="h-7 min-w-[84px] rounded-full border border-[#C9D1DC] bg-white px-4 text-[14px] font-normal text-[#202020] transition hover:bg-[#FAFAFA]"
+              className="ui-button-default h-7 min-w-[84px] px-4 text-[14px] font-normal"
             >
               {cancelLabel}
             </button>
@@ -270,7 +270,7 @@ export function PromptSelectionModal({
               type="button"
               onClick={() => selectedItem && onConfirm(selectedItem)}
               disabled={!selectedItem}
-              className="h-7 min-w-[84px] rounded-full bg-[#1F2430] px-4 text-[14px] font-normal text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:bg-[#BFBFBF]"
+              className="ui-button-primary h-7 min-w-[84px] px-4 text-[14px] font-normal disabled:cursor-not-allowed"
               data-testid="prompt-confirm-button"
             >
               {confirmLabel}

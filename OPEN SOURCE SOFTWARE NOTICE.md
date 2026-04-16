@@ -61,7 +61,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 Software: fastify 4.25.0
 Software: react 18.2.0
 Software: react-dom 18.2.0
-Software: next 14.2.35
+Software: next 14.2.25
 Software: zod 3.22.0
 Software: zustand 4.5.0
 Software: socket.io 4.7.0
@@ -108,7 +108,7 @@ Software: aibot-node-sdk 1.0.4
 Software: sqlite-vec 0.1.6
 Software: fast-check 4.5.3
 Software: next-pwa 10.2.9
-Software: eslint-config-next 14.2.35
+Software: eslint-config-next 14.2.25
 
 License: MIT License
 The MIT License

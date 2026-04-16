@@ -91,17 +91,17 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="hub-list-modal">
-      <div className="bg-white rounded-2xl shadow-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)]" data-testid="hub-list-modal">
+      <div className="flex w-[520px] max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]">
+        <div className="flex items-center justify-between border-b border-[var(--modal-divider)] px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <HubIcon className="w-5 h-5 text-blue-600" />
-            <span className="text-lg font-semibold text-gray-900">IM Hub</span>
+            <HubIcon className="w-5 h-5 text-[var(--modal-accent-text)]" />
+            <span className="text-lg font-semibold text-[var(--modal-title-text)]">IM Hub</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="rounded-md p-1 text-[var(--modal-close-icon)] transition-colors hover:bg-[var(--modal-close-hover-bg)] hover:text-[var(--modal-close-icon-hover)]"
             data-testid="hub-list-close"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,31 +110,31 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
           </button>
         </div>
 
-        <div className="flex border-b border-gray-100 px-6" data-testid="hub-tabs">
+        <div className="flex border-b border-[var(--modal-divider)] px-6" data-testid="hub-tabs">
           <button
             type="button"
             onClick={() => setActiveTab('threads')}
             className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-              activeTab === 'threads' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'threads' ? 'text-[var(--modal-accent-text)]' : 'text-[var(--modal-text-muted)] hover:text-[var(--modal-text)]'
             }`}
             data-testid="hub-tab-threads"
           >
             系统对话中心
             {activeTab === 'threads' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[var(--modal-accent-text)]" />
             )}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('config')}
             className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-              activeTab === 'config' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'config' ? 'text-[var(--modal-accent-text)]' : 'text-[var(--modal-text-muted)] hover:text-[var(--modal-text)]'
             }`}
             data-testid="hub-tab-config"
           >
             平台配置
             {activeTab === 'config' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[var(--modal-accent-text)]" />
             )}
           </button>
         </div>
@@ -143,15 +143,15 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
           {activeTab === 'threads' ? (
             <div className="space-y-4">
               {isLoading ? (
-                <p className="text-center text-gray-400 py-8 text-sm">加载中...</p>
+                <p className="py-8 text-center text-sm text-[var(--modal-empty-text)]">加载中...</p>
               ) : hubThreads.length === 0 ? (
-                <p className="text-center text-gray-400 py-8 text-sm">
+                <p className="py-8 text-center text-sm text-[var(--modal-empty-text)]">
                   还没有 IM Hub。从飞书/Telegram 发送消息建立绑定后，命令将自动路由到专用 Hub thread。
                 </p>
               ) : (
                 Array.from(grouped.entries()).map(([connectorId, threads]) => (
                   <div key={connectorId}>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--modal-text-muted)]">
                       {CONNECTOR_LABELS[connectorId] ?? connectorId} Hub
                     </div>
                     <div className="space-y-2">
@@ -163,28 +163,28 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
                             type="button"
                             onClick={() => handleNavigate(t.id)}
                             disabled={isCurrent}
-                            className={`w-full text-left p-3 rounded-xl border transition-colors ${
+                            className={`w-full rounded-xl border p-3 text-left transition-colors ${
                               isCurrent
-                                ? 'border-blue-300 bg-blue-50 opacity-60 cursor-default'
-                                : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                                ? 'cursor-default border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)] opacity-60'
+                                : 'border-[var(--modal-muted-border)] bg-[var(--modal-muted-surface)] hover:bg-[var(--modal-muted-surface-hover)]'
                             }`}
                             data-testid={`hub-item-${t.id}`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[15px] font-medium text-gray-900">
+                              <span className="text-[15px] font-medium text-[var(--modal-text)]">
                                 {t.title ?? `${CONNECTOR_LABELS[connectorId] ?? connectorId} IM Hub`}
                               </span>
                               {isCurrent && (
-                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                                <span className="rounded-full bg-[var(--modal-selected-surface)] px-2.5 py-1 text-xs font-medium text-[var(--modal-accent-text)]">
                                   当前
                                 </span>
                               )}
                             </div>
                             {t.externalChatId && (
-                              <div className="text-xs text-gray-400 mt-1 truncate">{t.externalChatId}</div>
+                              <div className="mt-1 truncate text-xs text-[var(--modal-text-subtle)]">{t.externalChatId}</div>
                             )}
                             {t.lastCommandAt && (
-                              <div className="text-xs text-gray-400 mt-0.5">
+                              <div className="mt-0.5 text-xs text-[var(--modal-text-subtle)]">
                                 最近命令 {formatRelativeTime(t.lastCommandAt)}
                               </div>
                             )}

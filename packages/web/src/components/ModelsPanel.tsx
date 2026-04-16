@@ -887,7 +887,7 @@ export function ModelsPanel() {
           <button
             type="button"
             onClick={() => openHub('provider-profiles')}
-            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="hidden rounded-[16px] border border-[var(--button-default-border)] bg-[var(--button-default-bg)] px-3 py-1.5 text-[12px] font-medium text-[var(--button-default-text)] transition-colors hover:border-[var(--button-default-border-hover)] hover:bg-[var(--button-default-bg-hover)] hover:text-[var(--button-default-text-hover)]"
           >
             ACP / 账号配置
           </button>
@@ -1152,27 +1152,27 @@ export function ModelsPanel() {
 
       {showCreateModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4"
           data-testid="models-create-model-modal"
         >
-          <div className="relative flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+          <div className="relative flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]">
             <button
               type="button"
               onClick={closeCreateModelModal}
               aria-label="close"
-              className="absolute right-5 top-5 flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
+              className="absolute right-5 top-5 flex h-6 w-6 items-center justify-center rounded text-[var(--modal-close-icon)] transition-colors hover:bg-[var(--modal-close-hover-bg)] hover:text-[var(--modal-close-icon-hover)]"
             >
               <CloseIcon />
             </button>
             <div className="pr-10">
-              <h3 className="text-[16px] font-bold">
+              <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">
                 {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? HUAWEI_MAAS_ACCESS_LABEL : CREATE_MODEL_LABEL}
               </h3>
             </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">
                   {isHuaweiMaasAccessMode ? '模型调用名称' : '模型名称'}
                 </p>
                 <input
@@ -1185,7 +1185,10 @@ export function ModelsPanel() {
                   required
                 />
                 {showModelNameValidationError ? (
-                  <p data-testid="models-create-model-name-error" className="mt-1 text-xs text-red-600">
+                  <p
+                    data-testid="models-create-model-name-error"
+                    className="mt-1 text-xs text-[var(--state-error-text)]"
+                  >
                     {MODEL_NAME_VALIDATION_MESSAGE}
                   </p>
                 ) : null}
@@ -1207,7 +1210,7 @@ export function ModelsPanel() {
                 </div>
               </div>
               <div className="hidden space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型展示名称'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'模型展示名称'}</p>
                 <input
                   data-testid="models-create-model-display-name-input"
                   value={modelDisplayNameInput}
@@ -1229,7 +1232,7 @@ export function ModelsPanel() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={modelIconPreviewSrc} alt="Model icon preview" className="h-full w-full object-cover" />
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--modal-loading-overlay)] opacity-0 transition group-hover:opacity-100">
                       <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                     </span>
                   </button>
@@ -1263,7 +1266,7 @@ export function ModelsPanel() {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'访问URL'}</p>
                 <input
                   data-testid="models-create-model-url-input"
                   name="cc_model_base_url"
@@ -1275,13 +1278,17 @@ export function ModelsPanel() {
                   autoCapitalize="off"
                   spellCheck={false}
                   disabled={isHuaweiMaasAccessMode}
-                  className={`ui-input w-full ${isHuaweiMaasAccessMode ? 'cursor-not-allowed bg-[#F7F8FA] text-[#9AA4B2]' : ''}`}
+                  className={`ui-input w-full ${
+                    isHuaweiMaasAccessMode
+                      ? 'cursor-not-allowed border-[var(--overlay-disabled-border)] bg-[var(--overlay-disabled-bg)] text-[var(--overlay-disabled-text)]'
+                      : ''
+                  }`}
                   style={{ height: '28px' }}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'API Key'}</p>
                 <PasswordField
                   data-testid="models-create-model-api-key-input"
                   name="cc_model_api_key"
@@ -1299,7 +1306,7 @@ export function ModelsPanel() {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'请求头（可选）'}</p>
                 <div className="space-y-2">
                   {modelHeaderRows.map((row, index) => {
                     const rowErrors = headerRowErrors.get(row.id) || {};
@@ -1316,7 +1323,11 @@ export function ModelsPanel() {
                             value={row.key}
                             onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
                             placeholder="请求头的键名"
-                            className={`ui-input h-[28px] flex-1 ${rowErrors.keyError ? 'bg-red-50 border-red-500' : ''}`}
+                            className={`ui-input h-[28px] flex-1 ${
+                              rowErrors.keyError
+                                ? 'border-[var(--state-error-text)] bg-[var(--state-error-surface)]'
+                                : ''
+                            }`}
                             data-testid={`models-create-model-header-key-${index}`}
                           />
                           <input
@@ -1324,21 +1335,25 @@ export function ModelsPanel() {
                             value={row.value}
                             onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
                             placeholder="请求头的值"
-                            className={`ui-input h-[28px] flex-1 ${rowErrors.valueError ? 'bg-red-50 border-red-500' : ''}`}
+                            className={`ui-input h-[28px] flex-1 ${
+                              rowErrors.valueError
+                                ? 'border-[var(--state-error-text)] bg-[var(--state-error-surface)]'
+                                : ''
+                            }`}
                             data-testid={`models-create-model-header-value-${index}`}
                           />
                           <button
                             type="button"
                             onClick={() => handleRemoveHeaderRow(row.id)}
                             aria-label={`请求头 ${index + 1}`}
-                            className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
+                            className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[var(--modal-muted-surface-hover)]"
                             data-testid={`models-create-model-header-remove-${index}`}
                           >
                             <AgentManagementIcon name="delete" className="h-4 w-4" />
                           </button>
                         </div>
                         {(rowErrors.keyError || rowErrors.valueError) && (
-                          <div className="break-all px-1 text-xs text-red-600">
+                          <div className="break-all px-1 text-xs text-[var(--state-error-text)]">
                             {rowErrors.keyError || rowErrors.valueError}
                           </div>
                         )}
@@ -1348,7 +1363,7 @@ export function ModelsPanel() {
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[--text-accent]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
@@ -1358,7 +1373,7 @@ export function ModelsPanel() {
                   </button>
                 </div>
                 {createModelError && createModelError.includes('请求头键名重复') ? (
-                  <p className="mt-1 text-xs text-red-600">{createModelError}</p>
+                  <p className="mt-1 text-xs text-[var(--state-error-text)]">{createModelError}</p>
                 ) : null}
               </div>
             </div>
@@ -1392,19 +1407,19 @@ export function ModelsPanel() {
 
       {showAddModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4"
           data-testid="models-add-model-modal"
         >
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] p-5 shadow-[var(--modal-shadow)]">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <h3 className="text-base font-semibold text-[var(--modal-title-text)]">{ADD_MODEL}</h3>
               <button
                 type="button"
                 onClick={() => {
                   setCreateError(null);
                   setShowAddModelModal(false);
                 }}
-                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                className="rounded-lg border border-[var(--button-default-border)] bg-[var(--button-default-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-default-text)] transition-colors hover:border-[var(--button-default-border-hover)] hover:bg-[var(--button-default-bg-hover)] hover:text-[var(--button-default-text-hover)]"
               >
                 关闭
               </button>
@@ -1550,12 +1565,12 @@ function ModelsCreateModelConfigSource({
 
   return (
     <div className="space-y-3">
-      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p> : null}
+      {error ? <p className="ui-status-error rounded-lg px-3 py-2 text-sm">{error}</p> : null}
       <select
         value="openai"
         disabled
         aria-label="协议"
-        className="w-full rounded border border-[#DCE2EB] bg-[#F7F8FA] px-3 py-2 text-sm text-[#5F6775]"
+        className="w-full rounded border border-[var(--overlay-disabled-border)] bg-[var(--overlay-disabled-bg)] px-3 py-2 text-sm text-[var(--overlay-disabled-text)]"
       >
         <option value="openai">OpenAI</option>
       </select>
@@ -1589,7 +1604,7 @@ function ModelsCreateModelConfigSource({
         className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>
+        <p className="text-xs font-semibold text-[var(--modal-text-muted)]">可用模型 *</p>
         <TagEditor
           tags={models}
           tone="purple"
@@ -1601,7 +1616,7 @@ function ModelsCreateModelConfigSource({
         />
       </div>
       {successMessage ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>
+        <p className="ui-status-success rounded-lg px-3 py-2 text-sm">{successMessage}</p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <button
@@ -1638,7 +1653,7 @@ function ModelsCreateModelConfigSource({
               setSaveBusy(false);
             }
           }}
-          className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
+          className="rounded bg-[var(--button-primary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] hover:text-[var(--button-primary-text-hover)] disabled:bg-[var(--button-disabled-bg)] disabled:text-[var(--button-disabled-text)] disabled:opacity-50"
         >
           {saveBusy ? '保存中...' : SAVE_MODEL_LABEL}
         </button>

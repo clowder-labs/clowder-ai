@@ -67,17 +67,17 @@ describe('ToastContainer status styling', () => {
     const successToast = alerts.find((node) => node.textContent?.includes('安装成功'));
     const errorToast = alerts.find((node) => node.textContent?.includes('安装失败'));
 
-    expect(successToast?.className).toContain('bg-[var(--state-success-surface)]');
-    expect(errorToast?.className).toContain('bg-[var(--state-error-surface)]');
-    expect(successToast?.className).toContain('border-[var(--state-success-surface)]');
-    expect(errorToast?.className).toContain('border-[var(--state-error-surface)]');
+    expect(successToast?.className).toContain('bg-[var(--toast-success-surface)]');
+    expect(errorToast?.className).toContain('bg-[var(--toast-error-surface)]');
+    expect(successToast?.className).toContain('border-[var(--toast-success-surface)]');
+    expect(errorToast?.className).toContain('border-[var(--toast-error-surface)]');
     expect(successToast?.className).toContain('box-border');
     expect(successToast?.className).toContain('rounded-[8px]');
-    expect(successToast?.className).toContain('shadow-[-2px_0px_12px_0px_rgba(0,0,0,0.16)]');
+    expect(successToast?.className).toContain('shadow-[var(--toast-shadow)]');
     expect(successToast?.className).toContain('px-4');
     expect(successToast?.className).toContain('py-2');
     expect(successToast?.className).toContain('max-w-lg');
-    expect(successToast?.className).toContain('text-black');
+    expect(successToast?.className).toContain('text-[var(--toast-text)]');
     expect(successToast?.textContent).not.toContain('⚠');
     expect(errorToast?.textContent).not.toContain('⚠');
 
@@ -96,7 +96,7 @@ describe('ToastContainer status styling', () => {
     );
 
     const closeButton = successToast?.querySelector('button');
-    expect(closeButton?.className).toContain('text-gray-300');
+    expect(closeButton?.className).toContain('text-[var(--toast-close-icon)]');
     expect(closeButton?.querySelector('svg')?.getAttribute('class')).toContain('h-4');
     expect(closeButton?.querySelector('svg')?.getAttribute('class')).toContain('w-4');
   });
