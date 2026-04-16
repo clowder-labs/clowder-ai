@@ -348,7 +348,7 @@ describe('SecurityManagementModal', () => {
       await Promise.resolve();
     });
 
-    const modal = container.querySelector('[data-testid="app-modal"]');
+    const modal = container.querySelector('[data-testid="security-management-modal"]');
     expect(modal).not.toBeNull();
 
     act(() => {

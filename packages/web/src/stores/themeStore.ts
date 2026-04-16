@@ -34,7 +34,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
   toggleTheme: () => {
     const { theme } = get();
-    const newTheme = theme === 'business' ? 'warm' : 'business';
+    const newTheme = theme === 'business' ? 'warm' : theme === 'warm' ? 'dark' : 'business';
     get().setTheme(newTheme);
   },
 

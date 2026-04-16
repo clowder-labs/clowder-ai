@@ -50,12 +50,12 @@ function ToggleSwitch({ checked, onToggle, ariaLabel, disabled = false, testId }
       onClick={onToggle}
       className={[
         'relative inline-flex h-[22px] w-8 shrink-0 items-center rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60',
-        checked ? 'bg-[#2F7BFF]' : 'bg-[#D1D5DB]',
+        checked ? 'bg-[var(--modal-switch-on)]' : 'bg-[var(--modal-switch-off)]',
       ].join(' ')}
     >
       <span
         className={[
-          'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+          'inline-block h-4 w-4 rounded-full bg-[var(--modal-switch-thumb)] shadow-sm transition-transform duration-200',
           checked ? 'translate-x-[14px]' : 'translate-x-[2px]',
         ].join(' ')}
       />
@@ -287,7 +287,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       <div className="space-y-6">
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4" data-testid="security-management-approval-header">
-            <h4 className="text-[14px] font-semibold leading-6 text-[#111827]">是否开启审批护栏</h4>
+            <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">是否开启审批护栏</h4>
             <ToggleSwitch
               checked={approvalBarEnabled}
               onToggle={() => void handleToggleApprovalBar()}
@@ -297,18 +297,18 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
             />
           </div>
           <p
-            className="block w-full text-[12px] leading-6 text-[#808080]"
+            className="block w-full text-[12px] leading-6 text-[var(--modal-text-muted)]"
             data-testid="security-management-approval-description"
           >
             开启后，若对话中触发相关权限时按安全策略展示确认卡片；若关闭，则所有敏感操作无需用户执行风险审批。
           </p>
           {loadError ? (
-            <p className="text-[12px] leading-5 text-[#DC2626]" data-testid="security-management-load-error">
+            <p className="text-[12px] leading-5 text-[var(--modal-danger-text)]" data-testid="security-management-load-error">
               {loadError}
             </p>
           ) : null}
           {saveError ? (
-            <p className="text-[12px] leading-5 text-[#DC2626]" data-testid="security-management-save-error">
+            <p className="text-[12px] leading-5 text-[var(--modal-danger-text)]" data-testid="security-management-save-error">
               {saveError}
             </p>
           ) : null}
@@ -316,22 +316,22 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
         {approvalBarEnabled && policies.length > 0 ? (
           <section className="space-y-3" data-testid="security-management-policy-section">
-            <h4 className="text-[14px] font-semibold leading-6 text-[#111827]">安全策略配置</h4>
+            <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">安全策略配置</h4>
 
-            <div className="rounded-[12px] border border-[#EEF2F7]">
-              <div className="grid grid-cols-[1.6fr_1.4fr] border-b border-[#EEF2F7] bg-[#F5F7FA] px-5 py-4 text-[13px] font-medium text-[#4B5563]">
+            <div className="rounded-[12px] border border-[var(--modal-muted-border)]">
+              <div className="grid grid-cols-[1.6fr_1.4fr] border-b border-[var(--modal-muted-border)] bg-[var(--modal-table-header-bg)] px-5 py-4 text-[13px] font-medium text-[var(--modal-text-muted)]">
                 <div>敏感操作</div>
                 <div>在对话中是否需要审批</div>
               </div>
 
-              <div className="max-h-[360px] overflow-y-auto bg-white">
+              <div className="max-h-[360px] overflow-y-auto bg-[var(--modal-surface)]">
                 {policies.map((policy) => (
                   <div
                     key={policy.id}
                     data-testid={`security-policy-row-${policy.id}`}
-                    className="grid grid-cols-[1.6fr_1.4fr] items-center border-b border-[#F3F5F8] px-5 py-5 text-[14px] text-[#111827] last:border-b-0"
+                    className="grid grid-cols-[1.6fr_1.4fr] items-center border-b border-[var(--modal-table-divider)] px-5 py-5 text-[14px] text-[var(--modal-title-text)] last:border-b-0"
                   >
-                    <div className="font-normal leading-5 text-[#1F2937]">{policy.action}</div>
+                    <div className="font-normal leading-5 text-[var(--modal-text)]">{policy.action}</div>
                     <div className="flex items-center gap-3">
                       <ToggleSwitch
                         checked={policy.approvalRequired}
@@ -340,7 +340,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
                         disabled={Boolean(savingPolicyIds[policy.id])}
                         testId={`security-policy-toggle-${policy.id}`}
                       />
-                      <span className="text-[14px] text-[#111827]">{policy.approvalRequired ? '是' : '否'}</span>
+                      <span className="text-[14px] text-[var(--modal-title-text)]">{policy.approvalRequired ? '是' : '否'}</span>
                     </div>
                   </div>
                 ))}

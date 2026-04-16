@@ -33,6 +33,13 @@ const THEME_OPTIONS: Array<{
       'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
     selectedBadgeBackground: 'rgb(204,109,26)',
   },
+  // {
+  //   id: 'dark',
+  //   label: '暗黑',
+  //   swatchBackground:
+  //     'linear-gradient(144.26deg, rgba(49, 68, 102, 1), rgba(13, 20, 33, 1) 100%)',
+  //   selectedBadgeBackground: 'rgb(122,169,255)',
+  // },
 ];
 
 const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
@@ -68,9 +75,9 @@ export function UserProfile({ className }: UserProfileProps) {
   const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
-    'ui-overlay-item flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[14px] font-normal leading-[22px]';
+    'ui-overlay-item flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[14px] font-normal leading-[22px] text-[var(--overlay-text)]';
   const profileSubActionClass =
-    'ui-overlay-item flex w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-[14px] font-normal leading-[22px]';
+    'ui-overlay-item flex w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-[14px] font-normal leading-[22px] text-[var(--overlay-text)]';
 
   const calculatePopoverPosition = (anchorElement: HTMLDivElement | null) => {
     if (!panelRef.current || !profilePanelRef.current || !anchorElement) return null;
@@ -285,21 +292,21 @@ export function UserProfile({ className }: UserProfileProps) {
       <button
         type="button"
         onClick={handleTogglePanel}
-        className="group border-none flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-gray-50"
+        className="group border-none flex w-full items-center gap-3 px-3 py-3 text-left text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
         data-testid="user-profile-toggle"
       >
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
-          <span className="text-sm font-bold text-[#191919]">{avatarLetter}</span>
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--surface-avatar-shell)]">
+          <span className="text-sm font-bold text-[var(--text-primary)]">{avatarLetter}</span>
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[16px] font-medium text-gray-900" title={userName}>
+          <div className="truncate text-[16px] font-medium text-[var(--text-primary)]" title={userName}>
             {userName}
           </div>
         </div>
 
         <svg
-          className="h-4 w-4 shrink-0 text-[#191919] transition-transform"
+          className="h-4 w-4 shrink-0 text-[var(--text-primary)] transition-transform"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -318,18 +325,18 @@ export function UserProfile({ className }: UserProfileProps) {
           <div className="p-4 border-none" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
-                  <span className="text-base font-bold text-[#191919]">{avatarLetter}</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-avatar-shell)]">
+                  <span className="text-base font-bold text-[var(--text-primary)]">{avatarLetter}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[16px] font-normal text-gray-900" title={userName}>
+                  <div className="truncate text-[16px] font-normal text-[var(--text-primary)]" title={userName}>
                     {userName}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mb-3 border-t border-gray-200" />
+            <div className="mb-3 border-t border-[var(--panel-divider)]" />
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
@@ -370,7 +377,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="flex-1 text-left">主题模式</span>
                   <svg
                     data-testid="user-profile-theme-arrow"
-                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-text)]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -392,7 +399,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="flex-1 text-left">关于我们</span>
                   <svg
                     data-testid="user-profile-about-arrow"
-                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-text)]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -406,7 +413,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             {!isSkipAuth && (
               <>
-                <div className="mt-3 border-t border-gray-200" />
+                <div className="mt-3 border-t border-[var(--panel-divider)]" />
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
@@ -436,7 +443,7 @@ export function UserProfile({ className }: UserProfileProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleSelectTheme(option.id)}
-                    className={`ui-overlay-item flex flex-col items-center gap-2 text-center hover:border-transparent hover:bg-transparent hover:text-[var(--overlay-item-text)] focus-visible:border-transparent focus-visible:bg-transparent focus-visible:text-[var(--overlay-item-text)]`}
+                    className={`ui-overlay-item flex flex-col items-center gap-2 text-center text-[var(--overlay-text)] hover:border-transparent hover:bg-transparent hover:text-[var(--overlay-text)] focus-visible:border-transparent focus-visible:bg-transparent focus-visible:text-[var(--overlay-text)]`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
                     <div className="relative">
@@ -447,7 +454,7 @@ export function UserProfile({ className }: UserProfileProps) {
                       />
                       {isActive && (
                         <div
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-white"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[var(--text-inverse)]"
                           data-testid={`user-theme-selected-badge-${option.id}`}
                           style={{ backgroundColor: option.selectedBadgeBackground }}
                         >
@@ -463,7 +470,7 @@ export function UserProfile({ className }: UserProfileProps) {
                         </div>
                       )}
                     </div>
-                    <span className="whitespace-nowrap text-[12px] font-medium leading-[18px] text-[#2E3440]">
+                    <span className="whitespace-nowrap text-[12px] font-medium leading-[18px] text-[var(--overlay-text)]">
                       {option.label}
                     </span>
                   </button>

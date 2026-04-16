@@ -781,13 +781,13 @@ description: From zip package.
 
     const fileRows = Array.from(container.querySelectorAll('[data-testid="upload-skill-file-row"]')) as HTMLDivElement[];
     expect(fileRows.length).toBeGreaterThan(0);
-    expect(fileRows[0]?.className).toContain('hover:bg-[#F7F8FA]');
+    expect(fileRows[0]?.className).toContain('hover:bg-[var(--modal-muted-surface-hover)]');
 
     const deleteButtons = Array.from(
       container.querySelectorAll('[data-testid="upload-skill-file-delete-button"]'),
     ) as HTMLButtonElement[];
     expect(deleteButtons.length).toBeGreaterThan(0);
-    expect(deleteButtons[0]?.className).toContain('hover:text-[#1476FF]');
+    expect(deleteButtons[0]?.className).toContain('hover:text-[var(--modal-accent-text)]');
 
     const deleteIcons = Array.from(
       container.querySelectorAll('[data-testid="upload-skill-file-delete-icon"]'),
