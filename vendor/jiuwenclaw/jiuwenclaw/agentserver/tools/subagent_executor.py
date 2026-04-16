@@ -28,7 +28,9 @@ if TYPE_CHECKING:
 
 
 # Context variable to pass parent session from tool execution to executor
-_subagent_parent_session: ContextVar[Optional[Session]] = ContextVar("subagent_parent_session", default=None)
+_subagent_parent_session: ContextVar[Optional[Session]] = ContextVar(
+    "subagent_parent_session", default=None
+)
 
 
 def set_subagent_parent_session(session: Optional[Session]) -> None:
@@ -151,10 +153,42 @@ class SubagentExecutor:
         self._skill_base_dir = skill_base_dir
         self._default_role_prompts = default_role_prompts or {}
         self._skill_configs: dict[str, SubagentConfig] = {}
+        self._active_subagents: dict[str, Any] = {}  # task_id -> subagent instance
 
     def register_skill_config(self, skill_name: str, config: SubagentConfig) -> None:
         """Register a Skill's subagent configuration."""
         self._skill_configs[skill_name] = config
+
+    def resolve_permission_approval(self, request_id: str, answers: list) -> bool:
+        """
+        Resolve permission approval across all active subagents.
+
+        Called by parent agent when it cannot find the request_id in its own _pending_approvals.
+        Iterates through all active subagent instances to find and resolve the Future.
+
+        Args:
+            request_id: Permission approval request ID (e.g., "perm_approve_xxx")
+            answers: User's answers from the approval UI
+
+        Returns:
+            True if resolved successfully, False otherwise
+        """
+        for task_id, subagent in self._active_subagents.items():
+            if hasattr(subagent, "_resolve_permission_approval"):
+                try:
+                    resolved = subagent._resolve_permission_approval(
+                        request_id, answers
+                    )
+                    if resolved:
+                        logger.info(
+                            f"[Subagent] Resolved permission approval in subagent task_id={task_id}, request_id={request_id}"
+                        )
+                        return True
+                except Exception as e:
+                    logger.warning(
+                        f"[Subagent] Failed to resolve permission approval in task_id={task_id}: {e}"
+                    )
+        return False
 
     def get_role_definition(
         self,
@@ -247,7 +281,9 @@ Approach each task methodically and deliver high-quality results."""
             else:
                 # Lowest priority: dynamic role prompt generation
                 system_prompt = self._generate_dynamic_role_prompt(task.role_id)
-                logger.info(f"[Subagent] Generated dynamic role prompt for: {task.role_id}")
+                logger.info(
+                    f"[Subagent] Generated dynamic role prompt for: {task.role_id}"
+                )
 
             # 3. Determine skill_path
             skill_path = task.skill_path
@@ -263,16 +299,20 @@ Approach each task methodically and deliver high-quality results."""
                 if skill_full_path.exists():
                     await subagent.register_skill(str(skill_full_path))
                 else:
-                    logger.warning(f"[Subagent] Skill path not found: {skill_full_path}")
+                    logger.warning(
+                        f"[Subagent] Skill path not found: {skill_full_path}"
+                    )
 
             # 6. Set workspace (inherit from parent agent if not specified)
             # Priority: task param > parent agent's workspace > default agent root
             workspace_dir = task.workspace_dir
             if workspace_dir is None:
-                parent_workspace = getattr(self._parent_agent, '_workspace_dir', None)
+                parent_workspace = getattr(self._parent_agent, "_workspace_dir", None)
                 if parent_workspace:
                     workspace_dir = str(parent_workspace)
-                    logger.debug(f"[Subagent] Inherited workspace from parent: {workspace_dir}")
+                    logger.debug(
+                        f"[Subagent] Inherited workspace from parent: {workspace_dir}"
+                    )
             if workspace_dir is None:
                 workspace_dir = str(get_agent_root_dir())
             subagent.set_workspace(workspace_dir, task.role_id)
@@ -290,17 +330,26 @@ Approach each task methodically and deliver high-quality results."""
                     subagent_id=task.task_id,
                     role_id=task.role_id,
                 )
-            logger.info(f"[Subagent] Starting execution, task_id={task.task_id}, role_id={task.role_id}")
+            logger.info(
+                f"[Subagent] Starting execution, task_id={task.task_id}, role_id={task.role_id}"
+            )
 
-            # 9. Execute task (multi-round reasoning)
+            # 9. Register active subagent for permission approval resolution
+            self._active_subagents[task.task_id] = subagent
+
+            # 10. Execute task (multi-round reasoning)
             session_id = task.session_id or f"subagent_{task.task_id}"
             invoke_inputs = {"query": full_prompt, "conversation_id": session_id}
 
             # Pass session proxy to subagent.invoke() for streaming tool events
-            response = await subagent.invoke(
-                inputs=invoke_inputs,
-                session=session_proxy,  # Pass proxy session for streaming tool events
-            )
+            try:
+                response = await subagent.invoke(
+                    inputs=invoke_inputs,
+                    session=session_proxy,  # Pass proxy session for streaming tool events
+                )
+            finally:
+                # Always cleanup active subagent registration
+                self._active_subagents.pop(task.task_id, None)
 
             logger.info(f"[Subagent] Execution completed, task_id={task.task_id}")
 
@@ -320,7 +369,9 @@ Approach each task methodically and deliver high-quality results."""
                 result_text = str(response)
 
             if subagent_usage:
-                logger.info(f"[Subagent] task_id={task.task_id} usage: {subagent_usage}")
+                logger.info(
+                    f"[Subagent] task_id={task.task_id} usage: {subagent_usage}"
+                )
 
             return SubagentResult(
                 success=True,
@@ -331,7 +382,9 @@ Approach each task methodically and deliver high-quality results."""
             )
 
         except asyncio.TimeoutError:
-            logger.warning(f"[Subagent] Timeout after {task.timeout_seconds} seconds, task_id={task.task_id}")
+            logger.warning(
+                f"[Subagent] Timeout after {task.timeout_seconds} seconds, task_id={task.task_id}"
+            )
             return SubagentResult(
                 success=False,
                 task_id=task.task_id,
@@ -376,7 +429,9 @@ Approach each task methodically and deliver high-quality results."""
                 # Inherit workspace from parent agent if not specified
                 workspace_dir = task.workspace_dir
                 if workspace_dir is None:
-                    parent_workspace = getattr(self._parent_agent, '_workspace_dir', None)
+                    parent_workspace = getattr(
+                        self._parent_agent, "_workspace_dir", None
+                    )
                     if parent_workspace:
                         workspace_dir = str(parent_workspace)
                 if workspace_dir is None:
@@ -388,7 +443,9 @@ Approach each task methodically and deliver high-quality results."""
                 Runner.resource_mgr.add_sys_operation(sysop_card)
                 config.sys_operation_id = sysop_card.id
             except Exception as exc:
-                logger.warning("[Subagent] Failed to create SysOperation for subagent: %s", exc)
+                logger.warning(
+                    "[Subagent] Failed to create SysOperation for subagent: %s", exc
+                )
 
         subagent.configure(config)
 
@@ -426,8 +483,8 @@ Approach each task methodically and deliver high-quality results."""
             for tool in parent_tools:
                 try:
                     # Get tool name
-                    tool_name = getattr(tool, 'name', None)
-                    if hasattr(tool, 'card') and hasattr(tool.card, 'name'):
+                    tool_name = getattr(tool, "name", None)
+                    if hasattr(tool, "card") and hasattr(tool.card, "name"):
                         tool_name = tool.card.name
 
                     # Skip excluded tools to prevent recursive subagent spawning
@@ -435,15 +492,19 @@ Approach each task methodically and deliver high-quality results."""
                         logger.debug(f"[Subagent] Skipping excluded tool: {tool_name}")
                         continue
 
-                    if hasattr(tool, 'card'):
+                    if hasattr(tool, "card"):
                         subagent.ability_manager.add(tool.card)
                     else:
                         subagent.ability_manager.add(tool)
                     inherited_count += 1
                 except Exception as e:
-                    logger.debug(f"[Subagent] Failed to inherit tool {getattr(tool, 'name', 'unknown')}: {e}")
+                    logger.debug(
+                        f"[Subagent] Failed to inherit tool {getattr(tool, 'name', 'unknown')}: {e}"
+                    )
 
-            logger.info(f"[Subagent] Inherited {inherited_count} tools from parent agent (excluded {len(EXCLUDED_TOOLS)} subagent tools)")
+            logger.info(
+                f"[Subagent] Inherited {inherited_count} tools from parent agent (excluded {len(EXCLUDED_TOOLS)} subagent tools)"
+            )
         except Exception as e:
             logger.warning(f"[Subagent] Failed to inherit tools: {e}")
 
@@ -516,7 +577,5 @@ Approach each task methodically and deliver high-quality results."""
             async with semaphore:
                 return await self.execute(task, skill_name, parent_session)
 
-        results = await asyncio.gather(*[
-            _run_with_limit(task) for task in tasks
-        ])
+        results = await asyncio.gather(*[_run_with_limit(task) for task in tasks])
         return list(results)
