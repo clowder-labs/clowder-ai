@@ -37,6 +37,9 @@ export interface StoredToolEvent {
   label: string;
   detail?: string;
   timestamp: number;
+  /** F142: Tool call ID for precise pairing between tool_use and tool_result.
+   *  Absent on legacy data → frontend fallback to index-based matching. */
+  toolCallId?: string;
 }
 
 /**
