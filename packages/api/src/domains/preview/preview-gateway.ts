@@ -7,6 +7,7 @@
 import http from 'node:http';
 import { createGunzip, createInflate } from 'node:zlib';
 import httpProxy from 'http-proxy';
+import { isOriginAllowed, resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import { BRIDGE_SCRIPT } from './bridge-script.js';
 import { validatePort } from './port-validator.js';
 import { buildWsPatchScript } from './ws-patch-script.js';
@@ -17,6 +18,8 @@ export interface PreviewGatewayOptions {
   host?: string;
   /** Runtime-configured ports to exclude */
   runtimePorts?: number[];
+  /** Override allowed origins (for testing). If omitted, resolved from env. */
+  allowedOrigins?: (string | RegExp)[];
 }
 
 /**
@@ -35,12 +38,14 @@ export class PreviewGateway {
   private port: number;
   private host: string;
   private runtimePorts: number[];
+  private allowedOrigins: (string | RegExp)[];
   actualPort = 0;
 
   constructor(opts: PreviewGatewayOptions) {
     this.port = opts.port;
     this.host = opts.host ?? '127.0.0.1';
     this.runtimePorts = opts.runtimePorts ?? [];
+    this.allowedOrigins = opts.allowedOrigins ?? resolveFrontendCorsOrigins(process.env);
 
     this.proxy = httpProxy.createProxyServer({
       ws: true,
@@ -180,6 +185,13 @@ export class PreviewGateway {
 
     // WebSocket upgrade handler (HMR)
     this.server.on('upgrade', (req, socket, head) => {
+      const origin = req.headers.origin as string | undefined;
+      if (origin && !isOriginAllowed(origin, this.allowedOrigins)) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       const parsed = this.parseTarget(req);
       if (!parsed) {
         socket.destroy();

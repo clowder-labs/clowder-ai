@@ -7,7 +7,10 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { after, before, describe, it } from 'node:test';
-import { PreviewGateway } from '../../../dist/domains/preview/preview-gateway.js';
+import { WebSocket } from 'ws';
+
+await import('tsx/esm');
+const { PreviewGateway } = await import('../../../src/domains/preview/preview-gateway.ts');
 
 /** Spin up a fake dev server that returns HTML with iframe-blocking headers */
 function createFakeDevServer() {
@@ -151,5 +154,22 @@ describe('PreviewGateway', () => {
     await assert.rejects(blockedGateway.start(), /EADDRINUSE/);
     await blockedGateway.stop();
     await new Promise((resolve) => blocker.close(() => resolve()));
+  });
+
+  it('rejects WebSocket upgrades from disallowed origins', async () => {
+    const wsUrl = `ws://127.0.0.1:${gateway.actualPort}/?__preview_port=${fakeDevServer.port}`;
+
+    await assert.rejects(
+      () =>
+        new Promise((resolve, reject) => {
+          const ws = new WebSocket(wsUrl, { headers: { Origin: 'https://evil.example' } });
+          ws.once('open', () => {
+            ws.close();
+            resolve();
+          });
+          ws.once('error', reject);
+        }),
+      /Unexpected server response: 403/,
+    );
   });
 });
