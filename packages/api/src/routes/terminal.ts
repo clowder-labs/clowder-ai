@@ -10,7 +10,7 @@ import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
 import type { TmuxGateway } from '../domains/terminal/tmux-gateway.js';
 import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
-import { resolveUserId } from '../utils/request-identity.js';
+import { resolveTrustedUserId } from '../utils/request-identity.js';
 
 // node-pty is optional — terminal features degrade gracefully when missing
 // (e.g. Windows exe packaging where native compilation is impractical)
@@ -49,9 +49,9 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
 
   // --- Auth gate ---
   app.addHook('preHandler', async (req, reply) => {
-    if (!resolveUserId(req)) {
+    if (!resolveTrustedUserId(req)) {
       reply.status(401);
-      return reply.send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
+      return reply.send({ error: 'Identity required (X-Office-Claw-User header)' });
     }
   });
 
@@ -67,7 +67,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     if (!tmuxGateway)
       return reply.status(503).send({ error: 'Terminal not available (OFFICE_CLAW_TMUX_AGENT not enabled)' });
     const { worktreeId, cols = 80, rows = 24 } = req.body;
-    const userId = resolveUserId(req) as string; // preHandler guarantees non-null
+    const userId = resolveTrustedUserId(req) as string; // preHandler guarantees non-null
 
     if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
 
@@ -113,7 +113,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId/ws', { websocket: true }, (socket, req) => {
     const { sessionId } = req.params;
-    const userId = resolveUserId(req) as string;
+    const userId = resolveTrustedUserId(req) as string;
     const session = store.getByIdAndUser(sessionId, userId);
     const binding = ptys.get(sessionId);
 
@@ -183,7 +183,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId', async (req, reply) => {
     const { sessionId } = req.params;
-    const userId = resolveUserId(req) as string;
+    const userId = resolveTrustedUserId(req) as string;
     const session = store.get(sessionId);
 
     if (!tmuxGateway) return reply.code(503).send({ error: 'Terminal not available' });
@@ -213,7 +213,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   app.get<{
     Querystring: { worktreeId?: string };
   }>('/api/terminal/sessions', async (req) => {
-    const userId = resolveUserId(req) as string;
+    const userId = resolveTrustedUserId(req) as string;
     const { worktreeId } = req.query;
     const sessions = worktreeId
       ? store.listByUser(userId).filter((s) => s.worktreeId === worktreeId)
@@ -232,7 +232,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Querystring: { worktreeId: string };
   }>('/api/terminal/agent-panes', async (req, reply) => {
     if (!agentPaneRegistry) return reply.status(501).send({ error: 'Agent pane tracking not enabled' });
-    const userId = resolveUserId(req) as string;
+    const userId = resolveTrustedUserId(req) as string;
     const { worktreeId } = req.query;
     if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
     return agentPaneRegistry.listByWorktreeAndUser(worktreeId, userId).map((p) => ({
@@ -250,7 +250,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   }>('/api/terminal/agent-panes/:paneId/ws', { websocket: true }, (socket, req) => {
     const { paneId } = req.params;
     const { worktreeId } = req.query;
-    const userId = resolveUserId(req) as string;
+    const userId = resolveTrustedUserId(req) as string;
 
     if (!worktreeId || !agentPaneRegistry || !tmuxGateway) {
       socket.close(4004, 'Agent pane tracking not enabled or missing worktreeId');
