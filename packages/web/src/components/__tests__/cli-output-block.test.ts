@@ -903,6 +903,173 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('dedupes excel cards when the same file appears in both absolute and relative paths', async () => {
+    const duplicateExcelEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.xlsx',
+        detail:
+          '[Done] Saved: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content:
+          'Excel generated at workspace/output/weekly-report.xlsx\nFinal file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
+      },
+      {
+        id: 't3',
+        kind: 'tool_result',
+        timestamp: 1003,
+        label: 'Export spreadsheet',
+        detail: 'Saved copy to workspace/output/weekly-report.xlsx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicateExcelEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-excel-card"]')).toHaveLength(1);
+  });
+
+  it('dedupes txt cards when the same file appears in both absolute and relative paths', async () => {
+    const duplicateTxtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write notes.txt',
+        detail: '[Done] Saved: workspace/output/notes.txt',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content:
+          'TXT generated at D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt\nBackup reference: workspace/output/notes.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicateTxtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-txt-card"]')).toHaveLength(1);
+  });
+
+  it('dedupes txt cards when the same file appears with escaped and unescaped windows separators', async () => {
+    const duplicateEscapedTxtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write notes.txt',
+        detail: '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\notes.txt',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\notes.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicateEscapedTxtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-txt-card"]')).toHaveLength(1);
+  });
+
+  it('dedupes excel cards when the same file appears with escaped and unescaped windows separators', async () => {
+    const duplicateEscapedExcelEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.xlsx',
+        detail:
+          '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\weekly-report.xlsx',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\weekly-report.xlsx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicateEscapedExcelEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-excel-card"]')).toHaveLength(1);
+  });
+
+  it('dedupes txt cards when the same file appears as double-escaped and canonical windows paths', async () => {
+    const duplicateEscapedTxtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write 企业数字化升级解决方案.txt',
+        detail:
+          '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\企业数字化升级解决方案.txt',
+      },
+      {
+        id: 't2',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\企业数字化升级解决方案.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: duplicateEscapedTxtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelectorAll('[data-testid="cli-output-txt-card"]')).toHaveLength(1);
+  });
+
   it('renders a markdown attachment card when the path is only present in escaped tool input json', async () => {
     const markdownEvents: CliEvent[] = [
       {

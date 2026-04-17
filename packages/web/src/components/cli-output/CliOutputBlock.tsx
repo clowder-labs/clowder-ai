@@ -42,9 +42,9 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
-type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'docx' | 'xlsx' | 'pdf' | 'txt';
+export type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'docx' | 'xlsx' | 'pdf' | 'txt';
 
-interface LocalGeneratedFile {
+export interface LocalGeneratedFile {
   name: string;
   path: string;
   kind: LocalGeneratedFileKind;
@@ -54,11 +54,20 @@ interface LocalGeneratedFileMeta {
   generatedAt: number;
 }
 
+function normalizeLocalFilePath(path: string): string {
+  return path
+    .replace(/\\\\/g, '\\')
+    .replace(/\\\//g, '/')
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .trim();
+}
+
 function dedupeLocalGeneratedFiles(files: Array<LocalGeneratedFile | null>): LocalGeneratedFile[] {
   const deduped = new Map<string, LocalGeneratedFile>();
   const kindPriority: Record<LocalGeneratedFileKind, number> = {
-    docx: 5,
-    ppt: 4,
+    ppt: 5,
+    docx: 4,
     markdown: 3,
     xlsx: 2,
     pdf: 2,
@@ -66,15 +75,38 @@ function dedupeLocalGeneratedFiles(files: Array<LocalGeneratedFile | null>): Loc
   };
 
   function normalizeFileKey(path: string): string {
-    return path.replace(/\\/g, '/').toLowerCase();
+    return normalizeLocalFilePath(path).toLowerCase();
+  }
+
+  function isSameFileCandidate(left: string, right: string): boolean {
+    if (left === right) return true;
+    return left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
   }
 
   for (const file of files) {
     if (!file) continue;
     const key = normalizeFileKey(file.path);
-    const existing = deduped.get(key);
-    if (!existing || kindPriority[file.kind] > kindPriority[existing.kind]) {
+    const matchedEntry = [...deduped.entries()].find(([existingKey]) => isSameFileCandidate(existingKey, key));
+    const matchedKey = matchedEntry?.[0];
+    const existing = matchedKey ? deduped.get(matchedKey) : deduped.get(key);
+    const shouldReplace =
+      !existing ||
+      kindPriority[file.kind] > kindPriority[existing.kind] ||
+      key.length > normalizeFileKey(existing.path).length;
+
+    if (!existing) {
       deduped.set(key, file);
+      continue;
+    }
+
+    if (matchedKey && matchedKey !== key) {
+      deduped.delete(matchedKey);
+    }
+
+    if (shouldReplace) {
+      deduped.set(key, file);
+    } else {
+      deduped.set(matchedKey ?? key, existing);
     }
   }
   return [...deduped.values()];
@@ -435,6 +467,16 @@ function extractLocalGenericDocumentFiles(events: CliEvent[]): LocalGeneratedFil
   return candidates;
 }
 
+export function extractDisplayedLocalGeneratedFiles(events: CliEvent[]): LocalGeneratedFile[] {
+  const markdownFile = extractLocalMarkdownFile(events);
+  const wordFile = extractLocalWordFile(events);
+  const presentationFile = extractLocalPresentationFile(events);
+  const genericDocumentFiles = extractLocalGenericDocumentFiles(events);
+  const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile, ...genericDocumentFiles]);
+
+  return officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
+}
+
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <>
@@ -693,12 +735,6 @@ function LocalFileAttachmentCard({
     if (isOpening || !resolvedPath) return;
     setIsOpening(true);
     try {
-      console.log('[CliOutputBlock][MarkdownCard] open-local', {
-        kind: file.kind,
-        rawPath: file.path,
-        resolvedPath,
-        projectPath: projectPath ?? null,
-      });
       await apiFetch('/api/workspace/open-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -714,7 +750,7 @@ function LocalFileAttachmentCard({
   return (
     <div
       data-testid={cardTestId}
-      className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
+      className="cli-output-doc-card mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div
         title={badgeLabel}
@@ -942,6 +978,7 @@ interface CliOutputBlockProps {
   events: CliEvent[];
   status: CliStatus;
   message?: ChatMessage;
+  suppressedGeneratedFileNames?: string[];
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
   breedColor?: string;
@@ -955,6 +992,7 @@ export function CliOutputBlock({
   events,
   status,
   message,
+  suppressedGeneratedFileNames,
   thinkingMode,
   defaultExpanded = false,
   breedColor,
@@ -985,26 +1023,10 @@ export function CliOutputBlock({
     }
   }, [forceExpanded]);
 
-  const localGeneratedFiles = useMemo(
-    () => {
-      const markdownFile = extractLocalMarkdownFile(events);
-      const wordFile = extractLocalWordFile(events);
-      const presentationFile = extractLocalPresentationFile(events);
-      const genericDocumentFiles = extractLocalGenericDocumentFiles(events);
-      const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile, ...genericDocumentFiles]);
-      const selectedFiles = officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
-      return selectedFiles;
-    },
-    [events],
-  );
-
-  useEffect(() => {
-    console.log('[CliOutputBlock] localGeneratedFiles', {
-      localGeneratedFiles,
-      projectPath: projectPath ?? null,
-      eventCount: events.length,
-    });
-  }, [events.length, localGeneratedFiles, projectPath]);
+  const localGeneratedFiles = useMemo(() => {
+    const hiddenNames = new Set((suppressedGeneratedFileNames ?? []).map((fileName) => fileName.toLowerCase()));
+    return extractDisplayedLocalGeneratedFiles(events).filter((file) => !hiddenNames.has(file.name.toLowerCase()));
+  }, [events, suppressedGeneratedFileNames]);
 
   useLayoutEffect(() => {
     if (!hasMounted.current) {

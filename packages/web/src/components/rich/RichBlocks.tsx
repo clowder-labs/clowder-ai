@@ -126,6 +126,7 @@ function groupBlocks(blocks: RichBlock[]): ResultItem[] {
 export function RichBlocks({ blocks, catId, messageId }: { blocks: RichBlock[]; catId?: string; messageId?: string }) {
   if (blocks.length === 0) return null;
   const items = groupBlocks(blocks);
+
   return (
     <div className="mt-2 space-y-2">
       {items.map((item) =>

@@ -16,10 +16,11 @@ import { hexToRgba, tintedLight } from '@/lib/color-utils';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
 import { type ChatMessage as ChatMessageType, useChatStore } from '@/stores/chatStore';
+import type { MessageContent, RichBlock } from '@/stores/chat-types';
 import { CatAvatar } from './CatAvatar';
 import { ConnectorBubble } from './ConnectorBubble';
 import { ContentBlocks } from './ContentBlocks';
-import { CliOutputBlock } from './cli-output/CliOutputBlock';
+import { CliOutputBlock, extractDisplayedLocalGeneratedFiles } from './cli-output/CliOutputBlock';
 import { toCliEvents } from './cli-output/toCliEvents';
 import { DirectionPill } from './DirectionPill';
 import { EvidencePanel } from './EvidencePanel';
@@ -42,6 +43,46 @@ const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
 };
 const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
 
+function getWorkspacePathFromDownloadUrl(url: string): string | null {
+  if (!url.startsWith('/api/workspace/download?')) return null;
+  const query = url.split('?')[1];
+  if (!query) return null;
+  const params = new URLSearchParams(query);
+  const path = params.get('path');
+  return path ? decodeURIComponent(path) : null;
+}
+
+function getFileNameFromPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.slice(normalized.lastIndexOf('/') + 1).toLowerCase();
+}
+
+function filterDuplicateWorkspaceContentBlocks(
+  blocks: MessageContent[] | undefined,
+  localGeneratedFileNames: Set<string>,
+): MessageContent[] | undefined {
+  if (!blocks?.length || localGeneratedFileNames.size === 0) return blocks;
+  return blocks.filter((block) => {
+    if (block.type !== 'file') return true;
+    const workspacePath = getWorkspacePathFromDownloadUrl(block.url);
+    const candidateName = workspacePath ? getFileNameFromPath(workspacePath) : block.fileName.toLowerCase();
+    return !localGeneratedFileNames.has(candidateName);
+  });
+}
+
+function filterDuplicateWorkspaceRichBlocks(
+  blocks: RichBlock[] | undefined,
+  localGeneratedFileNames: Set<string>,
+): RichBlock[] | undefined {
+  if (!blocks?.length || localGeneratedFileNames.size === 0) return blocks;
+  return blocks.filter((block) => {
+    if (block.kind !== 'file') return true;
+    const workspacePath = block.workspacePath ?? getWorkspacePathFromDownloadUrl(block.url);
+    const candidateName = workspacePath ? getFileNameFromPath(workspacePath) : block.fileName.toLowerCase();
+    return !localGeneratedFileNames.has(candidateName);
+  });
+}
+
 function formatTime(ts: number): string {
   const d = new Date(ts);
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -63,6 +104,7 @@ function formatDualTime(timestamp: number, deliveredAt?: number): string {
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
+  suppressedGeneratedFileNames?: string[];
   pendingAuthRequests?: AuthPendingRequest[];
   onAuthRespond?: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void | Promise<void>;
   onOpenSecurityManagement?: () => void;
@@ -71,6 +113,7 @@ interface ChatMessageProps {
 function ChatMessageInner({
   message,
   getCatById,
+  suppressedGeneratedFileNames,
   pendingAuthRequests,
   onAuthRespond,
   onOpenSecurityManagement,
@@ -121,6 +164,15 @@ function ChatMessageInner({
       ? ('failed' as const)
       : ('done' as const);
   const thinkingLabel = cliStatus === 'done' ? '完成深度思考' : '深度思考中';
+
+  const localGeneratedFiles = hasCliBlock ? extractDisplayedLocalGeneratedFiles(cliEvents) : [];
+  const dedupeFileNames = new Set([
+    ...localGeneratedFiles.map((file) => file.name.toLowerCase()),
+    ...(suppressedGeneratedFileNames ?? []).map((fileName) => fileName.toLowerCase()),
+  ]);
+  const filteredContentBlocks = filterDuplicateWorkspaceContentBlocks(message.contentBlocks, dedupeFileNames);
+  const filteredRichBlocks = filterDuplicateWorkspaceRichBlocks(message.extra?.rich?.blocks, dedupeFileNames);
+  const hasFilteredBlocks = Boolean(filteredContentBlocks && filteredContentBlocks.length > 0);
 
   if (message.variant === 'intent_recognition') {
     const fallbackCatId =
@@ -379,8 +431,8 @@ function ChatMessageInner({
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200'
           }`}
         >
-          {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
-            <ContentBlocks blocks={message.contentBlocks!} />
+          {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasFilteredBlocks ? (
+            <ContentBlocks blocks={filteredContentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
             <MarkdownContent
               content={message.content}
@@ -407,6 +459,7 @@ function ChatMessageInner({
               events={cliEvents}
               status={cliStatus}
               message={message}
+              suppressedGeneratedFileNames={suppressedGeneratedFileNames}
               thinkingMode={currentThread?.thinkingMode}
               defaultExpanded={uiThinkingExpandedByDefault}
               breedColor={catData?.color.primary}
@@ -416,8 +469,8 @@ function ChatMessageInner({
               onOpenSecurityManagement={onOpenSecurityManagement}
             />
           )}
-          {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
-            <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />
+          {filteredRichBlocks && filteredRichBlocks.length > 0 && (
+            <RichBlocks blocks={filteredRichBlocks} catId={message.catId} messageId={message.id} />
           )}
           {message.isStreaming && !isStreamOrigin && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
@@ -434,6 +487,7 @@ function areChatMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps
   return (
     prev.message === next.message &&
     prev.getCatById === next.getCatById &&
+    prev.suppressedGeneratedFileNames === next.suppressedGeneratedFileNames &&
     prev.pendingAuthRequests === next.pendingAuthRequests &&
     prev.onAuthRespond === next.onAuthRespond &&
     prev.onOpenSecurityManagement === next.onOpenSecurityManagement
