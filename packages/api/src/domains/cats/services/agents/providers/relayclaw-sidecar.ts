@@ -29,7 +29,12 @@ import {
 import { resolveUserSkillsRoot } from '../../skillhub/SkillPaths.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentServiceOptions } from '../../types.js';
-import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
+import {
+  buildCatCafeMcpEnv,
+  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS,
+  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV,
+  resolveCatCafeMcpServer,
+} from './relayclaw-catcafe-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
 
@@ -201,6 +206,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
         ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
         ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
+        [RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV]: RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS.join(','),
         ...(catCafeMcp
           ? {
               OFFICE_CLAW_MCP_SERVER_PATH: catCafeMcp.serverPath,
