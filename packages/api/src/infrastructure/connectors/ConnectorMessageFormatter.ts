@@ -25,7 +25,7 @@ export interface MessageEnvelope {
   readonly subtitle: string;
   /** Message body (markdown supported) */
   readonly body: string;
-  /** Deep link + timestamp, e.g. "📎 在前端查看 · 01:22" */
+  /** Footer text (currently unused, reserved for future use) */
   readonly footer: string;
   /** Where this message originated from — adapters can render differently */
   readonly origin?: MessageOrigin | undefined;
@@ -39,7 +39,6 @@ export interface FormatInput {
   readonly featId?: string | undefined;
   readonly body: string;
   readonly deepLinkUrl?: string | undefined;
-  readonly timestamp: Date;
   readonly origin?: MessageOrigin | undefined;
 }
 
@@ -53,10 +52,7 @@ export class ConnectorMessageFormatter {
     if (input.featId) subtitleParts.push(input.featId);
     const subtitle = subtitleParts.join(' · ');
 
-    const timeStr = input.timestamp.toISOString().slice(11, 16); // HH:MM UTC
-    const footer = timeStr;
-
-    return { header, subtitle, body: input.body, footer, origin: input.origin };
+    return { header, subtitle, body: input.body, footer: '', origin: input.origin };
   }
 
   /**
@@ -73,7 +69,7 @@ export class ConnectorMessageFormatter {
       header: input.headerTitle?.trim() || input.catDisplayName,
       subtitle: '',
       body: input.body,
-      footer: new Date().toISOString().slice(11, 16),
+      footer: '',
       origin: input.origin,
     };
   }
@@ -84,7 +80,7 @@ export class ConnectorMessageFormatter {
       header: 'Clowder AI',
       subtitle: '',
       body,
-      footer: new Date().toISOString().slice(11, 16),
+      footer: '',
     };
   }
 
