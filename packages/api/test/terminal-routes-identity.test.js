@@ -41,4 +41,14 @@ describe('terminal route identity hardening', () => {
     const body = JSON.parse(res.body);
     assert.equal(typeof body.available, 'boolean');
   });
+
+  it('still rejects query-only identity on terminal agent pane listing route', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/terminal/agent-panes?worktreeId=wt-1&userId=spoofed-query-user',
+    });
+
+    assert.equal(res.statusCode, 401);
+    assert.match(res.body, /X-Office-Claw-User header/);
+  });
 });

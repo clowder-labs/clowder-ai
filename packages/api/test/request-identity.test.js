@@ -40,4 +40,14 @@ describe('request identity resolution', () => {
 
     assert.equal(resolveTrustedUserId(request, { defaultUserId: 'default-user' }), 'default-user');
   });
+
+  it('resolveUserId still accepts query.userId for legacy websocket attach flows', async () => {
+    const { resolveUserId } = await import('../src/utils/request-identity.ts');
+    const request = {
+      headers: {},
+      query: { userId: 'terminal-query-user' },
+    };
+
+    assert.equal(resolveUserId(request), 'terminal-query-user');
+  });
 });
