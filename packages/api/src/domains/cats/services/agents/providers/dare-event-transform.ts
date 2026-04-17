@@ -73,17 +73,18 @@ export function transformDareEvent(event: unknown, catId: CatId | string): Agent
       };
 
     case 'tool.invoke': {
+      const toolCallId = typeof data.tool_call_id === 'string' ? data.tool_call_id : undefined;
       const msg: AgentMessage = {
         type: 'tool_use',
         catId: catId as CatId,
         toolName: str(data.tool_name, 'unknown'),
+        toolCallId,
         timestamp: ts,
       };
-      // Forward all available fields from DARE's tool.invoke event.
-      // DARE emits: tool_call_id, capability_id, attempt, risk_level,
-      // requires_approval, policy_decision, arguments (if present).
+      // Forward DARE's tool.invoke arguments to toolInput.
+      // Note: tool_call_id is extracted to the top-level toolCallId field above,
+      // not embedded in toolInput (matching relayclaw-event-transform behavior).
       const input: Record<string, unknown> = {};
-      if (typeof data.tool_call_id === 'string') input.tool_call_id = data.tool_call_id;
       if (typeof data.capability_id === 'string') input.capability_id = data.capability_id;
       if (data.arguments != null && typeof data.arguments === 'object') {
         Object.assign(input, data.arguments as Record<string, unknown>);
@@ -93,25 +94,30 @@ export function transformDareEvent(event: unknown, catId: CatId | string): Agent
     }
 
     case 'tool.result': {
+      const toolCallId = typeof data.tool_call_id === 'string' ? data.tool_call_id : undefined;
       const resultContent =
         typeof data.output === 'string' && data.output.length > 0 ? data.output : `${str(data.tool_name)} completed`;
       return {
         type: 'tool_result',
         catId: catId as CatId,
         toolName: str(data.tool_name),
+        toolCallId,
         content: resultContent,
         timestamp: ts,
       };
     }
 
-    case 'tool.error':
+    case 'tool.error': {
+      const toolCallId = typeof data.tool_call_id === 'string' ? data.tool_call_id : undefined;
       return {
         type: 'tool_result',
         catId: catId as CatId,
         toolName: str(data.tool_name),
+        toolCallId,
         content: `Error: ${str(data.error, 'tool execution failed')}`,
         timestamp: ts,
       };
+    }
 
     case 'task.completed':
       return {

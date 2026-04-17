@@ -30,11 +30,11 @@ export function SteerQueuedEntryModal({
   }, [onCancel]);
 
   return (
-    <div role="presentation" className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[520px] mx-4 overflow-hidden">
+    <div role="presentation" className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)]">
+      <div className="mx-4 w-full max-w-[520px] overflow-hidden rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]">
         <div className="px-6 pt-6 pb-4">
-          <h2 className="text-lg font-semibold text-cafe-black">Steer 这条排队消息</h2>
-          <p className="text-sm text-gray-500 mt-1">选择你希望如何处理这条 queued 消息：</p>
+          <h2 className="text-lg font-semibold text-[var(--modal-title-text)]">Steer 这条排队消息</h2>
+          <p className="text-sm text-[var(--modal-text-muted)] mt-1">选择你希望如何处理这条 queued 消息：</p>
         </div>
 
         <div className="px-6 pb-5 space-y-3">
@@ -42,14 +42,14 @@ export function SteerQueuedEntryModal({
             type="button"
             data-testid="steer-mode-immediate"
             onClick={() => onModeChange('immediate')}
-            className={`w-full text-left p-4 rounded-xl border transition-colors ${
+            className={`w-full rounded-xl border p-4 text-left transition-colors ${
               mode === 'immediate'
-                ? 'border-[#9B7EBD] bg-[#9B7EBD]/5'
-                : 'border-gray-200 hover:border-gray-300 bg-white'
+                ? 'border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)]'
+                : 'border-[var(--modal-muted-border)] bg-[var(--modal-surface)] hover:border-[var(--modal-selected-border)]'
             }`}
           >
-            <div className="text-sm font-medium text-gray-800">立即执行（必要时中断目标智能体）</div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-sm font-medium text-[var(--modal-text)]">立即执行（必要时中断目标智能体）</div>
+            <div className="text-xs text-[var(--modal-text-muted)] mt-1">
               若目标智能体正在执行，会先 cancel 该智能体当前 invocation；若目标智能体空闲，则直接执行这条排队消息。
             </div>
           </button>
@@ -58,12 +58,14 @@ export function SteerQueuedEntryModal({
             type="button"
             data-testid="steer-mode-promote"
             onClick={() => onModeChange('promote')}
-            className={`w-full text-left p-4 rounded-xl border transition-colors ${
-              mode === 'promote' ? 'border-[#9B7EBD] bg-[#9B7EBD]/5' : 'border-gray-200 hover:border-gray-300 bg-white'
+            className={`w-full rounded-xl border p-4 text-left transition-colors ${
+              mode === 'promote'
+                ? 'border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)]'
+                : 'border-[var(--modal-muted-border)] bg-[var(--modal-surface)] hover:border-[var(--modal-selected-border)]'
             }`}
           >
-            <div className="text-sm font-medium text-gray-800">提到队首（不取消）</div>
-            <div className="text-xs text-gray-500 mt-1">只调整顺序；当前智能体跑完后优先执行这条消息。</div>
+            <div className="text-sm font-medium text-[var(--modal-text)]">提到队首（不取消）</div>
+            <div className="text-xs text-[var(--modal-text-muted)] mt-1">只调整顺序；当前智能体跑完后优先执行这条消息。</div>
           </button>
         </div>
 
@@ -71,7 +73,7 @@ export function SteerQueuedEntryModal({
           <button
             type="button"
             onClick={onCancel}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-[var(--modal-text-muted)] transition-colors hover:text-[var(--modal-text)]"
           >
             取消
           </button>
@@ -79,7 +81,7 @@ export function SteerQueuedEntryModal({
             type="button"
             data-testid="steer-confirm"
             onClick={onConfirm}
-            className="text-sm px-4 py-2 rounded-full bg-[#9B7EBD] text-white hover:bg-[#8B6FAE] transition-colors"
+            className="ui-button-primary rounded-full px-4 py-2 text-sm"
           >
             确认
           </button>

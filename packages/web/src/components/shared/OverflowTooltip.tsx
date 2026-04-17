@@ -146,8 +146,8 @@ function TooltipPortal({
 
   const arrowClass =
     placement === 'top'
-      ? 'absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-white'
-      : 'absolute bottom-full left-1/2 h-0 w-0 -translate-x-1/2 border-x-[6px] border-b-[6px] border-x-transparent border-b-white';
+      ? 'absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-[var(--tooltip-surface)]'
+      : 'absolute bottom-full left-1/2 h-0 w-0 -translate-x-1/2 border-x-[6px] border-b-[6px] border-x-transparent border-b-[var(--tooltip-surface)]';
 
   return createPortal(
     <div
@@ -160,7 +160,7 @@ function TooltipPortal({
       onMouseEnter={onTooltipEnter}
       onMouseLeave={onTooltipLeave}
     >
-      <div className="relative rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#222222] shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)] whitespace-normal break-all">
+      <div className="relative whitespace-normal break-all rounded-lg bg-[var(--tooltip-surface)] px-3 py-2 text-xs leading-5 text-[var(--tooltip-text)] shadow-[var(--tooltip-shadow)]">
         <div className="flex items-center gap-1.5">
           <span className={`min-w-0 flex-1 ${copyable ? 'select-text' : ''}`}>{content}</span>
           {copyable && (
@@ -169,7 +169,7 @@ function TooltipPortal({
               onClick={onCopy}
               aria-label="复制"
               title="复制"
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#666666] transition-colors hover:text-[#1476ff]"
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--tooltip-icon)] transition-colors hover:text-[var(--tooltip-icon-hover)]"
             >
               {copied ? (
                 <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" aria-hidden="true">

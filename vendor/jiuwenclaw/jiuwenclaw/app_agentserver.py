@@ -27,8 +27,8 @@ async def _run() -> None:
             agent=agent,
             host="127.0.0.1",
             port=agent_port,
-            ping_interval=None,
-            ping_timeout=None,
+            ping_interval=30.0,
+            ping_timeout=60.0,
         )
         await server.start()
         logger.info("[AgentServer] AgentWebSocketServer 已监听: ws://127.0.0.1:%s", agent_port)

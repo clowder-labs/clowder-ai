@@ -4,7 +4,7 @@
  *
  */
 
-export type ThemeType = 'warm' | 'business';
+export type ThemeType = 'warm' | 'business' | 'dark';
 
 export const DEFAULT_THEME: ThemeType = 'business';
 export const THEME_STORAGE_KEY = 'clowder-ai-theme';
@@ -13,7 +13,7 @@ const THEME_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 function normalizeThemeValue(value: string | null | undefined): ThemeType | null {
   if (!value) return null;
   if (value === 'default') return DEFAULT_THEME;
-  return value === 'warm' || value === 'business' ? value : null;
+  return value === 'warm' || value === 'business' || value === 'dark' ? value : null;
 }
 
 export function readThemeFromCookieString(cookieSource: string | null | undefined): ThemeType | null {
@@ -123,7 +123,7 @@ export function buildThemeBootstrapScript(): string {
         }
       }
 
-      if (theme !== 'warm' && theme !== 'business') {
+      if (theme !== 'warm' && theme !== 'business' && theme !== 'dark') {
         theme = theme === 'default' ? defaultTheme : (document.documentElement.dataset.uiTheme || defaultTheme);
       }
 

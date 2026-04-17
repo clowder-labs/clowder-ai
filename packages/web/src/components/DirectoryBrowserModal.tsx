@@ -36,15 +36,15 @@ export function DirectoryBrowserModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4"
       data-testid="directory-browser-modal"
     >
       <div
-        className="flex h-[620px] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
+        className="flex h-[620px] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]"
         data-testid="directory-browser-modal-panel"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-[#2E3440]" data-testid="directory-browser-modal-title">
+          <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]" data-testid="directory-browser-modal-title">
             {title}
           </h3>
           <button

@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type ClipboardEvent,
   type KeyboardEvent,
+  type MutableRefObject,
   type MouseEvent,
   type UIEvent,
   useEffect,
@@ -55,6 +56,7 @@ export interface RichTextareaHandle {
   setSelectionRange: (start: number, end: number) => void;
   getElement: () => HTMLDivElement | null;
   getClientRectAtOffset: (offset: number) => DOMRect | null;
+  applyProgrammaticChange: (value: string, selectionStart: number, selectionEnd: number) => void;
 }
 
 type Segment =
@@ -63,11 +65,16 @@ type Segment =
   | { type: 'skill'; text: string; token: string; iconUrl?: string | null }
   | { type: 'quick_action'; text: string; icon?: string; token: string };
 
+type HistorySnapshot = { value: string; start: number; end: number };
+type GroupedHistoryAction = 'insertText' | 'deleteContentBackward' | 'deleteContentForward' | null;
+
 const MENTION_RIGHT_WHITESPACE_RE = /\s/;
 const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const HISTORY_STACK_LIMIT = 100;
+const HISTORY_GROUP_WINDOW_MS = 1000;
 
 function buildSegments(value: string, skillOptions: RichSkillOption[], quickActionOptions: RichQuickActionOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
@@ -294,6 +301,21 @@ function isTextInsertionKey(e: KeyboardEvent<HTMLDivElement>): boolean {
   return e.key === 'Enter';
 }
 
+function cloneSnapshot(snapshot: HistorySnapshot): HistorySnapshot {
+  return { ...snapshot };
+}
+
+function isSameSnapshot(left: HistorySnapshot, right: HistorySnapshot): boolean {
+  return left.value === right.value && left.start === right.start && left.end === right.end;
+}
+
+function normalizeGroupedHistoryAction(inputType: string): GroupedHistoryAction {
+  if (inputType === 'insertText' || inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
+    return inputType;
+  }
+  return null;
+}
+
 export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(function RichTextarea(
   {
     value,
@@ -317,6 +339,15 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   const isComposingRef = useRef(false);
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   const shouldScrollToBottomRef = useRef(false);
+  const currentSnapshotRef = useRef<HistorySnapshot>({ value, start: 0, end: 0 });
+  const undoStackRef = useRef<HistorySnapshot[]>([]);
+  const redoStackRef = useRef<HistorySnapshot[]>([]);
+  const pendingInternalValueSyncRef = useRef(false);
+  const historyInputGuardRef = useRef<'historyUndo' | 'historyRedo' | null>(null);
+  const historyGroupRef = useRef<{ action: GroupedHistoryAction; timestamp: number }>({
+    action: null,
+    timestamp: 0,
+  });
   const [showPlaceholder, setShowPlaceholder] = useState(() => !value);
   const segments = useMemo(() => buildSegments(value, skillOptions, quickActionOptions), [value, skillOptions, quickActionOptions]);
   const segmentSignature = useMemo(
@@ -356,7 +387,92 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       if (!root) return null;
       return getClientRectAtOffset(root, offset);
     },
+    applyProgrammaticChange: (nextValue: string, selectionStart: number, selectionEnd: number) => {
+      const next = clampWithSelection(nextValue, selectionStart, selectionEnd, maxLength);
+      commitChange(next, 'insertReplacementText');
+    },
   }));
+
+  const resetHistoryGroup = () => {
+    historyGroupRef.current = { action: null, timestamp: 0 };
+  };
+
+  const pushHistorySnapshot = (stack: MutableRefObject<HistorySnapshot[]>, snapshot: HistorySnapshot) => {
+    const copy = cloneSnapshot(snapshot);
+    const last = stack.current[stack.current.length - 1];
+    if (last && isSameSnapshot(last, copy)) return;
+    stack.current.push(copy);
+    if (stack.current.length > HISTORY_STACK_LIMIT) {
+      stack.current.splice(0, stack.current.length - HISTORY_STACK_LIMIT);
+    }
+  };
+
+  const applySnapshot = (snapshot: HistorySnapshot) => {
+    const root = rootRef.current;
+    const next = cloneSnapshot(snapshot);
+    currentSnapshotRef.current = next;
+    pendingSelectionRef.current = { start: next.start, end: next.end };
+    pendingInternalValueSyncRef.current = true;
+    setShowPlaceholder(next.value.length === 0);
+    if (root) {
+      forceSyncPlainText(root, next.value, next.start, next.end);
+    }
+    onValueChange(next.value, next.start, next.end);
+    onInput?.();
+  };
+
+  const commitChange = (snapshot: HistorySnapshot, inputType = '') => {
+    const next = cloneSnapshot(snapshot);
+    const current = currentSnapshotRef.current;
+    const valueChanged = current.value !== next.value;
+    if (valueChanged) {
+      const groupedAction = normalizeGroupedHistoryAction(inputType);
+      const now = Date.now();
+      const shouldGroup =
+        groupedAction !== null &&
+        historyGroupRef.current.action === groupedAction &&
+        now - historyGroupRef.current.timestamp <= HISTORY_GROUP_WINDOW_MS;
+      if (!shouldGroup) {
+        pushHistorySnapshot(undoStackRef, current);
+      }
+      redoStackRef.current = [];
+      historyGroupRef.current = { action: groupedAction, timestamp: now };
+    } else {
+      resetHistoryGroup();
+    }
+
+    currentSnapshotRef.current = next;
+    pendingSelectionRef.current = { start: next.start, end: next.end };
+    pendingInternalValueSyncRef.current = true;
+    setShowPlaceholder(next.value.length === 0);
+    onValueChange(next.value, next.start, next.end);
+    onInput?.();
+  };
+
+  const applyUndo = () => {
+    const previous = undoStackRef.current.pop();
+    if (!previous) return;
+    pushHistorySnapshot(redoStackRef, currentSnapshotRef.current);
+    resetHistoryGroup();
+    applySnapshot(previous);
+  };
+
+  const applyRedo = () => {
+    const next = redoStackRef.current.pop();
+    if (!next) return;
+    pushHistorySnapshot(undoStackRef, currentSnapshotRef.current);
+    resetHistoryGroup();
+    applySnapshot(next);
+  };
+
+  const armHistoryInputGuard = (type: 'historyUndo' | 'historyRedo') => {
+    historyInputGuardRef.current = type;
+    requestAnimationFrame(() => {
+      if (historyInputGuardRef.current === type) {
+        historyInputGuardRef.current = null;
+      }
+    });
+  };
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -486,22 +602,28 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     setShowPlaceholder(!value);
   }, [value]);
 
+  useEffect(() => {
+    if (pendingInternalValueSyncRef.current) {
+      pendingInternalValueSyncRef.current = false;
+      return;
+    }
+    const current = currentSnapshotRef.current;
+    if (current.value === value) return;
+    currentSnapshotRef.current = {
+      value,
+      start: Math.min(current.start, value.length),
+      end: Math.min(current.end, value.length),
+    };
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    resetHistoryGroup();
+  }, [value]);
+
   const resolveEventElement = (target: EventTarget | null): HTMLElement | null => {
     if (!target) return null;
     if (target instanceof HTMLElement) return target;
     if (target instanceof Text) return target.parentElement;
     return null;
-  };
-
-  const clearValue = () => {
-    const root = rootRef.current;
-    pendingSelectionRef.current = { start: 0, end: 0 };
-    if (root) {
-      forceSyncPlainText(root, '', 0, 0);
-    }
-    setShowPlaceholder(true);
-    onValueChange('', 0, 0);
-    onInput?.();
   };
 
   return (
@@ -532,9 +654,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           const rawNext = `${value.slice(0, index)}${value.slice(index + tokenValue.length)}`;
           const next = rawNext.replace(/\s{2,}/g, ' ').trimStart();
           const caret = Math.min(index, next.length);
-          pendingSelectionRef.current = { start: caret, end: caret };
-          onValueChange(next, caret, caret);
-          onInput?.();
+          commitChange({ value: next, start: caret, end: caret }, 'deleteContentBackward');
         }}
         onMouseDownCapture={(e: MouseEvent<HTMLDivElement>) => {
           const target = resolveEventElement(e.target);
@@ -547,8 +667,16 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         onInput={(e) => {
           const native = e.nativeEvent as InputEvent;
           const inputType = native.inputType ?? '';
+          if (historyInputGuardRef.current === inputType) {
+            historyInputGuardRef.current = null;
+            return;
+          }
           if (inputType === 'historyUndo') {
-            clearValue();
+            applyUndo();
+            return;
+          }
+          if (inputType === 'historyRedo') {
+            applyRedo();
             return;
           }
           const root = rootRef.current;
@@ -568,8 +696,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
             // (e.g. already at max length and user keeps typing).
             forceSyncPlainText(e.currentTarget, nextState.value, nextState.start, nextState.end);
           }
-          onValueChange(nextState.value, nextState.start, nextState.end);
-          onInput?.();
+          commitChange(nextState, inputType);
         }}
         onBeforeInput={(e) => {
           const root = rootRef.current;
@@ -577,7 +704,14 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           const inputType = native.inputType ?? '';
           if (inputType === 'historyUndo') {
             e.preventDefault();
-            clearValue();
+            armHistoryInputGuard('historyUndo');
+            applyUndo();
+            return;
+          }
+          if (inputType === 'historyRedo') {
+            e.preventDefault();
+            armHistoryInputGuard('historyRedo');
+            applyRedo();
             return;
           }
           if (!root || !maxLength || maxLength <= 0) return;
@@ -609,18 +743,25 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           const rawStart = getSelectionOffset(root, false);
           const rawEnd = getSelectionOffset(root, true);
           const nextState = clampWithSelection(rawNext, rawStart, rawEnd, maxLength);
-          pendingSelectionRef.current = { start: nextState.start, end: nextState.end };
           if (nextState.value !== rawNext) {
             forceSyncPlainText(root, nextState.value, nextState.start, nextState.end);
           }
-          setShowPlaceholder(nextState.value.length === 0);
-          onValueChange(nextState.value, nextState.start, nextState.end);
-          onInput?.();
+          commitChange(nextState, 'insertCompositionText');
         }}
         onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          const isUndo = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z';
+          const isRedo =
+            (e.ctrlKey || e.metaKey) &&
+            !e.altKey &&
+            ((e.shiftKey && e.key.toLowerCase() === 'z') || (!e.shiftKey && e.key.toLowerCase() === 'y'));
+          if (isUndo) {
             e.preventDefault();
-            clearValue();
+            applyUndo();
+            return;
+          }
+          if (isRedo) {
+            e.preventDefault();
+            applyRedo();
             return;
           }
           const root = rootRef.current;
@@ -656,10 +797,8 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           const rawNext = `${value.slice(0, start)}${plain}${value.slice(end)}`;
           const rawCaret = start + plain.length;
           const nextState = clampWithSelection(rawNext, rawCaret, rawCaret, maxLength);
-          pendingSelectionRef.current = { start: nextState.start, end: nextState.end };
           shouldScrollToBottomRef.current = plain.length > 0;
-          onValueChange(nextState.value, nextState.start, nextState.end);
-          onInput?.();
+          commitChange(nextState, 'insertFromPaste');
           if (plain.length > 0) {
             requestAnimationFrame(() => {
               const currentRoot = rootRef.current;

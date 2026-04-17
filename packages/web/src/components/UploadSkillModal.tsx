@@ -607,11 +607,11 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="upload-skill-overlay">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4" data-testid="upload-skill-overlay">
       <div
         role="dialog"
         aria-modal="true"
-        className="flex w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
+        className="flex w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]"
       >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-sm font-bold">导入技能</h3>
@@ -636,14 +636,14 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-[999px] border border-gray-200 px-6 py-1 text-xs leading-[18px] hover:bg-gray-50"
+              className="rounded-[999px] border border-[var(--modal-button-muted-border)] px-6 py-1 text-xs leading-[18px] text-[var(--modal-button-muted-text)] transition-colors hover:bg-[var(--modal-button-muted-bg-hover)]"
             >
               选择文件
             </button>
             <button
               type="button"
               onClick={() => folderInputRef.current?.click()}
-              className="rounded-[999px] border border-gray-200 px-6 py-1 text-xs leading-[18px] hover:bg-gray-50"
+              className="rounded-[999px] border border-[var(--modal-button-muted-border)] px-6 py-1 text-xs leading-[18px] text-[var(--modal-button-muted-text)] transition-colors hover:bg-[var(--modal-button-muted-bg-hover)]"
             >
               选择文件夹
             </button>
@@ -667,11 +667,11 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
           <div className="mb-4">
             {fileNames.length > 0 ? (
-              <div className="space-y-1 pr-1 text-xs text-[#5F6775]">
+              <div className="space-y-1 pr-1 text-xs text-[var(--modal-text-muted)]">
                 {visibleFileEntries.map(({ fileName, index }) => (
                   <div
                     key={`${fileName}-${index}`}
-                    className="group flex items-center gap-2 rounded-[6px] px-2 py-1 transition-colors hover:bg-[#F7F8FA]"
+                    className="group flex items-center gap-2 rounded-[6px] px-2 py-1 transition-colors hover:bg-[var(--modal-muted-surface-hover)]"
                     data-testid="upload-skill-file-row"
                   >
                     <div className="min-w-0 flex flex-1 items-center gap-1">
@@ -688,7 +688,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                       type="button"
                       onClick={() => removeFile(index)}
                       aria-label={`remove-file-${index}`}
-                      className="shrink-0 text-[#808080] opacity-0 transition-[opacity,color] group-hover:opacity-100 hover:text-[#1476FF]"
+                      className="shrink-0 text-[var(--modal-text-subtle)] opacity-0 transition-[opacity,color] group-hover:opacity-100 hover:text-[var(--modal-accent-text)]"
                       data-testid="upload-skill-file-delete-button"
                     >
                       <DeleteFileIcon />
@@ -700,7 +700,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                     type="button"
                     data-testid="file-list-toggle"
                     onClick={() => setIsFileListExpanded((currentValue) => !currentValue)}
-                    className="pt-1 text-xs text-[#5F6775] transition-colors hover:text-[#191919]"
+                    className="pt-1 text-xs text-[var(--modal-text-muted)] transition-colors hover:text-[var(--modal-text)]"
                   >
                     {isFileListExpanded ? '收起' : `展开全部 (${fileNames.length})`}
                   </button>
@@ -711,7 +711,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
           {files.length > 0 ? (
             <div>
-            <div className="mb-3 text-xs font-medium text-[#5F6775]">解析结果</div>
+            <div className="mb-3 text-xs font-medium text-[var(--modal-text-muted)]">解析结果</div>
 
             {parseResultError ? (
               <p data-testid="parsed-skill-error" className="text-xs text-[var(--state-error-text)]">
@@ -720,7 +720,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             ) : (
               <div className="space-y-3">
               <div className="flex items-start gap-3 text-xs">
-                <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
+                <div className="w-[72px] shrink-0 pt-2 text-[var(--modal-text-muted)]">SKILL名称</div>
                 <div className="min-w-0 flex-1">
                   {isEditingName ? (
                     <div className="space-y-1">
@@ -763,20 +763,20 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                         <OverflowTooltip content={name} className={PARSED_NAME_MAX_WIDTH_CLASS}>
                           <span
                             data-testid="parsed-skill-name-text"
-                            className={`block truncate whitespace-nowrap text-[#191919] ${PARSED_NAME_MAX_WIDTH_CLASS}`}
+                            className={`block truncate whitespace-nowrap text-[var(--modal-text)] ${PARSED_NAME_MAX_WIDTH_CLASS}`}
                           >
                             {name}
                           </span>
                         </OverflowTooltip>
                       ) : (
-                        <span className="text-[#191919]">--</span>
+                        <span className="text-[var(--modal-text)]">--</span>
                       )}
                       {canEditName ? (
                         <button
                           type="button"
                           aria-label="edit-skill-name"
                           onClick={() => setIsEditingName(true)}
-                          className="shrink-0 text-[#8A93A3] transition-colors hover:text-[#191919]"
+                          className="shrink-0 text-[var(--modal-text-subtle)] transition-colors hover:text-[var(--modal-text)]"
                         >
                           <EditIcon />
                         </button>
@@ -787,8 +787,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
               </div>
 
               <div className="flex items-start gap-3 text-xs">
-                <div className="w-[72px] shrink-0 text-[#5F6775]">SKILL描述</div>
-                <div className="min-w-0 flex-1 leading-5 text-[#191919]">
+                <div className="w-[72px] shrink-0 text-[var(--modal-text-muted)]">SKILL描述</div>
+                <div className="min-w-0 flex-1 leading-5 text-[var(--modal-text)]">
                   <span data-testid="parsed-skill-description-text" className="whitespace-pre-wrap break-words">
                     {description || '--'}
                   </span>

@@ -63,27 +63,29 @@ function typeIntoTextbox(textbox: HTMLDivElement, value: string) {
   textbox.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-describe('RichTextarea undo clear behavior', () => {
-  it('clears all content on Ctrl+Z', () => {
+describe('RichTextarea undo behavior', () => {
+  it('undoes the previous input step on Ctrl+Z', () => {
     const textbox = renderRichTextarea();
 
     act(() => {
+      typeIntoTextbox(textbox, 'hello');
       typeIntoTextbox(textbox, 'hello world');
     });
 
     expect(textbox.textContent).toBe('hello world');
 
     act(() => {
-      textbox.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      textbox.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
     });
 
-    expect(textbox.textContent).toBe('');
+    expect(textbox.textContent).toBe('hello');
   });
 
-  it('clears all content on historyUndo input event', () => {
+  it('undoes and redoes through history input events', () => {
     const textbox = renderRichTextarea();
 
     act(() => {
+      typeIntoTextbox(textbox, 'hello');
       typeIntoTextbox(textbox, 'hello world');
     });
 
@@ -95,6 +97,14 @@ describe('RichTextarea undo clear behavior', () => {
       textbox.dispatchEvent(event);
     });
 
-    expect(textbox.textContent).toBe('');
+    expect(textbox.textContent).toBe('hello');
+
+    act(() => {
+      const event = new Event('input', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'inputType', { value: 'historyRedo' });
+      textbox.dispatchEvent(event);
+    });
+
+    expect(textbox.textContent).toBe('hello world');
   });
 });

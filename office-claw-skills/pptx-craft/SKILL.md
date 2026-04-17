@@ -453,6 +453,82 @@ Pipeline 完成需求收集后，自动生成时间戳目录：
    - 执行 Shell: `node {skill_root}/pptx-craft/scripts/utils/ensure_output_dir.js {session_dir}`
    - 脚本会创建 `{session_dir}/pages/` 目录并返回 `{pages_dir}`
 3. **创建 Charlie subagent**：使用 Agent tool 创建 general-purpose subagent，传递 Charlie Prompt（见下方模板）+ designer 子技能
+
+### ⚠️ Main Agent 与 Charlie 交互注意事项
+
+**核心原则**
+- Charlie subagent 是隔离上下文，无法继承 Main Agent 已读取的内容，所需的一切已通过"必须读取的文件"机制提供。
+- Main Agent 必须在 Prompt 中注入绝对路径，强制 Charlie 自主读取设计规范文件。
+- Main Agent 只传递用户原始需求，禁止任何和原始诉求无关的"个人发挥"。
+
+**禁止行为**：
+- ❌ 禁止在 Prompt 中添加配色、字体、布局等建议（如"深灰底色"、"红色主题"、"使用粗体标题"、"左侧放图表"）
+- ❌ 禁止根据主题脑补风格（如"科技主题=深色底"）
+
+**例外（用户明确要求时）**：
+- ✅ 用户明确说"用蓝色配色"或"标题用粗体"等 → 传递此要求
+
+**正确行为**：
+- ✅ 只传递用户的原始需求文本
+- ✅ 只传递路径参数（output_dir、pages_dir 等）
+- ✅ 只传递风格ID，让 Charlie 自己读取风格文件
+
+### Charlie Prompt 模板
+
+**骨架模板**（Main Agent 替换变量后，根据当前模式保留对应行，删除其他分支）：
+
+```markdown
+## 必须读取的文件（首次生成强制执行）
+
+### 方法论文件
+1. **设计规范**：`{skill_root}/pptx-craft/designer/SKILL.md`（约1300行，必读）
+2. **风格定义**：`{skill_root}/pptx-craft/styles/{style_id}.md`（预设风格时必读）
+
+### 内容素材文件
+<!-- 【研究模式】保留以下两行，删除"规划模式"行 -->
+3. 大纲：{output_dir}/outline.md
+4. 研究报告：{output_dir}/research.md
+<!-- 【规划模式】保留以下一行，删除"研究模式"两行 -->
+3. 规划文件：{output_dir}/ppt_plan.md
+
+---
+
+## 风格遵循要求（强制）
+
+<!-- 【预设风格时保留此段落，free/custom模式删除】 -->
+**⚠️ 风格定义是强制性规范，不是参考建议。**
+
+用户选择了「{style_name}」风格，你必须：
+1. **严格遵循**风格定义文件中的配色方案——禁止使用文件未定义的颜色
+2. **严格遵循**字体规范——字号、字重、行高必须与定义一致
+3. **严格遵循**组件样式——边框、圆角、阴影必须与定义一致
+4. **禁止混合**其他风格的元素（如"华为红+NVIDIA绿"）
+5. **禁止自由发挥**配色——所有颜色必须来自风格定义的调色板
+
+风格定义文件路径：`{skill_root}/pptx-craft/styles/{style_id}.md`
+
+## 任务内容
+
+<!-- 【研究模式】使用"大纲和研究报告" -->
+<!-- 【规划模式】使用"规划文件"，若有文档追加"和用户文档" -->
+<!-- 用户增量修改需求 -->
+请根据 [研究模式：大纲和研究报告 | 规划模式：规划文件（+ 和用户文档）] 生成 HTML 幻灯片。
+
+<!-- 【仅规划模式-有文档时保留，其他模式删除此段落】 -->
+**用户文档**（优先使用其中的数据和案例）：
+<uploaded_document>
+{doc_content}
+</uploaded_document>
+
+**输出路径**：
+- 输出目录：{pages_dir}
+- 文件命名：page-N.pptx.html（N 从 1 开始）
+
+---
+
+请按顺序完成读取后再开始生成。
+```
+
 4. **路径验证**：
    - 验证生成的文件确实在 `{output_dir}/pages/` 下
    - 检查方法：`ls {output_dir}/pages/page-*.pptx.html | wc -l`
@@ -772,8 +848,6 @@ output/
 - custom（自定义）：使用用户描述的配色和字体
   将结果写入 {output_dir}/ppt_plan.md。
 
-```
-
 **为什么这样设计**：planner 的需求确认流程会逐一询问缺失的主题、页数、风格。这个 prompt 三项信息都已提供，且明确了输出路径，planner 会判定信息完整，自然跳过询问环节。风格已明确指定，风格确认流程也自然跳过。当用户上传了文档时，文档内容以 `<uploaded_document>` 标签传递，planner 以文档内容为核心素材进行规划，避免空泛编造。
 
 ### Charlie Prompt — 模拟用户向 pptx 提需求
@@ -819,117 +893,6 @@ Main Agent 根据 `style_id` 查找对应的风格定义文件，并在 Charlie 
 {custom_style_description}
 
 ````
-
-**通用布局约束**（所有模式共用）：
-
-请读取 designer/SKILL.md 获取生成方法论和视觉规范。
-
-**布局约束（强制遵守，预防溢出/空白/遮挡）**：
-
-1. **总容器锁死边界**（防溢出）：
-   - 外层容器必须设置：`h-[720px] overflow-hidden`
-   - 所有内容必须在 1280×720 边界内
-
-2. **弹性布局结构**（防空白 + 防溢出）：
-   ```html
-   <div class="ppt-slide flex flex-col h-[720px] overflow-hidden">
-     <!-- 页头：固定高度，禁止压缩 -->
-     <header class="h-[60px] flex-shrink-0">...</header>
-
-     <!-- 内容区：弹性填充，自动适应 -->
-     <main class="flex-1 min-h-0 overflow-hidden">...</main>
-
-     <!-- 页脚：固定高度，禁止压缩 -->
-     <footer class="h-[30px] flex-shrink-0">...</footer>
-   </div>
-````
-
-3. **内容密度要求**（防空白）：
-   - 内容区必须使用 `flex-1` 自动撑满剩余空间
-   - 禁止内容区设置固定高度（`h-XXX`），除非是内部卡片
-   - 图表、卡片等必须设置 `w-full` 或百分比宽度
-   - 每页至少包含：1 个可视化图表 + 3 个数据卡片/要点
-
-4. **层级规范**（防遮挡）：
-   - 背景装饰：`z-0` 或更低（使用 `z-0`、`-z-10` 等）
-   - 主要内容：不设置 z-index（默认层）
-   - 需要强调的文字/图标：`z-50 relative`
-
-5. **安全边距**：
-   - 主要内容使用 `.content-safe` 容器（1220×660px，四周 30px 边距）
-   - 背景、装饰元素可以使用全部 1280×720 空间
-
-**CDN 依赖（按需引入，缺失会导致页面功能异常）**：
-
-- 必选：[Tailwind CSS](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js)
-- 使用了 FontAwesome 图标（fa-solid/fa-regular 等）→ 引入 [FontAwesome CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/fontawesome/css/all.min.css)
-- 使用了 ECharts 图表（echarts.init/echarts.setOption）→ 引入 [ECharts CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/echarts.min.js)
-- 使用了数学公式（MathJax/\frac/\sqrt）→ 引入 [MathJax CDN](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/mathjax/tex-svg.min.js)
-- 使用了字体定义 (Noto Sans SC)→ 引入 [font.css](https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/css/fonts.css)
-
-**初始生成 Prompt**（首次生成时使用）：
-
-**研究模式**（使用了 outline-research）：
-
-```
-请根据 outline.md 和 research.md 生成 HTML 幻灯片。
-
-{style_instruction}
-
-**路径参数**：
-- 大纲文件：{output_dir}/outline.md
-- 研究报告：{output_dir}/research.md
-- 输出目录：{pages_dir}（已由上级流程创建）
-
-**说明**：此路径是本次调用的专用输出目录，pptx skill 文档中的默认路径 `output/pages/` 不适用于本次调用。
-
-请按照上面通用布局约束执行，逐页生成 HTML。
-
-每页保存到 {pages_dir}/page-N.pptx.html（N 从 1 开始）。
-```
-
-**规划模式 — 无文档**（使用了 planner，无文档解析结果）：
-
-```
-请根据 ppt_plan.md 生成 HTML 幻灯片。
-
-{style_instruction}
-
-**路径参数**：
-- 大纲文件：{output_dir}/ppt_plan.md
-- 输出目录：{pages_dir}（已由上级流程创建）
-
-**说明**：此路径是本次调用的专用输出目录，pptx skill 文档中的默认路径 `output/pages/` 不适用于本次调用。
-
-请按照上面通用布局约束执行，逐页生成 HTML。
-
-每页保存到 {pages_dir}/page-N.pptx.html（N 从 1 开始）。
-```
-
-**规划模式 — 有文档**（使用了 planner，且有文档解析结果）：
-
-```
-请根据 ppt_plan.md 和用户提供的文档资料生成 HTML 幻灯片。
-
-{style_instruction}
-
-**路径参数**：
-- 大纲文件：{output_dir}/ppt_plan.md
-- 输出目录：{pages_dir}（已由上级流程创建）
-
-**用户提供的文档资料**（作为内容补充素材，优先使用其中的数据和案例）：
-<uploaded_document>
-{doc_content}
-</uploaded_document>
-
-**说明**：此路径是本次调用的专用输出目录，pptx skill 文档中的默认路径 `output/pages/` 不适用于本次调用。
-
-请以 ppt_plan.md 为结构框架，结合文档资料中的具体数据、案例和信息填充内容。如果文档中包含关键数据点、图表描述或具体案例，优先在幻灯片中呈现。
-
-请按照上面通用布局约束执行，逐页生成 HTML。
-
-每页保存到 {pages_dir}/page-N.pptx.html（N 从 1 开始）。
-```
 
 ---
 
@@ -980,7 +943,6 @@ Subagent prompt 模板中的变量：
 | `{page_count}`        | 用户确认的页数                                                                 | 8                                                                                 |
 | `{style_id}`          | 用户确认的风格 ID                                                              | "huawei" 或 "custom"                                                              |
 | `{style_file_path}`   | 对应风格定义文件的绝对路径（`free`/`custom` 时为空）                           | "/Users/jackie/Repositories/slidagent/skills/pptx-craft/styles/huawei.md"         |
-| `{style_instruction}` | 由 Main Agent 根据 `style_id` 动态注入的风格指令（见上方「风格文件读取指令」） | "在开始生成之前，请先读取风格定义文件：/path/to/styles/huawei.md"                 |
 | `{audience}`          | 目标受众描述                                                                   | "企业高管"、"技术团队"、"投资人"                                                  |
 | `{research_depth}`    | 研究深度级别                                                                   | "L1（快速研究，≥3000字）"、"L2（深度研究，≥5000字）"、"L3（专家级研究，≥8000字）" |
 | `{additional_notes}`  | 补充说明                                                                       | 用户的额外要求                                                                    |

@@ -275,7 +275,7 @@ function bootstrapWorkspaceGovernance(projectPath: string, monorepoRoot: string)
 }
 
 function ensureWorkspaceProjectPath(monorepoRoot: string): { projectPath: string; created: boolean } {
-  const workspacePath = resolve(monorepoRoot, 'workspace');
+  const workspacePath = resolve(monorepoRoot, 'workspace', Date.now().toString());
   const existedBefore = existsSync(workspacePath);
   mkdirSync(workspacePath, { recursive: true });
 

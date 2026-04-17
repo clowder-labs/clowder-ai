@@ -103,7 +103,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card).toBeInstanceOf(HTMLElement);
     expect((card as HTMLElement).style.backgroundImage).toBe('url("/images/version-bg.svg")');
@@ -121,7 +121,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card?.className).toContain('w-[360px]');
   });
@@ -138,7 +138,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card?.className).toContain('rounded-[16px]');
   });
@@ -298,7 +298,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('.shadow-lg')).not.toBeNull();
+    expect(container.querySelector('[data-testid="version-update-card"]')).not.toBeNull();
 
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));

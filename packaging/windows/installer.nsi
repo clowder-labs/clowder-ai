@@ -510,6 +510,71 @@ Function OnDirectoryBrowseClicked
   ${NSD_SetText} $DirectoryInput $SelectedInstallDir
 FunctionEnd
 
+Function CheckDirectoryRequiresAdmin
+  ; Check if the selected directory requires admin privileges by attempting to create it
+  ; Returns "1" in $R0 if admin required, "0" otherwise
+  StrCpy $R0 "0"
+
+  ; First check common system directories (fast path)
+  StrCpy $0 $SelectedInstallDir
+  ${If} $0 != ""
+    StrCpy $1 $0 15
+    ${If} $1 == "C:\Program Fil"
+    ${OrIf} $1 == "c:\program fil"
+    ${OrIf} $1 == "C:/Program Fil"
+    ${OrIf} $1 == "c:/program fil"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+
+    ; Check for other drive letters with Program Files
+    StrCpy $2 $0 1
+    StrCpy $3 $0 14 2
+    ${If} $3 == "\Program Files"
+    ${OrIf} $3 == "\program files"
+    ${OrIf} $3 == "/Program Files"
+    ${OrIf} $3 == "/program files"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+
+    ; Check for Windows directory
+    StrCpy $1 $0 10
+    ${If} $1 == "C:\Windows"
+    ${OrIf} $1 == "c:\windows"
+    ${OrIf} $1 == "C:/Windows"
+    ${OrIf} $1 == "c:/windows"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  ; Actually test write permission by attempting to create the directory
+  ; This catches any directory with restrictive NTFS permissions
+  ClearErrors
+  CreateDirectory "$SelectedInstallDir"
+  ${If} ${Errors}
+    ; Failed to create directory - likely permission issue
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+
+  ; Try to create a test file
+  ClearErrors
+  FileOpen $1 "$SelectedInstallDir\.write-test-$$" w
+  ${If} ${Errors}
+    ; Failed to create file - no write permission
+    RMDir "$SelectedInstallDir"
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+
+  ; Cleanup test file and directory
+  FileClose $1
+  Delete "$SelectedInstallDir\.write-test-$$"
+  RMDir "$SelectedInstallDir"
+FunctionEnd
+
 Function NormalizeSelectedInstallDir
   ${If} $ExistingInstallDir != ""
     Return
@@ -568,22 +633,29 @@ Function DirectoryPageLeave
     StrCpy $SelectedInstallDir $ExistingInstallDir
     Return
   ${EndIf}
-  
+
   ; 新装场景，获取用户输入
   ${NSD_GetText} $DirectoryInput $SelectedInstallDir
   Call NormalizeSelectedInstallDir
-  
+
   StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
     MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
   ${EndIf}
-  
+
   ${If} $SelectedInstallDir == ""
     MessageBox MB_ICONEXCLAMATION|MB_OK "请选择安装目录。"
     Abort
   ${EndIf}
-  
+
+  ; Check if selected directory requires admin privileges
+  Call CheckDirectoryRequiresAdmin
+  ${If} $R0 == "1"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "所选目录需要管理员权限，无法安装。$\r$\n$\r$\n请选择以下位置之一：$\r$\n  · $LOCALAPPDATA\Programs\${APP_NAME}（推荐）$\r$\n  · $PROFILE\${APP_NAME}$\r$\n  · 其他用户目录"
+    Abort
+  ${EndIf}
+
   StrCpy $INSTDIR $SelectedInstallDir
   ${NSD_SetText} $DirectoryInput $SelectedInstallDir
 FunctionEnd
