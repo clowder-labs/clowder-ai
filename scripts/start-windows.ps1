@@ -355,8 +355,9 @@ if ($useExternalRedis) {
                 Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword
                 Write-Ok "Redis password generated and stored in Credential Manager"
             } catch {
-                Write-Warn "Failed to store Redis password: $_ - running without auth"
+                Write-Warn "Credential Manager unavailable: $_ - falling back to memory mode"
                 $localRedisPassword = $null
+                $useRedis = $false
             }
         } else {
             Write-Ok "Redis password loaded from Credential Manager"
@@ -366,6 +367,9 @@ if ($useExternalRedis) {
             $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
         }
     }
+    if (-not $useRedis) {
+        # Credential Manager failed — skip Redis startup, fall through to memory mode
+    } else {
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
@@ -450,6 +454,7 @@ if ($useExternalRedis) {
             $useRedis = $false
         }
     }
+    } # end if ($useRedis) — Credential Manager guard
 }
 
 if (-not $useRedis) {
@@ -556,7 +561,8 @@ $runtimeEnvOverrides = @{
         ApiPort = [int]$ApiPort
         WebPort = [int]$WebPort
         RedisPort = if ($useRedis -and -not $useExternalRedis) { [int]$RedisPort } else { $null }
-        RedisUrl = if ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisUrl = if ($localRedisPassword -and $env:REDIS_URL) { Get-RedactedRedisUrl -RedisUrl $env:REDIS_URL } elseif ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisAuthFromCredentialManager = [bool]$localRedisPassword
         UseExternalRedis = [bool]$useExternalRedis
         RedisStartedByLauncher = [bool]$startedRedis
         PreferRandomPorts = [bool]$PreferRandomPorts
