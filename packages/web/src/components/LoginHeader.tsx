@@ -59,7 +59,7 @@ function HeaderAction({ title, children, buttonRef, ...buttonProps }: HeaderActi
   );
 }
 
-export function LoginHeader() {
+export function LoginHeader({ className }: { className?: string }) {
   const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -143,7 +143,7 @@ export function LoginHeader() {
   return (
     <div
       ref={headerRef}
-      className="ui-content-header"
+      className={`ui-content-header${className ? ` ${className}` : ''}`}
       data-testid="login-header"
       onMouseDown={handleHeaderMouseDown}
       onDoubleClick={handleHeaderDoubleClick}

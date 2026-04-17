@@ -513,10 +513,8 @@ export function RightContentHeader() {
       const buttonRect = smileActionRef.current?.getBoundingClientRect();
       if (!buttonRect) return;
 
-      const contentFrameRect = headerRef.current?.parentElement?.getBoundingClientRect();
-      const contentBottom = contentFrameRect?.bottom ?? window.innerHeight;
+      const contentBottom = window.innerHeight;
       const nextMaxHeight = Math.max(0, Math.floor(contentBottom - (buttonRect.bottom + 12) - 32));
-
       setFeedbackPopoverMaxHeight(nextMaxHeight);
     };
 
