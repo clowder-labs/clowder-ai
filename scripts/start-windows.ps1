@@ -343,17 +343,21 @@ if ($useExternalRedis) {
         $redisSource = $redisCommands.Source
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
-    # -- Redis auth (ephemeral password per session) ---
+    # -- Redis auth (read-or-generate, consistent across sessions) ---
     $localRedisPassword = $null
     if (-not $configuredRedisUrl) {
-        $bytes = New-Object byte[] 24
-        [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-        $localRedisPassword = [Convert]::ToBase64String($bytes)
-        # Best-effort: store in Credential Manager for graceful stop
+        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
+        if ($localRedisPassword) {
+            Write-Ok "Redis auth: password loaded from Credential Manager"
+        } else {
+            $bytes = New-Object byte[] 24
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+            $localRedisPassword = [Convert]::ToBase64String($bytes)
+            Write-Ok "Redis auth: new password generated"
+        }
         try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
         $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
         $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
-        Write-Ok "Redis auth enabled (session password)"
     }
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
