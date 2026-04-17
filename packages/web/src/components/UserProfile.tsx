@@ -8,6 +8,7 @@ import { AgentManagementIcon } from './AgentManagementIcon';
 import SecurityManagementModal from './SecurityManagementModal';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 interface UserProfileProps {
   className?: string;
@@ -18,27 +19,28 @@ const THEME_OPTIONS: Array<{
   label: string;
   swatchBackground: string;
   selectedBadgeBackground: string;
+  selectedBadgeColor: string;
 }> = [
   {
     id: 'business',
     label: '灰白',
-    swatchBackground:
-      'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
-    selectedBadgeBackground: 'rgb(59,130,246)',
+    swatchBackground: 'var(--theme-preview-business-bg)',
+    selectedBadgeBackground: 'var(--theme-preview-business-badge)',
+    selectedBadgeColor: 'var(--theme-preview-business-check)',
   },
   {
     id: 'warm',
     label: '橙白',
-    swatchBackground:
-      'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
-    selectedBadgeBackground: 'rgb(204,109,26)',
+    swatchBackground: 'var(--theme-preview-warm-bg)',
+    selectedBadgeBackground: 'var(--theme-preview-warm-badge)',
+    selectedBadgeColor: 'var(--theme-preview-warm-check)',
   },
   // {
   //   id: 'dark',
   //   label: '暗黑',
-  //   swatchBackground:
-  //     'linear-gradient(144.26deg, rgba(49, 68, 102, 1), rgba(13, 20, 33, 1) 100%)',
-  //   selectedBadgeBackground: 'rgb(122,169,255)',
+  //   swatchBackground: 'var(--theme-preview-dark-bg)',
+  //   selectedBadgeBackground: 'var(--theme-preview-dark-badge)',
+  //   selectedBadgeColor: 'var(--theme-preview-dark-check)',
   // },
 ];
 
@@ -299,11 +301,11 @@ export function UserProfile({ className }: UserProfileProps) {
           <span className="text-sm font-bold text-[var(--text-primary)]">{avatarLetter}</span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[16px] font-medium text-[var(--text-primary)]" title={userName}>
+        <OverflowTooltip content={userName} className="min-w-0 flex-1">
+          <div data-testid="user-profile-name" className="truncate text-[16px] font-medium text-[var(--text-primary)]">
             {userName}
           </div>
-        </div>
+        </OverflowTooltip>
 
         <svg
           className="h-4 w-4 shrink-0 text-[var(--text-primary)] transition-transform"
@@ -328,11 +330,14 @@ export function UserProfile({ className }: UserProfileProps) {
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-avatar-shell)]">
                   <span className="text-base font-bold text-[var(--text-primary)]">{avatarLetter}</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[16px] font-normal text-[var(--text-primary)]" title={userName}>
+                <OverflowTooltip content={userName} className="min-w-0 flex-1">
+                  <div
+                    data-testid="user-profile-panel-name"
+                    className="truncate text-[16px] font-normal text-[var(--text-primary)]"
+                  >
                     {userName}
                   </div>
-                </div>
+                </OverflowTooltip>
               </div>
             </div>
 
@@ -430,7 +435,7 @@ export function UserProfile({ className }: UserProfileProps) {
       {showPanel && showThemePanel && (
         <div
           ref={themePopoverRef}
-          className="ui-overlay-card absolute z-[60] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
+          className="ui-overlay-card absolute z-[60] rounded-[var(--radius-md)] shadow-[var(--overlay-shadow)]"
           data-testid="user-theme-popover"
           style={{ top: `${themePopoverTop}px`, left: `${themePopoverLeft}px` }}
         >
@@ -454,11 +459,14 @@ export function UserProfile({ className }: UserProfileProps) {
                       />
                       {isActive && (
                         <div
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[var(--text-inverse)]"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full"
                           data-testid={`user-theme-selected-badge-${option.id}`}
-                          style={{ backgroundColor: option.selectedBadgeBackground }}
+                          style={{
+                            backgroundColor: option.selectedBadgeBackground,
+                            color: option.selectedBadgeColor,
+                          }}
                         >
-                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
+                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
@@ -484,7 +492,7 @@ export function UserProfile({ className }: UserProfileProps) {
       {showPanel && showAboutPanel && (
         <div
           ref={aboutPopoverRef}
-          className="ui-overlay-card absolute z-[60] min-w-[180px] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
+          className="ui-overlay-card absolute z-[60] min-w-[180px] rounded-[var(--radius-md)] shadow-[var(--overlay-shadow)]"
           data-testid="user-about-popover"
           style={{ top: `${aboutPopoverTop}px`, left: `${aboutPopoverLeft}px` }}
         >

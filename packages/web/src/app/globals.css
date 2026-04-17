@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -102,7 +102,9 @@
   /* Connector list item tokens */
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: #ffffff;
+  --connector-tab-bg-hover: #fffaf7;
   --connector-tab-border-default: #f0f0f0;
+  --connector-tab-border-hover: rgba(226, 149, 120, 0.24);
   --connector-tab-bg-selected: #fff5f2;
   --connector-tab-border-selected: rgba(226, 149, 120, 0.4);
 
@@ -229,9 +231,11 @@
   --modal-progress-track: var(--surface-card-muted);
   --modal-progress-success: var(--state-success-text);
   --modal-progress-warning: var(--state-warning-text);
-  --tooltip-surface: var(--overlay-bg);
+  --tooltip-surface: var(--surface-panel);
+  --tooltip-border: var(--overlay-border);
   --tooltip-text: var(--overlay-text);
-  --tooltip-shadow: 0px 2px 12px 0px rgba(0, 0, 0, 0.16);
+  --tooltip-shadow-color: rgba(0, 0, 0, 0.16);
+  --tooltip-shadow: 0px 2px 12px 0px var(--tooltip-shadow-color);
   --tooltip-icon: var(--text-secondary);
   --tooltip-icon-hover: var(--text-accent);
   --toast-success-surface: var(--state-success-surface);
@@ -245,6 +249,15 @@
   --toast-close-icon: var(--text-label-secondary);
   --toast-close-icon-hover: var(--text-primary);
   --toast-shadow: -2px 0px 12px 0px rgba(0, 0, 0, 0.16);
+  --theme-preview-business-bg: linear-gradient(-50.71deg, rgb(237 244 246), rgb(235 235 235) 100%);
+  --theme-preview-business-badge: #3b82f6;
+  --theme-preview-business-check: #ffffff;
+  --theme-preview-warm-bg: linear-gradient(144.26deg, rgb(255 203 162), rgb(255 236 221) 100%);
+  --theme-preview-warm-badge: #cc6d1a;
+  --theme-preview-warm-check: #ffffff;
+  --theme-preview-dark-bg: linear-gradient(144.26deg, rgb(49 68 102), rgb(13 20 33) 100%);
+  --theme-preview-dark-badge: #7aa9ff;
+  --theme-preview-dark-check: #08101f;
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
@@ -304,6 +317,24 @@
   --chat-user-bubble-bg: rgba(255, 241, 230, 1);
   --chat-input-shell-border: #ffe7d3;
   --chat-input-shell-focus-border: #ffdac0;
+  --chat-input-accent-glow: linear-gradient(
+    90deg,
+    rgba(255, 246, 190, 1),
+    rgba(253, 159, 112, 1) 20%,
+    rgba(239, 131, 250, 1) 43%,
+    rgba(128, 134, 254, 1) 73%,
+    rgba(160, 244, 255, 1) 97%
+  );
+  --chat-input-queue-accent: var(--color-opus-primary);
+  --chat-input-whisper-bg: color-mix(in srgb, var(--state-warning-surface) 36%, var(--surface-panel));
+  --chat-input-whisper-border: color-mix(in srgb, var(--state-warning-text) 24%, var(--border-default));
+  --chat-input-whisper-focus-border: color-mix(in srgb, var(--state-warning-text) 42%, var(--border-default));
+  --thread-source-badge-bg: var(--accent-soft);
+  --thread-source-badge-text: var(--text-accent);
+  --thread-unread-badge-bg: #ff3b30;
+  --thread-unread-badge-text: #ffffff;
+  --thread-unread-badge-border: var(--surface-panel);
+  --thread-avatar-initial-text: #ffffff;
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #e6e6e6;
@@ -365,7 +396,9 @@
 
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: transparent;
+  --connector-tab-bg-hover: color-mix(in srgb, var(--surface-card-muted) 84%, white);
   --connector-tab-border-default: #e6e6e6;
+  --connector-tab-border-hover: color-mix(in srgb, var(--border-accent) 48%, var(--border-default));
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: #cc6d1a;
   --icon-delete-color: #191919;
@@ -395,6 +428,8 @@
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
+  --tooltip-surface: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-card-muted));
+  --tooltip-text: var(--text-primary);
 
   --tag-bg: #e6e6e6;
 }
@@ -431,6 +466,22 @@
   --chat-user-bubble-bg: #deecff;
   --chat-input-shell-border: #dbdbdb;
   --chat-input-shell-focus-border: #c2c2c2;
+  --chat-input-accent-glow: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-soft-strong) 72%, white),
+    color-mix(in srgb, var(--text-accent) 32%, white) 48%,
+    color-mix(in srgb, var(--accent-primary) 48%, white) 100%
+  );
+  --chat-input-queue-accent: var(--text-accent);
+  --chat-input-whisper-bg: color-mix(in srgb, var(--state-info-surface) 48%, var(--surface-panel));
+  --chat-input-whisper-border: color-mix(in srgb, var(--state-info-text) 22%, var(--border-default));
+  --chat-input-whisper-focus-border: color-mix(in srgb, var(--state-info-text) 40%, var(--border-default));
+  --thread-source-badge-bg: var(--accent-soft);
+  --thread-source-badge-text: var(--text-accent);
+  --thread-unread-badge-bg: var(--state-error-text);
+  --thread-unread-badge-text: #ffffff;
+  --thread-unread-badge-border: var(--surface-panel);
+  --thread-avatar-initial-text: #ffffff;
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #f0f0f0;
@@ -492,7 +543,9 @@
 
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: #fafafa;
+  --connector-tab-bg-hover: color-mix(in srgb, var(--surface-card-muted) 86%, white);
   --connector-tab-border-default: #f0f0f0;
+  --connector-tab-border-hover: color-mix(in srgb, var(--border-accent) 52%, var(--border-default));
   --connector-tab-bg-selected: #ffffff;
   --connector-tab-border-selected: #1476ff;
   --icon-delete-color: #191919;
@@ -522,6 +575,8 @@
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
+  --tooltip-surface: var(--surface-panel);
+  --tooltip-text: var(--text-primary);
 
   --tag-bg: #f5f5f5;
 }
@@ -569,6 +624,22 @@
   --chat-user-bubble-bg: #17304f;
   --chat-input-shell-border: #24324a;
   --chat-input-shell-focus-border: #4a648f;
+  --chat-input-accent-glow: linear-gradient(
+    90deg,
+    rgba(96, 165, 250, 0.16),
+    rgba(122, 169, 255, 0.28) 52%,
+    rgba(142, 184, 255, 0.2) 100%
+  );
+  --chat-input-queue-accent: var(--text-accent);
+  --chat-input-whisper-bg: color-mix(in srgb, var(--state-info-surface) 54%, var(--surface-panel));
+  --chat-input-whisper-border: color-mix(in srgb, var(--state-info-text) 24%, var(--border-default));
+  --chat-input-whisper-focus-border: color-mix(in srgb, var(--state-info-text) 42%, var(--border-default));
+  --thread-source-badge-bg: rgba(142, 184, 255, 0.16);
+  --thread-source-badge-text: var(--text-accent);
+  --thread-unread-badge-bg: #ff6b6b;
+  --thread-unread-badge-text: #08101f;
+  --thread-unread-badge-border: var(--surface-panel);
+  --thread-avatar-initial-text: #ffffff;
 
   --status-badge-configured-surface: rgba(34, 197, 94, 0.18);
   --status-badge-unconfigured-surface: #1a2335;
@@ -638,7 +709,9 @@
 
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: #101827;
+  --connector-tab-bg-hover: #162132;
   --connector-tab-border-default: #243047;
+  --connector-tab-border-hover: color-mix(in srgb, var(--border-accent) 52%, var(--border-default));
   --connector-tab-bg-selected: #192233;
   --connector-tab-border-selected: #7aa9ff;
   --icon-delete-color: #c8d0df;
@@ -672,6 +745,11 @@
   --input-border: #34415b;
   --input-border-hover: #6d88b5;
   --input-border-active: #8eb8ff;
+  --tooltip-surface: color-mix(in srgb, var(--surface-panel) 78%, white);
+  --tooltip-border: color-mix(in srgb, var(--border-default) 64%, white);
+  --tooltip-text: #f8fbff;
+  --tooltip-shadow-color: rgba(0, 0, 0, 0.88);
+  --tooltip-shadow: 0 20px 42px -24px var(--tooltip-shadow-color);
 
   --tag-bg: #1d2638;
   --chat-scrollbar-thumb: #4a576d;
@@ -2007,10 +2085,35 @@ select:-webkit-autofill:focus {
     font-weight: var(--font-weight-medium);
   }
 
+  .ui-thread-description {
+    font-size: var(--font-size-sm);
+    line-height: 18px;
+    color: var(--text-label-secondary);
+  }
+
+  .ui-thread-item-active .ui-thread-description {
+    color: var(--text-secondary);
+  }
+
   .ui-thread-meta {
     font-size: var(--font-size-xs);
     line-height: 16px;
     color: var(--text-muted);
+  }
+
+  .ui-thread-item-active .ui-thread-meta {
+    color: var(--text-secondary);
+  }
+
+  .ui-thread-source-badge {
+    background: var(--thread-source-badge-bg);
+    color: var(--thread-source-badge-text);
+  }
+
+  .ui-thread-unread-badge {
+    border-color: var(--thread-unread-badge-border);
+    background: var(--thread-unread-badge-bg);
+    color: var(--thread-unread-badge-text);
   }
 
   .ui-thread-action {
@@ -2218,4 +2321,9 @@ select:-webkit-autofill:focus {
   display: none;
   width: 0;
   height: 0;
+}
+
+
+.overflow-tooltip {
+  box-shadow: var(--tooltip-shadow);
 }

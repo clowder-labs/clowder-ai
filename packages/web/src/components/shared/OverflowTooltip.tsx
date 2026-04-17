@@ -160,7 +160,7 @@ function TooltipPortal({
       onMouseEnter={onTooltipEnter}
       onMouseLeave={onTooltipLeave}
     >
-      <div className="relative whitespace-normal break-all rounded-lg bg-[var(--tooltip-surface)] px-3 py-2 text-xs leading-5 text-[var(--tooltip-text)] shadow-[var(--tooltip-shadow)]">
+      <div className="relative whitespace-normal break-all rounded-lg bg-[var(--tooltip-surface)] px-3 py-2 text-xs leading-5 text-[var(--tooltip-text)] overflow-tooltip shadow-[var(--tooltip-shadow)]">
         <div className="flex items-center gap-1.5">
           <span className={`min-w-0 flex-1 ${copyable ? 'select-text' : ''}`}>{content}</span>
           {copyable && (

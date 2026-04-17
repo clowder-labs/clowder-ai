@@ -32,6 +32,7 @@ import {
   ModelSelectTriggerIcon,
   ModelSelectValueDraft,
 } from './ModelSelectDropdownDraft';
+import { Textarea } from './shared/Textarea';
 
 interface CreateAgentModalProps {
   open: boolean;
@@ -833,19 +834,16 @@ export function CreateAgentModal({
 
             <div className="space-y-2.5">
               <div className="text-[12px] text-[var(--text-primary)]">描述（可选）</div>
-              <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
-                <textarea
-                  aria-label="Description"
-                  value={draftDescription}
-                  onChange={(event) => setDraftDescription(event.target.value)}
-                  placeholder="请输入描述"
-                  maxLength={1000}
-                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full rounded-none text-[12px]"
-                />
-                <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
-                  {draftDescription.length}/1000
-                </div>
-              </div>
+              <Textarea
+                aria-label="Description"
+                value={draftDescription}
+                onChange={(event) => setDraftDescription(event.target.value)}
+                placeholder="请输入描述"
+                maxLength={1000}
+                showCount
+                formatCount={(current, max) => `${current}/${max ?? 0}`}
+                className="h-[60px] min-h-[60px]"
+              />
             </div>
 
             <div className="space-y-2.5">

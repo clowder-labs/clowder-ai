@@ -134,7 +134,7 @@ describe('UserProfile overlay classes', () => {
 
     const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
     const toggleAvatar = toggle?.querySelector('div.rounded-full');
-    const toggleName = toggle?.querySelector('div[title]');
+    const toggleName = toggle?.querySelector('[data-testid="user-profile-name"]');
     expect(toggle).toBeTruthy();
     expect(toggle?.className).toContain('text-[var(--text-primary)]');
     expect(toggleAvatar?.className).toContain('bg-[var(--surface-avatar-shell)]');
@@ -230,7 +230,7 @@ describe('UserProfile overlay classes', () => {
     expect(themePopover).toBeTruthy();
     expect(themePopover?.className).toContain('ui-overlay-card');
     expect(themePopover?.className).toContain('rounded-[var(--radius-md)]');
-    expect(themePopover?.className).toContain('shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]');
+    expect(themePopover?.className).toContain('shadow-[var(--overlay-shadow)]');
     expect(themePopover?.className).not.toContain('left-[calc(100%-12px)]');
     expect(themePopover?.className).not.toContain('-translate-y-1/2');
     expect((themePopover as HTMLDivElement | null)?.style.left).toBe('188px');
@@ -328,7 +328,32 @@ describe('UserProfile overlay classes', () => {
 
     const warmBadge = container.querySelector('[data-testid="user-theme-selected-badge-warm"]') as HTMLDivElement | null;
     expect(warmBadge).toBeTruthy();
-    expect(warmBadge?.style.backgroundColor).toBe('rgb(204, 109, 26)');
+    expect(warmBadge?.style.backgroundColor).toBe('var(--theme-preview-warm-badge)');
+  });
+
+  it('shows the full username in an overflow tooltip when the visible name is truncated', async () => {
+    currentUserName = 'very-long-user-name-for-overflow-tooltip-check';
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggleName = container.querySelector('[data-testid="user-profile-name"]') as HTMLDivElement | null;
+    expect(toggleName).toBeTruthy();
+    expect(toggleName?.getAttribute('title')).toBeNull();
+
+    Object.defineProperty(toggleName!, 'clientWidth', { configurable: true, value: 80 });
+    Object.defineProperty(toggleName!, 'scrollWidth', { configurable: true, value: 220 });
+
+    act(() => {
+      toggleName?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    await flush();
+
+    const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('very-long-user-name-for-overflow-tooltip-check');
   });
 
   it('supports selecting the dark theme from the theme popover', async () => {

@@ -728,11 +728,7 @@ export function ThreadSidebar({
           </div>
         </div>
 
-        {bindWarning && (
-          <div className="px-3 py-1.5 bg-yellow-50 border-b border-yellow-200 text-[10px] text-yellow-700">
-            {bindWarning}
-          </div>
-        )}
+        {bindWarning && <div className="ui-status-warning border-b border-[var(--border-default)] px-3 py-1.5 text-[10px]">{bindWarning}</div>}
 
         <div className="relative px-4 pt-2 pb-1">
           <div className="flex items-center justify-between">
@@ -746,7 +742,7 @@ export function ThreadSidebar({
                   setIsSearchOpen(false);
                   setSearchQuery('');
                 }}
-                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
+                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
@@ -789,7 +785,6 @@ export function ThreadSidebar({
               onClear={() => {
                 setSearchQuery('');
                 setShowFilter(false);
-                setIsSearchOpen(false);
               }}
               placeholder="搜索会话"
               autoComplete="off"
@@ -802,7 +797,7 @@ export function ThreadSidebar({
               ref={filterPanelRef}
               className="ui-overlay-card absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] p-4"
             >
-              <div className="text-[12px] font-[400] leading-[18px] text-[#808080]">会话时间</div>
+              <div className="text-[12px] font-[400] leading-[18px] text-[var(--text-label-secondary)]">会话时间</div>
               <div className="mt-3 flex flex-col">
                 {[
                   { key: 'all', label: '全部' },
@@ -813,7 +808,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] text-[var(--overlay-text)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] focus-visible:bg-[var(--overlay-item-hover-bg)] focus-visible:outline-none ${filterOption === item.key ? 'text-[var(--text-accent)]' : ''}`}
                     style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
                     onClick={() => {
                       setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');
@@ -842,7 +837,7 @@ export function ThreadSidebar({
 
         <div ref={scrollRegionRef} className="flex-1 overflow-y-auto" data-testid="thread-sidebar-scroll-region">
           {isLoadingThreads && threads.length === 0 && (
-            <div className="text-center py-4 text-xs text-gray-400">加载中..</div>
+            <div className="py-4 text-center text-xs text-[var(--text-label-secondary)]">加载中..</div>
           )}
 
           {false && showDefaultThread && (
@@ -858,11 +853,11 @@ export function ThreadSidebar({
           )}
 
           {showNoResults ? (
-            <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
-              <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">
+            <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-[var(--text-label-secondary)]">
+              <div className="text-[14px] font-[400] text-[var(--text-primary)]">没有结果</div>
+              <div className="mt-1 flex gap-1 text-[12px] font-[400] text-[var(--text-secondary)]">
                 请
-                <button type="button" onClick={handleNewChat} className="text-[12px] font-[400] text-[#1476ff]">
+                <button type="button" onClick={handleNewChat} className="text-[12px] font-[400] text-[var(--text-accent)]">
                   新建会话
                 </button>
               </div>
@@ -1005,10 +1000,10 @@ export function ThreadSidebar({
         disableBackdropClose
         title={
           <div className="flex items-center gap-2">
-            <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg className="h-6 w-6 text-[var(--state-warning-text)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
             </svg>
-            <h3 className="text-[16px] font-bold text-gray-900">确认删除会话</h3>
+            <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">确认删除会话</h3>
           </div>
         }
         panelClassName="w-[500px]"
@@ -1018,7 +1013,7 @@ export function ThreadSidebar({
       >
         <div className="flex flex-col gap-5" data-testid="thread-delete-modal-content">
           <div className="space-y-1">
-            <p className="text-sm text-gray-600">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
+            <p className="text-sm text-[var(--modal-text-muted)]">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
           </div>
 
           <div className="flex items-center justify-end gap-2">

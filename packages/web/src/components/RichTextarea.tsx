@@ -502,7 +502,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       if (seg.type === 'mention') {
         const span = document.createElement('span');
         span.setAttribute('data-token-type', 'mention');
-        span.className = 'text-[rgba(20,118,255,1)]';
+        span.className = 'text-[var(--text-accent)]';
         span.textContent = seg.text;
         frag.appendChild(span);
         continue;
@@ -513,11 +513,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         token.setAttribute('data-token-value', seg.token);
         token.setAttribute('contenteditable', 'false');
         token.className =
-          'group/quick-action inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border text-[14px] font-normal leading-[22px] text-[#191919] align-middle';
+          'group/quick-action inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border text-[14px] font-normal leading-[22px] text-[var(--text-primary)] align-middle';
         token.style.padding = '2px 8px';
         token.style.marginBottom = '2px';
-        token.style.borderColor = 'rgba(20,118,255,0.8)';
-        token.style.backgroundColor = '#eff6ff';
+        token.style.borderColor = 'var(--border-accent)';
+        token.style.backgroundColor = 'var(--accent-soft)';
         token.style.cursor = 'pointer';
 
         if (seg.icon) {
@@ -530,7 +530,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         } else {
           const fallback = document.createElement('span');
           fallback.setAttribute('aria-hidden', 'true');
-          fallback.className = 'h-2 w-2 rounded-full bg-[rgba(20,118,255,1)] group-hover/quick-action:hidden';
+          fallback.className = 'h-2 w-2 rounded-full bg-[var(--text-accent)] group-hover/quick-action:hidden';
           token.appendChild(fallback);
         }
 
@@ -538,7 +538,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         remove.setAttribute('data-remove-quick-action', '1');
         remove.setAttribute('aria-hidden', 'true');
         remove.className =
-          'hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#a7a7a7] group-hover/quick-action:inline-flex hover:text-[#1476ff]';
+          'hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--text-muted)] group-hover/quick-action:inline-flex hover:text-[var(--text-accent)]';
         remove.style.fontSize = '18px';
         remove.style.lineHeight = '18px';
         remove.style.marginBottom = '2px';
@@ -556,7 +556,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       token.setAttribute('data-token-value', seg.token);
       token.setAttribute('contenteditable', 'false');
       token.className =
-        'inline-flex max-w-full translate-y-[-1px] items-center gap-1 text-[rgba(20,118,255,1)] text-[16px] leading-5 align-middle';
+        'inline-flex max-w-full translate-y-[-1px] items-center gap-1 text-[var(--text-accent)] text-[16px] leading-5 align-middle';
 
       const icon = document.createElement('span');
       icon.setAttribute('aria-hidden', 'true');
@@ -629,7 +629,9 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   return (
     <div className="relative">
       {showPlaceholder && placeholder && (
-        <div className="pointer-events-none absolute left-[18px] top-4 text-[16px] text-gray-400">{placeholder}</div>
+        <div className="pointer-events-none absolute left-[18px] top-4 text-[16px] text-[var(--text-field-placeholder)]">
+          {placeholder}
+        </div>
       )}
       <div
         ref={rootRef}
