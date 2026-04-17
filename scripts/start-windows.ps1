@@ -346,8 +346,11 @@ if ($useExternalRedis) {
     # -- Redis auth from Windows Credential Manager ---
     $localRedisPassword = $null
     if (-not $configuredRedisUrl) {
-        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
-        if ($null -eq $localRedisPassword) {
+        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {
+            Write-Warn "Credential Manager read failed: $_ - falling back to memory mode"
+            $useRedis = $false
+        }
+        if ($useRedis -and $null -eq $localRedisPassword) {
             $bytes = New-Object byte[] 24
             [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
             $localRedisPassword = [Convert]::ToBase64String($bytes)
@@ -359,7 +362,7 @@ if ($useExternalRedis) {
                 $localRedisPassword = $null
                 $useRedis = $false
             }
-        } else {
+        } elseif ($useRedis) {
             Write-Ok "Redis password loaded from Credential Manager"
         }
         if ($localRedisPassword) {
