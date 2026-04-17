@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createReadStream, existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import {
@@ -94,10 +94,13 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: 'File not found' });
     }
 
-    try {
-      spawn('cmd', ['/c', 'start', '', progress.filePath], { detached: true, stdio: 'ignore' });
-      return { success: true };
-    } catch {
+    console.log('[download/open] File exists, spawning process...');
+
+    const result = spawnSync('cmd', ['/c', 'start', '', progress.filePath]);
+    console.log('[download/open] Spawn result:', { status: result.status, error: result.error });
+
+    if (result.error) {
+      console.error('[download/open] Spawn error:', result.error);
       return reply.status(500).send({ error: 'Failed to open file' });
     }
   });
