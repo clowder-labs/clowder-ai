@@ -343,12 +343,39 @@ if ($useExternalRedis) {
         $redisSource = $redisCommands.Source
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
+    # -- Redis auth from Windows Credential Manager ---
+    $localRedisPassword = $null
+    if (-not $configuredRedisUrl) {
+        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
+        if ($null -eq $localRedisPassword) {
+            $bytes = New-Object byte[] 24
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+            $localRedisPassword = [Convert]::ToBase64String($bytes)
+            try {
+                Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword
+                Write-Ok "Redis password generated and stored in Credential Manager"
+            } catch {
+                Write-Warn "Failed to store Redis password: $_ - running without auth"
+                $localRedisPassword = $null
+            }
+        } else {
+            Write-Ok "Redis password loaded from Credential Manager"
+        }
+        if ($localRedisPassword) {
+            $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+        }
+    }
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
         $redisLogFile = Join-Path $redisLayout.Logs "redis-$RedisPort.log"
         $redisPidFile = Join-Path $redisLayout.Data "redis-$RedisPort.pid"
         Write-Ok "Redis port selected: $RedisPort (random)"
+        if ($localRedisPassword) {
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+            $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
+        }
     }
     # Check if Redis is already running
     try {
