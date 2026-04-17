@@ -1,14 +1,46 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useTheme, type ThemeType } from '@/hooks/useTheme';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ThemeType, useTheme } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { clearAuthIdentity, getIsSkipAuth, getUserId, getUserName } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import SecurityManagementModal from './SecurityManagementModal';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
-import { OverflowTooltip } from './shared/OverflowTooltip';
+
+interface VersionInfo {
+  curversion: string;
+  lastversion: string;
+  description: string;
+  downloadUrl?: string;
+  download_url?: string;
+}
+
+function normalizeVersion(version: string): number[] {
+  return version
+    .trim()
+    .replace(/^[^\d]*/, '')
+    .split(/[.\-+_]/)
+    .map((part) => Number.parseInt(part, 10))
+    .map((part) => (Number.isFinite(part) ? part : 0));
+}
+
+function compareVersions(a: string, b: string): number {
+  const aParts = normalizeVersion(a);
+  const bParts = normalizeVersion(b);
+  const maxLen = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < maxLen; i += 1) {
+    const aVal = aParts[i] ?? 0;
+    const bVal = bParts[i] ?? 0;
+    if (aVal > bVal) return 1;
+    if (aVal < bVal) return -1;
+  }
+
+  return 0;
+}
 
 interface UserProfileProps {
   className?: string;
@@ -63,6 +95,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const [themePopoverLeft, setThemePopoverLeft] = useState(0);
   const [aboutPopoverTop, setAboutPopoverTop] = useState(0);
   const [aboutPopoverLeft, setAboutPopoverLeft] = useState(0);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
@@ -73,6 +106,45 @@ export function UserProfile({ className }: UserProfileProps) {
   const userId = getUserId();
   const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
+
+  const hasNewVersion =
+    !!versionInfo?.lastversion &&
+    !!versionInfo?.curversion &&
+    compareVersions(versionInfo.lastversion, versionInfo.curversion) > 0;
+
+  const checkVersion = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const res = await apiFetch('/api/lastversion');
+      if (!res.ok) return;
+
+      const data = (await res.json()) as VersionInfo;
+      if (!data?.curversion) return;
+
+      setVersionInfo(data);
+
+      const isNewVersionAvailable =
+        !!data.lastversion && !!data.curversion && compareVersions(data.lastversion, data.curversion) > 0;
+
+      if (isNewVersionAvailable) {
+        setShowVersionUpdate(true);
+      } else {
+        const taskId = `version-${data.curversion}`;
+        try {
+          await apiFetch('/api/download/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId }),
+          });
+        } catch {}
+      }
+    } catch {}
+  }, []);
+
+  const handleCloseVersionUpdate = useCallback(() => {
+    setShowVersionUpdate(false);
+  }, []);
 
   const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
@@ -146,10 +218,6 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const handleCloseSecurityManagement = () => {
     setShowSecurityManagement(false);
-  };
-
-  const handleCloseVersionUpdate = () => {
-    setShowVersionUpdate(false);
   };
 
   const openThemePanel = () => {
@@ -289,6 +357,10 @@ export function UserProfile({ className }: UserProfileProps) {
     setIsSkipAuth(getIsSkipAuth());
   }, []);
 
+  useEffect(() => {
+    checkVersion();
+  }, [checkVersion]);
+
   return (
     <div className={`border-none relative ${className ?? ''}`} ref={panelRef}>
       <button
@@ -344,35 +416,22 @@ export function UserProfile({ className }: UserProfileProps) {
             <div className="mb-3 border-t border-[var(--panel-divider)]" />
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
-              <button
-                className={profileActionClass}
-                onClick={handleOpenSecurityManagement}
-              >
+              <button className={profileActionClass} onClick={handleOpenSecurityManagement}>
                 <img src="/icons/userprofile/security.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 安全管理
               </button>
 
-              <button
-                className={profileActionClass}
-                onClick={handleOpenUsageStats}
-              >
+              <button className={profileActionClass} onClick={handleOpenUsageStats}>
                 <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 用量统计
               </button>
 
-              <button
-                className={profileActionClass}
-                onClick={handleOpenVersionUpdate}
-              >
+              <button className={profileActionClass} onClick={handleOpenVersionUpdate}>
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 版本更新
               </button>
 
-              <div
-                className="relative"
-                data-testid="user-profile-theme-anchor"
-                ref={themeAnchorRef}
-              >
+              <div className="relative" data-testid="user-profile-theme-anchor" ref={themeAnchorRef}>
                 <button
                   className={profileActionClass}
                   onClick={handleToggleThemePanel}
@@ -523,7 +582,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
       <SecurityManagementModal open={showSecurityManagement} onClose={handleCloseSecurityManagement} />
-      <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
+      <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} versionInfo={versionInfo} />
     </div>
   );
 }

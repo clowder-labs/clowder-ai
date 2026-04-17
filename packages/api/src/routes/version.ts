@@ -83,7 +83,9 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
       console.error('获取最新版本信息失败，', err);
       return {
         curversion,
-        lastversion: curversion
+        lastversion: curversion,
+        downloadUrl: '',
+        description: '',
       };
     }
   });

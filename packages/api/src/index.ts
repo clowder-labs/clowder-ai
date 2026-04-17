@@ -17,7 +17,7 @@ import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { orchestrate } from './config/capabilities/capability-orchestrator.js';
-import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
+import { isSeedCat, resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
@@ -119,10 +119,12 @@ import {
   capabilitiesRoutes,
   catsRoutes,
   claudeRescueRoutes,
+  cleanupIncompleteDownloads,
   commandsRoutes,
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
+  downloadRoutes,
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
@@ -159,11 +161,11 @@ import {
   ttsRoutes,
   uploadsRoutes,
   usageRoutes,
+  versionRoutes,
   workflowSopRoutes,
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
-  versionRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
@@ -185,7 +187,6 @@ import {
 } from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
-import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
@@ -1075,6 +1076,7 @@ async function main(): Promise<void> {
   await app.register(auditRoutes, { threadStore });
   await app.register(authRoutes);
   await app.register(versionRoutes);
+  await app.register(downloadRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {
@@ -1582,6 +1584,14 @@ async function main(): Promise<void> {
       } catch (err) {
         exitCode = 1;
         app.log.error(`[api] SocketManager close failed: ${String(err)}`);
+      }
+
+      // Cleanup incomplete downloads
+      try {
+        cleanupIncompleteDownloads();
+        app.log.info('[api] Cleanup incomplete downloads completed');
+      } catch (err) {
+        app.log.error(`[api] Cleanup incomplete downloads failed: ${String(err)}`);
       }
 
       // Close Fastify server
