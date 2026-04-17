@@ -237,9 +237,18 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
     downloadState.setInstalling();
 
     try {
-      await apiFetch(`/api/download/open?taskId=${downloadState.taskId}`, { method: 'POST' });
+      const res = await apiFetch(`/api/download/open?taskId=${downloadState.taskId}`, { method: 'POST' });
+      if (res.ok) {
+        downloadState.reset();
+        onCancel();
+      }
     } catch (error) {
       console.error('打开文件失败:', error);
+      downloadState.updateProgress({
+        ...downloadState.progress,
+        status: 'error',
+        errorMessage: '打开安装程序失败',
+      });
     }
   };
 
@@ -250,7 +259,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
       return (
         <div className="text-left">
           <button type="button" disabled className="ui-button-primary opacity-50 cursor-not-allowed">
-            更新中
+            下载中
           </button>
         </div>
       );
@@ -429,7 +438,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           )}
         </div>
 
-        <div className="px-8 pb-8 pt-4">{renderButtonArea()}</div>
+        <div className="px-8 pb-8">{renderButtonArea()}</div>
       </div>
     </div>
   );

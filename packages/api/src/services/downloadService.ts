@@ -39,6 +39,57 @@ export function getDownloadProgress(taskId: string): DownloadProgress | null {
   return task.progress;
 }
 
+function parseVersionFromTaskId(taskId: string): string | null {
+  const match = taskId.match(/^version-(.+)$/);
+  return match ? match[1] : null;
+}
+
+function buildFilePathFromVersion(version: string): string {
+  const fileName = `OfficeClaw-V${version}.exe`;
+  return join(getDownloadDir(), fileName);
+}
+
+export function checkAndUpdateProgress(taskId: string): DownloadProgress | null {
+  const task = downloadTasks.get(taskId);
+
+  if (task) {
+    if (task.progress.status === 'downloading' || task.progress.status === 'error') {
+      return task.progress;
+    }
+
+    if (task.progress.status === 'success') {
+      if (task.progress.filePath && existsSync(task.progress.filePath)) {
+        return task.progress;
+      }
+      task.progress.status = 'error';
+      task.progress.errorMessage = 'File not found';
+      task.progress.endTime = Date.now();
+      return task.progress;
+    }
+
+    return task.progress;
+  }
+
+  const version = parseVersionFromTaskId(taskId);
+  if (!version) return null;
+
+  const filePath = buildFilePathFromVersion(version);
+  if (!existsSync(filePath)) return null;
+
+  const fileName = `OfficeClaw-V${version}.exe`;
+  return {
+    status: 'success',
+    progress: 100,
+    totalBytes: 0,
+    receivedBytes: 0,
+    fileName,
+    filePath,
+    errorMessage: null,
+    startTime: null,
+    endTime: Date.now(),
+  };
+}
+
 export function startDownload(taskId: string, url: string, fileName: string): DownloadProgress {
   const existingTask = downloadTasks.get(taskId);
   if (existingTask && existingTask.progress.status === 'downloading') {

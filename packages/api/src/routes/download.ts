@@ -1,7 +1,12 @@
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import { cancelDownload, clearDownloadTask, getDownloadProgress, startDownload } from '../services/downloadService.js';
+import {
+  cancelDownload,
+  checkAndUpdateProgress,
+  clearDownloadTask,
+  startDownload,
+} from '../services/downloadService.js';
 
 interface StartDownloadBody {
   taskId: string;
@@ -44,7 +49,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = getDownloadProgress(taskId);
+    const progress = checkAndUpdateProgress(taskId);
     if (!progress) {
       return reply.status(404).send({ error: 'Download task not found' });
     }
@@ -59,7 +64,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = getDownloadProgress(taskId);
+    const progress = checkAndUpdateProgress(taskId);
     if (!progress || !progress.filePath) {
       return reply.status(404).send({ error: 'Download task not found or file not available' });
     }
@@ -80,7 +85,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = getDownloadProgress(taskId);
+    const progress = checkAndUpdateProgress(taskId);
     if (!progress || !progress.filePath) {
       return reply.status(404).send({ error: 'Download task not found or file not available' });
     }
