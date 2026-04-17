@@ -674,7 +674,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
-  it('uses auto height and computes the popover max height from the content frame', async () => {
+  it('uses auto height and computes the popover max height from viewport', async () => {
     mockSubmitFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ data: '' }),
@@ -741,7 +741,7 @@ describe('RightContentHeader feedback popover', () => {
     expect(popover).toBeTruthy();
     expect(popover?.style.height).toBe('auto');
     expect(popoverContent).toBeTruthy();
-    expect(popoverContent?.style.maxHeight).toBe('536px');
+    expect(popoverContent?.style.maxHeight).toBe('604px');
   });
 
   it('uses shared input styles for the detail textarea and other issue input', async () => {

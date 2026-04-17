@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -1683,7 +1683,7 @@ select:-webkit-autofill:focus {
     box-sizing: border-box;
     top: calc(100% + 12px);
     right: -25px;
-    z-index: 30;
+    z-index: 80;
     width: min(430px, calc(100vw - 24px));
     height: auto;
     overflow: visible;
