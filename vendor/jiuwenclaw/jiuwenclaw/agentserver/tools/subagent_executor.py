@@ -517,7 +517,8 @@ Approach each task methodically and deliver high-quality results."""
         Build subagent configuration by inheriting from parent agent.
 
         Copies parent's ReActAgentConfig model settings, excludes context processors,
-        and sets custom prompt_template.
+        and inherits parent's system prompt (safety rules, governance, etc.) with
+        subagent role appended. This ensures subagent respects all security constraints.
         """
         # Get parent agent's config
         parent_config = self._parent_agent._config
@@ -528,6 +529,17 @@ Approach each task methodically and deliver high-quality results."""
                 prompt_template=[{"role": "system", "content": system_prompt}],
                 max_iterations=10,
             )
+
+        # Inherit parent's system prompt (contains safety rules, governance, etc.)
+        parent_content = ""
+        if parent_config.prompt_template:
+            for msg in parent_config.prompt_template:
+                if msg.get("role") == "system":
+                    parent_content = msg.get("content", "")
+                    break
+
+        # Append subagent role to parent's prompt (parent safety rules preserved)
+        augmented_content = parent_content + "\n\n---\n\n# Subagent Role\n\n" + system_prompt
 
         # Build new config inheriting from parent, excluding problematic fields
         new_config = ReActAgentConfig(
@@ -544,8 +556,8 @@ Approach each task methodically and deliver high-quality results."""
             sys_operation_id=parent_config.sys_operation_id,
             # Context engine (reuse parent's config)
             context_engine_config=parent_config.context_engine_config,
-            # Subagent's own prompt
-            prompt_template=[{"role": "system", "content": system_prompt}],
+            # Inherit parent prompt + subagent role (safety rules preserved)
+            prompt_template=[{"role": "system", "content": augmented_content}],
             # Exclude context processors - subagents don't need offloading/compression
             context_processors=[],
         )
