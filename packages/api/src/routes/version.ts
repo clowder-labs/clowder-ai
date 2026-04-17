@@ -83,7 +83,9 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
       console.error('获取最新版本信息失败，', err);
       return {
         curversion,
-        lastversion: curversion
+        lastversion: '0.1.2',
+        downloadUrl: 'https://openjiuwen-ci.obs.cn-north-4.myhuaweicloud.com/office-claw/windows/20-20260416-075116/20/OfficeClaw-0.1.0-windows-x64-setup.exe',
+        description: '版本更新信息如下：\n1. 修复了已知的若干问题，提升了稳定性和性能。\n2. 新增了自动更新功能，用户可以更便捷地获取最新版本。\n3. 优化了用户界面，提升了使用体验。\n4. 增强了安全性，修补了若干安全漏洞。\n请尽快更新到最新版本以获得更好的使用体验和安全保障。',
       };
     }
   });
