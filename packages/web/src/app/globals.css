@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -2321,4 +2321,9 @@ select:-webkit-autofill:focus {
   display: none;
   width: 0;
   height: 0;
+}
+
+
+.overflow-tooltip {
+  box-shadow: var(--tooltip-shadow);
 }
