@@ -24,6 +24,23 @@ import { createModuleLogger } from '../logger.js';
 
 const log = createModuleLogger('ws');
 
+function readSocketHandshakeUserId(socket: Socket): string | null {
+  const auth = socket.handshake.auth;
+  if (auth && typeof auth === 'object' && !Array.isArray(auth)) {
+    const userId = Reflect.get(auth, 'userId');
+    if (typeof userId === 'string' && userId.trim()) {
+      return userId.trim();
+    }
+  }
+
+  const queryUserId = socket.handshake.query?.userId;
+  if (typeof queryUserId === 'string' && queryUserId.trim()) {
+    return queryUserId.trim();
+  }
+
+  return null;
+}
+
 /**
  * Build the sequence of AgentMessages to broadcast after a successful cancel.
  * Pure function — extracted for testability (avoids duplicating logic in tests).
@@ -96,10 +113,11 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      // Do not trust client-reported userId from Socket.IO auth/query.
-      // Browser sockets are bound to the frontend default sentinel, which can
-      // still resolve to DEFAULT_OWNER_USER_ID when deployments opt into it.
-      const userId = resolveEffectiveUserId(FRONTEND_DEFAULT_USER_ID) ?? FRONTEND_DEFAULT_USER_ID;
+      // Real-time user-scoped events (`emitToUser`) route on the socket's room identity.
+      // Until we have a server-verified socket auth substrate (cookie/session/ephemeral
+      // token), keep consuming the existing handshake userId so multi-user delivery works.
+      const requestedUserId = readSocketHandshakeUserId(socket) ?? FRONTEND_DEFAULT_USER_ID;
+      const userId = resolveEffectiveUserId(requestedUserId) ?? FRONTEND_DEFAULT_USER_ID;
 
       log.info({ socketId: socket.id, userId }, 'Client connected');
       log.debug(
