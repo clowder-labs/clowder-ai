@@ -453,9 +453,25 @@ Pipeline 完成需求收集后，自动生成时间戳目录：
    - 执行 Shell: `node {skill_root}/pptx-craft/scripts/utils/ensure_output_dir.js {session_dir}`
    - 脚本会创建 `{session_dir}/pages/` 目录并返回 `{pages_dir}`
 3. **创建 Charlie subagent**：使用 Agent tool 创建 general-purpose subagent，传递 Charlie Prompt（见下方模板）+ designer 子技能
-   **⚠️ 关键原则：强制文件读取**
 
-Charlie subagent 是隔离上下文，无法继承 Main Agent 已读取的内容。**Main Agent 必须在 Prompt 中注入绝对路径，强制 Charlie 自主读取设计规范文件。**
+### ⚠️ Main Agent 与 Charlie 交互注意事项
+
+**核心原则**
+1. Charlie subagent 是隔离上下文，无法继承 Main Agent 已读取的内容，所需的一切已通过"必须读取的文件"机制提供。
+2. Main Agent 必须在 Prompt 中注入绝对路径，强制 Charlie 自主读取设计规范文件。
+3. Main Agent 只传递用户原始需求，禁止任何和原始诉求无关的"个人发挥"。
+
+**禁止行为**：
+1. ❌ 禁止在 Prompt 中添加配色、字体、布局等建议（如"深灰底色"、"红色主题"、"使用粗体标题"、"左侧放图表"）
+2. ❌ 禁止根据主题脑补风格（如"科技主题=深色底"）
+
+**例外（用户明确要求时）**：
+1. ✅ 用户明确说"用蓝色配色"或"标题用粗体"等 → 传递此要求
+
+**正确行为**：
+- ✅ 只传递用户的原始需求文本
+- ✅ 只传递路径参数（output_dir、pages_dir 等）
+- ✅ 只传递风格ID，让 Charlie 自己读取风格文件
 
 ### Charlie Prompt 模板
 
