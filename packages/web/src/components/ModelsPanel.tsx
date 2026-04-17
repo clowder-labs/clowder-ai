@@ -24,6 +24,7 @@ import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { PasswordField } from './shared/PasswordField';
 import { SearchInput } from './shared/SearchInput';
+import { Textarea } from './shared/Textarea';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -1195,19 +1196,20 @@ export function ModelsPanel() {
               </div>
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>
-                <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
-                  <textarea
-                    data-testid="models-create-model-description-textarea"
-                    value={modelDescriptionInput}
-                    onChange={(event) => setModelDescriptionInput(event.target.value)}
-                    placeholder="请输入描述"
-                    maxLength={500}
-                    className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
-                  />
-                  <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
-                    {modelDescriptionInput.length}/500
-                  </div>
-                </div>
+                <Textarea
+                  data-testid="models-create-model-description-textarea"
+                  value={modelDescriptionInput}
+                  onChange={(event) => setModelDescriptionInput(event.target.value)}
+                  placeholder="请输入描述"
+                  maxLength={500}
+                  showCount
+                  formatCount={(current, max) => `${current}/${max ?? 0}`}
+                  useDefaultContainerStyles={false}
+                  useDefaultTextareaStyles={false}
+                  containerClassName="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1"
+                  counterClassName="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]"
+                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
+                />
               </div>
               <div className="hidden space-y-1">
                 <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'模型展示名称'}</p>
@@ -1596,11 +1598,13 @@ function ModelsCreateModelConfigSource({
         className="ui-input w-full rounded px-3 py-2 text-sm"
         toggleTestId="models-create-source-api-key-toggle"
       />
-      <textarea
+      <Textarea
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
         placeholder={'可选请求头(JSON)，如 {"X-App-Id":"my-app"}'}
+        useDefaultContainerStyles={false}
+        useDefaultTextareaStyles={false}
         className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">

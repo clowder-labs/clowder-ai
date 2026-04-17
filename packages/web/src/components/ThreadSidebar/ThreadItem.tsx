@@ -158,7 +158,7 @@ function resolveThreadFallbackAvatar(
   const avatar = officeCat?.avatar?.trim() ?? '';
   return {
     avatar: avatar ? (avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar) : '/avatars/assistant.svg',
-    color: officeCat?.color?.primary ?? '#7AAEFF',
+    color: officeCat?.color?.primary ?? 'var(--accent-primary)',
     displayName: officeCat?.displayName ?? '办公智能体',
   };
 }
@@ -190,7 +190,7 @@ export function ThreadItem({
   isHubThread,
   sourceLabel,
 }: ThreadItemProps) {
-  const { cats, getCatById } = useCatData();
+  const { cats = [], getCatById } = useCatData();
   const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
   const showUnreadBadge = unreadCount > 0;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
@@ -301,7 +301,7 @@ export function ThreadItem({
   );
   const avatarCatIds = (recentAssistantCatIds.length > 0 ? recentAssistantCatIds : fallbackAvatarCatIds).slice(0, 4);
   const contextMenuItemClass =
-    'block w-full whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] hover:text-[#191919] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:text-[#191919] focus-visible:outline-none';
+    'ui-overlay-item block w-full whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-xs text-[var(--overlay-text)] transition-colors focus-visible:outline-none';
   const isContextMenuOpen = contextMenu !== null;
   const openContextMenu = useCallback((anchorLeft: number, anchorTop: number, anchorBottom: number) => {
     setContextMenu({
@@ -336,11 +336,11 @@ export function ThreadItem({
 
       return (
         <div
-          className="inline-flex items-center justify-center rounded-full text-white font-semibold"
+          className="inline-flex items-center justify-center rounded-full font-semibold text-[var(--thread-avatar-initial-text)]"
           style={{
             width: size,
             height: size,
-            backgroundColor: cat?.color?.primary ?? '#7AAEFF',
+            backgroundColor: cat?.color?.primary ?? 'var(--accent-primary)',
             fontSize: size <= 16 ? 10 : 12,
             lineHeight: 1,
           }}
@@ -358,7 +358,7 @@ export function ThreadItem({
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 rounded-[8px] ${isActive ? 'ui-thread-item-active' : 'ui-thread-item-inactive'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -424,7 +424,7 @@ export function ThreadItem({
               ) : (
                 <span
                   aria-hidden="true"
-                  className="inline-flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold text-white"
+                  className="inline-flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold text-[var(--thread-avatar-initial-text)]"
                   style={{ backgroundColor: fallbackAvatar.color }}
                 >
                   {fallbackAvatar.avatar || getAvatarInitial(fallbackAvatar.displayName)}
@@ -434,7 +434,7 @@ export function ThreadItem({
           )}
           {showUnreadBadge && (
             <span
-              className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#FF3B30] px-1 text-[10px] font-medium leading-none text-white"
+              className="ui-thread-unread-badge absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[10px] font-medium leading-none"
               aria-label={`未读消息 ${unreadCount}`}
             >
               {unreadLabel}
@@ -445,26 +445,26 @@ export function ThreadItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <OverflowTooltip content={displayTitle} className="min-w-0 flex-1">
-              <span className="ui-thread-title block min-w-0 truncate text-[#191919] font-semibold">{displayTitle}</span>
+              <span className="ui-thread-title block min-w-0 truncate font-semibold">{displayTitle}</span>
             </OverflowTooltip>
             {sourceLabel && (
-              <span className="shrink-0 rounded-full bg-[rgba(20,118,255,0.1)] px-2 py-[1px] text-[10px] leading-4 text-[rgba(20,118,255,1)]">
+              <span className="ui-thread-source-badge shrink-0 rounded-full px-2 py-[1px] text-[10px] leading-4">
                 {sourceLabel}
               </span>
             )}
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
             <OverflowTooltip content={description} className="min-w-0 flex-1">
-              <span className="block min-w-0 truncate text-[12px] text-[#808080]">{description}</span>
+              <span className="ui-thread-description block min-w-0 truncate">{description}</span>
             </OverflowTooltip>
             <div className="flex shrink-0 items-center gap-1.5">
-              <span className={`ui-thread-meta shrink-0 text-[#808080] ${isContextMenuOpen ? 'hidden' : 'group-hover:hidden'}`}>
+              <span className={`ui-thread-meta shrink-0 ${isContextMenuOpen ? 'hidden' : 'group-hover:hidden'}`}>
                 {formatRelativeTime(lastActiveAt, true)}
               </span>
               <button
                 type="button"
                 aria-label="更多操作"
-                className={`h-4 w-4 items-center justify-center rounded text-[#808080] hover:bg-[rgba(0,0,0,0.05)] ${
+                className={`ui-thread-action h-4 w-4 items-center justify-center ${
                   isContextMenuOpen ? 'inline-flex' : 'hidden group-hover:inline-flex focus-visible:inline-flex'
                 }`}
                 onClick={(e) => {
@@ -488,9 +488,9 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] py-2"
+          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] border border-[var(--overlay-border)] py-2 shadow-[var(--overlay-shadow)]"
           data-testid="thread-context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 2px 12px 0 rgba(0,0,0,0.16)' }}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {
             e.preventDefault();

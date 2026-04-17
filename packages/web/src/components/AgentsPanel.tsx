@@ -49,12 +49,26 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 
 const TEMPLATE_PAGE_SIZE = 4;
 const ACTION_MENU_ITEM_CLASS =
-  'flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition text-black';
+  'group flex h-8 w-full items-center gap-2 rounded-[6px] px-[16px] py-[7px] text-left text-[12px] font-medium text-[var(--overlay-text)] transition-colors enabled:hover:bg-[var(--overlay-item-hover-bg)]';
+const ACTION_MENU_EDIT_ITEM_CLASS = `${ACTION_MENU_ITEM_CLASS} enabled:hover:text-[var(--text-accent)]`;
+const ACTION_MENU_DELETE_ITEM_CLASS = `${ACTION_MENU_ITEM_CLASS} enabled:hover:text-[var(--state-error-text)]`;
 const ACTION_MENU_VIEWPORT_PADDING = 12;
 const ACTION_MENU_OFFSET_Y = 8;
 const ACTION_MENU_ALIGN_RIGHT_OFFSET = 24;
 const ACTION_MENU_FALLBACK_WIDTH = 136;
 const ACTION_MENU_FALLBACK_HEIGHT = 96;
+const AGENT_CARD_CLASS =
+  'relative h-[76px] border px-3 py-2 transition-[border-color,background-color,box-shadow] [border-radius:var(--connector-tab-radius)]';
+const AGENT_CARD_DEFAULT_CLASS =
+  'border-[var(--connector-tab-border-default)] bg-[var(--connector-tab-bg-default)] hover:border-[var(--connector-tab-border-hover)] hover:bg-[var(--connector-tab-bg-hover)] hover:shadow-[var(--card-hover-shadow)]';
+const AGENT_CARD_SELECTED_CLASS =
+  'border-[var(--connector-tab-border-selected)] bg-[var(--connector-tab-bg-selected)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-hover-shadow)]';
+const AGENT_CARD_MENU_BUTTON_CLASS =
+  'inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition-colors';
+const AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS =
+  'bg-[var(--overlay-item-hover-bg)] text-[var(--text-accent)]';
+const AGENT_CARD_MENU_BUTTON_IDLE_CLASS =
+  'text-[var(--text-muted)] hover:bg-[var(--overlay-item-hover-bg)] hover:text-[var(--text-accent)]';
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
@@ -260,7 +274,7 @@ function renderAvatar(cat: CatData) {
   return (
     <div
       className="flex h-11 w-11 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-      style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
+      style={{ backgroundColor: cat.color?.primary ?? 'var(--accent-primary)' }}
     >
       <span>{avatar || catInitial(cat.displayName)}</span>
     </div>
@@ -866,7 +880,7 @@ export function AgentsPanel() {
               <button
                 type="button"
                 onClick={handleStartEdit}
-                className="mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition hover:bg-black/5"
+                className="ui-button-default mt-4 inline-flex h-7 min-w-[72px] items-center justify-center px-6 py-[5px] text-[12px] font-normal"
               >
                 编辑
               </button>
@@ -984,7 +998,7 @@ export function AgentsPanel() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
+                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition-[border-color,background-color,box-shadow] hover:border-[var(--card-hover-border)] hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
                     <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
@@ -999,7 +1013,7 @@ export function AgentsPanel() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[400px] h-[300px] flex flex-col shadow-[0_2px_12px_0_rgba(0,0,0,0.16)] rounded-[8px]"
+              className="fixed z-40 flex h-[300px] w-[400px] flex-col rounded-[8px] shadow-[var(--overlay-shadow)]"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -1127,13 +1141,7 @@ export function AgentsPanel() {
                   <div
                     key={cat.id}
                     data-testid={`agent-card-${cat.id}`}
-                    className="relative h-[76px] border px-3 py-2 transition-colors [border-radius:var(--connector-tab-radius)]"
-                    style={{
-                      borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--border-default)',
-                      backgroundColor: isSelected
-                        ? 'var(--connector-tab-bg-selected)'
-                        : 'var(--connector-tab-bg-default)',
-                    }}
+                    className={`${AGENT_CARD_CLASS} ${isSelected ? AGENT_CARD_SELECTED_CLASS : AGENT_CARD_DEFAULT_CLASS}`}
                   >
                     <div className="flex h-full items-center gap-3">
                       <button
@@ -1180,10 +1188,10 @@ export function AgentsPanel() {
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition ${
+                          className={`${AGENT_CARD_MENU_BUTTON_CLASS} ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[#f5f5f5] text-[var(--text-accent)]'
-                              : 'text-[var(--text-muted)] hover:bg-[#f5f5f5] hover:text-[var(--text-accent)]'
+                              ? AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS
+                              : AGENT_CARD_MENU_BUTTON_IDLE_CLASS
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1208,7 +1216,7 @@ export function AgentsPanel() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[80px] rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1.5 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+                className="ui-overlay-card fixed z-40 w-[80px] rounded-[6px] py-2 shadow-[var(--overlay-shadow)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1221,9 +1229,9 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[#f5f5f5]`}
+                  className={ACTION_MENU_EDIT_ITEM_CLASS}
                 >
-                  <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
+                  <EditIcon className="h-3.5 w-3.5 text-current" />
                   <span>编辑</span>
                 </button>
                 <button
@@ -1238,14 +1246,14 @@ export function AgentsPanel() {
                     setOpenActionMenuCatId(null);
                     setActionMenuPosition(null);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} ${
+                  className={`${ACTION_MENU_DELETE_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[#f5f5f5]'
+                      ? ''
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
                   <TrashIcon
-                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[var(--state-error-text)]' : 'text-[var(--text-subtle)]'}`}
+                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-current' : 'text-[var(--text-subtle)]'}`}
                   />
                   <span>删除</span>
                 </button>
@@ -1265,7 +1273,7 @@ export function AgentsPanel() {
                       type="button"
                       disabled
                       aria-disabled="true"
-                      className="inline-flex cursor-default items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919]"
+                      className="inline-flex cursor-default items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[var(--text-primary)]"
                       data-testid={`agent-tab-${tab.id}`}
                     >
                       <TabIcon className="h-3.5 w-3.5" />
@@ -1337,12 +1345,12 @@ export function AgentsPanel() {
 
       {/* 删除确认弹窗 */}
       {deleteConfirmModalOpen && catToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[400px] rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)]">
+          <div className="w-[400px] rounded-[8px] border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[16px] font-bold text-gray-900">确认删除智能体</h3>
+                  <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">确认删除智能体</h3>
                 </div>
                 <button
                   type="button"
@@ -1358,7 +1366,7 @@ export function AgentsPanel() {
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-gray-600">是否确认删除?删除后数据将不可恢复。</p>
+                <p className="text-sm text-[var(--modal-text-muted)]">是否确认删除?删除后数据将不可恢复。</p>
               </div>
 
               <div className="flex items-center justify-end gap-2">
