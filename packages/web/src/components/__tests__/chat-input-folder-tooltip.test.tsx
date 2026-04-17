@@ -97,7 +97,7 @@ describe('ChatInput folder tooltip', () => {
     });
 
     const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
-    expect(tooltip?.textContent).toContain('上传文件');
+    expect(tooltip?.textContent).toContain('选择附件');
     expect(tooltip?.querySelector('button')).toBeNull();
   });
 });

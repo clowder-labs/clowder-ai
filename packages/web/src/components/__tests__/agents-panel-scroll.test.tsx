@@ -225,6 +225,39 @@ describe('AgentsPanel scroll behavior', () => {
     expect(personaTab?.className).not.toContain('bg-[rgba(230,230,230,1)]');
   });
 
+  it('uses token-backed selected and hover-ready surfaces for agent cards and action menus', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const selectedCard = container.querySelector('[data-testid="agent-card-runtime-codex"]') as HTMLDivElement | null;
+    expect(selectedCard).not.toBeNull();
+    expect(selectedCard?.className).toContain('border-[var(--connector-tab-border-selected)]');
+    expect(selectedCard?.className).toContain('bg-[var(--connector-tab-bg-selected)]');
+
+    const unselectedCard = container.querySelector('[data-testid="agent-card-runtime-empty"]') as HTMLDivElement | null;
+    expect(unselectedCard).not.toBeNull();
+    expect(unselectedCard?.className).toContain('hover:border-[var(--connector-tab-border-hover)]');
+    expect(unselectedCard?.className).toContain('hover:bg-[var(--connector-tab-bg-hover)]');
+
+    const menuButton = container.querySelector(
+      '[data-testid="agent-card-menu-runtime-codex"]',
+    ) as HTMLButtonElement | null;
+    expect(menuButton).not.toBeNull();
+
+    await act(async () => {
+      menuButton?.click();
+    });
+
+    expect(menuButton?.className).toContain('bg-[var(--overlay-item-hover-bg)]');
+    expect(menuButton?.className).toContain('text-[var(--text-accent)]');
+
+    const actionMenu = container.querySelector('[role="menu"]') as HTMLDivElement | null;
+    expect(actionMenu).not.toBeNull();
+    expect(actionMenu?.className).toContain('ui-overlay-card');
+    expect(actionMenu?.className).toContain('shadow-[var(--overlay-shadow)]');
+  });
+
   it('hides edit actions for preset agents', async () => {
     await act(async () => {
       root.render(React.createElement(AgentsPanel));
