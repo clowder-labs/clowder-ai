@@ -343,36 +343,18 @@ if ($useExternalRedis) {
         $redisSource = $redisCommands.Source
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
-    # -- Redis auth from Windows Credential Manager ---
+    # -- Redis auth (ephemeral password per session) ---
     $localRedisPassword = $null
     if (-not $configuredRedisUrl) {
-        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {
-            Write-Warn "Credential Manager read failed: $_ - falling back to memory mode"
-            $useRedis = $false
-        }
-        if ($useRedis -and $null -eq $localRedisPassword) {
-            $bytes = New-Object byte[] 24
-            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-            $localRedisPassword = [Convert]::ToBase64String($bytes)
-            try {
-                Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword
-                Write-Ok "Redis password generated and stored in Credential Manager"
-            } catch {
-                Write-Warn "Credential Manager unavailable: $_ - falling back to memory mode"
-                $localRedisPassword = $null
-                $useRedis = $false
-            }
-        } elseif ($useRedis) {
-            Write-Ok "Redis password loaded from Credential Manager"
-        }
-        if ($localRedisPassword) {
-            $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
-            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
-        }
+        $bytes = New-Object byte[] 24
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+        $localRedisPassword = [Convert]::ToBase64String($bytes)
+        # Best-effort: store in Credential Manager for graceful stop
+        try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
+        $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
+        $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+        Write-Ok "Redis auth enabled (session password)"
     }
-    if (-not $useRedis) {
-        # Credential Manager failed — skip Redis startup, fall through to memory mode
-    } else {
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
@@ -457,7 +439,6 @@ if ($useExternalRedis) {
             $useRedis = $false
         }
     }
-    } # end if ($useRedis) — Credential Manager guard
 }
 
 if (-not $useRedis) {
