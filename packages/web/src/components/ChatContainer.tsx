@@ -790,9 +790,15 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1 overflow-x-auto">
-        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: sidebarMenu === 'chat' ?  MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}>
-        <RightContentHeader />
+      <div className="min-w-0 flex-1 flex min-h-0 flex-col">
+        <div className="ui-shell-surface z-40 shrink-0">
+          <RightContentHeader />
+        </div>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <div
+            className="flex h-full min-h-0 flex-col"
+            style={{ minWidth: sidebarMenu === 'chat' ? MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}
+          >
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
@@ -915,6 +921,7 @@ function ThreadModeChatContainer({
           />
         )}
 
+          </div>
         </div>
       </div>
 
