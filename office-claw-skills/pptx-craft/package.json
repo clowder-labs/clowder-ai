@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predist": "node html-to-pptx/scripts/build.js",
-    "dist": "node dist.mjs"
+    "postinstall": "node html-to-pptx/scripts/build.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.5.0",
@@ -21,9 +20,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "devDependencies": {
-    "javascript-obfuscator": "^5.4.1",
-    "tar": "^7.5.13"
   }
 }
