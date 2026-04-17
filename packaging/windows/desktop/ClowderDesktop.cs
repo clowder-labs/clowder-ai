@@ -1070,7 +1070,7 @@ internal sealed class LauncherForm : Form
 
         var settings = _splashWebView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
-        settings.AreDevToolsEnabled = true;
+        settings.AreDevToolsEnabled = false;
         settings.AreDefaultContextMenusEnabled = false;
         settings.IsZoomControlEnabled = false;
         settings.AreBrowserAcceleratorKeysEnabled = false;
@@ -1272,7 +1272,7 @@ internal sealed class LauncherForm : Form
 
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
-        settings.AreDevToolsEnabled = true;
+        settings.AreDevToolsEnabled = false;
         // 屏蔽右键菜单，但保留键盘快捷键（Ctrl+C 复制、Ctrl+V 粘贴、Ctrl+A 全选等）
         settings.AreDefaultContextMenusEnabled = false;
         settings.IsZoomControlEnabled = false;
