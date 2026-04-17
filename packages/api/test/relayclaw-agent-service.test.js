@@ -688,11 +688,110 @@ describe('RelayClawAgentService', () => {
       'cat-cafe MCP should point at the local MCP server bundle',
     );
     assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
+    assert.equal(
+      capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
+      [
+        'limb_list_available',
+        'limb_invoke',
+        'limb_pair_list',
+        'limb_pair_approve',
+        'office_claw_list_tasks',
+        'office_claw_update_task',
+        'office_claw_load_skill',
+        'office_claw_create_rich_block',
+        'office_claw_get_rich_block_rules',
+        'office_claw_request_permission',
+        'office_claw_check_permission_status',
+        'office_claw_update_workflow',
+        'office_claw_feat_index',
+      ].join(','),
+    );
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(
       normalizedQuery,
       /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/,
     );
+  });
+
+  it('passes the relayclaw MCP denylist to the sidecar process env', async () => {
+    const appDir = mkdtempSync(join(tmpdir(), 'relayclaw-sidecar-env-'));
+    const appPy = join(appDir, 'jiuwenclaw', 'app.py');
+    const pythonBin =
+      process.platform === 'win32'
+        ? join(appDir, '.venv', 'Scripts', 'python.exe')
+        : join(appDir, '.venv', 'bin', 'python');
+    mkdirSync(dirname(appPy), { recursive: true });
+    mkdirSync(dirname(pythonBin), { recursive: true });
+    writeFileSync(appPy, '');
+    writeFileSync(pythonBin, '');
+
+    let capturedSpawnOptions = null;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+    const previousPython = process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
+
+    try {
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = pythonBin;
+
+      const controller = new DefaultRelayClawSidecarController(
+        'office',
+        {
+          autoStart: true,
+          startupTimeoutMs: 1000,
+        },
+        {
+          spawnFn: (_command, _args, options) => {
+            capturedSpawnOptions = options;
+            const child = new FakeChildProcess('relayclaw-env');
+            queueMicrotask(() => {
+              child.stderr.emit('data', Buffer.from('[JiuWenClaw] 初始化完成: agent_name=main_agent\n', 'utf-8'));
+            });
+            return child;
+          },
+          allocatePort: async () => 19100,
+          tcpProbeFn: async () => true,
+        },
+      );
+
+      await controller.ensureStarted({
+        callbackEnv: {
+          OPENAI_API_KEY: 'test-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+        workingDirectory: '/tmp/project-sidecar-env',
+      });
+
+      assert.ok(capturedSpawnOptions?.env, 'spawn env should be captured');
+      assert.equal(
+        capturedSpawnOptions.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
+        [
+          'limb_list_available',
+          'limb_invoke',
+          'limb_pair_list',
+          'limb_pair_approve',
+          'office_claw_list_tasks',
+          'office_claw_update_task',
+          'office_claw_load_skill',
+          'office_claw_create_rich_block',
+          'office_claw_get_rich_block_rules',
+          'office_claw_request_permission',
+          'office_claw_check_permission_status',
+          'office_claw_update_workflow',
+          'office_claw_feat_index',
+        ].join(','),
+      );
+    } finally {
+      if (previousAppDir === undefined) {
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+      } else {
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
+      }
+      if (previousPython === undefined) {
+        delete process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
+      } else {
+        process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = previousPython;
+      }
+    }
   });
 
   it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
