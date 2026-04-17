@@ -175,7 +175,7 @@ export default function InvitationPage() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">
-      <LoginHeader />
+      <LoginHeader className="absolute inset-x-0 top-0 z-10 border-transparent bg-transparent" />
       <div className="relative flex-1 overflow-hidden px-6 py-10">
       <div className="pointer-events-none absolute inset-0">
         <Image
