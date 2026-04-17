@@ -487,7 +487,7 @@ function ThreadModeChatContainer({
       prevThreadRef.current = threadId;
     }
     // First mount: sync threadId to store without save/restore
-    setCurrentThread(threadId);
+      setCurrentThread(threadId);
   }, [
     threadId,
     clearTasks, // Clean up non-thread-scoped refs
@@ -911,7 +911,7 @@ function ThreadModeChatContainer({
               handleSend(content, images, undefined, whisper, deliveryMode);
             }}
             onStop={handleStop}
-            disabled={false}
+            disabled={hasActiveInvocation}
             folderSelectionEnabled={false}
             selectedFolderName={currentThreadProjectName}
             selectedFolderTitle={currentThreadProjectPath}

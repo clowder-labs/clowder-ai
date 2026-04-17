@@ -50,6 +50,8 @@ const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
+const mockAddThreadActiveInvocation = vi.fn();
+const mockBatchStreamChunkUpdate = vi.fn();
 const mockSetQueue = vi.fn();
 const mockSetQueuePaused = vi.fn();
 const mockSetQueueFull = vi.fn();
@@ -57,6 +59,7 @@ const mockSetThreadIntentMode = vi.fn();
 const mockSetThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
+const mockRequestStreamCatchUp = vi.fn();
 const mockGetThreadState = vi.fn(() => ({
   messages: [],
   isLoading: false,
@@ -87,6 +90,8 @@ vi.mock('@/stores/chatStore', () => {
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       setThreadLoading: mockSetThreadLoading,
       setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
+      addThreadActiveInvocation: mockAddThreadActiveInvocation,
+      batchStreamChunkUpdate: mockBatchStreamChunkUpdate,
       setQueue: mockSetQueue,
       setQueuePaused: mockSetQueuePaused,
       setQueueFull: mockSetQueueFull,
@@ -94,6 +99,7 @@ vi.mock('@/stores/chatStore', () => {
       setThreadTargetCats: mockSetThreadTargetCats,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+      requestStreamCatchUp: mockRequestStreamCatchUp,
       getThreadState: mockGetThreadState,
     }),
   };
@@ -186,6 +192,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadMessageStreaming.mockClear();
     mockSetThreadLoading.mockClear();
     mockSetThreadHasActiveInvocation.mockClear();
+    mockAddThreadActiveInvocation.mockClear();
+    mockBatchStreamChunkUpdate.mockClear();
     mockSetQueue.mockClear();
     mockSetQueuePaused.mockClear();
     mockSetQueueFull.mockClear();
@@ -193,6 +201,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
+    mockRequestStreamCatchUp.mockClear();
     mockGetThreadState.mockClear();
     // Clear all socket listeners from previous tests
     mockSocket.removeAllListeners();
@@ -340,6 +349,70 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
     // onMessage should NOT be called for background thread events
     expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it('agent_message without threadId is dropped (never routed to active thread)', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        content: 'legacy payload without thread id',
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(mockAddMessageToThread).not.toHaveBeenCalled();
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-B');
+  });
+
+  it('agent_message without threadId is recovered by invocationId mapping (no drop catch-up)', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    // Seed invocationId -> thread-A mapping from a normal background event.
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-A',
+        invocationId: 'inv-1',
+        content: 'seed',
+        timestamp: Date.now(),
+      });
+    });
+
+    // Missing threadId, but recoverable by invocationId.
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        invocationId: 'inv-1',
+        content: 'continued stream chunk',
+        timestamp: Date.now(),
+      });
+    });
+
+    // Still background-routed to thread-A, no active-thread contamination and no drop recovery fetch.
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(mockAddMessageToThread.mock.calls.some((call) => call?.[0] === 'thread-A')).toBe(true);
+    expect(mockBatchStreamChunkUpdate.mock.calls.some((call) => call?.[0]?.threadId === 'thread-A')).toBe(true);
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
   });
 
   it('route/store mismatch: message for route thread must go background until store switches', () => {

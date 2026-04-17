@@ -75,6 +75,7 @@ export function buildCancelMessages(result: CancelResult): AgentMessage[] {
 export class SocketManager {
   private io: Server;
   private invocationTracker: InvocationTracker | null;
+  private invocationThreadIndex: Map<string, string>;
   private multiMentionOrchestrator: {
     abortByThread(threadId: string): number;
     abortBySlot?(threadId: string, catId: string): number;
@@ -82,6 +83,7 @@ export class SocketManager {
 
   constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
     this.invocationTracker = invocationTracker ?? null;
+    this.invocationThreadIndex = new Map();
     this.multiMentionOrchestrator = null;
     const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
     this.io = new Server(httpServer, {
@@ -197,15 +199,52 @@ export class SocketManager {
 
   /**
    * Broadcast agent message to a thread room.
-   * Always scoped to a room — defaults to 'thread:default' when threadId is omitted.
+   * Always scoped to a room.
+   * If threadId is missing, try recovering from invocationId -> threadId index first.
+   * If recovery fails, the payload is rejected to avoid cross-thread contamination.
    * Never broadcasts globally to prevent cross-thread message leak.
    */
   broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
-    const tid = threadId ?? 'default';
+    const indexedThreadId =
+      typeof message.invocationId === 'string' && message.invocationId.trim()
+        ? this.invocationThreadIndex.get(message.invocationId)
+        : undefined;
+    const explicitThreadId = threadId?.trim();
+    const resolvedThreadId = explicitThreadId || indexedThreadId;
+
+    if (!resolvedThreadId) {
+      log.error(
+        {
+          messageType: message.type,
+          catId: message.catId,
+          invocationId: message.invocationId,
+        },
+        'Rejected agent_message broadcast: missing threadId',
+      );
+      return;
+    }
+    const tid = resolvedThreadId;
+    if (!explicitThreadId && indexedThreadId) {
+      log.warn(
+        {
+          messageType: message.type,
+          catId: message.catId,
+          invocationId: message.invocationId,
+          recoveredThreadId: indexedThreadId,
+        },
+        'Recovered missing threadId from invocation index',
+      );
+    }
+    if (message.invocationId) {
+      this.invocationThreadIndex.set(message.invocationId, tid);
+    }
     const room = `thread:${tid}`;
     const errorCode = message.type === 'error' ? classifyAgentErrorCode(message.error, message.errorCode) : undefined;
     const classifiedMessage = errorCode ? { ...message, errorCode } : message;
     this.io.to(room).emit('agent_message', { ...classifiedMessage, threadId: tid });
+    if (message.type === 'done' && message.isFinal && message.invocationId) {
+      this.invocationThreadIndex.delete(message.invocationId);
+    }
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {
