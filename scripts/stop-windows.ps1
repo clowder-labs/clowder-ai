@@ -72,6 +72,19 @@ $redisStartedByLauncher = [bool]($runtimeState -and $runtimeState.RedisStartedBy
 if (-not $configuredRedisUrl -and $env:REDIS_URL) {
     $configuredRedisUrl = $env:REDIS_URL.Trim()
 }
+# Restore Redis auth from Credential Manager (runtime-state stores redacted URL)
+$redisAuthFromCM = [bool]($runtimeState -and $runtimeState.RedisAuthFromCredentialManager)
+if ($redisAuthFromCM) {
+    try {
+        $storedPassword = Read-ClowderCredential -Path "redis/password"
+        if ($storedPassword) {
+            $escapedPwd = [System.Uri]::EscapeDataString($storedPassword)
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+        }
+    } catch {
+        Write-Warn "Cannot read Redis password from Credential Manager: $_"
+    }
+}
 
 function Get-ManagedProcessId {
     param([string]$ManagedPidFile)

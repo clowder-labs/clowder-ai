@@ -335,6 +335,89 @@ function Get-RedisServerAuthArgs {
     return @()
 }
 
+# -- Windows Credential Manager helpers -------------------------
+
+function Initialize-WinCredNative {
+    if (-not ('WinCredNative' -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinCredNative {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct CREDENTIAL {
+        public UInt32 Flags;
+        public UInt32 Type;
+        public string TargetName;
+        public string Comment;
+        public long LastWritten;
+        public UInt32 CredentialBlobSize;
+        public IntPtr CredentialBlob;
+        public UInt32 Persist;
+        public UInt32 AttributeCount;
+        public IntPtr Attributes;
+        public string TargetAlias;
+        public string UserName;
+    }
+    [DllImport("Advapi32.dll", EntryPoint = "CredReadW", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool CredRead(string target, UInt32 type, UInt32 reservedFlag, out IntPtr credentialPtr);
+    [DllImport("Advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool CredWrite(ref CREDENTIAL credential, UInt32 flags);
+    [DllImport("Advapi32.dll", SetLastError = true)]
+    public static extern void CredFree(IntPtr credentialPtr);
+}
+"@
+    }
+}
+
+function Read-ClowderCredential {
+    param([Parameter(Mandatory)][string]$Path)
+    Initialize-WinCredNative
+    $target = "Clowder/$Path"
+    $credPtr = [IntPtr]::Zero
+    $ok = [WinCredNative]::CredRead($target, 1, 0, [ref]$credPtr)
+    if (-not $ok) {
+        $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        if ($err -eq 1168) { return $null }
+        throw "CredRead failed for '$target': Win32 error $err"
+    }
+    try {
+        $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [type][WinCredNative+CREDENTIAL])
+        if ($cred.CredentialBlobSize -le 0 -or $cred.CredentialBlob -eq [IntPtr]::Zero) { return "" }
+        $bytes = New-Object byte[] $cred.CredentialBlobSize
+        [Runtime.InteropServices.Marshal]::Copy($cred.CredentialBlob, $bytes, 0, $cred.CredentialBlobSize)
+        return [System.Text.Encoding]::Unicode.GetString($bytes).TrimEnd([char]0)
+    } finally {
+        if ($credPtr -ne [IntPtr]::Zero) { [WinCredNative]::CredFree($credPtr) }
+    }
+}
+
+function Write-ClowderCredential {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Secret
+    )
+    Initialize-WinCredNative
+    $target = "Clowder/$Path"
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($Secret)
+    $blob = [Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    try {
+        [Runtime.InteropServices.Marshal]::Copy($bytes, 0, $blob, $bytes.Length)
+        $cred = New-Object WinCredNative+CREDENTIAL
+        $cred.Type = 1
+        $cred.TargetName = $target
+        $cred.CredentialBlobSize = $bytes.Length
+        $cred.CredentialBlob = $blob
+        $cred.Persist = 2
+        $cred.UserName = $target
+        if (-not [WinCredNative]::CredWrite([ref]$cred, 0)) {
+            $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            throw "CredWrite failed for '$target': Win32 error $err"
+        }
+    } finally {
+        if ($blob -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($blob) }
+    }
+}
+
 function Test-TruthyEnvFlag {
     param([string]$Value, [bool]$Default = $false)
 
