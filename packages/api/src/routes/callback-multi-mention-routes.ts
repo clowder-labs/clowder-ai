@@ -167,13 +167,21 @@ function dispatchViaQueue(
     if ((result.outcome === 'enqueued' || result.outcome === 'merged') && result.entry) {
       queueProcessor.registerEntryCompleteHook?.(result.entry.id, (_entryId, status, responseText) => {
         if (status === 'canceled') {
-          log.info({ requestId, catId }, '[F122B B6] multi-mention queue entry canceled, skipping recordResponse');
+          const newStatus = orch.recordFailure(requestId, catId, '[dispatch canceled]');
+          log.info({ requestId, catId, newStatus }, '[F122B B6] multi-mention queue entry canceled');
+          if (newStatus === 'done') {
+            cancelTimeout(requestId);
+            void flushResult(deps, requestId, threadId, userId, log);
+          }
           return;
         }
         const finalResponse = responseText || (status === 'failed' ? '[dispatch error]' : '');
-        const newStatus = orch.recordResponse(requestId, catId, finalResponse);
+        const newStatus =
+          status === 'failed'
+            ? orch.recordFailure(requestId, catId, finalResponse)
+            : orch.recordResponse(requestId, catId, finalResponse);
         log.info(
-          { requestId, catId, newStatus, responseLength: finalResponse.length },
+          { requestId, catId, status, newStatus, responseLength: finalResponse.length },
           '[F122B B6] multi-mention queue response recorded',
         );
         if (newStatus === 'done') {
@@ -222,7 +230,12 @@ async function dispatchToTarget(
   const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
   try {
     if (controller.signal.aborted) {
-      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch canceled before start (deleting)');
+      const newStatus = orch.recordFailure(requestId, targetCatId, '[dispatch canceled]');
+      log.info({ requestId, targetCatId, newStatus }, '[F086] Multi-mention dispatch canceled before start');
+      if (newStatus === 'done') {
+        cancelTimeout(requestId);
+        await flushResult(deps, requestId, threadId, userId, log);
+      }
       return;
     }
 
@@ -303,13 +316,22 @@ async function dispatchToTarget(
       orch.unregisterDispatch(requestId, targetCatId);
     }
 
-    // If aborted or governance-blocked, do NOT record response
-    // or flush result — the partial/empty text would produce a misleading summary.
+    // Record aborted / policy-blocked dispatches as failed so the multi-mention
+    // request itself can still converge to a terminal state.
     if (controller.signal.aborted || governanceErrorCode) {
-      log.info(
-        { requestId, targetCatId, governanceErrorCode },
-        '[F086] Multi-mention dispatch aborted/blocked, skipping recordResponse',
+      const newStatus = orch.recordFailure(
+        requestId,
+        targetCatId,
+        controller.signal.aborted ? '[dispatch canceled]' : `[policy blocked: ${governanceErrorCode}]`,
       );
+      log.info(
+        { requestId, targetCatId, governanceErrorCode, newStatus },
+        '[F086] Multi-mention dispatch aborted/blocked recorded as failed',
+      );
+      if (newStatus === 'done') {
+        cancelTimeout(requestId);
+        await flushResult(deps, requestId, threadId, userId, log);
+      }
       return;
     }
 
@@ -353,12 +375,11 @@ async function dispatchToTarget(
         );
       }
     }
-    // Record failure response in orchestrator
-    orch.recordResponse(
-      requestId,
-      targetCatId,
-      `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
-    );
+    const newStatus = orch.recordFailure(requestId, targetCatId, `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
+    if (newStatus === 'done') {
+      cancelTimeout(requestId);
+      await flushResult(deps, requestId, threadId, userId, log);
+    }
   } finally {
     // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
     // throw, routeExecution crash, and normal completion. InvocationTracker.complete()

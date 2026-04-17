@@ -13,6 +13,7 @@ import {
   MULTI_MENTION_TERMINAL_STATES,
   type MultiMentionRequest,
   type MultiMentionResponse,
+  type MultiMentionResponseStatus,
   type MultiMentionResult,
   type MultiMentionStatus,
   type MultiMentionTriggerType,
@@ -107,6 +108,19 @@ export class MultiMentionOrchestrator {
   }
 
   recordResponse(requestId: string, catId: CatId, content: string): MultiMentionStatus {
+    return this.recordOutcome(requestId, catId, 'received', content);
+  }
+
+  recordFailure(requestId: string, catId: CatId, content = ''): MultiMentionStatus {
+    return this.recordOutcome(requestId, catId, 'failed', content);
+  }
+
+  private recordOutcome(
+    requestId: string,
+    catId: CatId,
+    responseStatus: MultiMentionResponseStatus,
+    content: string,
+  ): MultiMentionStatus {
     const entry = this.entries.get(requestId);
     if (!entry) throw new Error(`Multi-mention request not found: ${requestId}`);
 
@@ -129,7 +143,7 @@ export class MultiMentionOrchestrator {
       catId,
       content,
       timestamp: Date.now(),
-      status: 'received',
+      status: responseStatus,
     });
 
     // Check completion

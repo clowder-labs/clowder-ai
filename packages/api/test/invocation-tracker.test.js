@@ -17,7 +17,8 @@
 import assert from 'node:assert/strict';
 import { describe, it, it as test } from 'node:test';
 
-const { InvocationTracker } = await import('../dist/domains/cats/services/agents/invocation/InvocationTracker.js');
+await import('tsx/esm');
+const { InvocationTracker } = await import('../src/domains/cats/services/agents/invocation/InvocationTracker.ts');
 
 // --- Existing behavior (updated to slot-aware API) ---
 
@@ -158,6 +159,19 @@ describe('SlotTracker: per-thread-per-cat isolation', () => {
     assert.equal(ctrl1.signal.aborted, true);
     assert.equal(ctrl2.signal.aborted, true);
     assert.equal(tracker.has('t1'), false, 'no slots remain');
+  });
+
+  it('cancelAll only aborts slots owned by requestUserId when provided', () => {
+    const tracker = new InvocationTracker();
+    const ctrl1 = tracker.start('t1', 'opus', 'user1', ['opus']);
+    const ctrl2 = tracker.start('t1', 'codex', 'user2', ['codex']);
+    const cancelledCatIds = tracker.cancelAll('t1', 'user1');
+
+    assert.deepEqual(cancelledCatIds, ['opus']);
+    assert.equal(ctrl1.signal.aborted, true);
+    assert.equal(ctrl2.signal.aborted, false);
+    assert.equal(tracker.has('t1', 'opus'), false, 'request user slot cancelled');
+    assert.equal(tracker.has('t1', 'codex'), true, 'other user slot survives');
   });
 
   it('getActiveSlots returns all active catIds for thread', () => {
