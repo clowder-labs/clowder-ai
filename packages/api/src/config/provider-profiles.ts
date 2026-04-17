@@ -133,6 +133,8 @@ const CLIENT_PROTOCOL_MAP: Partial<Record<BuiltinAccountClient, ProviderProfileP
 const DEFAULT_BOOTSTRAP_CLIENTS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'dare'];
 const ALL_BUILTIN_CLIENTS = BUILTIN_ACCOUNT_SPECS.map((spec) => spec.client) as BuiltinAccountClient[];
 const providerStoreLocks = new Map<string, Promise<void>>();
+const VOLATILE_PROVIDER_PROFILE_API_KEY_REF_PREFIX = 'memory://provider-profiles/';
+const volatileProviderProfileApiKeys = new Map<string, string>();
 
 async function withStorageRootLock<T>(storageRoot: string, action: () => Promise<T>): Promise<T> {
   const previous = providerStoreLocks.get(storageRoot) ?? Promise.resolve();
@@ -362,10 +364,34 @@ function createDefaultSecrets(): ProviderProfilesSecretsFile {
 
 type ProviderProfileSecretEntry = ProviderProfilesSecretsFile['profiles'][string];
 
+function buildVolatileProviderProfileApiKeyRef(storageRoot: string, profileId: string): string {
+  return `${VOLATILE_PROVIDER_PROFILE_API_KEY_REF_PREFIX}${encodeURIComponent(storageRoot)}/${encodeURIComponent(profileId)}/apiKey`;
+}
+
+function isVolatileProviderProfileApiKeyRef(ref: string | undefined | null): ref is string {
+  return typeof ref === 'string' && ref.startsWith(VOLATILE_PROVIDER_PROFILE_API_KEY_REF_PREFIX);
+}
+
+function readVolatileProviderProfileApiKey(ref: string | undefined | null): string | undefined {
+  if (!isVolatileProviderProfileApiKeyRef(ref)) return undefined;
+  return volatileProviderProfileApiKeys.get(ref);
+}
+
+function writeVolatileProviderProfileApiKey(ref: string, apiKey: string): void {
+  volatileProviderProfileApiKeys.set(ref, apiKey);
+}
+
+function deleteVolatileProviderProfileApiKey(ref: string | undefined | null): void {
+  if (!isVolatileProviderProfileApiKeyRef(ref)) return;
+  volatileProviderProfileApiKeys.delete(ref);
+}
+
 function resolveStoredApiKey(entry: ProviderProfileSecretEntry | undefined): string | undefined {
   if (!entry) return undefined;
   if (entry.apiKey) return entry.apiKey;
   if (entry.apiKeyRef) {
+    const volatile = readVolatileProviderProfileApiKey(entry.apiKeyRef);
+    if (volatile !== undefined) return volatile;
     const resolved = readSecretRef(entry.apiKeyRef);
     return resolved ?? undefined;
   }
@@ -382,6 +408,7 @@ function resolveStoredEnv(entry: ProviderProfileSecretEntry | undefined): Record
 }
 
 function setStoredApiKey(
+  storageRoot: string,
   secrets: ProviderProfilesSecretsFile,
   profileId: string,
   apiKey: string,
@@ -389,12 +416,17 @@ function setStoredApiKey(
   const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
   if (isLocalSecretStorageEnabled()) {
     const ref = nextEntry.apiKeyRef ?? buildProviderProfileApiKeyRef(profileId);
+    deleteVolatileProviderProfileApiKey(nextEntry.apiKeyRef);
     writeSecretRef(ref, apiKey);
     nextEntry.apiKeyRef = ref;
     delete nextEntry.apiKey;
   } else {
-    nextEntry.apiKey = apiKey;
-    delete nextEntry.apiKeyRef;
+    const ref = isVolatileProviderProfileApiKeyRef(nextEntry.apiKeyRef)
+      ? nextEntry.apiKeyRef
+      : buildVolatileProviderProfileApiKeyRef(storageRoot, profileId);
+    writeVolatileProviderProfileApiKey(ref, apiKey);
+    nextEntry.apiKeyRef = ref;
+    delete nextEntry.apiKey;
   }
   secrets.profiles[profileId] = nextEntry;
   return nextEntry;
@@ -403,6 +435,7 @@ function setStoredApiKey(
 function clearStoredApiKey(secrets: ProviderProfilesSecretsFile, profileId: string): ProviderProfileSecretEntry | undefined {
   const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
   if (nextEntry.apiKeyRef) {
+    deleteVolatileProviderProfileApiKey(nextEntry.apiKeyRef);
     deleteSecretRef(nextEntry.apiKeyRef);
     delete nextEntry.apiKeyRef;
   }
@@ -947,14 +980,52 @@ async function readRawAtStorageRoot(storageRoot: string): Promise<{
       ProviderProfilesSecretsFile | LegacyProviderProfilesSecretsFileV1 | LegacyProviderProfilesSecretsFileV2
     >(secretsPath),
   );
+  const apiKeyDirty = syncStoredApiKeys(storageRoot, normalizedSecrets.value);
   const envDirty = syncAcpEnvMetadata(normalizedMeta.value, normalizedSecrets.value);
   return {
     meta: normalizedMeta.value,
     secrets: normalizedSecrets.value,
     metaPath,
     secretsPath,
-    dirty: normalizedMeta.dirty || normalizedSecrets.dirty || envDirty,
+    dirty: normalizedMeta.dirty || normalizedSecrets.dirty || apiKeyDirty || envDirty,
   };
+}
+
+function syncStoredApiKeys(storageRoot: string, secrets: ProviderProfilesSecretsFile): boolean {
+  let dirty = false;
+
+  for (const [profileId, entry] of Object.entries(secrets.profiles)) {
+    if (!entry) continue;
+    const apiKey = entry.apiKey?.trim();
+    if (!apiKey) {
+      if (entry.apiKey !== undefined) {
+        delete entry.apiKey;
+        dirty = true;
+      }
+      continue;
+    }
+
+    if (isLocalSecretStorageEnabled()) {
+      const ref =
+        entry.apiKeyRef && !isVolatileProviderProfileApiKeyRef(entry.apiKeyRef)
+          ? entry.apiKeyRef
+          : buildProviderProfileApiKeyRef(profileId);
+      deleteVolatileProviderProfileApiKey(entry.apiKeyRef);
+      writeSecretRef(ref, apiKey);
+      entry.apiKeyRef = ref;
+    } else {
+      const ref = isVolatileProviderProfileApiKeyRef(entry.apiKeyRef)
+        ? entry.apiKeyRef
+        : buildVolatileProviderProfileApiKeyRef(storageRoot, profileId);
+      writeVolatileProviderProfileApiKey(ref, apiKey);
+      entry.apiKeyRef = ref;
+    }
+
+    delete entry.apiKey;
+    dirty = true;
+  }
+
+  return dirty;
 }
 
 function syncAcpEnvMetadata(meta: ProviderProfilesMetaFile, secrets: ProviderProfilesSecretsFile): boolean {
@@ -1270,7 +1341,7 @@ export async function createProviderProfile(
       };
 
       if (apiKey) {
-        setStoredApiKey(secrets, profile.id, apiKey);
+        setStoredApiKey(storageRoot, secrets, profile.id, apiKey);
       }
       if (input.setActive) {
         const client = resolveClientFromSelector(input.provider ?? input.protocol, profile);
@@ -1407,7 +1478,7 @@ export async function updateProviderProfile(
       profile.models = normalizeModels(input.models);
     }
     if (typeof input.apiKey === 'string' && input.apiKey.trim()) {
-      setStoredApiKey(secrets, profile.id, input.apiKey.trim());
+      setStoredApiKey(storageRoot, secrets, profile.id, input.apiKey.trim());
       profile.authType = 'api_key';
     }
     profile.updatedAt = new Date().toISOString();
