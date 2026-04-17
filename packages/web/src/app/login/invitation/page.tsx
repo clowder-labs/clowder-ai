@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
+import { LoginHeader } from '@/components/LoginHeader';
 
 type InvitationResponse = {
   success?: boolean;
@@ -173,7 +174,9 @@ export default function InvitationPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-6 py-10">
+    <div className="relative flex h-screen flex-col overflow-hidden">
+      <LoginHeader />
+      <div className="relative flex-1 overflow-hidden px-6 py-10">
       <div className="pointer-events-none absolute inset-0">
         <Image
           src="/images/invitation-background-4x.png"
@@ -185,7 +188,7 @@ export default function InvitationPage() {
         />
       </div>
 
-      <div className="relative mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1080px] items-center justify-center">
+      <div className="relative mx-auto flex h-full max-w-[1080px] items-center justify-center">
         <div className="w-full max-w-[560px] text-center">
           <div className="space-y-5">
             <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 leading-none">
@@ -270,7 +273,7 @@ export default function InvitationPage() {
                   onClick={handleRelogin}
                   className="flex h-8 flex-1 items-center justify-center rounded-full border border-[#191919] bg-white px-6 text-[12px] font-normal text-[#191919] shadow-[0_18px_38px_-22px_rgba(17,24,39,0.95)] transition hover:-translate-y-0.5 hover:bg-[#F5F5F5] disabled:cursor-not-allowed disabled:border-[#D1D5DB] disabled:text-[#9CA3AF] disabled:shadow-none"
                 >
-                  {isReloginLoading ? '重新登录中...' : '重新登录'}
+                  {isReloginLoading ? '重新登录中...' : '退出登录'}
                 </button>
                 <button
                   type="submit"
@@ -283,6 +286,7 @@ export default function InvitationPage() {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </div>
   );
