@@ -1,6 +1,26 @@
-import { createWriteStream, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, statSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+const MIN_EXE_SIZE = 1024 * 10; // 10KB minimum for valid exe
+
+function isValidExeFile(filePath: string): boolean {
+  try {
+    if (!existsSync(filePath)) return false;
+
+    const stats = statSync(filePath);
+    if (stats.size < MIN_EXE_SIZE) return false;
+
+    const fd = openSync(filePath, 'r');
+    const buffer = Buffer.alloc(2);
+    readSync(fd, buffer, 0, 2, 0);
+    closeSync(fd);
+
+    return buffer[0] === 0x4d && buffer[1] === 0x5a; // "MZ" magic number for Windows PE files
+  } catch {
+    return false;
+  }
+}
 
 export type DownloadStatus = 'idle' | 'downloading' | 'success' | 'error' | 'cancelled';
 
@@ -75,6 +95,8 @@ export function checkAndUpdateProgress(taskId: string): DownloadProgress | null 
 
   const filePath = buildFilePathFromVersion(version);
   if (!existsSync(filePath)) return null;
+
+  if (!isValidExeFile(filePath)) return null;
 
   const fileName = `OfficeClaw-V${version}.exe`;
   return {
@@ -199,4 +221,20 @@ export function clearDownloadTask(taskId: string): void {
     } catch {}
   }
   downloadTasks.delete(taskId);
+}
+
+export function cleanupIncompleteDownloads(): void {
+  for (const [taskId, task] of downloadTasks.entries()) {
+    if (task.progress.status !== 'success') {
+      if (task.abortController) {
+        task.abortController.abort();
+      }
+      if (task.progress.filePath && existsSync(task.progress.filePath)) {
+        try {
+          unlinkSync(task.progress.filePath);
+        } catch {}
+      }
+      downloadTasks.delete(taskId);
+    }
+  }
 }

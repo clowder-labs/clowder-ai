@@ -4,6 +4,7 @@
  *
  */
 
+export { cleanupIncompleteDownloads } from '../services/downloadService.js';
 export { auditRoutes } from './audit.js';
 export { authRoutes } from './auth.js';
 export { authorizationRoutes } from './authorization.js';

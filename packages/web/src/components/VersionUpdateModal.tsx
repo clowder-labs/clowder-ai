@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { type DownloadProgress, useDownloadStore } from '@/stores/downloadStore';
 import { apiFetch } from '@/utils/api-client';
@@ -54,13 +54,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
-  open,
-  onCancel,
-  versionInfo: externalVersionInfo,
-}) => {
-  const [internalVersionInfo, setInternalVersionInfo] = useState<VersionInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel, versionInfo }) => {
   const downloadState = useDownloadStore();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const resetRef = useRef(downloadState.reset);
@@ -69,10 +63,8 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
   resetRef.current = downloadState.reset;
   updateProgressRef.current = downloadState.updateProgress;
 
-  const versionInfo = externalVersionInfo ?? internalVersionInfo;
-
   useEffect(() => {
-    if (!open) return;
+    if (!open || !versionInfo?.lastversion) return;
 
     const checkDownloadStatus = async (taskId: string) => {
       try {
@@ -87,33 +79,12 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
       }
     };
 
-    if (externalVersionInfo) {
-      const taskId = `version-${externalVersionInfo.lastversion}`;
-      checkDownloadStatus(taskId);
-    } else {
-      setIsLoading(true);
-      apiFetch('/api/lastversion')
-        .then((res) => res.json())
-        .then((data: VersionInfo) => {
-          setInternalVersionInfo(data);
-          const hasNewVersion =
-            !!data.lastversion && !!data.curversion && compareVersions(data.lastversion, data.curversion) > 0;
-          if (hasNewVersion) {
-            const taskId = `version-${data.lastversion}`;
-            checkDownloadStatus(taskId);
-          }
-        })
-        .catch((error) => {
-          console.error('获取版本信息失败:', error);
-          setInternalVersionInfo(null);
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [open, externalVersionInfo]);
+    const taskId = `version-${versionInfo.lastversion}`;
+    checkDownloadStatus(taskId);
+  }, [open, versionInfo?.lastversion]);
 
   useEffect(() => {
     if (!open) {
-      setInternalVersionInfo(null);
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
@@ -305,7 +276,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
       );
     }
 
-    if (hasNewVersion && !isLoading) {
+    if (hasNewVersion) {
       return (
         <div className="flex gap-3 justify-start">
           <button
@@ -366,9 +337,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({
           </div>
 
           <div className="mb-1">
-            {isLoading ? (
-              <span className="text-base font-bold">检查版本中...</span>
-            ) : downloadState.progress.status === 'error' ? (
+            {downloadState.progress.status === 'error' ? (
               <span className="text-base font-bold text-red-500">下载失败</span>
             ) : hasNewVersion ? (
               <span data-testid="version-update-title" style={newVersionTitleStyle}>
