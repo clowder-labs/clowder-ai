@@ -6,7 +6,7 @@ import { afterEach, describe, it } from 'node:test';
 
 const { applyConnectorSecretUpdates } = await import('../dist/config/connector-secret-updater.js');
 const { buildEnvSummary } = await import('../dist/config/env-registry.js');
-const { createProviderProfile, resolveAnthropicRuntimeProfileById } = await import(
+const { createProviderProfile, readProviderProfiles, resolveAnthropicRuntimeProfileById } = await import(
   '../dist/config/provider-profiles.js'
 );
 const { WeixinSessionStore } = await import('../dist/infrastructure/connectors/WeixinSessionStore.js');
@@ -125,6 +125,105 @@ describe('windows secret-backed persistence', () => {
 
       const runtime = await resolveAnthropicRuntimeProfileById(projectRoot, profile.id);
       assert.equal(runtime.apiKey, 'sk-windows-secret');
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps provider profile api keys in memory when local secret storage is unavailable', async () => {
+    setLocalSecretBackendForTests(null);
+    const projectRoot = mkdtempSync(join(tmpdir(), 'provider-secret-volatile-'));
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+
+    try {
+      const profile = await createProviderProfile(projectRoot, {
+        displayName: 'Linux Sponsor',
+        authType: 'api_key',
+        protocol: 'anthropic',
+        baseUrl: 'https://api.sponsor.dev',
+        apiKey: 'sk-linux-secret',
+      });
+
+      const secretsPath = join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json');
+      const raw = readFileSync(secretsPath, 'utf8');
+      assert.ok(!raw.includes('sk-linux-secret'));
+      assert.ok(!raw.includes('"apiKey"'));
+      assert.match(raw, /"apiKeyRef": "memory:\/\/provider-profiles\//);
+
+      const view = await readProviderProfiles(projectRoot);
+      const listed = view.providers.find((entry) => entry.id === profile.id);
+      assert.equal(listed?.hasApiKey, true);
+
+      const runtime = await resolveAnthropicRuntimeProfileById(projectRoot, profile.id);
+      assert.equal(runtime.apiKey, 'sk-linux-secret');
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('scrubs legacy plaintext provider profile api keys into volatile refs when local secret storage is unavailable', async () => {
+    setLocalSecretBackendForTests(null);
+    const projectRoot = mkdtempSync(join(tmpdir(), 'provider-secret-legacy-'));
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+
+    try {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.office-claw', 'provider-profiles.json'),
+        `${JSON.stringify(
+          {
+            version: 3,
+            activeProfileId: null,
+            providers: [
+              {
+                id: 'legacy-provider',
+                displayName: 'Legacy Provider',
+                kind: 'api_key',
+                authType: 'api_key',
+                builtin: false,
+                protocol: 'anthropic',
+                createdAt: '2026-04-17T00:00:00.000Z',
+                updatedAt: '2026-04-17T00:00:00.000Z',
+              },
+            ],
+            bootstrapBindings: {},
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      writeFileSync(
+        join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json'),
+        `${JSON.stringify(
+          {
+            version: 3,
+            profiles: {
+              'legacy-provider': {
+                apiKey: 'sk-legacy-plain',
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+
+      const runtime = await resolveAnthropicRuntimeProfileById(projectRoot, 'legacy-provider');
+      assert.equal(runtime.apiKey, 'sk-legacy-plain');
+
+      const raw = readFileSync(join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json'), 'utf8');
+      assert.ok(!raw.includes('sk-legacy-plain'));
+      assert.ok(!raw.includes('"apiKey"'));
+      assert.match(raw, /"apiKeyRef": "memory:\/\/provider-profiles\//);
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
