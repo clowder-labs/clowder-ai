@@ -777,7 +777,7 @@ describe('CliOutputBlock', () => {
     });
   });
 
-  it('renders a generic generated file card for xlsx output and does not render word or ppt cards', async () => {
+  it('renders an excel attachment card for xlsx output and does not render word or ppt cards', async () => {
     const xlsxEvents: CliEvent[] = [
       {
         id: 't1',
@@ -798,13 +798,13 @@ describe('CliOutputBlock', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('[data-testid="cli-output-file-card"]');
+    const card = container.querySelector('[data-testid="cli-output-excel-card"]');
     expect(card).toBeTruthy();
     expect(card?.textContent).toContain('weekly-report.xlsx');
     expect(container.querySelector('[data-testid="cli-output-word-card"]')).toBeNull();
     expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
 
-    const openButton = container.querySelector('[data-testid="cli-output-file-open"]') as HTMLButtonElement | null;
+    const openButton = container.querySelector('[data-testid="cli-output-excel-open"]') as HTMLButtonElement | null;
     expect(openButton).toBeTruthy();
 
     await act(async () => {
@@ -814,6 +814,92 @@ describe('CliOutputBlock', () => {
     const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
       path: 'D:\\workspace\\output\\weekly-report.xlsx',
+    });
+  });
+
+  it('renders a pdf attachment card and opens the generated file', async () => {
+    const pdfEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.pdf',
+        detail: '[Done] Saved: D:\\workspace\\output\\weekly-report.pdf',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: pdfEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-pdf-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('weekly-report.pdf');
+    expect(container.querySelector('[data-testid="cli-output-word-card"]')).toBeNull();
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
+
+    const openButton = container.querySelector('[data-testid="cli-output-pdf-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\workspace\\output\\weekly-report.pdf',
+    });
+  });
+
+  it('renders a txt attachment card for txt output and opens the resolved file', async () => {
+    const txtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write notes.txt',
+        detail: '[Done] Saved: workspace/output/notes.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: txtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-txt-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('notes.txt');
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
+      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-txt-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
+      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
     });
   });
 
