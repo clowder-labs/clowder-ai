@@ -571,6 +571,7 @@ function resolveCasCredential(userInfo: UserInfo) {
     accessKey: principal?.access || credential.access || '',
     secretKey: principal?.secret || credential.secret || '',
     securityToken: principal?.sts_token || credential.sts_token || '',
+    projectId: principal?.project_id || credential.project_id || '',
   };
 }
 
@@ -629,8 +630,9 @@ function buildSubscriptionRequest(
     body.promotion_code = effectivePromotionCode;
   }
 
-  const { accessKey, secretKey, securityToken } = resolveCasCredential(userInfo);
+  const { accessKey, secretKey, securityToken, projectId } = resolveCasCredential(userInfo);
   if (securityToken) headers['X-Security-Token'] = securityToken;
+  if (projectId) headers['X-Project-ID'] = projectId;
   return { headers, body, accessKey, secretKey, securityToken };
 }
 
