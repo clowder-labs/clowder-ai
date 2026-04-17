@@ -531,12 +531,13 @@ Approach each task methodically and deliver high-quality results."""
             )
 
         # Inherit parent's system prompt (contains safety rules, governance, etc.)
-        parent_content = ""
-        if parent_config.prompt_template:
-            for msg in parent_config.prompt_template:
-                if msg.get("role") == "system":
-                    parent_content = msg.get("content", "")
-                    break
+        # Collect all system messages and merge (consistent with react_agent._build_system_messages)
+        system_contents = [
+            msg.get("content", "")
+            for msg in (parent_config.prompt_template or [])
+            if msg.get("role") == "system"
+        ]
+        parent_content = "\n\n".join(system_contents) if system_contents else ""
 
         # Append subagent role to parent's prompt (parent safety rules preserved)
         augmented_content = parent_content + "\n\n---\n\n# Subagent Role\n\n" + system_prompt
