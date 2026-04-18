@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -22,7 +23,9 @@ if str(PROJECT_ROOT) not in sys.path:
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    # Load .env from JiuWenClaw config directory to ensure BROWSER_MANAGED_ARGS is available
+    env_file = os.path.expanduser("~/.jiuwenclaw/config/.env")
+    load_dotenv(dotenv_path=env_file if os.path.exists(env_file) else None)
 except Exception:
     pass
 
