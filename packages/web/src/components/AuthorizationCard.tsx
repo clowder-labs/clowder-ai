@@ -49,7 +49,7 @@ const CARD_ACTIONS: ActionConfig[] = [
     granted: false,
     scope: 'once',
     testId: 'authorization-card-deny',
-    className: 'border-[#FF4D4F] text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0] hover:text-[#FF4D4F]',
+    className: 'ui-button-danger-outline',
   },
 ];
 
@@ -189,7 +189,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
   return (
     <div
       data-testid="authorization-card"
-      className="w-full max-w-[482px] min-h-[140px] rounded-[12px] bg-[#f8f8f8] px-6 py-5"
+      className="w-full max-w-[482px] min-h-[140px] rounded-[12px] bg-[var(--surface-card-muted)] px-6 py-5 text-[var(--text-primary)]"
       style={{ 'marginLeft': '56px' }}
     >
       <div className="min-w-0">
@@ -202,7 +202,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
           />
           <div
             data-testid="authorization-card-title"
-            className="min-w-0 flex-1 text-[14px] font-semibold leading-6 text-[#202020]"
+            className="min-w-0 flex-1 text-[14px] font-semibold leading-6 text-[var(--text-primary)]"
           >
             {title}
           </div>
@@ -210,18 +210,18 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
 
         <div
           data-testid="authorization-card-description"
-          className="mt-2 whitespace-pre-wrap break-words text-[12px] leading-6 text-[#595959]"
+          className="mt-2 whitespace-pre-wrap break-words text-[12px] leading-6 text-[var(--text-secondary)]"
         >
           {parsedDescription.beforeText ? <div>{parsedDescription.beforeText}</div> : null}
           {parsedDescription.paramsRaw ? (
             <div
               data-testid="authorization-card-params"
-              className="mt-2 rounded-[8px] border border-[#E5E7EB] bg-[#FFFFFF] p-2"
+              className="mt-2 rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-2 text-[var(--text-primary)]"
             >
               {commandValue ? (
                 <div data-testid="authorization-card-param-command" className="mb-1">
                   <span className="font-semibold">command:</span>{' '}
-                  <code className="whitespace-pre-wrap break-words rounded-[4px] bg-[#F5F5F5] px-1 py-[1px] font-mono">
+                  <code className="whitespace-pre-wrap break-words rounded-[4px] bg-[var(--card-muted-bg)] px-1 py-[1px] font-mono">
                     {commandValue}
                   </code>
                 </div>
@@ -229,16 +229,18 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
               {workdirValue ? (
                 <div data-testid="authorization-card-param-workdir">
                   <span className="font-semibold">workdir:</span>{' '}
-                  <code className="whitespace-pre-wrap break-words rounded-[4px] bg-[#F5F5F5] px-1 py-[1px] font-mono">
+                  <code className="whitespace-pre-wrap break-words rounded-[4px] bg-[var(--card-muted-bg)] px-1 py-[1px] font-mono">
                     {workdirValue}
                   </code>
                 </div>
               ) : null}
               <details className="mt-1">
-                <summary className="cursor-pointer select-none text-[11px] leading-5 text-[#8C8C8C]">Raw JSON</summary>
+                <summary className="cursor-pointer select-none text-[11px] leading-5 text-[var(--text-label-secondary)]">
+                  Raw JSON
+                </summary>
                 <pre
                   data-testid="authorization-card-params-raw"
-                  className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-[6px] bg-[#F5F5F5] p-2 font-mono text-[11px] leading-5 text-[#434343]"
+                  className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded-[6px] bg-[var(--card-muted-bg)] p-2 font-mono text-[11px] leading-5 text-[var(--text-secondary)]"
                 >
                   {parsedDescription.paramsRaw}
                 </pre>
@@ -247,13 +249,13 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
           ) : null}
           {parsedDescription.afterText ? <div className="mt-2">{parsedDescription.afterText}</div> : null}
         </div>
-        <p data-testid="authorization-card-helper" className="text-[12px] leading-6 text-[#595959]">
+        <p data-testid="authorization-card-helper" className="text-[12px] leading-6 text-[var(--text-secondary)]">
           您可随时在
           <button
             type="button"
             data-testid="authorization-card-security-management"
             onClick={onOpenSecurityManagement}
-            className="mx-[1px] inline bg-transparent p-0 text-[12px] leading-6 text-[#1476FF]"
+            className="mx-[1px] inline bg-transparent p-0 text-[12px] leading-6 text-[var(--text-accent)]"
           >
             安全管理
           </button>
