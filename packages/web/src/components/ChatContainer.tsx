@@ -35,6 +35,7 @@ import { ChannelsPanel } from './ChannelsPanel';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
+import { computeSuppressedGeneratedFileNamesByMessage } from './generated-file-dedupe';
 import { ChatMessage } from './ChatMessage';
 import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
@@ -521,6 +522,10 @@ function ThreadModeChatContainer({
     () => mapPendingAuthorizationToMessages(messages, authPending),
     [authPending, messages],
   );
+  const suppressedGeneratedFilesByMessageId = useMemo(
+    () => computeSuppressedGeneratedFileNamesByMessage(messages),
+    [messages],
+  );
 
   useEffect(() => {
     const seenRequestIds = seenAuthRequestIdsRef.current;
@@ -620,13 +625,21 @@ function ThreadModeChatContainer({
         <ChatMessage
           message={msg}
           getCatById={getCatById}
+          suppressedGeneratedFileNames={suppressedGeneratedFilesByMessageId.get(msg.id)}
           pendingAuthRequests={pendingAuthorizationByMessageId.get(msg.id)}
           onAuthRespond={authRespond}
           onOpenSecurityManagement={handleOpenSecurityManagement}
         />
       </MessageActions>
     ),
-    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond, handleOpenSecurityManagement],
+    [
+      threadId,
+      getCatById,
+      suppressedGeneratedFilesByMessageId,
+      pendingAuthorizationByMessageId,
+      authRespond,
+      handleOpenSecurityManagement,
+    ],
   );
 
   useVoiceAutoPlay();

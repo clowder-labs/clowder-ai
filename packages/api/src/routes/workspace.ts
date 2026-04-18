@@ -53,6 +53,10 @@ const LOCAL_AGENT_OPENABLE_EXTS = new Set([
   '.pptx',
   '.doc',
   '.docx',
+  '.xls',
+  '.xlsx',
+  '.pdf',
+  '.txt',
   '.md',
   '.markdown',
 ]);
@@ -873,7 +877,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Excel/PDF/TXT/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
@@ -922,7 +926,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Excel/PDF/TXT/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
