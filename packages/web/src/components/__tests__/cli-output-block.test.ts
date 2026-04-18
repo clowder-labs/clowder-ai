@@ -937,6 +937,79 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('opens the current project folder from a document card when projectPath is configured', async () => {
+    const txtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write notes.txt',
+        detail: '[Done] Saved: workspace/output/notes.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: txtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const openFolderButton = container.querySelector('[data-testid="cli-output-txt-open-folder"]') as HTMLButtonElement | null;
+    expect(openFolderButton).toBeTruthy();
+
+    await act(async () => {
+      openFolderButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openFolderCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local-folder');
+    expect(JSON.parse(String(openFolderCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+    });
+  });
+
+  it('opens the default cwd folder from a document card when projectPath is default', async () => {
+    const wordEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: output/report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: wordEvents,
+          status: 'done',
+          projectPath: 'default',
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const openFolderButton = container.querySelector('[data-testid="cli-output-word-open-folder"]') as HTMLButtonElement | null;
+    expect(openFolderButton).toBeTruthy();
+
+    await act(async () => {
+      openFolderButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openFolderCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local-folder');
+    expect(JSON.parse(String(openFolderCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent',
+      projectPath: 'default',
+    });
+  });
+
   it('dedupes excel cards when the same file appears in both absolute and relative paths', async () => {
     const duplicateExcelEvents: CliEvent[] = [
       {
