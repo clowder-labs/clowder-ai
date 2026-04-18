@@ -73,6 +73,7 @@ export function startTokenUsageReporter(intervalMs?: number): void {
 /**
  * Initialize metrics service using CAS login credentials.
  * Fetches AOM access_code via ListAccessCode API, builds endpoint from region + projectId.
+ * If no enabled access_code exists, automatically creates one.
  *
  * This is idempotent — if already initialized, returns the existing reporter.
  * Concurrent calls coalesce into a single init attempt.
