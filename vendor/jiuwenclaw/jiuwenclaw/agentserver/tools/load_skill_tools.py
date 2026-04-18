@@ -243,7 +243,7 @@ class LoadSkillToolkit:
         p = Path(file_path)
 
         # 安全检查：确保路径在 skill 源目录下
-        skill_dirs = get_agent_skill_source_dirs()
+        skill_dirs = get_agent_registered_skill_dirs()
         allowed = False
         for sd in skill_dirs:
             try:
