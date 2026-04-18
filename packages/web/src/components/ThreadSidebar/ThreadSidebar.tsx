@@ -1060,7 +1060,7 @@ function WechatGroupInvite() {
         data-testid="wechat-group-invite"
       >
         <img src="/images/connectors/weixin.svg" alt="" className="w-[24px] h-[24px] shrink-0 relative z-10" />
-        <span className="text-[14px] font-normal text-[var(--text-primary)] truncate relative z-10">扫描加入体验官交流群</span>
+        <span className="text-[14px] font-normal text-[var(--text-primary)] truncate relative z-10">扫码加入体验官交流群</span>
         {showPopover && (
           <div
             ref={popoverRef}
