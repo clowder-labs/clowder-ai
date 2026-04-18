@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentType, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AuthorizationCard } from '@/components/AuthorizationCard';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
@@ -52,6 +52,20 @@ export interface LocalGeneratedFile {
 
 interface LocalGeneratedFileMeta {
   generatedAt: number;
+}
+
+interface FileIconProps {
+  width?: number | string;
+  height?: number | string;
+  className?: string;
+}
+
+interface LocalFileKindUiConfig {
+  badgeLabel: string;
+  cardTestId: string;
+  openTestId: string;
+  openFolderTestId: string;
+  Icon: ComponentType<FileIconProps>;
 }
 
 function normalizeLocalFilePath(path: string): string {
@@ -613,6 +627,108 @@ function PawPrint() {
 
 /* ── Status helpers ── */
 
+function MarkdownFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="MD" width="24" height="24" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="24" height="24" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_md">
+        <g id="编组-236">
+          <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(199,201,254)" fillRule="evenodd" />
+          <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(116,121,244)" fillRule="evenodd" />
+        </g>
+      </g>
+      <path id="矢量 111" d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.31428576" />
+      <path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" strokeLinejoin="round" strokeWidth="1.31428576" />
+    </svg>
+  );
+}
+
+function WordFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="Word" width="24" height="24" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="24" height="24" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_doc">
+        <path id="矩形备份-6" d="M33.4961 11.2512L34.3294 11.2512L34.3294 12.0846L33.4961 12.0846L33.4961 11.2512Z" fill="rgb(255,255,255)" fillRule="evenodd" />
+        <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(59,140,250)" fillRule="evenodd" />
+        <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(173,205,249)" fillRule="evenodd" />
+        <path id="路径-4" d="M14.7913 20.0012L16.9164 28.4888C16.9653 28.684 17.2392 28.693 17.3008 28.5015L19.8447 20.594C19.9042 20.4089 20.1661 20.4091 20.2255 20.5942L22.7576 28.4919C22.8193 28.6842 23.0946 28.6744 23.1424 28.4782L25.2079 20.0012" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeWidth="1.80555582" />
+      </g>
+    </svg>
+  );
+}
+
+function ExcelFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <g id="ic_normal_white_grid_xlsx">
+        <path id="矩形备份-77" d="M20.3125 0L29.0625 8.75L22.2173 8.75C21.1653 8.75 20.3125 7.89721 20.3125 6.84524L20.3125 0L20.3125 0Z" fill="rgb(126,237,193)" fillRule="evenodd" />
+        <path id="矩形备份-23" d="M20.4358 0L20.4208 6.84107C20.4185 7.89304 21.2695 8.74769 22.3214 8.75L29.1667 8.75L29.1667 30C29.1667 31.841 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.841 0 30L0 3.33333C-2.25451e-16 1.49238 1.49238 3.38177e-16 3.33333 0L20.4358 0L20.4358 0Z" fill="rgb(6,187,115)" fillRule="evenodd" />
+        <g id="编组-3">
+          <g id="编组-2">
+            <path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" strokeLinecap="round" strokeWidth="1.80555582" transform="matrix(0.573677,0.819082,-0.819082,0.573677,10.9316,15.0879)" />
+            <path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" strokeLinecap="round" strokeWidth="1.80555582" transform="matrix(-0.573677,0.819082,-0.819082,-0.573677,18.08,15.1392)" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function PdfFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <g id="ic_normal_white_grid_pdf">
+        <path id="矩形备份-47" d="M20.3125 0L29.0625 8.75L22.2173 8.75C21.1653 8.75 20.3125 7.89721 20.3125 6.84524L20.3125 0L20.3125 0Z" fill="rgb(255,191,190)" fillRule="evenodd" />
+        <path id="矩形备份-23" d="M20.4358 0L20.4208 6.84107C20.4185 7.89304 21.2695 8.74769 22.3214 8.75L29.1667 8.75L29.1667 30C29.1667 31.841 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.841 0 30L0 3.33333C-2.25451e-16 1.49238 1.49238 3.38177e-16 3.33333 0L20.4358 0L20.4358 0Z" fill="rgb(255,76,72)" fillRule="evenodd" />
+        <g id="编组">
+          <path id="多边形" d="M17.823 24.2994L11.2432 24.2994L14.5331 18.6011L17.823 24.2994Z" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.35416675" />
+          <path id="路径" d="M14.6295 18.0898C15.4419 17.1376 15.8481 16.421 15.8481 15.9401C15.8481 15.1906 15.2594 14.5831 14.5331 14.5831C13.8069 14.5831 13.2181 15.1906 13.2181 15.9401C13.2181 16.4208 13.624 17.137 14.4358 18.0886" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.35416675" />
+          <path id="路径备份" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.35416675" transform="matrix(-0.5,0.866025,-0.866025,-0.5,21.9691,25.1331)" />
+          <path id="路径备份-2" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.35416675" transform="matrix(-0.5,-0.866025,0.866025,-0.5,8.41284,27.4109)" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function TxtFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <g id="ic_normal_white_grid_txt">
+        <path id="矩形备份-81" d="M20.3125 1.52588e-05L29.0625 8.75002L22.2173 8.75002C21.1653 8.75002 20.3125 7.89723 20.3125 6.84526L20.3125 1.52588e-05L20.3125 1.52588e-05Z" fill="rgb(199,201,254)" fillRule="evenodd" />
+        <path id="矩形备份-23" d="M20.4358 -1.52588e-05L20.4208 6.84105C20.4185 7.89302 21.2695 8.74768 22.3214 8.74998L29.1667 8.74998L29.1667 30C29.1667 31.8409 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.8409 0 30L0 3.33332C-2.25451e-16 1.49237 1.49238 -1.52588e-05 3.33333 -1.52588e-05L20.4358 -1.52588e-05L20.4358 -1.52588e-05Z" fill="rgb(116,121,244)" fillRule="evenodd" />
+        <g id="编组-249">
+          <rect id="矩形" width="15.625000" height="1.666667" x="6.666687" y="15.208282" rx="0.833333" fill="rgb(255,255,255)" />
+          <rect id="矩形备份" width="15.625000" height="1.666667" x="6.666687" y="20.208282" rx="0.833333" fill="rgb(255,255,255)" />
+          <rect id="矩形备份-2" width="9.479168" height="1.666667" x="6.666626" y="25.208282" rx="0.833333" fill="rgb(255,255,255)" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function PptFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="文件格式/ppt" width="24" height="24" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fillOpacity="0" />
+      <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fillRule="evenodd" />
+      <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fillRule="evenodd" />
+      <path id="矢量 62" d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z" fill="rgb(255,255,255)" fillRule="evenodd" />
+    </svg>
+  );
+}
+
+const LOCAL_FILE_KIND_UI: Record<LocalGeneratedFileKind, LocalFileKindUiConfig> = {
+  markdown: { badgeLabel: 'MD', cardTestId: 'cli-output-markdown-card', openTestId: 'cli-output-markdown-open', openFolderTestId: 'cli-output-markdown-open-folder', Icon: MarkdownFileIcon },
+  docx: { badgeLabel: 'DOC', cardTestId: 'cli-output-word-card', openTestId: 'cli-output-word-open', openFolderTestId: 'cli-output-word-open-folder', Icon: WordFileIcon },
+  xlsx: { badgeLabel: 'XLS', cardTestId: 'cli-output-excel-card', openTestId: 'cli-output-excel-open', openFolderTestId: 'cli-output-excel-open-folder', Icon: ExcelFileIcon },
+  pdf: { badgeLabel: 'PDF', cardTestId: 'cli-output-pdf-card', openTestId: 'cli-output-pdf-open', openFolderTestId: 'cli-output-pdf-open-folder', Icon: PdfFileIcon },
+  txt: { badgeLabel: 'TXT', cardTestId: 'cli-output-txt-card', openTestId: 'cli-output-txt-open', openFolderTestId: 'cli-output-txt-open-folder', Icon: TxtFileIcon },
+  ppt: { badgeLabel: 'PPT', cardTestId: 'cli-output-ppt-card', openTestId: 'cli-output-ppt-open', openFolderTestId: 'cli-output-ppt-open-folder', Icon: PptFileIcon },
+};
+
 function LocalFileAttachmentCard({
   file,
   projectPath,
@@ -628,63 +744,7 @@ function LocalFileAttachmentCard({
   const [isReady, setIsReady] = useState(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
-  const isMarkdown = file.kind === 'markdown';
-  const isWord = file.kind === 'docx';
-  const isPresentation = file.kind === 'ppt';
-  const isExcel = file.kind === 'xlsx';
-  const isPdf = file.kind === 'pdf';
-  const isTxt = file.kind === 'txt';
-  const cardTestId = isMarkdown
-    ? 'cli-output-markdown-card'
-    : isWord
-      ? 'cli-output-word-card'
-      : isPresentation
-        ? 'cli-output-ppt-card'
-        : isExcel
-          ? 'cli-output-excel-card'
-          : isPdf
-            ? 'cli-output-pdf-card'
-            : isTxt
-              ? 'cli-output-txt-card'
-              : 'cli-output-file-card';
-  const openTestId = isMarkdown
-    ? 'cli-output-markdown-open'
-    : isWord
-      ? 'cli-output-word-open'
-      : isPresentation
-        ? 'cli-output-ppt-open'
-        : isExcel
-          ? 'cli-output-excel-open'
-          : isPdf
-            ? 'cli-output-pdf-open'
-            : isTxt
-              ? 'cli-output-txt-open'
-              : 'cli-output-file-open';
-  const openFolderTestId = isMarkdown
-    ? 'cli-output-markdown-open-folder'
-    : isWord
-      ? 'cli-output-word-open-folder'
-      : isPresentation
-        ? 'cli-output-ppt-open-folder'
-        : isExcel
-          ? 'cli-output-excel-open-folder'
-          : isPdf
-            ? 'cli-output-pdf-open-folder'
-            : isTxt
-              ? 'cli-output-txt-open-folder'
-              : 'cli-output-file-open-folder';
-  const badgeLabel =
-    file.kind === 'markdown'
-      ? 'MD'
-      : file.kind === 'docx'
-        ? 'DOC'
-        : file.kind === 'xlsx'
-          ? 'XLS'
-          : file.kind === 'pdf'
-            ? 'PDF'
-            : file.kind === 'txt'
-              ? 'TXT'
-            : 'PPT';
+  const { badgeLabel, cardTestId, openTestId, openFolderTestId, Icon } = LOCAL_FILE_KIND_UI[file.kind];
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
@@ -801,68 +861,7 @@ function LocalFileAttachmentCard({
         title={badgeLabel}
         className="flex flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]"
       >
-        {isMarkdown ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none">
-	<rect id="MD" width="24" height="24" x="0.000000" y="0.000000" />
-	<rect id="矩形" width="24" height="24" x="0.000000" y="0.000000" />
-	<g id="ic_normal_white_grid_md">
-		<g id="编组-236">
-			<path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(199,201,254)" fill-rule="evenodd" />
-			<path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(116,121,244)" fill-rule="evenodd" />
-		</g>
-	</g>
-	<path id="矢量 111" d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.31428576" />
-	<path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" stroke-linejoin="round" stroke-width="1.31428576" />
-</svg> : isWord ? <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none">
-          <rect id="Word" width="24" height="24" x="0.000000" y="0.000000" />
-          <rect id="矩形" width="24" height="24" x="0.000000" y="0.000000" />
-          <g id="ic_normal_white_grid_doc">
-            <path id="矩形备份-6" d="M33.4961 11.2512L34.3294 11.2512L34.3294 12.0846L33.4961 12.0846L33.4961 11.2512Z" fill="rgb(255,255,255)" fillRule="evenodd" />
-            <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(59,140,250)" fillRule="evenodd" />
-            <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(173,205,249)" fillRule="evenodd" />
-            <path id="路径-4" d="M14.7913 20.0012L16.9164 28.4888C16.9653 28.684 17.2392 28.693 17.3008 28.5015L19.8447 20.594C19.9042 20.4089 20.1661 20.4091 20.2255 20.5942L22.7576 28.4919C22.8193 28.6842 23.0946 28.6744 23.1424 28.4782L25.2079 20.0012" fillRule="evenodd" stroke="rgb(255,255,255)" strokeLinecap="round" strokeWidth="1.80555582" />
-          </g>
-        </svg>
-        : isExcel ? <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width="24" fill="none">
-	<g id="ic_normal_white_grid_xlsx">
-		<path id="矩形备份-77" d="M20.3125 0L29.0625 8.75L22.2173 8.75C21.1653 8.75 20.3125 7.89721 20.3125 6.84524L20.3125 0L20.3125 0Z" fill="rgb(126,237,193)" fill-rule="evenodd" />
-		<path id="矩形备份-23" d="M20.4358 0L20.4208 6.84107C20.4185 7.89304 21.2695 8.74769 22.3214 8.75L29.1667 8.75L29.1667 30C29.1667 31.841 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.841 0 30L0 3.33333C-2.25451e-16 1.49238 1.49238 3.38177e-16 3.33333 0L20.4358 0L20.4358 0Z" fill="rgb(6,187,115)" fill-rule="evenodd" />
-		<g id="编组-3">
-			<g id="编组-2">
-				<path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.80555582" transform="matrix(0.573677,0.819082,-0.819082,0.573677,10.9316,15.0879)" />
-				<path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.80555582" transform="matrix(-0.573677,0.819082,-0.819082,-0.573677,18.08,15.1392)" />
-			</g>
-		</g>
-	</g>
-</svg>
- : isPdf ? <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width="24" fill="none">
-	<g id="ic_normal_white_grid_pdf">
-		<path id="矩形备份-47" d="M20.3125 0L29.0625 8.75L22.2173 8.75C21.1653 8.75 20.3125 7.89721 20.3125 6.84524L20.3125 0L20.3125 0Z" fill="rgb(255,191,190)" fill-rule="evenodd" />
-		<path id="矩形备份-23" d="M20.4358 0L20.4208 6.84107C20.4185 7.89304 21.2695 8.74769 22.3214 8.75L29.1667 8.75L29.1667 30C29.1667 31.841 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.841 0 30L0 3.33333C-2.25451e-16 1.49238 1.49238 3.38177e-16 3.33333 0L20.4358 0L20.4358 0Z" fill="rgb(255,76,72)" fill-rule="evenodd" />
-		<g id="编组">
-			<path id="多边形" d="M17.823 24.2994L11.2432 24.2994L14.5331 18.6011L17.823 24.2994Z" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" />
-			<path id="路径" d="M14.6295 18.0898C15.4419 17.1376 15.8481 16.421 15.8481 15.9401C15.8481 15.1906 15.2594 14.5831 14.5331 14.5831C13.8069 14.5831 13.2181 15.1906 13.2181 15.9401C13.2181 16.4208 13.624 17.137 14.4358 18.0886" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" />
-			<path id="路径备份" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" transform="matrix(-0.5,0.866025,-0.866025,-0.5,21.9691,25.1331)" />
-			<path id="路径备份-2" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" transform="matrix(-0.5,-0.866025,0.866025,-0.5,8.41284,27.4109)" />
-		</g>
-	</g>
-</svg>
- : isTxt ? <svg viewBox="0 0 29.1667 33.3333" xmlns="http://www.w3.org/2000/svg" width="24" fill="none">
-	<g id="ic_normal_white_grid_txt">
-		<path id="矩形备份-81" d="M20.3125 1.52588e-05L29.0625 8.75002L22.2173 8.75002C21.1653 8.75002 20.3125 7.89723 20.3125 6.84526L20.3125 1.52588e-05L20.3125 1.52588e-05Z" fill="rgb(199,201,254)" fill-rule="evenodd" />
-		<path id="矩形备份-23" d="M20.4358 -1.52588e-05L20.4208 6.84105C20.4185 7.89302 21.2695 8.74768 22.3214 8.74998L29.1667 8.74998L29.1667 30C29.1667 31.8409 27.6743 33.3333 25.8333 33.3333L3.33333 33.3333C1.49238 33.3333 2.25451e-16 31.8409 0 30L0 3.33332C-2.25451e-16 1.49237 1.49238 -1.52588e-05 3.33333 -1.52588e-05L20.4358 -1.52588e-05L20.4358 -1.52588e-05Z" fill="rgb(116,121,244)" fill-rule="evenodd" />
-		<g id="编组-249">
-			<rect id="矩形" width="15.625000" height="1.666667" x="6.666687" y="15.208282" rx="0.833333" fill="rgb(255,255,255)" />
-			<rect id="矩形备份" width="15.625000" height="1.666667" x="6.666687" y="20.208282" rx="0.833333" fill="rgb(255,255,255)" />
-			<rect id="矩形备份-2" width="9.479168" height="1.666667" x="6.666626" y="25.208282" rx="0.833333" fill="rgb(255,255,255)" />
-		</g>
-	</g>
-</svg>
- : <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none">
-          <rect id="文件格式/ppt" width="24" height="24" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fillOpacity="0" />
-          <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fillRule="evenodd" />
-          <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fillRule="evenodd" />
-          <path id="矢量 62" d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z" fill="rgb(255,255,255)" fillRule="evenodd" />
-        </svg>}
+        <Icon />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#191919]" title={file.name}>{file.name}</div>
