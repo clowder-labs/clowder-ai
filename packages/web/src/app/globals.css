@@ -1520,7 +1520,7 @@ select:-webkit-autofill:focus {
   .ui-textarea {
     color: var(--text-field);
     caret-color: var(--text-field);
-    resize: vertical;
+    resize: none;
   }
 
   .ui-textarea:hover {
