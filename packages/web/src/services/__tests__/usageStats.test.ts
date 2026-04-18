@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchUsageStatsPage } from '../usageStats';
+import { buildUsageStatsPageFromDataset, fetchUsageStatsPage } from '../usageStats';
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -206,6 +206,44 @@ describe('usageStats service', () => {
     const result = await fetchUsageStatsPage({ page: 1, pageSize: 6, range: 'today' });
 
     expect(result.items.map((item) => item.id)).toEqual(['thread-2', 'thread-1']);
+  });
+
+  it('uses the local start of day for the today range instead of a rolling 24-hour window', () => {
+    const now = new Date(2024, 0, 10, 15, 30, 0, 0).getTime();
+    const dataset = {
+      threads: [
+        { id: 'thread-today', title: 'today hit' },
+        { id: 'thread-yesterday', title: 'yesterday hit' },
+      ],
+      sessionsByThreadId: {
+        'thread-today': [
+          {
+            id: 's-today',
+            updatedAt: new Date(2024, 0, 10, 0, 30, 0, 0).getTime(),
+            lastUsage: { inputTokens: 100, outputTokens: 50 },
+          },
+        ],
+        'thread-yesterday': [
+          {
+            id: 's-yesterday',
+            updatedAt: new Date(2024, 0, 9, 23, 30, 0, 0).getTime(),
+            lastUsage: { inputTokens: 999, outputTokens: 1 },
+          },
+        ],
+      },
+    };
+
+    const result = buildUsageStatsPageFromDataset(dataset, { page: 1, pageSize: 6, range: 'today' }, now);
+
+    expect(result.total).toBe(1);
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        id: 'thread-today',
+        inputTokensUsed: 100,
+        outputTokensUsed: 50,
+        totalTokensUsed: 150,
+      }),
+    ]);
   });
 
   it('throws the api error message when the thread request fails', async () => {
