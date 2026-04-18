@@ -68,7 +68,7 @@ export function ContentBlocks({
               key={i}
               src={src}
               alt="attached image"
-              className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+              className="mt-2 max-w-full cursor-pointer rounded-lg border border-[var(--border-default)] transition-opacity hover:opacity-90 sm:max-w-sm"
               onClick={() => setLightboxSrc(src)}
             />
           );
@@ -80,17 +80,17 @@ export function ContentBlocks({
           return (
             <div
               key={i}
-              className="mt-2 flex max-w-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
+              className="mt-2 flex max-w-full items-center gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2"
             >
               <img src={resolveIcon(block.fileName)} alt="" aria-hidden="true" className="h-8 w-8 shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-[#191919]">{block.fileName}</div>
-                <div className="text-xs text-gray-500">{block.mimeType || 'file'}</div>
+                <div className="truncate text-sm text-[var(--text-primary)]">{block.fileName}</div>
+                <div className="text-xs text-[var(--text-label-secondary)]">{block.mimeType || 'file'}</div>
               </div>
               {shouldShowWorkspaceAction ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs text-[#191919] transition-colors hover:bg-gray-50"
+                  className="shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
                   onClick={() => {
                     setOpeningFileUrl(block.url);
                     void apiFetch('/api/workspace/open', {
@@ -107,7 +107,7 @@ export function ContentBlocks({
                   href={href}
                   target="_blank"
                   rel="noreferrer"
-                  className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs text-[#191919] transition-colors hover:bg-gray-50"
+                  className="shrink-0 rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
                 >
                   下载
                 </a>

@@ -47,7 +47,7 @@ describe('ConnectorConnectedState', () => {
     expect(pill?.className).toContain('w-1/2');
     expect(pill?.className).toContain('h-[34px]');
     expect(pill?.className).toContain('rounded-[8px]');
-    expect(pill?.className).toContain('border-[#e6e6e6]');
-    expect(pill?.className).toContain('bg-[#f5f5f5]');
+    expect(pill?.className).toContain('border-[var(--border-default)]');
+    expect(pill?.className).toContain('bg-[var(--tag-bg)]');
   });
 });

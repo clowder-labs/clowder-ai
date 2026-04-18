@@ -30,7 +30,9 @@ export function AgentsRootPanel() {
               aria-pressed={isActive}
               onClick={() => setActiveTab(tab.id)}
               className={`relative pb-2 text-[14px] transition ${
-                isActive ? 'font-semibold text-[#1F2329]' : 'font-medium text-[#8A94A6] hover:text-[#445066]'
+                isActive
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'font-medium text-[var(--text-label-secondary)] hover:text-[var(--text-secondary)]'
               }`}
             >
               {tab.label}
@@ -39,7 +41,7 @@ export function AgentsRootPanel() {
         })}
       </div>
 
-      <div data-testid="agents-root-divider" className="mb-6 h-px w-full shrink-0 bg-[#E6EAF0]" />
+      <div data-testid="agents-root-divider" className="mb-6 h-px w-full shrink-0 bg-[var(--border-elevated)]" />
 
       <div className="min-h-0 flex-1">
         {activeTab === 'agents' ? (
@@ -47,12 +49,12 @@ export function AgentsRootPanel() {
         ) : (
           <div className="flex h-full min-h-0 flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h1 className="text-[16px] font-semibold text-[#1F2329]">专家中心</h1>
+              <h1 className="text-[16px] font-semibold text-[var(--text-primary)]">专家中心</h1>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-[18px] border border-[#E6EAF0] bg-white px-6 py-10">
+            <div className="flex min-h-0 flex-1 items-center justify-center rounded-[18px] border border-[var(--border-elevated)] bg-[var(--surface-panel)] px-6 py-10">
               <div className="max-w-[420px] text-center">
-                <div className="text-[16px] font-semibold text-[#1F2329]">页面占位中</div>
-                <p className="mt-2 text-[13px] leading-6 text-[#6F7785]">
+                <div className="text-[16px] font-semibold text-[var(--text-primary)]">页面占位中</div>
+                <p className="mt-2 text-[13px] leading-6 text-[var(--text-secondary)]">
                   本轮先接入一级页签结构，专家中心后续再补实际内容和交互。
                 </p>
               </div>
