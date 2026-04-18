@@ -1,25 +1,37 @@
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, statSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getVersionVerifyData } from '../routes/version.js';
 
-const MIN_EXE_SIZE = 1024 * 10; // 10KB minimum for valid exe
+function calculateFileSha256(filePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!existsSync(filePath)) {
+      resolve(null);
+      return;
+    }
 
-function isValidExeFile(filePath: string): boolean {
-  try {
-    if (!existsSync(filePath)) return false;
+    const hash = createHash('sha256');
+    const fileStream = createReadStream(filePath);
 
-    const stats = statSync(filePath);
-    if (stats.size < MIN_EXE_SIZE) return false;
+    fileStream.on('data', (chunk) => {
+      hash.update(chunk);
+    });
 
-    const fd = openSync(filePath, 'r');
-    const buffer = Buffer.alloc(2);
-    readSync(fd, buffer, 0, 2, 0);
-    closeSync(fd);
+    fileStream.on('end', () => {
+      resolve(hash.digest('hex'));
+    });
 
-    return buffer[0] === 0x4d && buffer[1] === 0x5a; // "MZ" magic number for Windows PE files
-  } catch {
-    return false;
-  }
+    fileStream.on('error', () => {
+      resolve(null);
+    });
+  });
+}
+
+async function verifyFileIntegrity(filePath: string, expectedSha256: string): Promise<boolean> {
+  const actualSha256 = await calculateFileSha256(filePath);
+  if (!actualSha256) return false;
+  return actualSha256.toLowerCase() === expectedSha256.toLowerCase();
 }
 
 export type DownloadStatus = 'idle' | 'downloading' | 'success' | 'error' | 'cancelled';
@@ -37,6 +49,7 @@ export interface DownloadProgress {
 }
 
 interface DownloadTask {
+  taskId: string;
   url: string;
   fileName: string;
   abortController: AbortController | null;
@@ -69,7 +82,7 @@ function buildFilePathFromVersion(version: string): string {
   return join(getDownloadDir(), fileName);
 }
 
-export function checkAndUpdateProgress(taskId: string): DownloadProgress | null {
+export async function checkAndUpdateProgress(taskId: string): Promise<DownloadProgress | null> {
   const task = downloadTasks.get(taskId);
 
   if (task) {
@@ -96,7 +109,13 @@ export function checkAndUpdateProgress(taskId: string): DownloadProgress | null 
   const filePath = buildFilePathFromVersion(version);
   if (!existsSync(filePath)) return null;
 
-  if (!isValidExeFile(filePath)) return null;
+  const expectedSha256 = getVersionVerifyData(version);
+  if (expectedSha256 && !(await verifyFileIntegrity(filePath, expectedSha256))) {
+    try {
+      unlinkSync(filePath);
+    } catch {}
+    return null;
+  }
 
   const fileName = `OfficeClaw-V${version}.exe`;
   return {
@@ -122,6 +141,7 @@ export function startDownload(taskId: string, url: string, fileName: string): Do
   const filePath = join(downloadDir, fileName);
 
   const task: DownloadTask = {
+    taskId,
     url,
     fileName,
     abortController: new AbortController(),
@@ -179,6 +199,20 @@ async function runDownload(task: DownloadTask, filePath: string): Promise<void> 
     }
 
     fileStream.end();
+
+    const version = parseVersionFromTaskId(task.taskId);
+    if (version) {
+      const expectedSha256 = getVersionVerifyData(version);
+      if (expectedSha256 && !(await verifyFileIntegrity(filePath, expectedSha256))) {
+        try {
+          unlinkSync(filePath);
+        } catch {}
+        task.progress.status = 'error';
+        task.progress.errorMessage = 'File integrity check failed: sha256 mismatch, file deleted';
+        task.progress.endTime = Date.now();
+        return;
+      }
+    }
 
     task.progress.status = 'success';
     task.progress.progress = 100;

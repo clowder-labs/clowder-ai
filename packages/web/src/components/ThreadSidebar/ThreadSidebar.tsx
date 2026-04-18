@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -26,6 +26,7 @@ import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from '
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
 import { useProjectPins } from './use-project-pins';
+import { WechatGroupInvite } from './WechatGroupInvite';
 
 const MAX_SIDEBAR_RESTORE_FRAMES = 90;
 const SIDEBAR_SCROLL_STORAGE_KEY = 'cat-cafe:sidebar-scroll:v1';
@@ -978,6 +979,8 @@ export function ThreadSidebar({
         </div>
 
         {/* 回收站入口暂时隐藏 */}
+
+        <WechatGroupInvite />
 
         <div className="border-t border-[var(--border-default)] mx-4"></div>
 

@@ -49,7 +49,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = checkAndUpdateProgress(taskId);
+    const progress = await checkAndUpdateProgress(taskId);
     if (!progress) {
       return reply.status(404).send({ error: 'Download task not found' });
     }
@@ -64,7 +64,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = checkAndUpdateProgress(taskId);
+    const progress = await checkAndUpdateProgress(taskId);
     if (!progress || !progress.filePath) {
       return reply.status(404).send({ error: 'Download task not found or file not available' });
     }
@@ -85,7 +85,7 @@ export async function downloadRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Missing required query parameter: taskId' });
     }
 
-    const progress = checkAndUpdateProgress(taskId);
+    const progress = await checkAndUpdateProgress(taskId);
     if (!progress || !progress.filePath) {
       return reply.status(404).send({ error: 'Download task not found or file not available' });
     }
