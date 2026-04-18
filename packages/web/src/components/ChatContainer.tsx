@@ -35,6 +35,7 @@ import { ChannelsPanel } from './ChannelsPanel';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
+import { computeSuppressedGeneratedFileNamesByMessage } from './generated-file-dedupe';
 import { ChatMessage } from './ChatMessage';
 import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
@@ -487,7 +488,7 @@ function ThreadModeChatContainer({
       prevThreadRef.current = threadId;
     }
     // First mount: sync threadId to store without save/restore
-    setCurrentThread(threadId);
+      setCurrentThread(threadId);
   }, [
     threadId,
     clearTasks, // Clean up non-thread-scoped refs
@@ -520,6 +521,10 @@ function ThreadModeChatContainer({
   const pendingAuthorizationByMessageId = useMemo(
     () => mapPendingAuthorizationToMessages(messages, authPending),
     [authPending, messages],
+  );
+  const suppressedGeneratedFilesByMessageId = useMemo(
+    () => computeSuppressedGeneratedFileNamesByMessage(messages),
+    [messages],
   );
 
   useEffect(() => {
@@ -620,13 +625,21 @@ function ThreadModeChatContainer({
         <ChatMessage
           message={msg}
           getCatById={getCatById}
+          suppressedGeneratedFileNames={suppressedGeneratedFilesByMessageId.get(msg.id)}
           pendingAuthRequests={pendingAuthorizationByMessageId.get(msg.id)}
           onAuthRespond={authRespond}
           onOpenSecurityManagement={handleOpenSecurityManagement}
         />
       </MessageActions>
     ),
-    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond, handleOpenSecurityManagement],
+    [
+      threadId,
+      getCatById,
+      suppressedGeneratedFilesByMessageId,
+      pendingAuthorizationByMessageId,
+      authRespond,
+      handleOpenSecurityManagement,
+    ],
   );
 
   useVoiceAutoPlay();
@@ -911,7 +924,7 @@ function ThreadModeChatContainer({
               handleSend(content, images, undefined, whisper, deliveryMode);
             }}
             onStop={handleStop}
-            disabled={false}
+            disabled={hasActiveInvocation}
             folderSelectionEnabled={false}
             selectedFolderName={currentThreadProjectName}
             selectedFolderTitle={currentThreadProjectPath}

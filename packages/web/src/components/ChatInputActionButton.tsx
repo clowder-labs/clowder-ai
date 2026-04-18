@@ -162,13 +162,12 @@ export function ChatInputActionButton({
         /* Backward compat: when explicitly disabled during active invocation, Stop is the only primary action */
         <button
           onClick={() => onStop()}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--button-danger-bg)] text-[var(--button-danger-text)] transition-colors hover:bg-[var(--button-danger-bg-hover)]"
-          title="停止生成"
+          className="inline-flex ml-2 shrink-0 items-center bg-[var(--button-danger-bg)] gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium text-[var(--button-danger-text)] transition-colors hover:bg-[var(--button-danger-bg-hover)]"
+          title="停止回答"
           aria-label="Stop generation"
         >
-          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-            <rect x="4" y="4" width="12" height="12" rx="2" />
-          </svg>
+          <RotatingBorderStopIcon className="h-5 w-5 shrink-0" />
+          <span>停止回答</span>
         </button>
       ) : voice.state === 'recording' ? (
         <button
