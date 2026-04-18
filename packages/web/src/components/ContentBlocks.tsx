@@ -38,6 +38,7 @@ export function ContentBlocks({
 }) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [openingFileUrl, setOpeningFileUrl] = useState<string | null>(null);
+
   const resolveIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
     if (ext === 'pdf') return '/icons/file-pdf.svg';

@@ -16,6 +16,8 @@ const mockSetTargetCats = vi.fn();
 const mockSetCurrentThread = vi.fn();
 const mockClearUnread = vi.fn();
 const mockHandleAgentMessage = vi.fn();
+let mockHasActiveInvocation = false;
+let capturedChatInputProps: Record<string, unknown> | null = null;
 
 let capturedSocketCallbacks: {
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
@@ -25,7 +27,7 @@ let capturedSocketCallbacks: {
 const mockStoreState = () => ({
   messages: [],
   isLoading: false,
-  hasActiveInvocation: false,
+  hasActiveInvocation: mockHasActiveInvocation,
   intentMode: null,
   targetCats: [],
   catStatuses: {},
@@ -39,9 +41,11 @@ const mockStoreState = () => ({
   setTargetCats: mockSetTargetCats,
   clearCatStatuses: vi.fn(),
   setCurrentThread: mockSetCurrentThread,
+  setCurrentProject: vi.fn(),
   updateThreadTitle: vi.fn(),
   setCurrentGame: vi.fn(),
   currentGame: null,
+  workspaceWorktreeId: null,
 
   viewMode: 'single' as const,
   setViewMode: vi.fn(),
@@ -51,6 +55,8 @@ const mockStoreState = () => ({
   splitPaneThreadIds: [],
   setSplitPaneThreadIds: vi.fn(),
   setSplitPaneTarget: vi.fn(),
+  consumePendingNewThreadSend: vi.fn(() => null),
+  setPendingChatInsert: vi.fn(),
   threads: [],
 });
 
@@ -115,7 +121,12 @@ vi.mock('@/hooks/useAuthorization', () => ({
 vi.mock('@/hooks/useSplitPaneKeys', () => ({ useSplitPaneKeys: vi.fn() }));
 
 vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
-vi.mock('@/components/ChatInput', () => ({ ChatInput: () => null }));
+vi.mock('@/components/ChatInput', () => ({
+  ChatInput: (props: Record<string, unknown>) => {
+    capturedChatInputProps = props;
+    return null;
+  },
+}));
 vi.mock('@/components/ThreadSidebar', () => ({ ThreadSidebar: () => null }));
 vi.mock('@/components/RightStatusPanel', () => ({ RightStatusPanel: () => null }));
 vi.mock('@/components/ParallelStatusBar', () => ({ ParallelStatusBar: () => null }));
@@ -147,6 +158,8 @@ describe('ChatContainer intent_mode loading lock', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockHasActiveInvocation = false;
+    capturedChatInputProps = null;
     capturedSocketCallbacks = null;
     mockSetLoading.mockClear();
     mockSetHasActiveInvocation.mockClear();
@@ -244,5 +257,16 @@ describe('ChatContainer intent_mode loading lock', () => {
     });
 
     expect(mockHandleAgentMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables ChatInput when there is an active invocation', () => {
+    mockHasActiveInvocation = true;
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    expect(capturedChatInputProps).toBeTruthy();
+    expect(capturedChatInputProps?.disabled).toBe(true);
   });
 });

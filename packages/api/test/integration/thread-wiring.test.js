@@ -519,7 +519,7 @@ describe('MCP callback stores message with threadId', () => {
   });
 });
 
-// --- P1-3 regression test: default thread isolation ---
+// --- P1-3 regression test: thread-only broadcast isolation ---
 
 describe('Default thread isolation: no cross-thread message leak', () => {
   it('SocketManager.broadcastAgentMessage always uses room, never global', () => {
@@ -546,7 +546,8 @@ describe('Default thread isolation: no cross-thread message leak', () => {
             this.io = io;
           }
           broadcastAgentMessage(message, threadId) {
-            const room = `thread:${threadId ?? 'default'}`;
+            if (!threadId) return;
+            const room = `thread:${threadId}`;
             this.io.to(room).emit('agent_message', message);
           }
         },
@@ -555,16 +556,15 @@ describe('Default thread isolation: no cross-thread message leak', () => {
     const sm = new SocketManager(mockIo);
     const msg = { type: 'text', catId: 'opus', content: 'hello', timestamp: Date.now() };
 
-    // Without threadId → should go to 'thread:default', NOT global
+    // Without threadId → should be dropped, NOT global
     sm.broadcastAgentMessage(msg);
-    assert.equal(emittedRooms.length, 1);
-    assert.equal(emittedRooms[0].room, 'thread:default');
+    assert.equal(emittedRooms.length, 0);
     assert.equal(emittedGlobal.length, 0, 'Must NOT emit globally');
 
     // With threadId → should go to specific room
     sm.broadcastAgentMessage(msg, 'thread-42');
-    assert.equal(emittedRooms.length, 2);
-    assert.equal(emittedRooms[1].room, 'thread:thread-42');
+    assert.equal(emittedRooms.length, 1);
+    assert.equal(emittedRooms[0].room, 'thread:thread-42');
     assert.equal(emittedGlobal.length, 0, 'Must NOT emit globally');
   });
 
