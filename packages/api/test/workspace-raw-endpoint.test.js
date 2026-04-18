@@ -384,6 +384,30 @@ describe('workspace open-local endpoint', () => {
     assert.notEqual(res.statusCode, 400);
   });
 
+  it('returns 500 or 200 when opening the provided custom project folder', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local-folder',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: customProjectRoot, projectPath: customProjectRoot }),
+    });
+
+    assert.notEqual(res.statusCode, 400);
+    assert.notEqual(res.statusCode, 403);
+    assert.notEqual(res.statusCode, 404);
+  });
+
+  it('rejects file paths for open-local-folder', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local-folder',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localPdfPath }),
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
   it('returns local ppt metadata with generatedAt', async () => {
     await mkdir(localAgentDir, { recursive: true });
     await writeFile(localDeckPath, Buffer.from('pptx-meta'));

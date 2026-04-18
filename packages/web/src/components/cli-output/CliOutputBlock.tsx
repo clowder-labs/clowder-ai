@@ -623,6 +623,7 @@ function LocalFileAttachmentCard({
   status: CliStatus;
 }) {
   const [isOpening, setIsOpening] = useState(false);
+  const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -659,6 +660,19 @@ function LocalFileAttachmentCard({
             : isTxt
               ? 'cli-output-txt-open'
               : 'cli-output-file-open';
+  const openFolderTestId = isMarkdown
+    ? 'cli-output-markdown-open-folder'
+    : isWord
+      ? 'cli-output-word-open-folder'
+      : isPresentation
+        ? 'cli-output-ppt-open-folder'
+        : isExcel
+          ? 'cli-output-excel-open-folder'
+          : isPdf
+            ? 'cli-output-pdf-open-folder'
+            : isTxt
+              ? 'cli-output-txt-open-folder'
+              : 'cli-output-file-open-folder';
   const badgeLabel =
     file.kind === 'markdown'
       ? 'MD'
@@ -675,6 +689,11 @@ function LocalFileAttachmentCard({
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
   );
+  const resolvedProjectFolder = useMemo(() => {
+    if (projectPath && projectPath !== 'default') return projectPath;
+    return defaultProjectPath;
+  }, [defaultProjectPath, projectPath]);
+  const isOpeningAction = isOpening || isOpeningFolder;
 
   useEffect(() => {
     let cancelled = false;
@@ -757,12 +776,26 @@ function LocalFileAttachmentCard({
     }
   }
 
+  async function handleOpenFolder(): Promise<void> {
+    if (isOpeningFolder || !resolvedProjectFolder) return;
+    setIsOpeningFolder(true);
+    try {
+      await apiFetch('/api/workspace/open-local-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: resolvedProjectFolder, ...(projectPath ? { projectPath } : {}) }),
+      });
+    } finally {
+      setIsOpeningFolder(false);
+    }
+  }
+
   if (!isReady || !resolvedPath) return null;
 
   return (
     <div
       data-testid={cardTestId}
-      className="cli-output-doc-card mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
+      className="cli-output-doc-card mt-2 max-w-[485px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div
         title={badgeLabel}
@@ -815,17 +848,30 @@ function LocalFileAttachmentCard({
         <div className="truncate text-sm font-semibold text-[#191919]" title={file.name}>{file.name}</div>
         <div className="mt-1 break-all text-sm leading-4 text-[#808080]">{formatGeneratedDate(generatedAt)}</div>
       </div>
-      <button
-        type="button"
-        data-testid={openTestId}
-        onClick={() => {
-          void handleOpen();
-        }}
-        disabled={isOpening || !resolvedPath}
-        className="inline-flex flex-shrink-0 items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        打开
-      </button>
+      <div className="flex flex-shrink-0 items-center gap-2">
+        <button
+          type="button"
+          data-testid={openFolderTestId}
+          onClick={() => {
+            void handleOpenFolder();
+          }}
+          disabled={isOpeningAction || !resolvedProjectFolder}
+          className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isOpeningFolder ? '打开中...' : '打开文件夹'}
+        </button>
+        <button
+          type="button"
+          data-testid={openTestId}
+          onClick={() => {
+            void handleOpen();
+          }}
+          disabled={isOpeningAction || !resolvedPath}
+          className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isOpening ? '打开中...' : '打开'}
+        </button>
+      </div>
     </div>
   );
 }
