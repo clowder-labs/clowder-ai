@@ -454,7 +454,7 @@ describe('DirectoryBrowser', () => {
     await flush();
 
     expect(findButtonByText('C:')).toBeFalsy();
-    expect(findButtonByText('D:')).toBeFalsy();
+    expect(findButtonByText('D:')).toBeTruthy();
     expect(container.textContent).toContain('demo');
   });
 

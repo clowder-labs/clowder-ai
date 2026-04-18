@@ -158,12 +158,17 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
   const listedEntries = browseResult ? (showComputerView ? (browseResult.drives ?? []) : browseResult.entries) : [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#EEF2F6] bg-white">
-      <div className="flex h-10 flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-[#EEF2F6] bg-white px-5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--surface-panel)]">
+      <div className="flex h-10 flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--border-default)] bg-[var(--surface-panel)] px-5">
         {breadcrumbSegments.map((seg, i) => (
           <span key={seg.path || `_${i}`} className="flex flex-shrink-0 items-center gap-1">
             {i > 0 && (
-              <svg aria-hidden="true" className="h-3 w-3 text-[#A8B0BD]" viewBox="0 0 20 20" fill="currentColor">
+              <svg
+                aria-hidden="true"
+                className="h-3 w-3 text-[var(--text-label-secondary)]"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
                 <path
                   fillRule="evenodd"
                   d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
@@ -181,8 +186,10 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
                 }
                 fetchDirectory(seg.path || undefined);
               }}
-              className={`text-xs transition-colors hover:text-[#2E3440] hover:underline ${
-                i === breadcrumbSegments.length - 1 ? 'font-semibold text-[#2E3440]' : 'font-medium text-[#5F6775]'
+              className={`text-xs transition-colors hover:text-[var(--text-primary)] hover:underline ${
+                i === breadcrumbSegments.length - 1
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'font-medium text-[var(--text-secondary)]'
               }`}
             >
               {i === 0 && (seg.label === 'Home' || seg.label === MY_COMPUTER_LABEL) ? (
@@ -201,25 +208,27 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
-            <span className="animate-pulse text-xs text-[#A8B0BD]">Loading...</span>
+            <span className="animate-pulse text-xs text-[var(--text-label-secondary)]">Loading...</span>
           </div>
         )}
 
         {info && (
           <div className="mb-1 px-3 py-1.5">
-            <p className="text-[10px] text-[#5F6775]">{info}</p>
+            <p className="text-[10px] text-[var(--text-secondary)]">{info}</p>
           </div>
         )}
 
         {error && (
           <div className="mb-1 px-3 py-1.5">
-            <p className="text-xs text-red-500">{error}</p>
+            <p className="text-xs text-[var(--state-error-text)]">{error}</p>
           </div>
         )}
 
         {!isLoading && browseResult && listedEntries.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <span className="text-xs text-[#A8B0BD]">{showComputerView ? 'No drives' : 'No subdirectories'}</span>
+            <span className="text-xs text-[var(--text-label-secondary)]">
+              {showComputerView ? 'No drives' : 'No subdirectories'}
+            </span>
           </div>
         )}
 
@@ -232,16 +241,18 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
                 type="button"
                 onClick={() => fetchDirectory(entry.path)}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  isActive ? 'bg-[#F7F8FA]' : 'hover:bg-[#F7F8FA]'
+                  isActive ? 'bg-[var(--overlay-item-hover-bg)]' : 'hover:bg-[var(--overlay-item-hover-bg)]'
                 }`}
                 title={entry.path}
               >
-                <FolderIcon className={isActive ? 'text-[#2E3440]' : 'text-[#A8B0BD]'} />
-                <span className="flex-1 truncate font-medium text-[#2E3440]">{entry.name}</span>
-                {isActive && <span className="flex-shrink-0 text-[10px] text-[#5F6775]">{CURRENT_PROJECT_LABEL}</span>}
+                <FolderIcon className={isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-label-secondary)]'} />
+                <span className="flex-1 truncate font-medium text-[var(--text-primary)]">{entry.name}</span>
+                {isActive && (
+                  <span className="flex-shrink-0 text-[10px] text-[var(--text-secondary)]">{CURRENT_PROJECT_LABEL}</span>
+                )}
                 <svg
                   aria-hidden="true"
-                  className="h-3.5 w-3.5 flex-shrink-0 text-[#A8B0BD]"
+                  className="h-3.5 w-3.5 flex-shrink-0 text-[var(--text-label-secondary)]"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -256,7 +267,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
           })}
       </div>
 
-      <div className="flex-shrink-0 space-y-2 border-t border-[#EEF2F6] px-5 py-3">
+      <div className="flex-shrink-0 space-y-2 border-t border-[var(--border-default)] px-5 py-3">
         <div className="flex gap-2">
           <TerminalIcon />
           <input
@@ -273,7 +284,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
             <button
               type="button"
               onClick={handlePathSubmit}
-              className="rounded-[6px] border border-[rgb(194,194,194)] bg-white px-2.5 py-2 text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              className="rounded-[6px] border border-[var(--input-border)] bg-[var(--surface-panel)] px-2.5 py-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
               aria-label="Go to path"
             >
               <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -289,7 +300,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
 
         <div className="flex items-center gap-2 pt-1">
           {browseResult && (
-            <span className="flex-1 truncate text-[11px] text-[#5F6775]" title={browseResult.current}>
+            <span className="flex-1 truncate text-[11px] text-[var(--text-secondary)]" title={browseResult.current}>
               {showComputerView ? MY_COMPUTER_LABEL : browseResult.current}
             </span>
           )}
@@ -312,7 +323,12 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
 
 function HomeIcon() {
   return (
-    <svg aria-hidden="true" className="h-3.5 w-3.5 text-[#A8B0BD]" viewBox="0 0 20 20" fill="currentColor">
+    <svg
+      aria-hidden="true"
+      className="h-3.5 w-3.5 text-[var(--text-label-secondary)]"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+    >
       <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
     </svg>
   );
@@ -333,7 +349,12 @@ function FolderIcon({ className }: { className?: string }) {
 
 function TerminalIcon() {
   return (
-    <svg aria-hidden="true" className="mt-2.5 h-3.5 w-3.5 text-[#A8B0BD]" viewBox="0 0 20 20" fill="currentColor">
+    <svg
+      aria-hidden="true"
+      className="mt-2.5 h-3.5 w-3.5 text-[var(--text-label-secondary)]"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+    >
       <path
         fillRule="evenodd"
         d="M2 4.25A2.25 2.25 0 014.25 2h11.5A2.25 2.25 0 0118 4.25v11.5A2.25 2.25 0 0115.75 18H4.25A2.25 2.25 0 012 15.75V4.25zM7.664 6.23a.75.75 0 00-1.078 1.04l2.705 2.805-2.705 2.805a.75.75 0 001.078 1.04l3.25-3.37a.75.75 0 000-1.04l-3.25-3.28zM11 13a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"

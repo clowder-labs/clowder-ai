@@ -62,7 +62,7 @@ function SearchResultItem({
     return (
       <>
         {content.slice(0, idx)}
-        <mark className="bg-cocreator-light text-cocreator-dark rounded px-0.5">
+        <mark className="rounded px-0.5 bg-[var(--accent-soft-strong)] text-[var(--text-primary)]">
           {content.slice(idx, idx + query.length)}
         </mark>
         {content.slice(idx + query.length)}
@@ -74,15 +74,17 @@ function SearchResultItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 hover:bg-cocreator-bg/60 transition-colors group"
+      className="group w-full px-3 py-1.5 text-left transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
     >
       <div className="flex items-center gap-1.5">
         <FileIcon name={fileName} />
-        <span className="text-xs font-medium text-cafe-black truncate">{fileName}</span>
-        {line > 0 && <span className="text-[10px] text-cocreator-dark/50 font-mono">:{line}</span>}
+        <span className="truncate text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
+        {line > 0 && <span className="font-mono text-[10px] text-[var(--text-secondary)]">:{line}</span>}
       </div>
-      {dir && <div className="text-[10px] text-gray-400 truncate ml-5">{dir}</div>}
-      {content && <div className="text-[10px] text-gray-500 truncate font-mono ml-5 mt-0.5">{highlighted}</div>}
+      {dir && <div className="ml-5 truncate text-[10px] text-[var(--text-label-secondary)]">{dir}</div>}
+      {content && (
+        <div className="ml-5 mt-0.5 truncate font-mono text-[10px] text-[var(--text-secondary)]">{highlighted}</div>
+      )}
     </button>
   );
 }
@@ -104,7 +106,7 @@ const CloseIcon = () => (
 
 const SearchIcon = () => (
   <svg
-    className="w-3.5 h-3.5 text-cocreator-dark/40 flex-shrink-0"
+    className="h-3.5 w-3.5 flex-shrink-0 text-[var(--text-secondary)]"
     viewBox="0 0 16 16"
     fill="currentColor"
     aria-hidden="true"
@@ -119,7 +121,7 @@ const SearchIcon = () => (
 
 const MenuIcon = () => (
   <svg
-    className="w-4 h-4 text-cocreator-primary flex-shrink-0"
+    className="h-4 w-4 flex-shrink-0 text-[var(--text-accent)]"
     viewBox="0 0 20 20"
     fill="currentColor"
     aria-hidden="true"
@@ -565,13 +567,13 @@ export function WorkspacePanel() {
   return (
     <aside
       ref={panelRef}
-      className="hidden lg:flex flex-1 min-w-0 border-l border-cocreator-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right"
+      className="hidden min-w-0 flex-1 animate-slide-in-right flex-col overflow-hidden border-l border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface-panel)_95%,transparent)] lg:flex"
     >
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-cocreator-light flex items-center justify-between bg-cocreator-bg/50">
+      <div className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--accent-soft)_55%,var(--surface-panel))] px-3 py-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <MenuIcon />
-          <span className="text-sm font-semibold text-cafe-black">Workspace</span>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">Workspace</span>
         </div>
         <button
           type="button"
@@ -585,18 +587,18 @@ export function WorkspacePanel() {
 
       {/* Worktree indicator */}
       {currentWorktree && (
-        <div className="px-3 py-2 border-b border-cocreator-light/60 bg-cocreator-bg/30">
+        <div className="border-b border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--accent-soft)_32%,var(--surface-panel))] px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-            <span className="text-xs font-medium text-cafe-black truncate">{currentWorktree.branch}</span>
-            <span className="text-[10px] font-mono text-cocreator-dark/50">{currentWorktree.head}</span>
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[var(--state-success-text)]" />
+            <span className="truncate text-xs font-medium text-[var(--text-primary)]">{currentWorktree.branch}</span>
+            <span className="font-mono text-[10px] text-[var(--text-secondary)]">{currentWorktree.head}</span>
           </div>
           {worktrees.length > 1 && (
             <div className="flex items-center gap-1 mt-1.5">
               <select
                 value={worktreeId ?? ''}
                 onChange={(e) => setWorktreeId(e.target.value || null)}
-                className="flex-1 text-[10px] border border-cocreator-light rounded-md px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-cocreator-primary"
+                className="flex-1 rounded-md border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface-panel)_88%,transparent)] px-2 py-1 text-[10px] text-[var(--text-primary)] focus:border-[var(--text-accent)] focus:outline-none"
               >
                 {worktrees.map((w) => (
                   <option key={w.id} value={w.id}>
@@ -612,8 +614,8 @@ export function WorkspacePanel() {
       )}
 
       {/* Search bar */}
-      <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-cocreator-light/40">
-        <div className="flex items-center gap-1.5 bg-white/80 border border-cocreator-light rounded-lg px-2.5 py-1.5 focus-within:border-cocreator-primary focus-within:ring-1 focus-within:ring-cocreator-primary/20 transition-all">
+      <form onSubmit={handleSearchSubmit} className="border-b border-[var(--border-soft)] px-3 py-2">
+        <div className="flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[color-mix(in_srgb,var(--surface-panel)_88%,transparent)] px-2.5 py-1.5 transition-all focus-within:border-[var(--text-accent)] focus-within:ring-1 focus-within:ring-[color-mix(in_srgb,var(--text-accent)_24%,transparent)]">
           <SearchIcon />
           <input
             type="text"
@@ -633,10 +635,10 @@ export function WorkspacePanel() {
             onClick={() => setSearchMode((m) => (m === 'all' ? 'filename' : m === 'filename' ? 'content' : 'all'))}
             className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
               searchMode === 'all'
-                ? 'bg-cocreator-primary/15 text-cocreator-primary'
+                ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
                 : searchMode === 'filename'
-                  ? 'bg-cocreator-light text-cocreator-dark'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-[var(--accent-soft-strong)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
             title={
               searchMode === 'all'
@@ -652,7 +654,7 @@ export function WorkspacePanel() {
       </form>
 
       {/* Files / Changes toggle */}
-      <div className="flex border-b border-cocreator-light/40">
+      <div className="flex border-b border-[var(--border-soft)]">
         {(['files', 'changes', 'git', 'terminal', 'browser'] as const).map((mode) => {
           const labels: Record<typeof mode, string> = {
             files: 'Files',
@@ -668,8 +670,8 @@ export function WorkspacePanel() {
               onClick={() => setViewMode(mode)}
               className={`flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                 viewMode === mode
-                  ? 'text-cocreator-primary border-b-2 border-cocreator-primary'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'border-b-2 border-[var(--text-accent)] text-[var(--text-accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               {labels[mode]}
@@ -679,25 +681,29 @@ export function WorkspacePanel() {
       </div>
 
       {/* Error */}
-      {error && <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
+      {error && (
+        <div className="border-b border-[color-mix(in_srgb,var(--state-error-text)_18%,transparent)] bg-[var(--state-error-surface)] px-3 py-2 text-xs text-[var(--state-error-text)]">
+          {error}
+        </div>
+      )}
 
       {/* F120: Port Discovery Toast — matches design Scene 2 */}
       {portDiscoveryToast && (
-        <div className="mx-3 my-2 p-4 rounded-xl bg-white shadow-md border border-[#E8E7E5]">
+        <div className="mx-3 my-2 rounded-xl border border-[var(--card-border)] bg-[var(--surface-panel)] p-4 shadow-[var(--card-shadow)]">
           <div className="flex items-start justify-between mb-1">
             <div className="flex items-center gap-2">
-              <span className="text-[#E29578] text-base">◉</span>
-              <span className="text-sm font-semibold text-[#1A1918]">Dev Server Detected</span>
+              <span className="text-base text-[var(--text-accent)]">◉</span>
+              <span className="text-sm font-semibold text-[var(--text-primary)]">Dev Server Detected</span>
             </div>
             <button
               type="button"
-              className="text-[#9C9B99] hover:text-[#5a4a42] text-xs"
+              className="text-xs text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
               onClick={() => setPortDiscoveryToast(null)}
             >
               ✕
             </button>
           </div>
-          <p className="text-xs text-[#6D6C6A] ml-6 mb-3">
+          <p className="mb-3 ml-6 text-xs text-[var(--text-secondary)]">
             localhost:{portDiscoveryToast.port} is now listening
             {portDiscoveryToast.framework && portDiscoveryToast.framework !== 'unknown'
               ? ` (${portDiscoveryToast.framework})`
@@ -706,7 +712,7 @@ export function WorkspacePanel() {
           <div className="flex items-center gap-2 ml-6">
             <button
               type="button"
-              className="px-3 py-1.5 rounded-md bg-[#E29578] text-white text-xs font-medium hover:bg-[#d4856a] transition-colors"
+              className="rounded-md bg-[var(--button-primary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] hover:text-[var(--button-primary-text-hover)]"
               onClick={() => {
                 setPreviewPort(portDiscoveryToast.port);
                 setViewMode('browser');
@@ -717,7 +723,7 @@ export function WorkspacePanel() {
             </button>
             <button
               type="button"
-              className="px-3 py-1.5 text-xs text-[#5a4a42]/70 hover:text-[#5a4a42]"
+              className="px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
               onClick={() => setPortDiscoveryToast(null)}
             >
               Dismiss
@@ -732,7 +738,7 @@ export function WorkspacePanel() {
         worktreeId ? (
           <TerminalTab worktreeId={worktreeId} />
         ) : (
-          <div className="flex items-center justify-center h-full text-sm text-cocreator-dark/50">
+          <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
             请先选择一个 Worktree
           </div>
         )
@@ -749,10 +755,10 @@ export function WorkspacePanel() {
               const contentHits = searchResults.filter((r) => r.matchType === 'content');
               const isGrouped = fileHits.length > 0 || contentHits.length > 0;
               return (
-                <div className="border-b border-cocreator-light/40 max-h-64 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto border-b border-[var(--border-soft)]">
                   {isGrouped && fileHits.length > 0 && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                      <div className="sticky top-0 bg-[color-mix(in_srgb,var(--surface-panel)_95%,transparent)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] backdrop-blur-sm">
                         文件名匹配 ({fileHits.length})
                       </div>
                       {fileHits.map((r, i) => (
@@ -769,7 +775,7 @@ export function WorkspacePanel() {
                   )}
                   {isGrouped && contentHits.length > 0 && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                      <div className="sticky top-0 bg-[color-mix(in_srgb,var(--surface-panel)_95%,transparent)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] backdrop-blur-sm">
                         内容匹配 ({contentHits.length})
                       </div>
                       {contentHits.map((r, i) => (
@@ -786,7 +792,7 @@ export function WorkspacePanel() {
                   )}
                   {!isGrouped && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                      <div className="sticky top-0 bg-[color-mix(in_srgb,var(--surface-panel)_95%,transparent)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] backdrop-blur-sm">
                         {searchResults.length} 个结果
                       </div>
                       {searchResults.map((r, i) => (
@@ -826,16 +832,16 @@ export function WorkspacePanel() {
               <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
                 {/* Tab bar */}
                 {openTabs.length > 0 && (
-                  <div className="flex bg-[#1E1E24] border-b border-[#2a2a32] overflow-x-auto scrollbar-none">
+                  <div className="flex overflow-x-auto border-b border-[var(--workspace-editor-border)] bg-[var(--workspace-editor-bg)] scrollbar-none">
                     {openTabs.map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setOpenFile(tab)}
-                        className={`group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
+                        className={`group flex flex-shrink-0 items-center gap-1.5 border-r border-[var(--workspace-editor-border)] px-3 py-1.5 font-mono text-[11px] transition-colors ${
                           tab === openFilePath
-                            ? 'bg-[#2a2a32] text-gray-200'
-                            : 'text-gray-500 hover:text-gray-300 hover:bg-[#252530]'
+                            ? 'bg-[var(--workspace-editor-surface)] text-[var(--workspace-editor-text)]'
+                            : 'text-[var(--workspace-editor-text-subtle)] hover:bg-[var(--workspace-editor-hover)] hover:text-[var(--workspace-editor-text-muted)]'
                         }`}
                         title={tab}
                       >
@@ -854,7 +860,7 @@ export function WorkspacePanel() {
                               closeTab(tab);
                             }
                           }}
-                          className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-opacity text-gray-500 hover:text-gray-300"
+                          className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-[var(--workspace-editor-text-subtle)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]"
                           title="关闭"
                         >
                           ×
@@ -865,10 +871,10 @@ export function WorkspacePanel() {
                 )}
                 {file && (
                   <>
-                    <div className="px-3 py-1 bg-[#1E1E24] flex items-center justify-between">
+                    <div className="flex items-center justify-between bg-[var(--workspace-editor-bg)] px-3 py-1">
                       <div className="flex items-center gap-2 min-w-0">
                         {file.size > 0 && (
-                          <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
+                          <span className="flex-shrink-0 font-mono text-[9px] text-[var(--workspace-editor-text-subtle)]">
                             {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
                           </span>
                         )}
@@ -880,8 +886,8 @@ export function WorkspacePanel() {
                             onClick={() => setMarkdownRendered((p) => !p)}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                               markdownRendered
-                                ? 'bg-cocreator-primary/80 text-white hover:bg-cocreator-primary'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                ? 'bg-[var(--text-accent)] text-[var(--text-inverse)] hover:opacity-90'
+                                : 'text-[var(--workspace-editor-text-subtle)] hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]'
                             }`}
                             title={markdownRendered ? '切换到源码' : '切换到渲染'}
                           >
@@ -894,8 +900,8 @@ export function WorkspacePanel() {
                             onClick={() => setHtmlPreview((p) => !p)}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                               htmlPreview
-                                ? 'bg-cocreator-primary/80 text-white hover:bg-cocreator-primary'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                ? 'bg-[var(--text-accent)] text-[var(--text-inverse)] hover:opacity-90'
+                                : 'text-[var(--workspace-editor-text-subtle)] hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]'
                             }`}
                             title={htmlPreview ? '切换到源码' : '预览 HTML'}
                           >
@@ -908,8 +914,8 @@ export function WorkspacePanel() {
                             onClick={() => setJsxPreview((p) => !p)}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                               jsxPreview
-                                ? 'bg-blue-600/80 text-white hover:bg-blue-500'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                ? 'bg-[var(--workspace-editor-info-bg)] text-[var(--workspace-editor-info-text)] hover:opacity-90'
+                                : 'text-[var(--workspace-editor-text-subtle)] hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]'
                             }`}
                             title={jsxPreview ? '切换到源码' : '预览 JSX/TSX'}
                           >
@@ -923,7 +929,7 @@ export function WorkspacePanel() {
                             onClick={() => {
                               void navigator.clipboard.writeText(file.content);
                             }}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                            className="rounded px-2 py-0.5 text-[10px] font-medium text-[var(--workspace-editor-text-subtle)] transition-colors hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]"
                             title={file.truncated ? '复制已加载内容（文件已截断，非完整全文）' : '复制文件全文'}
                           >
                             {file.truncated ? 'Copy…' : 'Copy'}
@@ -936,7 +942,7 @@ export function WorkspacePanel() {
                             const abs = currentWorktree ? `${currentWorktree.root}/${openFilePath}` : openFilePath;
                             void navigator.clipboard.writeText(abs);
                           }}
-                          className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                          className="rounded px-2 py-0.5 text-[10px] font-medium text-[var(--workspace-editor-text-subtle)] transition-colors hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]"
                           title="复制绝对路径"
                         >
                           Path
@@ -946,7 +952,7 @@ export function WorkspacePanel() {
                           onClick={() => {
                             if (openFilePath) void revealInFinder(openFilePath);
                           }}
-                          className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                          className="rounded px-2 py-0.5 text-[10px] font-medium text-[var(--workspace-editor-text-subtle)] transition-colors hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]"
                           title="在 Finder 中显示"
                         >
                           Finder
@@ -957,8 +963,8 @@ export function WorkspacePanel() {
                             onClick={handleToggleEdit}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                               editMode
-                                ? 'bg-green-600/80 text-white hover:bg-green-500'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                ? 'bg-[var(--workspace-editor-success-bg)] text-[var(--workspace-editor-success-text)] hover:opacity-90'
+                                : 'text-[var(--workspace-editor-text-subtle)] hover:bg-[var(--workspace-editor-overlay)] hover:text-[var(--workspace-editor-text-muted)]'
                             }`}
                             title={editMode ? '退出编辑' : '编辑文件'}
                           >
@@ -979,13 +985,13 @@ export function WorkspacePanel() {
                       </div>
                     </div>
                     {saveError && (
-                      <div className="px-3 py-1.5 text-[10px] text-red-400 bg-red-900/20 border-b border-red-900/30">
+                      <div className="border-b border-[var(--workspace-editor-error-border)] bg-[var(--workspace-editor-error-bg)] px-3 py-1.5 text-[10px] text-[var(--workspace-editor-error-text)]">
                         {saveError}
                       </div>
                     )}
                     {file.binary ? (
                       file.mime.startsWith('image/') ? (
-                        <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+                        <div className="flex flex-1 items-center justify-center overflow-auto bg-[var(--workspace-editor-bg)] p-4">
                           <img
                             src={`${API_URL}/api/workspace/file/raw?worktreeId=${encodeURIComponent(worktreeId ?? '')}&path=${encodeURIComponent(file.path)}`}
                             alt={file.path}
@@ -993,7 +999,7 @@ export function WorkspacePanel() {
                           />
                         </div>
                       ) : file.mime.startsWith('audio/') ? (
-                        <div className="flex-1 flex flex-col items-center justify-center bg-[#1E1E24] p-6 gap-3">
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-[var(--workspace-editor-bg)] p-6">
                           <span className="text-3xl">🎵</span>
                           <audio
                             controls
@@ -1002,12 +1008,12 @@ export function WorkspacePanel() {
                           >
                             浏览器不支持音频播放
                           </audio>
-                          <p className="text-[10px] text-gray-500">
+                          <p className="text-[10px] text-[var(--workspace-editor-text-subtle)]">
                             {file.mime} · {Math.round(file.size / 1024)}KB
                           </p>
                         </div>
                       ) : file.mime.startsWith('video/') ? (
-                        <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+                        <div className="flex flex-1 items-center justify-center overflow-auto bg-[var(--workspace-editor-bg)] p-4">
                           <video
                             controls
                             src={`${API_URL}/api/workspace/file/raw?worktreeId=${encodeURIComponent(worktreeId ?? '')}&path=${encodeURIComponent(file.path)}`}
@@ -1017,7 +1023,7 @@ export function WorkspacePanel() {
                           </video>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
+                        <div className="flex flex-col items-center justify-center bg-[var(--workspace-editor-bg)] py-8 text-xs text-[var(--workspace-editor-text-subtle)]">
                           <span className="text-2xl mb-2">📄</span>
                           <p>二进制文件</p>
                           <p className="text-[10px] mt-1">
@@ -1026,14 +1032,14 @@ export function WorkspacePanel() {
                           <button
                             type="button"
                             onClick={() => void revealInFinder(file.path)}
-                            className="mt-2 px-3 py-1 rounded bg-cocreator-light/20 text-cocreator-dark/60 hover:bg-cocreator-light/40 transition-colors text-[10px]"
+                            className="mt-2 rounded bg-[var(--accent-soft)] px-3 py-1 text-[10px] text-[var(--text-accent)] transition-colors hover:bg-[var(--accent-soft-strong)]"
                           >
                             在 Finder 中打开
                           </button>
                         </div>
                       )
                     ) : isMarkdown && markdownRendered && !editMode ? (
-                      <div className="relative flex-1 overflow-auto bg-cafe-white p-4" ref={mdContainerRef}>
+                      <div className="relative flex-1 overflow-auto bg-[var(--surface-panel)] p-4" ref={mdContainerRef}>
                         <MarkdownContent
                           content={file.content}
                           disableCommandPrefix
@@ -1043,7 +1049,7 @@ export function WorkspacePanel() {
                           <button
                             type="button"
                             onClick={handleMdAddToChat}
-                            className="absolute top-2 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cocreator-primary text-white text-[11px] font-medium shadow-lg hover:bg-cocreator-dark transition-colors z-10 animate-fade-in"
+                            className="absolute right-3 top-2 z-10 flex animate-fade-in items-center gap-1.5 rounded-lg bg-[var(--text-accent)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-inverse)] shadow-[var(--card-shadow)] transition-colors hover:opacity-90"
                             title="引用到聊天"
                           >
                             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -1058,10 +1064,10 @@ export function WorkspacePanel() {
                       <div className="flex-1 min-h-0 flex flex-col">
                         {/* Sandboxed preview: relative asset paths (images, CSS, JS) cannot resolve
                     because srcDoc loads as about:srcdoc. A full asset proxy is future scope (P2D). */}
-                        <div className="px-2 py-1 bg-amber-900/20 text-amber-400 text-[10px] border-b border-amber-900/30 flex-shrink-0">
+                        <div className="flex-shrink-0 border-b border-[var(--workspace-editor-warning-border)] bg-[var(--workspace-editor-warning-bg)] px-2 py-1 text-[10px] text-[var(--workspace-editor-warning-text)]">
                           预览模式 — 相对资源路径（图片/CSS/JS）可能无法加载
                         </div>
-                        <div className="flex-1 min-h-0 bg-white">
+                        <div className="min-h-0 flex-1 bg-[var(--surface-panel)]">
                           <iframe
                             srcDoc={file.content}
                             sandbox="allow-scripts"
@@ -1084,7 +1090,7 @@ export function WorkspacePanel() {
                       />
                     )}
                     {file.truncated && (
-                      <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
+                      <div className="border-t border-[var(--workspace-editor-warning-border)] bg-[var(--workspace-editor-bg)] px-3 py-1.5 text-[10px] text-[var(--workspace-editor-warning-text)]">
                         文件已截断 (超过 1MB)
                       </div>
                     )}

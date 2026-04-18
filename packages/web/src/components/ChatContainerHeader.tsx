@@ -55,7 +55,7 @@ export function ChatContainerHeader({
             {visibleCats.map(({ id, cat }) => (
               <div key={id} className="flex items-center gap-2" title={cat!.displayName}>
                 <img src={cat!.avatar} alt={cat!.displayName} className="h-6 w-6 rounded-full" />
-                <span className="text-sm text-[#191919]">{cat!.displayName}</span>
+                <span className="text-sm text-[var(--text-primary)]">{cat!.displayName}</span>
               </div>
             ))}
           </div>

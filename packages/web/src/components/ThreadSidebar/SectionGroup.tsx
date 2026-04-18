@@ -8,10 +8,10 @@ import React from 'react';
 
 /** F070: governance status dot colors */
 const GOV_STATUS_DOT: Record<string, { color: string; title: string }> = {
-  healthy: { color: 'bg-green-400', title: '治理正常' },
-  stale: { color: 'bg-yellow-400', title: '治理过期' },
-  missing: { color: 'bg-red-400', title: '治理缺失' },
-  'never-synced': { color: 'bg-gray-300', title: '未同步治理' },
+  healthy: { color: 'var(--state-success-text)', title: '治理正常' },
+  stale: { color: 'var(--state-warning-text)', title: '治理过期' },
+  missing: { color: 'var(--state-error-text)', title: '治理缺失' },
+  'never-synced': { color: 'var(--text-disabled)', title: '未同步治理' },
 };
 
 interface SectionGroupProps {
@@ -49,13 +49,17 @@ export function SectionGroup({
       <button
         type="button"
         onClick={onToggle}
-        className={`w-full text-left px-4 py-1.5 flex items-center gap-1.5 transition-colors ${hideToggle ? 'cursor-default' : 'hover:bg-gray-50'}`}
+        className={`flex w-full items-center gap-1.5 px-4 py-1.5 text-left transition-colors ${
+          hideToggle ? 'cursor-default' : 'hover:bg-[var(--overlay-item-hover-bg)]'
+        }`}
         title={projectPath && projectPath !== 'default' ? projectPath : undefined}
       >
         {!hideToggle && (
           <svg
             aria-hidden="true"
-            className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
+            className={`h-3 w-3 flex-shrink-0 text-[var(--text-label-secondary)] transition-transform ${
+              isCollapsed ? '' : 'rotate-90'
+            }`}
             viewBox="0 0 12 12"
             fill="currentColor"
           >
@@ -65,7 +69,7 @@ export function SectionGroup({
         {icon === 'pin' && (
           <svg
             aria-hidden="true"
-            className="w-3 h-3 text-cocreator-primary flex-shrink-0"
+            className="h-3 w-3 flex-shrink-0 text-[var(--text-accent)]"
             viewBox="0 0 16 16"
             fill="currentColor"
           >
@@ -75,7 +79,7 @@ export function SectionGroup({
         {icon === 'star' && (
           <svg
             aria-hidden="true"
-            className="w-3 h-3 text-yellow-500 flex-shrink-0"
+            className="h-3 w-3 flex-shrink-0 text-[var(--state-warning-text)]"
             viewBox="0 0 16 16"
             fill="currentColor"
           >
@@ -85,7 +89,7 @@ export function SectionGroup({
         {icon === 'clock' && (
           <svg
             aria-hidden="true"
-            className="w-3 h-3 text-gray-400 flex-shrink-0"
+            className="h-3 w-3 flex-shrink-0 text-[var(--text-label-secondary)]"
             viewBox="0 0 16 16"
             fill="currentColor"
           >
@@ -95,19 +99,21 @@ export function SectionGroup({
         {icon === 'archive' && (
           <svg
             aria-hidden="true"
-            className="w-3 h-3 text-gray-400 flex-shrink-0"
+            className="h-3 w-3 flex-shrink-0 text-[var(--text-label-secondary)]"
             viewBox="0 0 16 16"
             fill="currentColor"
           >
             <path d="M1.75 2A1.75 1.75 0 000 3.75v1.5C0 5.99.84 6.73 1.91 6.95L2 7v5.25c0 .97.78 1.75 1.75 1.75h8.5A1.75 1.75 0 0014 12.25V7l.09-.05A1.75 1.75 0 0016 5.25v-1.5A1.75 1.75 0 0014.25 2H1.75zM1.5 3.75a.25.25 0 01.25-.25h12.5a.25.25 0 01.25.25v1.5a.25.25 0 01-.25.25H1.75a.25.25 0 01-.25-.25v-1.5zM3.5 7h9v5.25a.25.25 0 01-.25.25h-8.5a.25.25 0 01-.25-.25V7z" />
           </svg>
         )}
-        <span className="truncate text-xs font-medium text-[#808080]">{label}</span>
+        <span className="truncate text-xs font-medium text-[var(--text-label-secondary)]">{label}</span>
         {(() => {
           const dot = governanceStatus ? GOV_STATUS_DOT[governanceStatus] : undefined;
-          return dot ? <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot.color}`} title={dot.title} /> : null;
+          return dot ? (
+            <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dot.color }} title={dot.title} />
+          ) : null;
         })()}
-        {!hideCount && <span className="text-[10px] text-gray-300 flex-shrink-0 ml-auto">{count}</span>}
+        {!hideCount && <span className="ml-auto flex-shrink-0 text-[10px] text-[var(--text-disabled)]">{count}</span>}
         {onToggleProjectPin && (
           <span
             role="button"
@@ -123,11 +129,17 @@ export function SectionGroup({
                 onToggleProjectPin();
               }
             }}
-            className={`ml-1 flex-shrink-0 cursor-pointer transition-colors ${isProjectPinned ? 'text-cocreator-primary' : 'text-gray-300 hover:text-gray-400'}`}
-            title={isProjectPinned ? '取消固定项目' : '固定项目到活跃区'}
+            className={`ml-1 flex-shrink-0 cursor-pointer transition-colors ${
+              isProjectPinned
+                ? 'text-[var(--text-accent)]'
+                : 'text-[var(--text-disabled)] hover:text-[var(--text-label-secondary)]'
+            }`}
+            title={
+              isProjectPinned ? '取消固定项目' : '固定项目到活跃区'
+            }
             data-testid="project-pin-btn"
           >
-            <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4.456 2.013a.75.75 0 011.06-.034l6.5 6a.75.75 0 01-.034 1.06l-1.99 1.838.637 3.22a.75.75 0 01-1.196.693L6.5 12.526l-2.933 2.264a.75.75 0 01-1.196-.693l.637-3.22-1.99-1.838a.75.75 0 01-.034-1.06l5.472-5.966z" />
             </svg>
           </span>

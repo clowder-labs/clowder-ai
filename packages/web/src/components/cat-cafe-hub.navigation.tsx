@@ -30,7 +30,7 @@ export const HUB_GROUPS: HubGroup[] = [
     id: 'cats',
     label: '成员协作',
     icon: 'cat',
-    color: '#9B7EBD',
+    color: 'var(--color-opus-primary)',
     preview: '总览 · 能力 · 配额 · 技能',
     tabs: [
       { id: 'cats', label: '总览', icon: 'users' },
@@ -43,7 +43,7 @@ export const HUB_GROUPS: HubGroup[] = [
     id: 'settings',
     label: '系统配置',
     icon: 'settings',
-    color: '#E29578',
+    color: 'var(--color-cocreator-primary)',
     preview: '账号 · 语音 · 通知',
     tabs: [
       { id: 'system', label: '系统配置', icon: 'settings' },
@@ -57,7 +57,7 @@ export const HUB_GROUPS: HubGroup[] = [
     id: 'monitor',
     label: '监控与治理',
     icon: 'activity',
-    color: '#5B9BD5',
+    color: 'var(--color-gemini-primary)',
     preview: '治理 · 救援 · 命令速查',
     tabs: [
       { id: 'governance', label: '治理看板', icon: 'shield' },
@@ -94,26 +94,28 @@ export function AccordionSection({
   onSelectTab: (tabId: HubTabId) => void;
 }) {
   return (
-    <div className="rounded-xl bg-white shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+    <div className="rounded-xl bg-[var(--surface-panel)] shadow-[var(--card-shadow)]">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-gray-50/50"
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
       >
         <span className="flex-shrink-0" style={{ color: group.color }}>
           <HubIcon name={group.icon} className="h-5 w-5" />
         </span>
-        <span className="text-sm font-semibold text-gray-900">{group.label}</span>
+        <span className="text-sm font-semibold text-[var(--text-primary)]">{group.label}</span>
         <span className="flex-1" />
         {!expanded ? (
-          <span className="hidden max-w-[180px] truncate text-xs text-gray-400 sm:inline">{group.preview}</span>
+          <span className="hidden max-w-[180px] truncate text-xs text-[var(--text-label-secondary)] sm:inline">
+            {group.preview}
+          </span>
         ) : null}
         <span
           className="min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-xs font-medium"
-          style={{ color: group.color, backgroundColor: `${group.color}15` }}
+          style={{ color: group.color, backgroundColor: `color-mix(in srgb, ${group.color} 14%, transparent)` }}
         >
           {group.tabs.length}
         </span>
-        <ChevronIcon expanded={expanded} className="h-4 w-4 flex-shrink-0 text-gray-400" />
+        <ChevronIcon expanded={expanded} className="h-4 w-4 flex-shrink-0 text-[var(--text-label-secondary)]" />
       </button>
 
       {expanded ? (
@@ -125,12 +127,19 @@ export function AccordionSection({
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
                 className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition-colors"
-                style={isActive ? { backgroundColor: `${group.color}10`, color: group.color } : {}}
+                style={
+                  isActive
+                    ? {
+                        backgroundColor: `color-mix(in srgb, ${group.color} 10%, transparent)`,
+                        color: group.color,
+                      }
+                    : {}
+                }
               >
-                <span style={isActive ? { color: group.color } : { color: '#9ca3af' }}>
+                <span style={isActive ? { color: group.color } : { color: 'var(--text-label-secondary)' }}>
                   <HubIcon name={tab.icon} className="h-4 w-4" />
                 </span>
-                <span className={isActive ? 'font-medium' : 'text-gray-600'}>{tab.label}</span>
+                <span className={isActive ? 'font-medium' : 'text-[var(--text-secondary)]'}>{tab.label}</span>
               </button>
             );
           })}
