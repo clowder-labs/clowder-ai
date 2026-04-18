@@ -5,6 +5,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import { isOriginAllowed, resolveFrontendCorsOrigins } from '../config/frontend-origin.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
@@ -40,12 +41,21 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   const { tmuxGateway, agentPaneRegistry, portDiscovery } = opts;
   const store = new TerminalSessionStore();
   const ptys = new Map<string, PtyBinding>();
+  const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
 
   if (!pty) {
     app.get('/api/terminal/status', async () => ({ available: false, reason: 'node-pty not installed' }));
     return;
   }
   const ptyMod = pty;
+
+  app.addHook('onRequest', async (req, reply) => {
+    if (req.headers.upgrade?.toLowerCase() !== 'websocket') return;
+    const origin = req.headers.origin as string | undefined;
+    if (!origin || isOriginAllowed(origin, corsOrigins)) return;
+    reply.status(403);
+    return reply.send({ error: 'Origin not allowed' });
+  });
 
   function requireTrustedUserId(req: Parameters<typeof resolveTrustedUserId>[0], reply: { status: (code: number) => void; send: (body: unknown) => unknown }): string | null {
     const userId = resolveTrustedUserId(req);

@@ -34,7 +34,7 @@ describe('OverflowTooltip', () => {
     container.remove();
   });
 
-  it('uses the shared white tooltip surface, arrow, and capped width', async () => {
+  it('uses the shared themed tooltip surface, themed text, arrow, and capped width', async () => {
     await act(async () => {
       root.render(
         React.createElement(OverflowTooltip, {
@@ -65,8 +65,11 @@ describe('OverflowTooltip', () => {
     expect(tooltip?.style.maxWidth).toBeTruthy();
     expect(tooltip?.dataset.placement).toBeTruthy();
     const bubble = tooltip?.firstElementChild as HTMLDivElement | null;
-    expect(bubble?.className).toContain('bg-white');
-    expect(bubble?.className).toContain('shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)]');
+    expect(bubble?.className).toContain('bg-[var(--tooltip-surface)]');
+    expect(bubble?.className).not.toContain('border-[var(--tooltip-border)]');
+    expect(bubble?.className).not.toContain(' border ');
+    expect(bubble?.className).toContain('text-[var(--tooltip-text)]');
+    expect(bubble?.className).toContain('shadow-[var(--tooltip-shadow)]');
     expect(bubble?.className).toContain('break-all');
     expect(bubble?.className).not.toContain('break-words');
     expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();

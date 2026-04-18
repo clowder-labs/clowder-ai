@@ -178,10 +178,17 @@ export class SocketManager {
           // F108 + F086: Also abort multi-mention dispatches for this specific cat
           this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, data.catId);
         } else {
-          // Backward compat: cancel all slots in thread
-          this.invocationTracker.cancelAll(data.threadId);
-          this.multiMentionOrchestrator?.abortByThread(data.threadId);
-          log.info({ threadId: data.threadId }, 'Cancelled all invocations');
+          // Only cancel invocations owned by this socket's user.
+          const cancelledCatIds = this.invocationTracker.cancelAll(data.threadId, userId);
+          if (cancelledCatIds.length > 0) {
+            for (const msg of buildCancelMessages({ cancelled: true, catIds: cancelledCatIds })) {
+              this.broadcastAgentMessage(msg, data.threadId);
+            }
+          }
+          for (const catId of cancelledCatIds) {
+            this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, catId);
+          }
+          log.info({ threadId: data.threadId, socketId: socket.id, userId, cancelledCatIds }, 'Cancelled all invocations');
         }
       });
     });

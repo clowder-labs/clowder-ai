@@ -15,8 +15,9 @@ import {
 } from './windows-portable-redis-test-helpers.js';
 
 test('Windows CLI installs use the explicit npm command path and Redis mode only offers portable or external', () => {
-  assert.match(installScript, /\$npmInstallCommand = Resolve-ToolCommand -Name "npm"/);
-  assert.match(installScript, /& \$npmInstallCommand install -g \$tool\.Pkg 2>\$null/);
+  assert.match(installScript, /function Resolve-PnpmCommand \{ Resolve-ToolCommand -Name "pnpm" \}/);
+  assert.match(installScript, /\$npmCommand = Resolve-ToolCommand -Name "npm"/);
+  assert.match(installScript, /& \$npmCommand install -g pnpm 2>\$null/);
   assert.match(uiHelpersScript, /Select-InstallerChoice -Title "Redis setup"/);
   assert.match(uiHelpersScript, /Install Redis locally \(recommended\)/);
   assert.match(uiHelpersScript, /Use external Redis URL/);
@@ -150,11 +151,17 @@ test('Windows installer prefers plain portable Redis zips before service bundles
 
 test('Windows Redis URL handling preserves external backends and treats localhost URLs with suffixes as local', () => {
   assert.match(startWindowsScript, /Test-LocalRedisUrl -RedisUrl \$configuredRedisUrl -RedisPort \$RedisPort/);
-  assert.match(helpersScript, /\$uri\.Host -notin @\("localhost", "127\.0\.0\.1"\)/);
+  assert.match(helpersScript, /\$isLoopbackHost = \$uri\.Host -eq "localhost"/);
+  assert.match(helpersScript, /if \(-not \$isLoopbackHost -and \[System\.Net\.IPAddress\]::TryParse\(\$uri\.Host, \[ref\]\$ipAddress\)\)/);
+  assert.match(helpersScript, /\$isLoopbackHost = \[System\.Net\.IPAddress\]::IsLoopback\(\$ipAddress\)/);
   assert.match(helpersScript, /if \(\$uri\.Port -gt 0 -and "\$\(\$uri\.Port\)" -ne "\$RedisPort"\) \{/);
   assert.match(
     stopWindowsScript,
-    /\$configuredRedisUrl = Get-InstallerEnvValueFromFile -EnvFile \$envFile -Key "REDIS_URL"\s+if \(-not \$configuredRedisUrl -and \$env:REDIS_URL\) \{\s+\$configuredRedisUrl = \$env:REDIS_URL\.Trim\(\)\s+\}/,
+    /\$configuredRedisUrl = if \(\$runtimeState -and \$runtimeState\.RedisUrl\) \{\s+\[string\]\$runtimeState\.RedisUrl\s+\} else \{\s+Get-InstallerEnvValueFromFile -EnvFile \$envFile -Key "REDIS_URL"\s+\}/,
+  );
+  assert.match(
+    stopWindowsScript,
+    /if \(-not \$configuredRedisUrl -and \$env:REDIS_URL\) \{\s+\$configuredRedisUrl = \$env:REDIS_URL\.Trim\(\)\s+\}/,
   );
   assert.match(
     stopWindowsScript,

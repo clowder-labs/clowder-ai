@@ -185,7 +185,6 @@ export class OutboundDeliveryHook {
                   featId: threadMeta.featId,
                   body: formattedBody,
                   deepLinkUrl: threadMeta.deepLinkUrl,
-                  timestamp: new Date(),
                   origin: envelopeOrigin,
                 })
               : this.formatter.formatMinimal({

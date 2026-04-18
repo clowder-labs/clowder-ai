@@ -1,13 +1,46 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useTheme, type ThemeType } from '@/hooks/useTheme';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ThemeType, useTheme } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { clearAuthIdentity, getIsSkipAuth, getUserId, getUserName } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import SecurityManagementModal from './SecurityManagementModal';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
+
+interface VersionInfo {
+  curversion: string;
+  lastversion: string;
+  description: string;
+  downloadUrl?: string;
+  download_url?: string;
+}
+
+function normalizeVersion(version: string): number[] {
+  return version
+    .trim()
+    .replace(/^[^\d]*/, '')
+    .split(/[.\-+_]/)
+    .map((part) => Number.parseInt(part, 10))
+    .map((part) => (Number.isFinite(part) ? part : 0));
+}
+
+function compareVersions(a: string, b: string): number {
+  const aParts = normalizeVersion(a);
+  const bParts = normalizeVersion(b);
+  const maxLen = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < maxLen; i += 1) {
+    const aVal = aParts[i] ?? 0;
+    const bVal = bParts[i] ?? 0;
+    if (aVal > bVal) return 1;
+    if (aVal < bVal) return -1;
+  }
+
+  return 0;
+}
 
 interface UserProfileProps {
   className?: string;
@@ -18,21 +51,29 @@ const THEME_OPTIONS: Array<{
   label: string;
   swatchBackground: string;
   selectedBadgeBackground: string;
+  selectedBadgeColor: string;
 }> = [
   {
     id: 'business',
     label: '灰白',
-    swatchBackground:
-      'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
-    selectedBadgeBackground: 'rgb(59,130,246)',
+    swatchBackground: 'var(--theme-preview-business-bg)',
+    selectedBadgeBackground: 'var(--theme-preview-business-badge)',
+    selectedBadgeColor: 'var(--theme-preview-business-check)',
   },
   {
     id: 'warm',
     label: '橙白',
-    swatchBackground:
-      'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
-    selectedBadgeBackground: 'rgb(204,109,26)',
+    swatchBackground: 'var(--theme-preview-warm-bg)',
+    selectedBadgeBackground: 'var(--theme-preview-warm-badge)',
+    selectedBadgeColor: 'var(--theme-preview-warm-check)',
   },
+  // {
+  //   id: 'dark',
+  //   label: '暗黑',
+  //   swatchBackground: 'var(--theme-preview-dark-bg)',
+  //   selectedBadgeBackground: 'var(--theme-preview-dark-badge)',
+  //   selectedBadgeColor: 'var(--theme-preview-dark-check)',
+  // },
 ];
 
 const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
@@ -54,6 +95,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const [themePopoverLeft, setThemePopoverLeft] = useState(0);
   const [aboutPopoverTop, setAboutPopoverTop] = useState(0);
   const [aboutPopoverLeft, setAboutPopoverLeft] = useState(0);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
@@ -65,12 +107,51 @@ export function UserProfile({ className }: UserProfileProps) {
   const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
 
+  const hasNewVersion =
+    !!versionInfo?.lastversion &&
+    !!versionInfo?.curversion &&
+    compareVersions(versionInfo.lastversion, versionInfo.curversion) > 0;
+
+  const checkVersion = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const res = await apiFetch('/api/lastversion');
+      if (!res.ok) return;
+
+      const data = (await res.json()) as VersionInfo;
+      if (!data?.curversion) return;
+
+      setVersionInfo(data);
+
+      const isNewVersionAvailable =
+        !!data.lastversion && !!data.curversion && compareVersions(data.lastversion, data.curversion) > 0;
+
+      if (isNewVersionAvailable) {
+        setShowVersionUpdate(true);
+      } else {
+        const taskId = `version-${data.curversion}`;
+        try {
+          await apiFetch('/api/download/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId }),
+          });
+        } catch {}
+      }
+    } catch {}
+  }, []);
+
+  const handleCloseVersionUpdate = useCallback(() => {
+    setShowVersionUpdate(false);
+  }, []);
+
   const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
-    'ui-overlay-item flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[14px] font-normal leading-[22px]';
+    'ui-overlay-item flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[14px] font-normal leading-[22px] text-[var(--overlay-text)]';
   const profileSubActionClass =
-    'ui-overlay-item flex w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-[14px] font-normal leading-[22px]';
+    'ui-overlay-item flex w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-[14px] font-normal leading-[22px] text-[var(--overlay-text)]';
 
   const calculatePopoverPosition = (anchorElement: HTMLDivElement | null) => {
     if (!panelRef.current || !profilePanelRef.current || !anchorElement) return null;
@@ -137,10 +218,6 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const handleCloseSecurityManagement = () => {
     setShowSecurityManagement(false);
-  };
-
-  const handleCloseVersionUpdate = () => {
-    setShowVersionUpdate(false);
   };
 
   const openThemePanel = () => {
@@ -280,26 +357,30 @@ export function UserProfile({ className }: UserProfileProps) {
     setIsSkipAuth(getIsSkipAuth());
   }, []);
 
+  useEffect(() => {
+    checkVersion();
+  }, [checkVersion]);
+
   return (
     <div className={`border-none relative ${className ?? ''}`} ref={panelRef}>
       <button
         type="button"
         onClick={handleTogglePanel}
-        className="group border-none flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-gray-50"
+        className="group border-none flex w-full items-center gap-3 px-3 py-3 text-left text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]"
         data-testid="user-profile-toggle"
       >
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
-          <span className="text-sm font-bold text-[#191919]">{avatarLetter}</span>
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--surface-avatar-shell)]">
+          <span className="text-sm font-bold text-[var(--text-primary)]">{avatarLetter}</span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[16px] font-medium text-gray-900" title={userName}>
+        <OverflowTooltip content={userName} className="min-w-0 flex-1">
+          <div data-testid="user-profile-name" className="truncate text-[16px] font-medium text-[var(--text-primary)]">
             {userName}
           </div>
-        </div>
+        </OverflowTooltip>
 
         <svg
-          className="h-4 w-4 shrink-0 text-[#191919] transition-transform"
+          className="h-4 w-4 shrink-0 text-[var(--text-primary)] transition-transform"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -318,49 +399,39 @@ export function UserProfile({ className }: UserProfileProps) {
           <div className="p-4 border-none" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
-                  <span className="text-base font-bold text-[#191919]">{avatarLetter}</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-avatar-shell)]">
+                  <span className="text-base font-bold text-[var(--text-primary)]">{avatarLetter}</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[16px] font-normal text-gray-900" title={userName}>
+                <OverflowTooltip content={userName} className="min-w-0 flex-1">
+                  <div
+                    data-testid="user-profile-panel-name"
+                    className="truncate text-[16px] font-normal text-[var(--text-primary)]"
+                  >
                     {userName}
                   </div>
-                </div>
+                </OverflowTooltip>
               </div>
             </div>
 
-            <div className="mb-3 border-t border-gray-200" />
+            <div className="mb-3 border-t border-[var(--panel-divider)]" />
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
-              <button
-                className={profileActionClass}
-                onClick={handleOpenSecurityManagement}
-              >
+              <button className={profileActionClass} onClick={handleOpenSecurityManagement}>
                 <img src="/icons/userprofile/security.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 安全管理
               </button>
 
-              <button
-                className={profileActionClass}
-                onClick={handleOpenUsageStats}
-              >
+              <button className={profileActionClass} onClick={handleOpenUsageStats}>
                 <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 用量统计
               </button>
 
-              <button
-                className={profileActionClass}
-                onClick={handleOpenVersionUpdate}
-              >
+              <button className={profileActionClass} onClick={handleOpenVersionUpdate}>
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 版本更新
               </button>
 
-              <div
-                className="relative"
-                data-testid="user-profile-theme-anchor"
-                ref={themeAnchorRef}
-              >
+              <div className="relative" data-testid="user-profile-theme-anchor" ref={themeAnchorRef}>
                 <button
                   className={profileActionClass}
                   onClick={handleToggleThemePanel}
@@ -370,7 +441,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="flex-1 text-left">主题模式</span>
                   <svg
                     data-testid="user-profile-theme-arrow"
-                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-text)]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -392,7 +463,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="flex-1 text-left">关于我们</span>
                   <svg
                     data-testid="user-profile-about-arrow"
-                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-text)]"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -406,7 +477,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             {!isSkipAuth && (
               <>
-                <div className="mt-3 border-t border-gray-200" />
+                <div className="mt-3 border-t border-[var(--panel-divider)]" />
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
@@ -423,7 +494,7 @@ export function UserProfile({ className }: UserProfileProps) {
       {showPanel && showThemePanel && (
         <div
           ref={themePopoverRef}
-          className="ui-overlay-card absolute z-[60] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
+          className="ui-overlay-card absolute z-[60] rounded-[var(--radius-md)] shadow-[var(--overlay-shadow)]"
           data-testid="user-theme-popover"
           style={{ top: `${themePopoverTop}px`, left: `${themePopoverLeft}px` }}
         >
@@ -436,7 +507,7 @@ export function UserProfile({ className }: UserProfileProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleSelectTheme(option.id)}
-                    className={`ui-overlay-item flex flex-col items-center gap-2 text-center hover:border-transparent hover:bg-transparent hover:text-[var(--overlay-item-text)] focus-visible:border-transparent focus-visible:bg-transparent focus-visible:text-[var(--overlay-item-text)]`}
+                    className={`ui-overlay-item flex flex-col items-center gap-2 text-center text-[var(--overlay-text)] hover:border-transparent hover:bg-transparent hover:text-[var(--overlay-text)] focus-visible:border-transparent focus-visible:bg-transparent focus-visible:text-[var(--overlay-text)]`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
                     <div className="relative">
@@ -447,11 +518,14 @@ export function UserProfile({ className }: UserProfileProps) {
                       />
                       {isActive && (
                         <div
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-white"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full"
                           data-testid={`user-theme-selected-badge-${option.id}`}
-                          style={{ backgroundColor: option.selectedBadgeBackground }}
+                          style={{
+                            backgroundColor: option.selectedBadgeBackground,
+                            color: option.selectedBadgeColor,
+                          }}
                         >
-                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
+                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
@@ -463,7 +537,7 @@ export function UserProfile({ className }: UserProfileProps) {
                         </div>
                       )}
                     </div>
-                    <span className="whitespace-nowrap text-[12px] font-medium leading-[18px] text-[#2E3440]">
+                    <span className="whitespace-nowrap text-[12px] font-medium leading-[18px] text-[var(--overlay-text)]">
                       {option.label}
                     </span>
                   </button>
@@ -477,7 +551,7 @@ export function UserProfile({ className }: UserProfileProps) {
       {showPanel && showAboutPanel && (
         <div
           ref={aboutPopoverRef}
-          className="ui-overlay-card absolute z-[60] min-w-[180px] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
+          className="ui-overlay-card absolute z-[60] min-w-[180px] rounded-[var(--radius-md)] shadow-[var(--overlay-shadow)]"
           data-testid="user-about-popover"
           style={{ top: `${aboutPopoverTop}px`, left: `${aboutPopoverLeft}px` }}
         >
@@ -508,7 +582,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
       <SecurityManagementModal open={showSecurityManagement} onClose={handleCloseSecurityManagement} />
-      <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
+      <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} versionInfo={versionInfo} />
     </div>
   );
 }

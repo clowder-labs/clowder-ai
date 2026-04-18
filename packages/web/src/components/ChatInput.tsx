@@ -107,6 +107,20 @@ const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const QUICK_ACTION_BUTTON_CLASS =
+  'inline-flex items-center gap-1 rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50';
+const QUICK_PROMPT_BUTTON_CLASS =
+  'min-w-0 rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]';
+const EXPERT_CARD_BUTTON_CLASS =
+  'group min-w-0 rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-3 text-left transition-colors hover:bg-[var(--overlay-item-hover-bg)] hover:border-[var(--border-accent)]';
+const SKILL_TRIGGER_BUTTON_CLASS =
+  'inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-[7px] text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]';
+const SKILL_MENU_CLASS =
+  'ui-overlay-card absolute bottom-full left-0 mb-2 z-[200] flex w-[240px] flex-col overflow-hidden rounded-xl border border-[var(--overlay-border)] p-2 shadow-[var(--overlay-shadow)]';
+const SKILL_MENU_ITEM_CLASS =
+  'flex h-[32px] w-full items-center gap-2 rounded-[6px] px-2 py-[7px] text-left text-[12px] font-normal text-[var(--overlay-text)] transition-colors';
+const ICON_BUTTON_CLASS =
+  'inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-[var(--text-label-secondary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] hover:text-[var(--text-accent)] disabled:cursor-not-allowed disabled:opacity-30';
 
 function getSkillToken(name: string): string {
   return `${SKILL_TOKEN_PREFIX}${name}${SKILL_TOKEN_SUFFIX}`;
@@ -338,10 +352,19 @@ export function ChatInput({
     });
   }, []);
 
+  const applyProgrammaticInput = useCallback((next: string, caret: number) => {
+    const el = textareaRef.current;
+    if (el) {
+      el.applyProgrammaticChange(next, caret, caret);
+      return;
+    }
+    setInput(next);
+  }, []);
+
   const handleQuickAction = useCallback((action: QuickActionConfig) => {
     const token = getQuickActionToken(action.label);
     const next = `${token} `;
-    setInput(next);
+    applyProgrammaticInput(next, next.length);
     setPendingQuickPromptExpand(false);
     setShowQuickPrompts(true);
     // 重置专家团思辨点击标记
@@ -382,7 +405,7 @@ export function ChatInput({
         caret = next.length;
       }
 
-      setInput(next);
+      applyProgrammaticInput(next, caret);
       setPendingQuickPromptExpand(false);
       setShowQuickPrompts(false);
       setTimeout(() => {
@@ -392,7 +415,7 @@ export function ChatInput({
         el.setSelectionRange(caret, caret);
       }, 0);
     },
-    [input],
+    [applyProgrammaticInput, input],
   );
 
   /** 专家团思辨：插入@智能体和文本内容（保留胶囊token，隐藏卡片） */
@@ -430,7 +453,7 @@ export function ChatInput({
         caret = (before + leftJoiner + fullText).length;
       }
 
-      setInput(next);
+      applyProgrammaticInput(next, caret);
       // 标记已点击卡片，隐藏卡片区域，回到胶囊按钮展示
       expertCardClickedRef.current = true;
       setShowQuickPrompts(false);
@@ -441,7 +464,7 @@ export function ChatInput({
         el.setSelectionRange(caret, caret);
       }, 0);
     },
-    [input],
+    [applyProgrammaticInput, input],
   );
 
   const visibleQuickActions = useMemo(() => QUICK_ACTIONS.filter((action) => action.show !== false), []);
@@ -1133,16 +1156,15 @@ export function ChatInput({
         style={{
           borderRadius: '490px',
           width: 'calc(80% - 80px)',
-          background:
-            'linear-gradient(90deg,rgba(255,246,190,1),rgba(253,159,112,1) 20%,rgba(239,131,250,1) 43%,rgba(128,134,254,1) 73%,rgba(160,244,255,1) 97%)',
+          background: 'var(--chat-input-accent-glow)',
         }}
       ></div>
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 hidden items-center gap-2 mx-auto w-[80%]">
-          <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
-          <span className="text-xs text-[#9B7EBD] font-medium">正在回复中...</span>
-          <span className="text-xs text-gray-400 hidden">继续输入，消息会排队</span>
+          <span className="inline-block w-2 h-2 rounded-full bg-[var(--chat-input-queue-accent)] animate-pulse" />
+          <span className="text-xs font-medium text-[var(--chat-input-queue-accent)]">正在回复中...</span>
+          <span className="hidden text-xs text-[var(--text-label-secondary)]">继续输入，消息会排队</span>
         </div>
       )}
 
@@ -1181,24 +1203,24 @@ export function ChatInput({
       />
 
       {imageLifecycleStatus === 'preparing' && (
-        <div className="px-4 pt-2 text-xs text-gray-500 mx-auto w-[80%]" role="status">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--text-muted)]" role="status">
           文件处理中，完成后可发送
         </div>
       )}
       {imageLifecycleStatus === 'uploading' && (
-        <div className="px-4 pt-2 text-xs text-indigo-500 mx-auto w-[80%]" role="status">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--state-info-text)]" role="status">
           文件上传中，请稍候...
         </div>
       )}
       {imageLifecycleStatus === 'failed' && uploadError && (
-        <div className="px-4 pt-2 text-xs text-red-500 mx-auto w-[80%]" role="alert">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--state-error-text)]" role="alert">
           文件发送失败：{uploadError}
         </div>
       )}
 
       {whisperMode && (
         <div className="px-4 pt-2 flex items-center gap-2 flex-wrap mx-auto w-[80%]">
-          <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
+          <span className="text-xs font-medium text-[var(--state-warning-text)]">悄悄话发给:</span>
           {whisperOptions.map((cat) => {
             const isActive = activeCatIds.has(cat.id);
             const isSelected = whisperTargets.has(cat.id);
@@ -1209,10 +1231,10 @@ export function ChatInput({
                 disabled={isActive}
                 className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   isActive
-                    ? 'text-gray-300 border-gray-200 bg-gray-50 cursor-not-allowed'
+                    ? 'cursor-not-allowed border-[var(--button-disabled-border)] bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)]'
                     : isSelected
-                      ? 'border-current bg-amber-50 font-medium'
-                      : 'text-gray-400 border-gray-200 hover:border-gray-400'
+                      ? 'border-current bg-[var(--state-warning-surface)] font-medium'
+                      : 'border-[var(--border-default)] text-[var(--text-label-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)]'
                 }`}
                 style={!isActive && isSelected ? { color: cat.color } : undefined}
                 title={isActive ? `${cat.label.replace('@', '')} 执行中，不可选` : undefined}
@@ -1222,7 +1244,9 @@ export function ChatInput({
               </button>
             );
           })}
-          {whisperTargets.size === 0 && <span className="text-xs text-red-400">请至少选一个智能体</span>}
+          {whisperTargets.size === 0 && (
+            <span className="text-xs text-[var(--state-error-text)]">请至少选一个智能体</span>
+          )}
         </div>
       )}
 
@@ -1256,8 +1280,8 @@ export function ChatInput({
             onClick={() => setMobileToolbar((v) => !v)}
             className={`p-3 rounded-xl transition-all md:hidden ${
               mobileToolbar
-                ? 'text-cocreator-primary bg-cocreator-light rotate-45'
-                : 'text-gray-400 hover:text-cocreator-primary hover:bg-white'
+                ? 'rotate-45 bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                : 'text-[var(--text-label-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-accent)]'
             }`}
             aria-label="展开工具栏"
           >
@@ -1280,8 +1304,7 @@ export function ChatInput({
                       type="button"
                       onClick={() => handleQuickAction(action)}
                       disabled={disabled}
-                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                      className={QUICK_ACTION_BUTTON_CLASS}
                     >
                       <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                       <span>{action.label}</span>
@@ -1305,11 +1328,10 @@ export function ChatInput({
                         key={card.agentId}
                         type="button"
                         onClick={() => handleExpertCardClick(card.agentName, card.content)}
-                        className="group min-w-0 rounded-[16px] border bg-white px-4 py-3 text-left transition-all hover:bg-[rgba(0,0,0,0.04)] hover:border-[rgba(20,118,255,0.3)]"
-                        style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                        className={EXPERT_CARD_BUTTON_CLASS}
                       >
-                        <p className="text-[13px] leading-[20px] text-[#666] line-clamp-4">
-                          <span className="font-medium text-[rgba(20,118,255,1)]">@{card.agentName}</span>，{card.content}
+                        <p className="line-clamp-4 text-[13px] leading-[20px] text-[var(--text-secondary)]">
+                          <span className="font-medium text-[var(--text-accent)]">@{card.agentName}</span>，{card.content}
                         </p>
                       </button>
                     ))
@@ -1319,8 +1341,7 @@ export function ChatInput({
                         key={prompt}
                         type="button"
                         onClick={() => handleQuickPrompt(prompt)}
-                        className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
-                        style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                        className={QUICK_PROMPT_BUTTON_CLASS}
                       >
                         {prompt}
                       </button>
@@ -1330,10 +1351,10 @@ export function ChatInput({
 
               <div className="relative">
                 <div
-                  className={`relative min-h-[114px] overflow-visible rounded-[24px] border bg-white transition-colors ${
+                  className={`relative min-h-[114px] overflow-visible rounded-[24px] border transition-colors ${
                     whisperMode
-                      ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
-                      : 'chat-input-shell'
+                      ? 'border-[var(--chat-input-whisper-border)] bg-[var(--chat-input-whisper-bg)] focus-within:border-[var(--chat-input-whisper-focus-border)]'
+                      : 'chat-input-shell bg-[var(--surface-panel)]'
                   } w-full min-w-0`}
                 >
                   <ImagePreview files={images} onRemove={handleRemoveImage} />
@@ -1351,7 +1372,7 @@ export function ChatInput({
                       placeholder={
                         hasActiveInvocation ? '描述你想研究的主题或@助手协助工作' : '描述你想研究的主题或@助手协助工作'
                       }
-                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent py-4 px-[18px] whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent px-[18px] py-4 text-[16px] leading-[24px] text-[var(--text-primary)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-[var(--text-field-placeholder)] focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1371,7 +1392,7 @@ export function ChatInput({
                           aria-hidden="true"
                         >
                           <span className="invisible">{input}</span>
-                          <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+                          <span className="text-[var(--text-field-placeholder)]">{ghostSuggestion.slice(input.length)}</span>
                         </div>
                       )}
                   </div>
@@ -1389,7 +1410,7 @@ export function ChatInput({
                             skillInsertAnchorRef.current = { start, end };
                           }}
                           onClick={handleSkillClick}
-                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,1)] px-3 py-[7px] text-xs text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
+                          className={SKILL_TRIGGER_BUTTON_CLASS}
                         >
                           <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                           技能
@@ -1397,12 +1418,12 @@ export function ChatInput({
                         {showSkillMenu && (
                           <div
                             ref={menuRef}
-                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[240px] flex-col overflow-hidden rounded-xl  bg-white p-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
+                            className={SKILL_MENU_CLASS}
                           >
                             <div className="px-1 pt-0 pb-2">
                               <div className="relative">
                                 <svg
-                                  className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                                  className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-label-secondary)]"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"
@@ -1461,8 +1482,8 @@ export function ChatInput({
                                     className="flex h-[24px] w-full items-center gap-2 rounded-[6px] p-2"
                                     style={{ animationDelay: `${i * 70}ms` }}
                                   >
-                                    <div className="h-4 w-4 shrink-0 rounded-sm bg-gray-200/70 animate-pulse" />
-                                    <div className="h-3 w-[120px] rounded bg-gray-200/70 animate-pulse" />
+                                    <div className="h-4 w-4 shrink-0 rounded-sm bg-[var(--surface-card-muted)] animate-pulse" />
+                                    <div className="h-3 w-[120px] rounded bg-[var(--surface-card-muted)] animate-pulse" />
                                   </div>
                                 ))}
                               {!skillOptionsLoading &&
@@ -1473,8 +1494,10 @@ export function ChatInput({
                                     ref={(node) => {
                                       skillOptionRefs.current[i] = node;
                                     }}
-                                    className={`flex h-[32px] w-full items-center gap-2 rounded-[6px] px-2 py-[7px] text-left text-[12px] font-normal text-[#191919] transition-colors ${
-                                      i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
+                                    className={`${SKILL_MENU_ITEM_CLASS} ${
+                                      i === selectedIdx
+                                        ? 'bg-[var(--overlay-item-hover-bg)]'
+                                        : 'hover:bg-[var(--overlay-item-hover-bg)]'
                                     }`}
                                     onMouseDown={(e) => {
                                       e.preventDefault();
@@ -1486,15 +1509,15 @@ export function ChatInput({
                                   </button>
                                 ))}
                               {!skillOptionsLoading && filteredSkillOptions.length === 0 && (
-                                <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
+                                <div className="px-2 py-2 text-xs text-[var(--text-label-secondary)]">无匹配技能</div>
                               )}
                             </div>
                             <div className="p-2">
-                              <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
+                              <div className="h-px w-full bg-[var(--panel-divider)]" />
                             </div>
                             <button
                               type="button"
-                              className="inline-flex h-[24px] mx-2 items-center justify-center rounded-full border border-[rgba(219,219,219,1)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                              className="ui-button-default mx-2 inline-flex h-[24px] min-w-0 items-center justify-center px-3 text-[12px]"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 closeMenus();
@@ -1520,7 +1543,7 @@ export function ChatInput({
                             data-testid="folder-select-button"
                             onClick={onOpenFolderPicker}
                             disabled={isFolderButtonDisabled}
-                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs border-[rgba(219,219,219,1)] shadow-none !hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:border-[#c2c2c2] disabled:bg-[#f0f0f0] disabled:text-[#c2c2c2]"
+                            className="ui-button-default inline-flex h-8 min-w-0 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none"
                           >
                             <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                             <span className="truncate">{folderButtonLabel}</span>
@@ -1532,7 +1555,7 @@ export function ChatInput({
                             data-testid="attach-file-button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={disabled || sendTemporarilyDisabled || images.length >= MAX_ATTACHMENT_FILES}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-gray-400 transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                            className={ICON_BUTTON_CLASS}
                             aria-label="上传附件"
                           >
                             <AttachIcon className="h-5 w-5" />
@@ -1553,7 +1576,7 @@ export function ChatInput({
                     </div>
                   </div>
                 </div>
-                <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[rgb(194,194,194)]">
+                <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[var(--text-disabled)]">
                   内容由AI生成，仅供参考
                 </p>
               </div>

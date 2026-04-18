@@ -234,6 +234,24 @@ test('Windows bundled runtime prefers random frontend, API, and Redis ports and 
   assert.match(startWindowsScript, /Remove-WindowsRuntimeStateFile -StateFile \$RuntimeStateFile/);
 });
 
+test('Windows startup reuses Credential Manager Redis auth and keeps runtime state redacted', () => {
+  assert.match(startWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
+  assert.match(startWindowsScript, /Write-ClowderCredential -Path "redis\/password" -Secret \$localRedisPassword/);
+  assert.match(startWindowsScript, /Write-Ok "Redis auth: password loaded from Credential Manager"/);
+  assert.match(startWindowsScript, /Write-Ok "Redis auth: new password generated"/);
+  assert.match(
+    startWindowsScript,
+    /RedisUrl = if \(\$localRedisPassword -and \$env:REDIS_URL\) \{ Get-RedactedRedisUrl -RedisUrl \$env:REDIS_URL \}/,
+  );
+  assert.match(startWindowsScript, /RedisAuthFromCredentialManager = \[bool\]\$localRedisPassword/);
+  assert.match(stopWindowsScript, /\$redisAuthFromCM = \[bool\]\(\$runtimeState -and \$runtimeState.RedisAuthFromCredentialManager\)/);
+  assert.match(stopWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
+  assert.match(
+    stopWindowsScript,
+    /\$configuredRedisUrl = "redis:\/\/:\$\{escapedPwd\}@localhost:\$\{RedisPort\}"/,
+  );
+});
+
 test('Windows stop script force-stops Redis that was started by the launcher during uninstall', () => {
   assert.match(stopWindowsScript, /\$redisStartedByLauncher = \[bool\]\(\$runtimeState -and \$runtimeState\.RedisStartedByLauncher\)/);
   assert.match(stopWindowsScript, /if \(\$redisStartedByLauncher\) \{\s+\$ownedRedisConnections = @\(\$redisConnections\)\s+\}/s);
@@ -255,7 +273,7 @@ test('Windows installer and startup reuse shared tool resolution instead of raw 
   assert.match(startWindowsScript, /& \$nodeCommand \$nextCli dev \(Join-Path \$root "packages\/web"\) -p \$port/);
   assert.match(
     startWindowsScript,
-    /& \$nodeCommand \$nextCli start \(Join-Path \$root "packages\/web"\) -p \$port -H 0\.0\.0\.0/,
+    /& \$nodeCommand \$nextCli start \(Join-Path \$root "packages\/web"\) -p \$port -H 127\.0\.0\.1/,
   );
 });
 

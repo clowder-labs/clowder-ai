@@ -17,7 +17,7 @@ const mockSetTheme = vi.fn();
 const mockWindowOpen = vi.fn();
 const mockLocationAssign = vi.fn();
 const originalLocation = window.location;
-let currentTheme: 'business' | 'warm' = 'business';
+let currentTheme: 'business' | 'warm' | 'dark' = 'business';
 let currentUserId = 'user:Alice';
 let currentUserName = 'Alice';
 
@@ -133,7 +133,12 @@ describe('UserProfile overlay classes', () => {
     await flush();
 
     const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    const toggleAvatar = toggle?.querySelector('div.rounded-full');
+    const toggleName = toggle?.querySelector('[data-testid="user-profile-name"]');
     expect(toggle).toBeTruthy();
+    expect(toggle?.className).toContain('text-[var(--text-primary)]');
+    expect(toggleAvatar?.className).toContain('bg-[var(--surface-avatar-shell)]');
+    expect(toggleName?.className).toContain('text-[var(--text-primary)]');
 
     act(() => {
       toggle?.click();
@@ -225,7 +230,7 @@ describe('UserProfile overlay classes', () => {
     expect(themePopover).toBeTruthy();
     expect(themePopover?.className).toContain('ui-overlay-card');
     expect(themePopover?.className).toContain('rounded-[var(--radius-md)]');
-    expect(themePopover?.className).toContain('shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]');
+    expect(themePopover?.className).toContain('shadow-[var(--overlay-shadow)]');
     expect(themePopover?.className).not.toContain('left-[calc(100%-12px)]');
     expect(themePopover?.className).not.toContain('-translate-y-1/2');
     expect((themePopover as HTMLDivElement | null)?.style.left).toBe('188px');
@@ -323,7 +328,117 @@ describe('UserProfile overlay classes', () => {
 
     const warmBadge = container.querySelector('[data-testid="user-theme-selected-badge-warm"]') as HTMLDivElement | null;
     expect(warmBadge).toBeTruthy();
-    expect(warmBadge?.style.backgroundColor).toBe('rgb(204, 109, 26)');
+    expect(warmBadge?.style.backgroundColor).toBe('var(--theme-preview-warm-badge)');
+  });
+
+  it('shows the full username in an overflow tooltip when the visible name is truncated', async () => {
+    currentUserName = 'very-long-user-name-for-overflow-tooltip-check';
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggleName = container.querySelector('[data-testid="user-profile-name"]') as HTMLDivElement | null;
+    expect(toggleName).toBeTruthy();
+    expect(toggleName?.getAttribute('title')).toBeNull();
+
+    Object.defineProperty(toggleName!, 'clientWidth', { configurable: true, value: 80 });
+    Object.defineProperty(toggleName!, 'scrollWidth', { configurable: true, value: 220 });
+
+    act(() => {
+      toggleName?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    await flush();
+
+    const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('very-long-user-name-for-overflow-tooltip-check');
+  });
+
+  it('supports selecting the dark theme from the theme popover', async () => {
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const panel = container.querySelector('[data-testid="user-profile-panel"]') as HTMLDivElement | null;
+    const themeAnchor = container.querySelector('[data-testid="user-profile-theme-anchor"]') as HTMLDivElement | null;
+    const themeTrigger = container.querySelector('[data-testid="user-profile-theme-trigger"]') as HTMLButtonElement | null;
+    const rootElement = container.firstElementChild as HTMLElement | null;
+
+    expect(panel).toBeTruthy();
+    expect(themeAnchor).toBeTruthy();
+    expect(themeTrigger).toBeTruthy();
+    expect(rootElement).toBeTruthy();
+
+    Object.defineProperty(rootElement!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 20,
+        top: 100,
+        right: 220,
+        bottom: 300,
+        width: 200,
+        height: 200,
+        x: 20,
+        y: 100,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(themeAnchor!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 180,
+        right: 204,
+        bottom: 220,
+        width: 172,
+        height: 40,
+        x: 32,
+        y: 180,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(panel!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 116,
+        right: 208,
+        bottom: 296,
+        width: 176,
+        height: 180,
+        x: 32,
+        y: 116,
+        toJSON: () => ({}),
+      }),
+    });
+
+    act(() => {
+      themeTrigger?.click();
+    });
+    await flush();
+
+    const darkThemeOption = container.querySelector('[data-testid="user-theme-option-dark"]') as HTMLButtonElement | null;
+    expect(darkThemeOption).toBeTruthy();
+    expect(darkThemeOption?.textContent).toContain('暗黑');
+
+    act(() => {
+      darkThemeOption?.click();
+    });
+    await flush();
+
+    expect(mockSetTheme).toHaveBeenCalledWith('dark');
+    expect(container.querySelector('[data-testid="user-theme-popover"]')).toBeNull();
   });
 
   it('opens the about popover and reuses the help action inside it', async () => {

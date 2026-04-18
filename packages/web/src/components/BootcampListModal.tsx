@@ -124,18 +124,18 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="bootcamp-list-modal">
-      <div className="bg-white rounded-2xl shadow-xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)]" data-testid="bootcamp-list-modal">
+      <div className="flex w-[480px] max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between border-b border-[var(--modal-divider)] px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <BootcampIcon className="w-6 h-6 text-amber-600" />
-            <span className="text-lg font-semibold text-gray-900">我的训练营</span>
+            <BootcampIcon className="w-6 h-6 text-[var(--state-warning-text)]" />
+            <span className="text-lg font-semibold text-[var(--modal-title-text)]">我的训练营</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="rounded-md p-1 text-[var(--modal-close-icon)] transition-colors hover:bg-[var(--modal-close-hover-bg)] hover:text-[var(--modal-close-icon-hover)]"
             data-testid="bootcamp-list-close"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,9 +147,9 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
         {/* List */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           {isLoading ? (
-            <p className="text-center text-gray-400 py-8 text-sm">加载中...</p>
+            <p className="py-8 text-center text-sm text-[var(--modal-empty-text)]">加载中...</p>
           ) : apiThreads.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 text-sm">还没有训练营，点下面开始一个吧！</p>
+            <p className="py-8 text-center text-sm text-[var(--modal-empty-text)]">还没有训练营，点下面开始一个吧！</p>
           ) : (
             apiThreads.map((t) => {
               const isCompleted = !!t.completedAt;
@@ -165,34 +165,34 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                   type="button"
                   onClick={() => handleNavigate(t.id)}
                   disabled={isCurrent}
-                  className={`w-full text-left p-4 rounded-xl border transition-colors ${
+                  className={`w-full rounded-xl border p-4 text-left transition-colors ${
                     isCurrent
-                      ? 'border-amber-300 bg-amber-50 opacity-60 cursor-default'
+                      ? 'cursor-default border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)] opacity-60'
                       : isCompleted
-                        ? 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                        : 'border-amber-200 bg-amber-50/50 hover:bg-amber-50'
+                        ? 'border-[var(--modal-muted-border)] bg-[var(--modal-muted-surface)] hover:bg-[var(--modal-muted-surface-hover)]'
+                        : 'border-[var(--modal-selected-border)] bg-[var(--state-warning-surface)] hover:bg-[var(--modal-selected-surface)]'
                   }`}
                   data-testid={`bootcamp-item-${t.id}`}
                 >
                   {/* Top row: title + badge */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[15px] font-semibold ${isCompleted ? 'text-gray-500' : 'text-gray-900'}`}>
+                    <span className={`text-[15px] font-semibold ${isCompleted ? 'text-[var(--modal-text-muted)]' : 'text-[var(--modal-text)]'}`}>
                       {t.title ?? '🎓 训练营'}
                     </span>
                     <span
                       className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                         isCompleted
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-[var(--state-success-surface)] text-[var(--state-success-text)]'
                           : isCurrent
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-amber-100 text-amber-700'
+                            ? 'bg-[var(--state-warning-surface)] text-[var(--state-warning-text)]'
+                            : 'bg-[var(--state-warning-surface)] text-[var(--state-warning-text)]'
                       }`}
                     >
                       {isCurrent ? '当前' : isCompleted ? '已完成 ✓' : '进行中'}
                     </span>
                   </div>
                   {/* Meta: task + phase */}
-                  <div className="flex items-center justify-between text-[13px] text-gray-500 mb-2">
+                  <div className="mb-2 flex items-center justify-between text-[13px] text-[var(--modal-text-muted)]">
                     <div className="flex items-center gap-4">
                       {t.selectedTaskId && <span>⭐ {t.selectedTaskId}</span>}
                       <span>
@@ -200,15 +200,15 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                       </span>
                     </div>
                     {!isCurrent && (
-                      <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-4 w-4 text-[var(--modal-text-subtle)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     )}
                   </div>
                   {/* Progress bar */}
-                  <div className="w-full h-1.5 rounded-full bg-gray-100">
+                  <div className="h-1.5 w-full rounded-full bg-[var(--modal-progress-track)]">
                     <div
-                      className={`h-1.5 rounded-full transition-all ${isCompleted ? 'bg-green-400' : 'bg-amber-400'}`}
+                      className={`h-1.5 rounded-full transition-all ${isCompleted ? 'bg-[var(--modal-progress-success)]' : 'bg-[var(--modal-progress-warning)]'}`}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -219,12 +219,12 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
         </div>
 
         {/* Footer: create new */}
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-center">
+        <div className="flex justify-center border-t border-[var(--modal-divider)] px-6 py-4">
           <button
             type="button"
             onClick={handleCreate}
             disabled={isCreating}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 disabled:opacity-40 transition-colors"
+            className="ui-button-primary inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold disabled:opacity-40"
             data-testid="bootcamp-list-create"
           >
             <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

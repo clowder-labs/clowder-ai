@@ -36,8 +36,19 @@ const memoryTools: readonly ToolDef[] = [
   ...sessionChainTools,
 ];
 
+function resolveExcludedToolNames(): Set<string> {
+  return new Set(
+    (process.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+}
+
 function registerTools(server: McpServer, tools: readonly ToolDef[]): void {
+  const excludedToolNames = resolveExcludedToolNames();
   for (const tool of tools) {
+    if (excludedToolNames.has(tool.name)) continue;
     server.tool(tool.name, tool.description, tool.inputSchema, async (args) => {
       const result = await tool.handler(args as never);
       return {

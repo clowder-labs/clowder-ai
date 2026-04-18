@@ -163,7 +163,7 @@ async function resolveThreadProjectPath(projectPath?: string): Promise<ResolvedT
   }
 
   const monorepoRoot = findMonorepoRoot(process.cwd());
-  const workspacePath = resolve(monorepoRoot, 'workspace');
+  const workspacePath = resolve(monorepoRoot, 'workspace', Date.now().toString());
   await mkdir(workspacePath, { recursive: true });
 
   const [resolvedWorkspacePath, resolvedMonorepoRoot] = await Promise.all([realpath(workspacePath), realpath(monorepoRoot)]);

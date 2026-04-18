@@ -12,7 +12,7 @@ describe('formatFeishuCard', () => {
   it('formats card block as Lark interactive card', () => {
     const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
     const card = formatFeishuCard(blocks, '布偶猫');
-    assert.equal(card.header.title.content, '[布偶猫🐱] Review');
+    assert.equal(card.header.title.content, '[布偶猫] Review');
     assert.ok(card.elements.length > 0);
   });
 
@@ -60,7 +60,7 @@ describe('formatFeishuCard', () => {
   it('uses generic title when no card block present', () => {
     const blocks = [{ id: 'b1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'X' }] }];
     const card = formatFeishuCard(blocks, '缅因猫');
-    assert.equal(card.header.title.content, '[缅因猫🐱]');
+    assert.equal(card.header.title.content, '[缅因猫]');
   });
 
   // P1-2: textContent must not be discarded

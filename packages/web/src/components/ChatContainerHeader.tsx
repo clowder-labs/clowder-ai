@@ -45,6 +45,7 @@ export function ChatContainerHeader({
   const { theme, toggleTheme } = useTheme();
   const { getCatById } = useCatData();
   const visibleCats = targetCats.map((id) => ({ id, cat: getCatById(id) })).filter((entry) => !!entry.cat);
+  const nextThemeLabel = theme === 'business' ? '暖色' : theme === 'warm' ? '暗黑' : '商务';
 
   return (
     <header className="safe-area-top relative h-0 overflow-visible">
@@ -81,13 +82,17 @@ export function ChatContainerHeader({
             type="button"
             onClick={toggleTheme}
             className="ui-icon-button"
-            title={theme === 'warm' ? '切换到商务主题' : '切换到暖色主题'}
-            aria-label={theme === 'warm' ? 'Switch to business theme' : 'Switch to warm theme'}
+            title={`切换到${nextThemeLabel}主题`}
+            aria-label={`Switch to ${nextThemeLabel} theme`}
           >
             {theme === 'warm' ? (
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M9 11h6M9 15h6M9 7h6" />
+              </svg>
+            ) : theme === 'dark' ? (
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
               </svg>
             ) : (
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

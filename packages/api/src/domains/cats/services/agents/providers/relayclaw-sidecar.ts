@@ -29,7 +29,12 @@ import {
 import { resolveUserSkillsRoot } from '../../skillhub/SkillPaths.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentServiceOptions } from '../../types.js';
-import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
+import {
+  buildCatCafeMcpEnv,
+  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS,
+  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV,
+  resolveCatCafeMcpServer,
+} from './relayclaw-catcafe-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
 
@@ -75,6 +80,8 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
   private runtimeHash: string | null = null;
   private resolvedUrl: string | null = null;
   private recentLogs = '';
+  private lastSignature: Record<string, string | number | boolean> | null = null;
+  private startCount = 0;
 
   constructor(catId: CatId, config: RelayClawAgentConfig, deps?: RelayClawSidecarControllerDeps) {
     this.catId = catId;
@@ -93,11 +100,27 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       const parsed = new URL(this.resolvedUrl);
       const port = Number.parseInt(parsed.port, 10);
       if (port > 0 && (await this.tcpProbeFn(parsed.hostname, port, 400))) {
+        log.debug({ catId: this.catId, sidecarPid: this.child?.pid, port }, 'relayclaw sidecar reused (cache hit)');
         return this.resolvedUrl;
       }
+      log.warn(
+        { catId: this.catId, sidecarPid: this.child?.pid, port },
+        'relayclaw sidecar alive but tcp probe failed — will restart',
+      );
     }
 
     if (this.child && this.runtimeHash !== runtimeHash) {
+      const diff: Record<string, { old: unknown; new: unknown }> = {};
+      const allKeys = new Set([...Object.keys(this.lastSignature ?? {}), ...Object.keys(runtime.signature)]);
+      for (const key of allKeys) {
+        const oldVal = this.lastSignature?.[key];
+        const newVal = runtime.signature[key];
+        if (oldVal !== newVal) diff[key] = { old: oldVal, new: newVal };
+      }
+      log.warn(
+        { catId: this.catId, sidecarPid: this.child?.pid, signatureDiff: diff },
+        'relayclaw sidecar runtime signature changed — restarting',
+      );
       this.stop('runtime_signature_changed');
     }
 
@@ -201,6 +224,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
         ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
         ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
+        [RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV]: RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS.join(','),
         ...(catCafeMcp
           ? {
               OFFICE_CLAW_MCP_SERVER_PATH: catCafeMcp.serverPath,
@@ -260,6 +284,8 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     });
     this.child = child;
     this.runtimeHash = createHash('sha256').update(JSON.stringify(runtime.signature)).digest('hex');
+    this.lastSignature = { ...runtime.signature };
+    this.startCount++;
     const sidecarPid = child.pid;
     log.info(
       {
@@ -267,6 +293,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         sidecarPid,
         agentPort,
         webPort,
+        startCount: this.startCount,
         command: launchCommand.command,
         args: launchCommand.args,
         cwd: launchCommand.cwd,
@@ -286,10 +313,12 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     };
     child.stdout?.on('data', pushLog);
     child.stderr?.on('data', pushLog);
+    const spawnedAt = Date.now();
     child.once('exit', (code, exitSignal) => {
       if (this.child !== child) {
         return;
       }
+      const uptimeMs = Date.now() - spawnedAt;
       const tail = summarizeLogs(this.recentLogs);
       log.warn(
         {
@@ -297,6 +326,8 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
           sidecarPid,
           code,
           exitSignal,
+          uptimeMs,
+          startCount: this.startCount,
           logChars: this.recentLogs.length,
           ...(tail ? { logTail: tail } : {}),
           ...(this.recentLogs.length > 0 ? { stderrPreview: this.recentLogs.slice(-1500) } : {}),

@@ -343,12 +343,32 @@ if ($useExternalRedis) {
         $redisSource = $redisCommands.Source
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
+    # -- Redis auth (read-or-generate, consistent across sessions) ---
+    $localRedisPassword = $null
+    if (-not $configuredRedisUrl) {
+        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
+        if ($localRedisPassword) {
+            Write-Ok "Redis auth: password loaded from Credential Manager"
+        } else {
+            $bytes = New-Object byte[] 24
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+            $localRedisPassword = [Convert]::ToBase64String($bytes)
+            Write-Ok "Redis auth: new password generated"
+        }
+        try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
+        $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
+        $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+    }
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
         $redisLogFile = Join-Path $redisLayout.Logs "redis-$RedisPort.log"
         $redisPidFile = Join-Path $redisLayout.Data "redis-$RedisPort.pid"
         Write-Ok "Redis port selected: $RedisPort (random)"
+        if ($localRedisPassword) {
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+            $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
+        }
     }
     # Check if Redis is already running
     try {
@@ -529,7 +549,8 @@ $runtimeEnvOverrides = @{
         ApiPort = [int]$ApiPort
         WebPort = [int]$WebPort
         RedisPort = if ($useRedis -and -not $useExternalRedis) { [int]$RedisPort } else { $null }
-        RedisUrl = if ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisUrl = if ($localRedisPassword -and $env:REDIS_URL) { Get-RedactedRedisUrl -RedisUrl $env:REDIS_URL } elseif ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisAuthFromCredentialManager = [bool]$localRedisPassword
         UseExternalRedis = [bool]$useExternalRedis
         RedisStartedByLauncher = [bool]$startedRedis
         PreferRandomPorts = [bool]$PreferRandomPorts

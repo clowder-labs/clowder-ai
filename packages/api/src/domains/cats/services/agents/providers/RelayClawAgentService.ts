@@ -192,9 +192,10 @@ export class RelayClawAgentService implements AgentService {
   }
 
   dispose(): void {
-    for (const runtime of this.scopes.values()) {
+    for (const [scopeKey, runtime] of this.scopes.entries()) {
+      log.info({ catId: this.catId, scopeKey }, 'relayclaw service disposing scope');
       runtime.connection.close();
-      runtime.sidecar.stop();
+      runtime.sidecar.stop('service_disposed');
       runtime.requestQueues.clear();
     }
     this.scopes.clear();

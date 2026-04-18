@@ -56,6 +56,12 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function setTextareaValue(input: HTMLTextAreaElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 const DEFAULT_MODEL_ITEM = {
   id: 'model_config:huawei-maas:glm-5',
   name: 'GLM-5',
@@ -380,6 +386,38 @@ describe('CreateAgentModal', () => {
     ).toBe(false);
   });
 
+  it('keeps the description textarea character counter behavior unchanged', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Description Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const descriptionTextarea = container.querySelector('textarea[aria-label="Description"]') as HTMLTextAreaElement | null;
+    expect(descriptionTextarea).toBeTruthy();
+    expect(container.textContent).toContain('0/1000');
+
+    await act(async () => {
+      setTextareaValue(descriptionTextarea!, 'hello world');
+    });
+
+    await flushEffects();
+
+    expect(descriptionTextarea?.value).toBe('hello world');
+    expect(container.textContent).toContain('11/1000');
+    expect(descriptionTextarea?.className).toContain('ui-textarea');
+  });
+
   it('shows /api/cats duplicate-name errors beneath the name input instead of the global error area', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -427,6 +465,96 @@ describe('CreateAgentModal', () => {
     expect(nameError?.textContent).toBe('名称 "Duplicate Bot" 已被使用');
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
+  });
+
+  it('normalizes unavailable-model save errors into a reselection hint', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: 'model "DD" is not available on provider "huawei-maas"' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Model Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型不存在，请重新选择');
+    expect(container.textContent).not.toContain('model "DD" is not available on provider "huawei-maas"');
+  });
+
+  it('normalizes missing-provider save errors into a reselection hint', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: 'provider "af1f012e" not found' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Provider Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型不存在，请重新选择');
+    expect(container.textContent).not.toContain('provider "af1f012e" not found');
   });
 
   it('shows inline validation when name starts or ends with spaces', async () => {

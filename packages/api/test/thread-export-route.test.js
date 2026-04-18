@@ -15,7 +15,7 @@ import Fastify from 'fastify';
 
 await import('tsx/esm');
 const { threadExportRoutes, resolveFrontendBaseUrl } = await import('../src/routes/thread-export.ts');
-const { resolveFrontendCorsOrigins } = await import('../src/config/frontend-origin.ts');
+const { isOriginAllowed, resolveFrontendCorsOrigins } = await import('../src/config/frontend-origin.ts');
 const { ImageExporter } = await import('../src/services/ImageExporter.ts');
 
 const ORIGINAL_CAPTURE = ImageExporter.prototype.capture;
@@ -207,5 +207,14 @@ describe('resolveFrontendCorsOrigins', () => {
   it('includes FRONTEND_URL origin when configured', () => {
     const origins = resolveFrontendCorsOrigins({ FRONTEND_URL: 'https://cat-cafe.example.com/path' });
     assert.ok(origins.includes('https://cat-cafe.example.com'));
+  });
+
+  it('allows RFC1918 private network origins only when explicitly opted in', () => {
+    const withoutOptIn = resolveFrontendCorsOrigins({});
+    const withOptIn = resolveFrontendCorsOrigins({ CORS_ALLOW_PRIVATE_NETWORK: 'true' });
+
+    assert.equal(isOriginAllowed('http://192.168.1.20:3000', withoutOptIn), false);
+    assert.equal(isOriginAllowed('http://192.168.1.20:3000', withOptIn), true);
+    assert.equal(isOriginAllowed('http://100.100.10.5:3000', withOptIn), true);
   });
 });
