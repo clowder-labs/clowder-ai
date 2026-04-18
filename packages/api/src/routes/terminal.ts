@@ -11,7 +11,7 @@ import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
 import type { TmuxGateway } from '../domains/terminal/tmux-gateway.js';
 import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
-import { resolveUserId } from '../utils/request-identity.js';
+import { resolveTrustedUserId, resolveUserId } from '../utils/request-identity.js';
 
 // node-pty is optional — terminal features degrade gracefully when missing
 // (e.g. Windows exe packaging where native compilation is impractical)
@@ -57,16 +57,17 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     return reply.send({ error: 'Origin not allowed' });
   });
 
-  // --- Auth gate ---
-  app.addHook('preHandler', async (req, reply) => {
-    if (!resolveUserId(req)) {
-      reply.status(401);
-      return reply.send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
-    }
-  });
+  function requireTrustedUserId(req: Parameters<typeof resolveTrustedUserId>[0], reply: { status: (code: number) => void; send: (body: unknown) => unknown }): string | null {
+    const userId = resolveTrustedUserId(req);
+    if (userId) return userId;
+    reply.status(401);
+    reply.send({ error: 'Identity required (X-Office-Claw-User header)' });
+    return null;
+  }
 
   // GET /api/terminal/status — availability check for frontend
-  app.get('/api/terminal/status', async () => {
+  app.get('/api/terminal/status', async (req, reply) => {
+    if (!requireTrustedUserId(req, reply)) return reply;
     return { available: !!tmuxGateway };
   });
 
@@ -74,10 +75,11 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   app.post<{
     Body: { worktreeId: string; cols?: number; rows?: number };
   }>('/api/terminal/sessions', async (req, reply) => {
+    const userId = requireTrustedUserId(req, reply);
+    if (!userId) return reply;
     if (!tmuxGateway)
       return reply.status(503).send({ error: 'Terminal not available (OFFICE_CLAW_TMUX_AGENT not enabled)' });
     const { worktreeId, cols = 80, rows = 24 } = req.body;
-    const userId = resolveUserId(req) as string; // preHandler guarantees non-null
 
     if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
 
@@ -123,7 +125,13 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId/ws', { websocket: true }, (socket, req) => {
     const { sessionId } = req.params;
-    const userId = resolveUserId(req) as string;
+    // Native browser WebSocket cannot set custom headers, so terminal attach
+    // keeps the existing query-param identity until we ship an ephemeral WS token.
+    const userId = resolveUserId(req);
+    if (!userId) {
+      socket.close(4001, 'Identity required (X-Office-Claw-User header or userId query)');
+      return;
+    }
     const session = store.getByIdAndUser(sessionId, userId);
     const binding = ptys.get(sessionId);
 
@@ -192,8 +200,9 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   app.delete<{
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId', async (req, reply) => {
+    const userId = requireTrustedUserId(req, reply);
+    if (!userId) return reply;
     const { sessionId } = req.params;
-    const userId = resolveUserId(req) as string;
     const session = store.get(sessionId);
 
     if (!tmuxGateway) return reply.code(503).send({ error: 'Terminal not available' });
@@ -222,8 +231,9 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   // GET /api/terminal/sessions — filtered by userId
   app.get<{
     Querystring: { worktreeId?: string };
-  }>('/api/terminal/sessions', async (req) => {
-    const userId = resolveUserId(req) as string;
+  }>('/api/terminal/sessions', async (req, reply) => {
+    const userId = requireTrustedUserId(req, reply);
+    if (!userId) return reply;
     const { worktreeId } = req.query;
     const sessions = worktreeId
       ? store.listByUser(userId).filter((s) => s.worktreeId === worktreeId)
@@ -241,8 +251,9 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   app.get<{
     Querystring: { worktreeId: string };
   }>('/api/terminal/agent-panes', async (req, reply) => {
+    const userId = requireTrustedUserId(req, reply);
+    if (!userId) return reply;
     if (!agentPaneRegistry) return reply.status(501).send({ error: 'Agent pane tracking not enabled' });
-    const userId = resolveUserId(req) as string;
     const { worktreeId } = req.query;
     if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
     return agentPaneRegistry.listByWorktreeAndUser(worktreeId, userId).map((p) => ({
@@ -260,7 +271,12 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   }>('/api/terminal/agent-panes/:paneId/ws', { websocket: true }, (socket, req) => {
     const { paneId } = req.params;
     const { worktreeId } = req.query;
-    const userId = resolveUserId(req) as string;
+    // Same constraint as session attach: browser-native WebSocket has no header API.
+    const userId = resolveUserId(req);
+    if (!userId) {
+      socket.close(4001, 'Identity required (X-Office-Claw-User header or userId query)');
+      return;
+    }
 
     if (!worktreeId || !agentPaneRegistry || !tmuxGateway) {
       socket.close(4004, 'Agent pane tracking not enabled or missing worktreeId');

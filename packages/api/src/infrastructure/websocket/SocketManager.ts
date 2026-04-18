@@ -115,9 +115,9 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      // Browser/API defaults use the "default-user" sentinel. When a deployment
-      // routes frontend-visible data under DEFAULT_OWNER_USER_ID, map the socket
-      // connection to that effective user so emitToUser reaches the UI.
+      // Real-time user-scoped events (`emitToUser`) route on the socket's room identity.
+      // Until we have a server-verified socket auth substrate (cookie/session/ephemeral
+      // token), keep consuming the existing handshake userId so multi-user delivery works.
       const requestedUserId = readSocketHandshakeUserId(socket) ?? FRONTEND_DEFAULT_USER_ID;
       const userId = resolveEffectiveUserId(requestedUserId) ?? FRONTEND_DEFAULT_USER_ID;
 
