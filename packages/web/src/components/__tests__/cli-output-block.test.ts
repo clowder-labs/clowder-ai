@@ -1010,6 +1010,147 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('shows opening state while opening a document file', async () => {
+    let resolveOpen: ((value: Response) => void) | null = null;
+    const openPromise = new Promise<Response>((resolve) => {
+      resolveOpen = resolve;
+    });
+    mockApiFetch.mockImplementation(async (path) => {
+      if (path === '/api/projects/cwd') {
+        return {
+          ok: true,
+          json: async () => ({ path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent' }),
+        } as Response;
+      }
+      if (path === '/api/workspace/local-file-meta') {
+        return {
+          ok: true,
+          json: async () => ({ generatedAt: Date.parse('2026-03-24T08:00:00.000Z') }),
+        } as Response;
+      }
+      if (path === '/api/workspace/open-local') {
+        return openPromise;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+
+    const txtEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write notes.txt',
+        detail: '[Done] Saved: workspace/output/notes.txt',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: txtEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-txt-open"]') as HTMLButtonElement | null;
+    const openFolderButton = container.querySelector('[data-testid="cli-output-txt-open-folder"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+    expect(openFolderButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(openButton?.disabled).toBe(true);
+    expect(openFolderButton?.disabled).toBe(true);
+    expect(openButton?.textContent).toContain('打开中...');
+
+    await act(async () => {
+      resolveOpen?.({ ok: true, json: async () => ({}) } as Response);
+      await openPromise;
+      await Promise.resolve();
+    });
+
+    expect(openButton?.disabled).toBe(false);
+    expect(openFolderButton?.disabled).toBe(false);
+    expect(openButton?.textContent).toContain('打开');
+  });
+
+  it('shows opening state while opening the project folder', async () => {
+    let resolveOpenFolder: ((value: Response) => void) | null = null;
+    const openFolderPromise = new Promise<Response>((resolve) => {
+      resolveOpenFolder = resolve;
+    });
+    mockApiFetch.mockImplementation(async (path) => {
+      if (path === '/api/projects/cwd') {
+        return {
+          ok: true,
+          json: async () => ({ path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent' }),
+        } as Response;
+      }
+      if (path === '/api/workspace/local-file-meta') {
+        return {
+          ok: true,
+          json: async () => ({ generatedAt: Date.parse('2026-03-24T08:00:00.000Z') }),
+        } as Response;
+      }
+      if (path === '/api/workspace/open-local-folder') {
+        return openFolderPromise;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+
+    const wordEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.docx',
+        detail: '[Done] Saved: output/report.docx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: wordEvents,
+          status: 'done',
+          projectPath: 'default',
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-word-open"]') as HTMLButtonElement | null;
+    const openFolderButton = container.querySelector('[data-testid="cli-output-word-open-folder"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+    expect(openFolderButton).toBeTruthy();
+
+    await act(async () => {
+      openFolderButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(openFolderButton?.disabled).toBe(true);
+    expect(openButton?.disabled).toBe(true);
+    expect(openFolderButton?.textContent).toContain('打开中...');
+
+    await act(async () => {
+      resolveOpenFolder?.({ ok: true, json: async () => ({}) } as Response);
+      await openFolderPromise;
+      await Promise.resolve();
+    });
+
+    expect(openFolderButton?.disabled).toBe(false);
+    expect(openButton?.disabled).toBe(false);
+    expect(openFolderButton?.textContent).toContain('打开文件夹');
+  });
+
   it('dedupes excel cards when the same file appears in both absolute and relative paths', async () => {
     const duplicateExcelEvents: CliEvent[] = [
       {

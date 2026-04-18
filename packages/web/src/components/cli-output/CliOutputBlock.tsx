@@ -693,6 +693,7 @@ function LocalFileAttachmentCard({
     if (projectPath && projectPath !== 'default') return projectPath;
     return defaultProjectPath;
   }, [defaultProjectPath, projectPath]);
+  const isOpeningAction = isOpening || isOpeningFolder;
 
   useEffect(() => {
     let cancelled = false;
@@ -854,10 +855,10 @@ function LocalFileAttachmentCard({
           onClick={() => {
             void handleOpenFolder();
           }}
-          disabled={isOpeningFolder || !resolvedProjectFolder}
+          disabled={isOpeningAction || !resolvedProjectFolder}
           className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
         >
-          打开文件夹
+          {isOpeningFolder ? '打开中...' : '打开文件夹'}
         </button>
         <button
           type="button"
@@ -865,10 +866,10 @@ function LocalFileAttachmentCard({
           onClick={() => {
             void handleOpen();
           }}
-          disabled={isOpening || !resolvedPath}
+          disabled={isOpeningAction || !resolvedPath}
           className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
         >
-          打开
+          {isOpening ? '打开中...' : '打开'}
         </button>
       </div>
     </div>
