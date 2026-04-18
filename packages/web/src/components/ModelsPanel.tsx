@@ -1204,11 +1204,7 @@ export function ModelsPanel() {
                   maxLength={500}
                   showCount
                   formatCount={(current, max) => `${current}/${max ?? 0}`}
-                  useDefaultContainerStyles={false}
-                  useDefaultTextareaStyles={false}
-                  containerClassName="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1"
-                  counterClassName="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]"
-                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
+                  className="h-[60px] min-h-[60px] w-full"
                 />
               </div>
               <div className="hidden space-y-1">

@@ -137,7 +137,7 @@ export function ModelSelectDropdownDraft({
           onClear={() => setQuery('')}
           placeholder={searchPlaceholder}
           wrapperClassName="w-full"
-          inputClassName="h-7 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] text-[12px]"
+          inputClassName="rounded-[var(--radius-pill)]"
         />
       </div>
       <div aria-hidden="true" className="my-[6px] h-px w-full bg-[var(--panel-border-outer)]" />
