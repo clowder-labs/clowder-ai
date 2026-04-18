@@ -300,6 +300,16 @@ function inferLocalGeneratedFileKind(path: string): LocalGeneratedFileKind {
   return 'ppt';
 }
 
+function filterIntermediatePdfArtifacts(files: LocalGeneratedFile[]): LocalGeneratedFile[] {
+  const pdfFiles = files.filter((file) => file.kind === 'pdf');
+  if (pdfFiles.length <= 1) return files;
+
+  const nonCoverPdfFiles = pdfFiles.filter((file) => !/^cover\.pdf$/i.test(file.name));
+  if (nonCoverPdfFiles.length === 0) return files;
+
+  return files.filter((file) => file.kind !== 'pdf' || !/^cover\.pdf$/i.test(file.name));
+}
+
 function formatGeneratedDate(timestamp: number | null): string {
   if (timestamp == null || Number.isNaN(timestamp)) return '生成时间获取中...';
   const date = new Date(timestamp);
@@ -472,7 +482,9 @@ export function extractDisplayedLocalGeneratedFiles(events: CliEvent[]): LocalGe
   const wordFile = extractLocalWordFile(events);
   const presentationFile = extractLocalPresentationFile(events);
   const genericDocumentFiles = extractLocalGenericDocumentFiles(events);
-  const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile, ...genericDocumentFiles]);
+  const officeFiles = filterIntermediatePdfArtifacts(
+    dedupeLocalGeneratedFiles([wordFile, presentationFile, ...genericDocumentFiles]),
+  );
 
   return officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
 }

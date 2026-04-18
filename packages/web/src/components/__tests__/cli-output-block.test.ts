@@ -857,6 +857,40 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('hides cover.pdf when a later final pdf is generated in the same cli output', async () => {
+    const pdfEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write cover.pdf',
+        detail: '[Done] Saved: D:\\workspace\\output\\cover.pdf',
+      },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1002,
+        label: 'Write final pdf',
+        detail: '[Done] Saved: D:\\workspace\\output\\weekly-report.pdf',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: pdfEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const cards = container.querySelectorAll('[data-testid="cli-output-pdf-card"]');
+    expect(cards).toHaveLength(1);
+    expect(container.textContent).toContain('weekly-report.pdf');
+    expect(container.textContent).not.toContain('cover.pdf');
+  });
+
   it('renders a txt attachment card for txt output and opens the resolved file', async () => {
     const txtEvents: CliEvent[] = [
       {
