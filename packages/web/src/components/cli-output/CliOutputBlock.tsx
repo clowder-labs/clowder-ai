@@ -888,6 +888,7 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 
 function ToolRow({
   event,
+  resultDetail,
   isActive,
   status,
   hasResultMatch,
@@ -895,6 +896,7 @@ function ToolRow({
   accent,
 }: {
   event: CliEvent;
+  resultDetail?: string;
   isActive: boolean;
   status: CliStatus;
   /** F142: Whether a matching tool_result was found for this tool_use */
@@ -903,7 +905,9 @@ function ToolRow({
   accent: string;
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
-  const hasDetail = event.detail != null;
+  const detailToRender = resultDetail ?? event.detail;
+  const hasDetail = detailToRender != null;
+  const shouldRenderMarkdown = resultDetail != null;
   // F142: Only show waiting spinner while stream is active; once finalized,
   // unmatched rows should not spin forever.
   const isWaitingForResult = status === 'streaming' && event.kind === 'tool_use' && !hasResultMatch;
@@ -945,12 +949,18 @@ function ToolRow({
         {/* Detail — hidden by default, shown on click */}
         {hasDetail && <ChevronIcon expanded={rowExpanded} />}
       </button>
-      {rowExpanded && hasDetail && event.detail && (
+      {rowExpanded && hasDetail && detailToRender && (
         <div
-          className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
+          className={`w-[calc(100%-24px)] mt-1 ml-6 break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]${
+            shouldRenderMarkdown ? '' : ' whitespace-pre-wrap'
+          }`}
           style={{ color: '#64748B' }}
         >
-          {event.detail}
+          {shouldRenderMarkdown ? (
+            <MarkdownContent content={detailToRender} disableCommandPrefix />
+          ) : (
+            detailToRender
+          )}
         </div>
       )}
     </div>
@@ -1015,7 +1025,8 @@ function ToolsSection({
             return (
               <ToolRow
                 key={e.id}
-                event={{ ...e, detail: result?.detail ?? e.detail }}
+                event={e}
+                resultDetail={result?.detail}
                 isActive={e.id === lastToolId}
                 status={status}
                 hasResultMatch={result != null}

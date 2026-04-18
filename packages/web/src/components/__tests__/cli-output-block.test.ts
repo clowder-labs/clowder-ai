@@ -321,6 +321,61 @@ describe('CliOutputBlock', () => {
     expect(detailPanel?.className).toContain('[overflow-wrap:anywhere]');
   });
 
+  it('renders matched tool_result detail via MarkdownContent', () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: [
+            { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Write report.md', detail: '{"path":"report.md"}' },
+            { id: 'r1', kind: 'tool_result', timestamp: 1001, label: 'Write report.md', detail: '## Done\n- saved report' },
+          ],
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const toolRow = container.querySelector('[data-testid="tool-row-t1"]') as HTMLDivElement | null;
+    const rowButton = toolRow?.querySelector('button') as HTMLButtonElement | null;
+    expect(toolRow).toBeTruthy();
+    expect(rowButton).toBeTruthy();
+
+    act(() => {
+      rowButton?.click();
+    });
+
+    const detailPanel = toolRow?.querySelector('.break-words') as HTMLDivElement | null;
+    expect(detailPanel?.querySelector('[data-testid="md"]')?.textContent).toBe('## Done\n- saved report');
+    expect(detailPanel?.textContent).not.toContain('{"path":"report.md"}');
+  });
+
+  it('keeps tool_use detail as plain text when no tool_result is matched', () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: [
+            { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Write report.md', detail: '{"path":"report.md"}' },
+          ],
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const toolRow = container.querySelector('[data-testid="tool-row-t1"]') as HTMLDivElement | null;
+    const rowButton = toolRow?.querySelector('button') as HTMLButtonElement | null;
+    expect(toolRow).toBeTruthy();
+    expect(rowButton).toBeTruthy();
+
+    act(() => {
+      rowButton?.click();
+    });
+
+    const detailPanel = toolRow?.querySelector('.break-words') as HTMLDivElement | null;
+    expect(detailPanel?.textContent).toContain('{"path":"report.md"}');
+    expect(detailPanel?.querySelector('[data-testid="md"]')).toBeNull();
+  });
+
   // ── P1-2: auto-collapse on streaming→done (AC-A6) ──
   it('auto-collapses when status changes from streaming to done (no user interaction)', () => {
     // Start streaming → expanded
