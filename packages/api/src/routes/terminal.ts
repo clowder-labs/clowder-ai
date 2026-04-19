@@ -128,24 +128,20 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
       }
     });
 
-    // WebSocket input → PTY
+    // WebSocket input → PTY (resize only)
     socket.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
       const msg = Buffer.isBuffer(raw) ? raw.toString() : String(raw);
       try {
         const parsed = JSON.parse(msg) as {
           type: string;
-          data?: string;
           cols?: number;
           rows?: number;
         };
         if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
           ptyProcess.resize(parsed.cols, parsed.rows);
-        } else if (parsed.type === 'input' && typeof parsed.data === 'string') {
-          ptyProcess.write(parsed.data);
         }
       } catch {
-        // Not JSON — treat as raw input
-        ptyProcess.write(msg);
+        /* ignore non-JSON */
       }
     });
 
