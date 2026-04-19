@@ -603,6 +603,31 @@ function CheckIcon() {
   );
 }
 
+function ErrorIcon() {
+  return (
+    <img
+      src="/icons/message-error.svg"
+      alt=""
+      aria-hidden="true"
+      className="w-4 h-4 flex-shrink-0"
+    />
+  );
+}
+
+const PERMISSION_DENIED_MARKERS = [
+  '[PERMISSION_DENIED]',
+  '[PERMISSION_REJECTED]',
+  '[APPROVAL_REQUIRED]',
+  'PERMISSION_DENIED:',
+  '[permission denied]',
+  'command rejected for safety',
+];
+
+function isPermissionDeniedResult(detail: string | undefined): boolean {
+  if (!detail) return false;
+  return PERMISSION_DENIED_MARKERS.some((marker) => detail.includes(marker));
+}
+
 function PawPrint() {
   return (
     <svg
@@ -931,7 +956,8 @@ function ToolRow({
   // unmatched rows should not spin forever.
   const isWaitingForResult = status === 'streaming' && event.kind === 'tool_use' && !hasResultMatch;
   const showLoading = isActive || isWaitingForResult;
-  const showCheck = hasResultMatch && !showLoading;
+  const showError = hasResultMatch && !showLoading && isPermissionDeniedResult(resultDetail);
+  const showCheck = hasResultMatch && !showLoading && !showError;
   // Design: active = breed bg 20% + left border 2px + lighter text
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
 
@@ -952,7 +978,7 @@ function ToolRow({
       >
         <div className="flex items-center gap-2 mr-2">
           {/* Status icon */}
-          {showLoading ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : showCheck ? <CheckIcon /> : null}
+          {showLoading ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : showError ? <ErrorIcon /> : showCheck ? <CheckIcon /> : null}
           {/* Wrench icon — design: rgb(89, 89, 89) normal, #F5F3FF active */}
           { false && <WrenchIcon color={isActive ? 'rgb(89, 89, 89)' : 'rgb(89, 89, 89)'} /> }
           {/* Tool label (full) */}
