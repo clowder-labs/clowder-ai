@@ -5,7 +5,6 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { isOriginAllowed, resolveFrontendCorsOrigins } from '../config/frontend-origin.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
@@ -41,21 +40,12 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   const { tmuxGateway, agentPaneRegistry, portDiscovery } = opts;
   const store = new TerminalSessionStore();
   const ptys = new Map<string, PtyBinding>();
-  const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
 
   if (!pty) {
     app.get('/api/terminal/status', async () => ({ available: false, reason: 'node-pty not installed' }));
     return;
   }
   const ptyMod = pty;
-
-  app.addHook('onRequest', async (req, reply) => {
-    if (req.headers.upgrade?.toLowerCase() !== 'websocket') return;
-    const origin = req.headers.origin as string | undefined;
-    if (!origin || isOriginAllowed(origin, corsOrigins)) return;
-    reply.status(403);
-    return reply.send({ error: 'Origin not allowed' });
-  });
 
   function requireTrustedUserId(req: Parameters<typeof resolveTrustedUserId>[0], reply: { status: (code: number) => void; send: (body: unknown) => unknown }): string | null {
     const userId = resolveTrustedUserId(req);
@@ -92,21 +82,6 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
 
     const ptyEnv = { ...process.env } as Record<string, string>;
     const ptyOpts = { name: 'xterm-256color' as const, cols, rows, cwd, env: ptyEnv };
-
-    // Reconnect to existing disconnected session if available
-    const existing = store.findReconnectable(worktreeId, userId);
-    if (existing) {
-      const panes = await tmuxGateway.listPanes(worktreeId);
-      if (!panes.some((p) => p.paneId === existing.paneId)) {
-        store.remove(existing.id); // Stale — fall through to create new
-      } else {
-        const sock = tmuxGateway.socketName(worktreeId);
-        const ptyProcess = ptyMod.spawn(tmuxGateway.tmuxBin, ['-L', sock, 'attach', '-t', existing.paneId], ptyOpts);
-        ptys.set(existing.id, { pty: ptyProcess });
-        store.markConnected(existing.id);
-        return { sessionId: existing.id, paneId: existing.paneId, reconnected: true };
-      }
-    }
 
     // Create new tmux pane + PTY
     await tmuxGateway.ensureServer(worktreeId);
@@ -150,12 +125,6 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     const dataHandler = ptyProcess.onData((data) => {
       if (socket.readyState === 1) {
         socket.send(data);
-      }
-      // F120: Feed terminal output to port discovery (non-blocking)
-      if (portDiscovery && session?.worktreeId) {
-        for (const line of data.split('\n')) {
-          if (line.trim()) portDiscovery.feedStdout(session.worktreeId, sessionId, line).catch(() => {});
-        }
       }
     });
 
