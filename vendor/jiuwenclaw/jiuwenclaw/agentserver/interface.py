@@ -620,7 +620,7 @@ class JiuWenClaw:
 
             # Default role prompts (used when Skill doesn't define)
             default_role_prompts = {
-                "MainAgent": SYSTEM_PROMPT,
+                "MainAgent": "Subagent",
                 "Explorer": "You are an explorer agent focused on searching and gathering information efficiently.",
             }
 
