@@ -49,7 +49,7 @@ Name "${APP_NAME}"
 OutFile "${OUTPUT_EXE}"
 InstallDir "${DEFAULT_INSTALL_DIR}"
 InstallDirRegKey HKCU "${INSTALL_KEY}" "InstallDir"
-BrandingText "${APP_NAME} Offline Installer"
+BrandingText "${APP_NAME} Desktop Installer"
 ShowInstDetails show
 ShowUninstDetails show
 
