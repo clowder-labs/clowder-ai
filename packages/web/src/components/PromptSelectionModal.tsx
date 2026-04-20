@@ -252,7 +252,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="ui-button-default h-7 min-w-[84px] px-4 text-[14px] font-normal"
+              className="ui-button-default"
             >
               {cancelLabel}
             </button>
@@ -260,7 +260,7 @@ export function PromptSelectionModal({
               type="button"
               onClick={() => selectedItem && onConfirm(selectedItem)}
               disabled={!selectedItem}
-              className="ui-button-primary h-7 min-w-[84px] px-4 text-[14px] font-normal disabled:cursor-not-allowed"
+              className="ui-button-primary disabled:cursor-not-allowed"
               data-testid="prompt-confirm-button"
             >
               {confirmLabel}
