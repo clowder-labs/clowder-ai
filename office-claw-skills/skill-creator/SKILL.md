@@ -72,40 +72,21 @@ Based on the user interview, fill in these components:
 
 #### Skill Development Location
 
-Create new skills in **both locations** for redundancy and availability:
+Create new skills in the **installation directory**: `<office-claw>/.office-claw/skills/<skill-name>/`
 
-1. **Runtime directory** (runtime loading): `~/.office-claw/.jiuwenclaw/agent/skills/<skill-name>/`
-2. **Installation directory** (pre-installed/bundled): `<office-claw>/.office-claw/skills/<skill-name>/`
-
-**How to find the paths:**
-
-**Runtime path (IMPORTANT - must include `agent` subdirectory):**
-1. First check environment variable `JIUWENCLAW_SHARED_SKILLS_DIRS` - if set, use those paths
-2. Otherwise use the standard runtime path: `~/.office-claw/.jiuwenclaw/agent/skills/`
-   - On Windows: `C:\Users\<user>\.office-claw\.jiuwenclaw\agent\skills\`
-   - On macOS/Linux: `~/.office-claw/.jiuwenclaw/agent/skills/`
-
-**Installation path:**
+**How to find the installation directory:**
 1. Check environment variable `OFFICE_CLAW_ROOT` - if set, use `$OFFICE_CLAW_ROOT/.office-claw/skills/`
 2. Check Windows registry: `HKCU\Software\ClowderLabs\OfficeClaw\InstallDir`
 3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw\.office-claw\skills\`
-
-**Installation workflow:**
-1. Create the skill in the runtime directory first (with `agent` subdirectory!)
-2. After skill is finalized and tested, copy to installation directory
-3. Register in `installed-skills.json` if needed
+   - e.g., `C:\Users\<user>\AppData\Local\Programs\OfficeClaw\.office-claw\skills\`
 
 **Before creating, always confirm with user:**
-> "技能将创建到两个位置：
-> - 运行时目录: `~/.office-claw/.jiuwenclaw/agent/skills/<skill-name>/`
-> - 安装目录: `<office-claw>/.office-claw/skills/<skill-name>/`
-> 确认吗？如需修改请告诉我。"
+> "技能将创建到 `<office-claw>/.office-claw/skills/<skill-name>/`，确认吗？如需修改路径请告诉我。"
 
 #### Anatomy of a Skill
 
 ```
-~/.office-claw/.jiuwenclaw/agent/skills/skill-name/   ← user-created skills (runtime)
-<office-claw>/.office-claw/skills/skill-name/         ← pre-installed skills (bundled)
+<office-claw>/.office-claw/skills/skill-name/   ← skills directory
 ├── SKILL.md (required)
 │   ├── YAML frontmatter (name, description required)
 │   └── Markdown instructions
