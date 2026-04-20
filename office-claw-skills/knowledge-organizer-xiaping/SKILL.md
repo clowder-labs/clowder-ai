@@ -1,6 +1,17 @@
 ---
 name: knowledge-organizer
+license: MIT
 description: An OpenClaw- and Codex-compatible knowledge organization skill for importing articles, organizing notes, syncing to Feishu and Tencent IMA, applying tags, archiving content, generating summaries, and suggesting related notes.
+env:
+  - OPENCLAW_KB_ROOT
+  - FEISHU_APP_ID
+  - FEISHU_APP_SECRET
+  - FEISHU_ACCESS_TOKEN
+  - FEISHU_KB_ID
+  - FEISHU_FOLDER_ID
+  - FEISHU_WIKI_NODE
+  - IMA_OPENAPI_CLIENTID
+  - IMA_OPENAPI_APIKEY
 ---
 
 # Knowledge Organizer

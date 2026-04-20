@@ -1,5 +1,6 @@
 ---
 name: canned-responses
+license: MIT
 description: 为常见法律询问生成模板回复，并识别何时需要个别关注。适用于回复数据主体请求、供应商询问、NDA请求、发现保全等日常法律询问，或管理回复模板时使用。
 ---
 
