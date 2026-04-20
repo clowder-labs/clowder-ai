@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -239,7 +239,7 @@
   --modal-accent-text: var(--text-accent);
   --modal-table-header-bg: var(--surface-card-muted);
   --modal-table-divider: var(--panel-divider);
-  --modal-loading-overlay: rgba(0, 0, 0, 0.3);
+  --modal-loading-overlay: rgba(0, 0, 0, 0.1);
   --modal-button-muted-bg: var(--surface-card-muted);
   --modal-button-muted-bg-hover: var(--overlay-hover-bg);
   --modal-button-muted-text: var(--text-secondary);

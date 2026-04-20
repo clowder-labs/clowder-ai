@@ -23,7 +23,7 @@ interface UsageStatsModalProps {
   fetchDataset?: (options?: UsageStatsFetchOptions) => Promise<UsageStatsDataset>;
 }
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 5;
 const MIN_LOADING_MS = 300;
 
 const RANGE_OPTIONS: Array<{ value: UsageRange; label: string }> = [
