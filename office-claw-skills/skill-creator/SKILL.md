@@ -74,16 +74,16 @@ Based on the user interview, fill in these components:
 
 Create new skills in **both locations** for redundancy and availability:
 
-1. **User data directory** (runtime loading): `~/.office-claw/.jiuwenclaw/skills/<skill-name>/`
+1. **Runtime directory** (runtime loading): `~/.office-claw/.jiuwenclaw/agent/skills/<skill-name>/`
 2. **Installation directory** (pre-installed/bundled): `<office-claw>/.office-claw/skills/<skill-name>/`
 
 **How to find the paths:**
 
-**User data path:**
-1. First check environment variable `JIUWENCLAW_DATA_DIR` - if set, use `$JIUWENCLAW_DATA_DIR/skills/`
-2. Otherwise use the standard OfficeClaw user data path: `~/.office-claw/.jiuwenclaw/skills/`
-   - On Windows: `C:\Users\<user>\.office-claw\.jiuwenclaw\skills\`
-   - On macOS/Linux: `~/.office-claw/.jiuwenclaw/skills/`
+**Runtime path (IMPORTANT - must include `agent` subdirectory):**
+1. First check environment variable `JIUWENCLAW_SHARED_SKILLS_DIRS` - if set, use those paths
+2. Otherwise use the standard runtime path: `~/.office-claw/.jiuwenclaw/agent/skills/`
+   - On Windows: `C:\Users\<user>\.office-claw\.jiuwenclaw\agent\skills\`
+   - On macOS/Linux: `~/.office-claw/.jiuwenclaw/agent/skills/`
 
 **Installation path:**
 1. Check environment variable `OFFICE_CLAW_ROOT` - if set, use `$OFFICE_CLAW_ROOT/.office-claw/skills/`
@@ -91,18 +91,21 @@ Create new skills in **both locations** for redundancy and availability:
 3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw\.office-claw\skills\`
 
 **Installation workflow:**
-1. Create the skill in the user data directory first
+1. Create the skill in the runtime directory first (with `agent` subdirectory!)
 2. After skill is finalized and tested, copy to installation directory
 3. Register in `installed-skills.json` if needed
 
 **Before creating, always confirm with user:**
-> "技能将创建到两个位置：\n- 用户目录: `~/.office-claw/.jiuwenclaw/skills/<skill-name>/`\n- 安装目录: `<office-claw>/.office-claw/skills/<skill-name>/`\n确认吗？如需修改请告诉我。"
+> "技能将创建到两个位置：
+> - 运行时目录: `~/.office-claw/.jiuwenclaw/agent/skills/<skill-name>/`
+> - 安装目录: `<office-claw>/.office-claw/skills/<skill-name>/`
+> 确认吗？如需修改请告诉我。"
 
 #### Anatomy of a Skill
 
 ```
-~/.office-claw/.jiuwenclaw/skills/skill-name/   ← user-created skills (runtime)
-<office-claw>/.office-claw/skills/skill-name/   ← pre-installed skills (bundled)
+~/.office-claw/.jiuwenclaw/agent/skills/skill-name/   ← user-created skills (runtime)
+<office-claw>/.office-claw/skills/skill-name/         ← pre-installed skills (bundled)
 ├── SKILL.md (required)
 │   ├── YAML frontmatter (name, description required)
 │   └── Markdown instructions
