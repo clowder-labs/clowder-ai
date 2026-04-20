@@ -10,7 +10,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { normalizeRichBlock } from '@office-claw/shared';
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import type { ToolResult } from './file-tools.js';
@@ -20,6 +19,34 @@ interface CallbackConfig {
   apiUrl: string;
   invocationId: string;
   callbackToken: string;
+}
+
+const VALID_RICH_BLOCK_KINDS = new Set([
+  'card',
+  'diff',
+  'checklist',
+  'media_gallery',
+  'audio',
+  'interactive',
+  'html_widget',
+  'file',
+]);
+
+function normalizeRichBlock(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+
+  const obj = raw as Record<string, unknown>;
+  const rawType = obj['type'];
+  if (typeof rawType === 'string' && !('kind' in obj) && VALID_RICH_BLOCK_KINDS.has(rawType)) {
+    obj['kind'] = rawType;
+    delete obj['type'];
+  }
+
+  if (!('v' in obj) && 'kind' in obj) {
+    obj['v'] = 1;
+  }
+
+  return obj;
 }
 
 export function getCallbackConfig(): CallbackConfig | null {
