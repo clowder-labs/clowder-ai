@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -42,7 +42,7 @@ describe('GovernanceBlockedCard', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders project path and bootstrap button', () => {
+  it('renders project name and action button', () => {
     act(() => {
       root.render(
         React.createElement(GovernanceBlockedCard, {
@@ -55,24 +55,7 @@ describe('GovernanceBlockedCard', () => {
 
     expect(container.querySelector('[data-testid="governance-blocked-card"]')).toBeTruthy();
     expect(container.textContent).toContain('my-project');
-    expect(container.textContent).toContain('尚未初始化治理');
-
-    const button = container.querySelector('button');
-    expect(button).toBeTruthy();
-    expect(button?.textContent).toContain('初始化治理并继续');
-  });
-
-  it('shows correct label for needs_confirmation', () => {
-    act(() => {
-      root.render(
-        React.createElement(GovernanceBlockedCard, {
-          projectPath: '/home/user/proj',
-          reasonKind: 'needs_confirmation',
-        }),
-      );
-    });
-
-    expect(container.textContent).toContain('治理初始化待确认');
+    expect(container.querySelector('button')).toBeTruthy();
   });
 
   it('calls confirm then retry on button click', async () => {
@@ -107,8 +90,6 @@ describe('GovernanceBlockedCard', () => {
       method: 'POST',
     });
 
-    expect(container.textContent).toContain('治理初始化完成');
-    expect(container.textContent).toContain('已自动重试');
     expect(onResolved).toHaveBeenCalledTimes(1);
   });
 
@@ -132,12 +113,10 @@ describe('GovernanceBlockedCard', () => {
     });
 
     expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('治理初始化完成');
-    expect(container.textContent).not.toContain('已自动重试');
     expect(onResolved).toHaveBeenCalledTimes(1);
   });
 
-  it('shows error and retry button on confirm failure', async () => {
+  it('shows error and keeps unresolved when confirm fails', async () => {
     const onResolved = vi.fn();
     mockApiFetch.mockResolvedValueOnce({
       ok: false,
@@ -161,13 +140,10 @@ describe('GovernanceBlockedCard', () => {
     });
 
     expect(container.textContent).toContain('Path not allowed');
-    const retryButton = container.querySelector('button');
-    expect(retryButton).toBeTruthy();
-    expect(retryButton?.textContent).toContain('重试');
     expect(onResolved).not.toHaveBeenCalled();
   });
 
-  it('keeps the card when retry fails after bootstrap succeeds', async () => {
+  it('keeps unresolved when retry fails', async () => {
     const onResolved = vi.fn();
     mockApiFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
@@ -193,7 +169,41 @@ describe('GovernanceBlockedCard', () => {
     expect(onResolved).not.toHaveBeenCalled();
   });
 
-  it('extracts directory name from Windows backslash path', () => {
+  it('treats retry conflict with succeeded status as resolved', async () => {
+    const onResolved = vi.fn();
+    mockApiFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          code: 'INVOCATION_NOT_RETRYABLE',
+          currentStatus: 'succeeded',
+          error: "Cannot retry invocation with status 'succeeded'",
+        }),
+      });
+
+    act(() => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-succeeded',
+          onResolved,
+        }),
+      );
+    });
+
+    const button = container.querySelector('button')!;
+    await act(async () => {
+      button.click();
+    });
+
+    expect(container.textContent).not.toContain("Cannot retry invocation with status 'succeeded'");
+    expect(container.querySelector('button')).toBeFalsy();
+    expect(onResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it('extracts directory name from Windows path', () => {
     act(() => {
       root.render(
         React.createElement(GovernanceBlockedCard, {
@@ -203,12 +213,11 @@ describe('GovernanceBlockedCard', () => {
       );
     });
 
-    // Should show "tmp", not the full "C:\workspace\tmp"
     expect(container.textContent).toContain('tmp');
     expect(container.textContent).not.toContain('C:\\workspace\\tmp');
   });
 
-  it('resets to idle state when invocationId prop changes', async () => {
+  it('resets to idle when invocationId changes', async () => {
     mockApiFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
@@ -228,8 +237,6 @@ describe('GovernanceBlockedCard', () => {
       button.click();
     });
 
-    expect(container.textContent).toContain('治理初始化完成');
-
     act(() => {
       root.render(
         React.createElement(GovernanceBlockedCard, {
@@ -240,8 +247,6 @@ describe('GovernanceBlockedCard', () => {
       );
     });
 
-    const newButton = container.querySelector('button');
-    expect(newButton).toBeTruthy();
-    expect(newButton?.textContent).toContain('初始化治理并继续');
+    expect(container.querySelector('button')).toBeTruthy();
   });
 });

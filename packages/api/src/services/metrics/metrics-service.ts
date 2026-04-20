@@ -22,10 +22,44 @@ import {
   extractRegion,
   type CasCredential,
 } from './aom-access-code-client.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { resolveActiveProjectRoot } from '../../utils/active-project-root.js';
 
 let reporter: AomMetricsReporter | null = null;
 let tokenUsageReporter: TokenUsageReporter | null = null;
 let initPromise: Promise<boolean> | null = null;
+
+const DEFAULT_VERSION = '0.1.0';
+
+function readClawVersion(): string {
+  try {
+    const projectRoot = resolveActiveProjectRoot();
+    
+    const packageJsonPath = resolve(projectRoot, 'package.json');
+    const packageVersion = readVersionFromJsonFile(packageJsonPath);
+    if (packageVersion) return packageVersion;
+
+    const releaseJsonPath = resolve(projectRoot, '.clowder-release.json');
+    const releaseVersion = readVersionFromJsonFile(releaseJsonPath);
+    if (releaseVersion) return releaseVersion;
+
+    return DEFAULT_VERSION;
+  } catch {
+    return DEFAULT_VERSION;
+  }
+}
+
+function readVersionFromJsonFile(filePath: string): string | null {
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
+    return typeof parsed?.version === 'string' && parsed.version.trim().length > 0
+      ? parsed.version.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Initialize from environment variables (legacy path).
@@ -37,6 +71,7 @@ export function initMetricsService(): boolean {
   const token = process.env.AOM_TOKEN;
   const instanceId = process.env.AOM_INSTANCE_ID;
   const hostname = process.env.AOM_HOSTNAME;
+  const clawVersion = process.env.CLAW_VERSION || readClawVersion();
   const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
 
   if (!endpoint || !projectId || !token) {
@@ -49,6 +84,7 @@ export function initMetricsService(): boolean {
     token,
     instanceId,
     hostname,
+    clawVersion,
     timeout,
   });
   return true;
@@ -115,6 +151,7 @@ async function doInitFromCredential(
       projectId: credential.project_id,
       token: result.accessCode,
       instanceId,
+      clawVersion: readClawVersion(),
     });
 
     log?.info('[MetricsService] ✅ Initialized from CAS credentials');

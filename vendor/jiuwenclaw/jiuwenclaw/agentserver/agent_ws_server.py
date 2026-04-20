@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
-from jiuwenclaw.agentserver.session_history import read_history_records
+from jiuwenclaw.agentserver.session_history import (
+    enrich_history_messages_session_id,
+    read_history_records,
+)
 from jiuwenclaw.utils import get_agent_sessions_dir
 from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
@@ -572,8 +575,11 @@ class AgentWebSocketServer:
         ordered = list(reversed(raw))
         start = (page_idx - 1) * page_size
         end = start + page_size
+        resolved_sid = session_id.strip()
+        page_slice = ordered[start:end]
+        messages_out = enrich_history_messages_session_id(page_slice, resolved_sid)
         return {
-            "messages": ordered[start:end],
+            "messages": messages_out,
             "total_pages": total_pages,
             "page_idx": page_idx,
         }
