@@ -1026,6 +1026,43 @@ webview2_found:
   DetailPrint "WebView2 已安装 (版本: $0$1)"
 webview2_done:
 
+  ; 检查并安装 VC++ 运行时库 (2015-2022 x64)
+  DetailPrint "正在检查 VC++ 运行时库..."
+  ; 检查 HKLM (per-machine) 注册表 - VC++ 2015-2022 x64
+  ReadRegDWORD $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $0 == 1
+    DetailPrint "VC++ x64 运行时已安装"
+    Goto vc_done
+  ${EndIf}
+
+  ; 检查 HKCU (per-user) 注册表 - 有些情况可能安装在这里
+  ReadRegDWORD $1 HKCU "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $1 == 1
+    DetailPrint "VC++ x64 运行时已安装 (per-user)"
+    Goto vc_done
+  ${EndIf}
+
+  ; 未安装，执行静默安装
+  DetailPrint "正在安装 VC++ 运行时库..."
+  IfFileExists "$INSTDIR\tools\vc-redist\vc_redist.x64.exe" vc_install vc_missing
+
+vc_install:
+  ; /quiet 静默安装, /norestart 不重启
+  nsExec::ExecToLog '"$INSTDIR\tools\vc-redist\vc_redist.x64.exe" /quiet /norestart'
+  Pop $2
+  ${If} $2 == 0
+    DetailPrint "VC++ 运行时库安装成功"
+  ${Else}
+    DetailPrint "警告: VC++ 运行时库安装失败 (错误码: $2)"
+  ${EndIf}
+  Goto vc_done
+
+vc_missing:
+  DetailPrint "警告: VC++ 安装程序未找到，跳过安装"
+  Goto vc_done
+
+vc_done:
+
   ; Run post-install configuration only for fresh installs.
   ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
   IfFileExists "$INSTDIR\.office-claw\office-claw-catalog.json" init_config_skip 0
