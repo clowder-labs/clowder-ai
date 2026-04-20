@@ -1029,11 +1029,11 @@ export function AgentsPanel() {
                       />
                     </div>
 
-                    <div className="shrink-0 flex justify-end">
+                    <div className="shrink-0 flex justify-end mt-[4px]">
                       <button
                         type="button"
                         onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                        className="ui-button-primary h-[24px] px-4 py-[3px] text-[12px] rounded-[999px] flex items-center justify-center font-normal"
+                        className="ui-button-primary"
                       >
                         插入模板
                       </button>

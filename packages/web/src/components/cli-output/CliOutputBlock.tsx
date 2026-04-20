@@ -606,7 +606,7 @@ function CheckIcon() {
 function ErrorIcon() {
   return (
     <img
-      src="/icons/message-error.svg"
+      src="/icons/tool-error.svg"
       alt=""
       aria-hidden="true"
       className="w-4 h-4 flex-shrink-0"
