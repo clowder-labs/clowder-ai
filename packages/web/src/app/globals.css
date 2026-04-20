@@ -331,7 +331,7 @@
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #fbf5ec;
-  --surface-selected: #ffddd2;
+  --surface-selected: #fffbf7;
   --surface-inverse: var(--color-base-black);
 
   --text-primary: var(--color-base-black);
