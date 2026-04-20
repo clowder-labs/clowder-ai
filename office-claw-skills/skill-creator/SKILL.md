@@ -87,11 +87,11 @@ Create new skills in the **OfficeClaw workspace/skills directory** under `worksp
 4. If running from source: the repository root containing `pnpm-workspace.yaml`
 
 **Final skill location options:**
-- Default: `<office-claw>/workspace/skills/<skill-name>/`
+- Default: `<office-claw>/.office-claw/skills/<skill-name>/`
 - Custom: User can specify any writable directory
 
 **Before creating, always confirm with user:**
-> "技能将创建到 `<office-claw>/workspace/skills/<skill-name>/`，确认吗？如需修改路径请告诉我。"
+> "技能将创建到 `<office-claw>/.office-claw/skills/<skill-name>/`，确认吗？如需修改路径请告诉我。"
 
 #### Anatomy of a Skill
 
