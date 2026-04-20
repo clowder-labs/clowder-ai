@@ -15,7 +15,6 @@ export { snappyCompress, snappyDecompress } from './snappy.js';
 export {
   AomMetricsReporter,
   createAomMetricsReporter,
-  createAomMetricsReporterFromEnv,
   type AomMetricsReporterConfig,
   type MetricValue,
   type AomMetricsReporterResult,
@@ -24,8 +23,10 @@ export {
   fetchAomAccessCode,
   buildAomEndpoint,
   extractRegion,
+  ensurePrometheusInstance,
   type CasCredential,
   type AomAccessCodeResult,
+  type PrometheusInstance,
 } from './aom-access-code-client.js';
 export {
   tokenUsageCollector,
@@ -38,7 +39,6 @@ export {
   type TokenUsageReporterConfig,
 } from './token-usage-reporter.js';
 export {
-  initMetricsService,
   initMetricsServiceFromCredential,
   startTokenUsageReporter,
   getMetricsReporter,

@@ -8,8 +8,7 @@
  * Global Metrics Service
  *
  * Singleton for immediate metric reporting (e.g., login events).
- * Supports dynamic initialization via login credentials (AK/SK + SecurityToken)
- * instead of relying solely on environment variables.
+ * Only supports initialization via CAS login credentials (AK/SK + SecurityToken).
  */
 
 import type { FastifyBaseLogger } from 'fastify';
@@ -20,6 +19,7 @@ import {
   fetchAomAccessCode,
   buildAomEndpoint,
   extractRegion,
+  ensurePrometheusInstance,
   type CasCredential,
 } from './aom-access-code-client.js';
 import { readFileSync } from 'node:fs';
@@ -62,37 +62,8 @@ function readVersionFromJsonFile(filePath: string): string | null {
 }
 
 /**
- * Initialize from environment variables (legacy path).
- * Returns true if successfully initialized.
- */
-export function initMetricsService(): boolean {
-  const endpoint = process.env.AOM_METRICS_ENDPOINT;
-  const projectId = process.env.AOM_PROJECT_ID;
-  const token = process.env.AOM_TOKEN;
-  const instanceId = process.env.AOM_INSTANCE_ID;
-  const hostname = process.env.AOM_HOSTNAME;
-  const clawVersion = process.env.CLAW_VERSION || readClawVersion();
-  const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
-
-  if (!endpoint || !projectId || !token) {
-    return false;
-  }
-
-  reporter = createAomMetricsReporter({
-    endpoint,
-    projectId,
-    token,
-    instanceId,
-    hostname,
-    clawVersion,
-    timeout,
-  });
-  return true;
-}
-
-/**
  * Start the periodic token usage reporter.
- * Called after successful init (env or credential).
+ * Called after successful credential-based init.
  */
 export function startTokenUsageReporter(intervalMs?: number): void {
   if (tokenUsageReporter) return; // already running
@@ -138,8 +109,16 @@ async function doInitFromCredential(
 ): Promise<boolean> {
   try {
     const region = extractRegion(huaweiClawBaseUrl);
-    const endpoint = buildAomEndpoint(region, credential.project_id);
 
+    // Step 1: Ensure Prometheus instance exists (with retry)
+    const prometheusInstances = await ensurePrometheusInstance(credential, region, log);
+    if (!prometheusInstances) {
+      log?.warn('[MetricsService] No Prometheus instance available, metrics disabled');
+      return false;
+    }
+
+    // Step 2: Fetch AOM access code
+    const endpoint = buildAomEndpoint(region, credential.project_id);
     const result = await fetchAomAccessCode(credential, region, log);
     if (!result) {
       log?.warn('[MetricsService] Failed to fetch AOM access code, metrics disabled');
@@ -154,7 +133,7 @@ async function doInitFromCredential(
       clawVersion: readClawVersion(),
     });
 
-    log?.info('[MetricsService] ✅ Initialized from CAS credentials');
+    log?.info('[MetricsService] Initialized from CAS credentials');
     return true;
   } catch (error) {
     log?.error({ error }, '[MetricsService] Failed to initialize from credential');
@@ -178,8 +157,24 @@ export async function reportMetric(
   name: string,
   value: number,
   labels?: Record<string, string>,
+  log?: FastifyBaseLogger,
 ): Promise<boolean> {
-  if (!reporter) return false;
+  if (!reporter) {
+    log?.warn('[MetricsService] Reporter not initialized, skipping metric report');
+    return false;
+  }
   const result = await reporter.reportSingleMetric(name, value, labels);
+  if (result.success) {
+    log?.info({ metricName: name }, '[MetricsService] Metric reported successfully');
+  } else {
+    log?.warn(
+      {
+        metricName: name,
+        status: result.status,
+        message: result.message,
+      },
+      '[MetricsService] Metric report failed',
+    );
+  }
   return result.success;
 }
