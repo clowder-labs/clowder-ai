@@ -231,6 +231,72 @@ describe('windows secret-backed persistence', () => {
     }
   });
 
+  it('migrates legacy plaintext provider profile api keys during provider profile warmup reads', async () => {
+    setLocalSecretBackendForTests(null);
+    const projectRoot = mkdtempSync(join(tmpdir(), 'provider-secret-startup-warmup-'));
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+
+    try {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.office-claw', 'provider-profiles.json'),
+        `${JSON.stringify(
+          {
+            version: 3,
+            activeProfileId: null,
+            providers: [
+              {
+                id: 'legacy-warmup-provider',
+                displayName: 'Legacy Warmup Provider',
+                kind: 'api_key',
+                authType: 'api_key',
+                builtin: false,
+                protocol: 'anthropic',
+                createdAt: '2026-04-17T00:00:00.000Z',
+                updatedAt: '2026-04-17T00:00:00.000Z',
+              },
+            ],
+            bootstrapBindings: {},
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      writeFileSync(
+        join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json'),
+        `${JSON.stringify(
+          {
+            version: 3,
+            profiles: {
+              'legacy-warmup-provider': {
+                apiKey: 'sk-startup-plain',
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+
+      const view = await readProviderProfiles(projectRoot);
+      const listed = view.providers.find((entry) => entry.id === 'legacy-warmup-provider');
+      assert.equal(listed?.hasApiKey, true);
+
+      const raw = readFileSync(join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json'), 'utf8');
+      assert.ok(!raw.includes('sk-startup-plain'));
+      assert.ok(!raw.includes('"apiKey"'));
+      assert.match(raw, /"apiKeyRef": "memory:\/\/provider-profiles\//);
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   it('stores model-config api keys via refs and resolves runtime secrets from the backend', async () => {
     const { backend, store } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
