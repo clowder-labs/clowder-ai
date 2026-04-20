@@ -1956,9 +1956,9 @@ select:-webkit-autofill:focus {
   }
 
   .ui-content-header-feedback-low-score-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 8px;
   }
 
   .ui-content-header-feedback-low-score-option {
