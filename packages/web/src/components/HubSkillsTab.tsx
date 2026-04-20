@@ -226,6 +226,7 @@ export function HubSkillsTab() {
   const requestSeqRef = useRef(0);
   const activeAbortRef = useRef<AbortController | null>(null);
   const searchEffectReadyRef = useRef(false);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -393,6 +394,23 @@ export function HubSkillsTab() {
   }, [loadCategories]);
 
   useEffect(() => {
+    const el = loadMoreTriggerRef.current;
+    if (!el || !results?.hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [results?.hasMore, loadingMore, handleLoadMore]);
+
+  useEffect(() => {
     void loadPage({ mode: 'browse', page: 1, category: ALL_CATEGORY });
   }, [loadPage]);
 
@@ -528,15 +546,8 @@ export function HubSkillsTab() {
                 <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
               )}
               {results.skills.length > 0 && results.hasMore && (
-                <div className="flex justify-center py-4">
-                  <button
-                    type="button"
-                    onClick={handleLoadMore}
-                    disabled={loadingMore}
-                    className="ui-btn-secondary px-4 py-2 text-xs"
-                  >
-                    {loadingMore ? '加载中...' : '加载更多'}
-                  </button>
+                <div ref={loadMoreTriggerRef} className="flex justify-center py-4">
+                  {loadingMore && <span className="text-sm text-[var(--text-muted)]">加载中...</span>}
                 </div>
               )}
             </>
