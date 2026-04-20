@@ -92,8 +92,6 @@ const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
   '6m': '近6个月',
 };
 
-const EXPERIENCE_GROUP_QR_SRC = '/images/sidebar-experience-group-qr.svg';
-
 export function ThreadSidebar({
   onClose,
   className,
@@ -978,22 +976,6 @@ export function ThreadSidebar({
               );
             })
           )}
-        </div>
-
-        <div className="relative px-4">
-          <div className="group relative my-3">
-            <div className="flex items-center gap-2 rounded-[8px] bg-[var(--surface-panel)] px-3 py-3 text-[14px] leading-[22px] text-[var(--text-primary)]">
-              <img src="/images/connectors/weixin.svg" alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
-              <span className="min-w-0 truncate">扫码加入体验官交流群</span>
-            </div>
-            <div className="invisible absolute bottom-full left-0 z-40 mb-2 rounded-[12px] bg-[var(--surface-panel)] p-4 opacity-0 shadow-[var(--overlay-shadow)] transition-opacity duration-150 group-hover:visible group-hover:opacity-100">
-              <img
-                src={EXPERIENCE_GROUP_QR_SRC}
-                alt="体验官交流群二维码"
-                className="h-48 w-48 rounded-[8px]"
-              />
-            </div>
-          </div>
         </div>
 
         {/* 回收站入口暂时隐藏 */}

@@ -428,7 +428,6 @@
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
   --overlay-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
-  --modal-loading-overlay: #ffffff;
 
   --bg-app: var(--surface-app);
   --border-radius-base: var(--radius-lg);
@@ -599,7 +598,6 @@
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
   --overlay-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
-  --modal-loading-overlay: #ffffff;
 
   --bg-app: var(--surface-app);
   --border-radius-base: var(--radius-lg);
@@ -789,7 +787,6 @@
   --overlay-backdrop-strong: rgb(2 6 12 / 0.7);
   --overlay-backdrop-medium: rgb(2 6 12 / 0.56);
   --shadow-overlay: 0 28px 60px -18px rgb(0 0 0 / 0.6);
-  --modal-loading-overlay: rgba(0, 0, 0, 0.3);
 
   --bg-app: var(--surface-app);
   --border-radius-base: var(--radius-lg);
