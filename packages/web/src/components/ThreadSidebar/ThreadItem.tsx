@@ -559,7 +559,7 @@ export function ThreadItem({
         title="编辑会话名称"
         panelClassName="w-[500px]"
         bodyClassName="pt-5"
-        zIndexClassName="z-[60]"
+        zIndexClassName="z-[120]"
         backdropTestId="thread-rename-modal"
         panelTestId="thread-rename-modal-panel"
       >
