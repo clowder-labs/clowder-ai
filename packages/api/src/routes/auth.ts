@@ -333,7 +333,7 @@ async function completeCasLogin(
       casCredential.securityToken &&
       session.credential.project_id
     ) {
-      const initialized = await initMetricsServiceFromCredential(
+      const initResult = await initMetricsServiceFromCredential(
         {
           access: casCredential.accessKey,
           secret: casCredential.secretKey,
@@ -344,9 +344,11 @@ async function completeCasLogin(
         process.env.AOM_INSTANCE_ID || 'officeclaw-instance',
         request.log,
       );
-      if (initialized) {
+      if (initResult.initialized) {
         startTokenUsageReporter(60_000);
-        await reportMetric('agentarts_claw_user_login', 1, undefined, request.log);
+        if (initResult.wasFirstInit) {
+          await reportMetric('agentarts_claw_user_login', 1, undefined, request.log);
+        }
       }
     }
 

@@ -85,20 +85,29 @@ export function startTokenUsageReporter(intervalMs?: number): void {
  * This is idempotent — if already initialized, returns the existing reporter.
  * Concurrent calls coalesce into a single init attempt.
  */
+export interface InitResult {
+  initialized: boolean;
+  wasFirstInit: boolean;
+}
+
 export async function initMetricsServiceFromCredential(
   credential: CasCredential,
   huaweiClawBaseUrl: string,
   instanceId?: string,
   log?: FastifyBaseLogger,
-): Promise<boolean> {
-  // Already initialized — reuse
-  if (reporter) return true;
+): Promise<InitResult> {
+  if (reporter) {
+    return { initialized: true, wasFirstInit: false };
+  }
 
-  // Coalesce concurrent calls
-  if (initPromise) return initPromise;
+  if (initPromise) {
+    const result = await initPromise;
+    return { initialized: result, wasFirstInit: result };
+  }
 
   initPromise = doInitFromCredential(credential, huaweiClawBaseUrl, instanceId, log);
-  return initPromise;
+  const result = await initPromise;
+  return { initialized: result, wasFirstInit: result };
 }
 
 async function doInitFromCredential(

@@ -40,6 +40,7 @@ export {
 } from './token-usage-reporter.js';
 export {
   initMetricsServiceFromCredential,
+  type InitResult,
   startTokenUsageReporter,
   getMetricsReporter,
   resetMetricsReporter,
