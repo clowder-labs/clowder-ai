@@ -27,6 +27,9 @@ const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf
 const DEFAULT_WEBVIEW2_VERSION = process.env.CLOWDER_WEBVIEW2_VERSION ?? '1.0.3856.49';
 const WEBVIEW2_BOOTSTRAPPER_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
 
+const VC_REDIST_VERSION = process.env.CLOWDER_VC_REDIST_VERSION ?? '14.42.34433';
+const VC_REDIST_X64_URL = `https://aka.ms/vs/17/release/vc_redist.x64.exe`;
+
 const stepTimings = [];
 let currentStepName = null;
 let currentStepStart = null;
@@ -1642,6 +1645,25 @@ async function stageWebView2Installer(bundleDir, options) {
   logStep('WebView2 Bootstrapper downloaded');
 }
 
+async function stageVcRedistInstaller(bundleDir, options) {
+  const vcDir = join(bundleDir, 'tools', 'vc-redist');
+  ensureDir(vcDir);
+  const installerPath = join(vcDir, 'vc_redist.x64.exe');
+
+  if (existsSync(installerPath)) {
+    logStep('VC++ Redist installer already exists, skipping download');
+    return;
+  }
+
+  logStep('Downloading VC++ Redistributable (x64)...');
+  const archiveName = 'vc_redist.x64.exe';
+  const archivePath = join(options.cacheDir, archiveName);
+  await ensureCachedDownload(VC_REDIST_X64_URL, archivePath);
+
+  cpSync(archivePath, installerPath, { force: true });
+  logStep('VC++ Redistributable downloaded');
+}
+
 function computeMaxRelativePathLength(bundleDir) {
   let maxLength = 0;
   const stack = [bundleDir];
@@ -1862,6 +1884,7 @@ async function main() {
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
   await stageWebView2Installer(bundleDir, options);
+  await stageVcRedistInstaller(bundleDir, options);
   writeReleaseMetadata(bundleDir, {
     name: 'Clowder AI',
     version: packageJson.version,
@@ -1872,6 +1895,7 @@ async function main() {
     pythonEmbed,
     redis,
     webview2Version: options.webview2Version,
+    vcRedistVersion: VC_REDIST_VERSION,
     maxRelativePathLength: computeMaxRelativePathLength(bundleDir),
   });
 

@@ -24,6 +24,7 @@ export interface AomMetricsReporterConfig {
   token: string;
   instanceId?: string;
   hostname?: string;
+  clawVersion?: string;
   timeout?: number;
 }
 
@@ -48,6 +49,7 @@ export class AomMetricsReporter {
   private readonly token: string;
   private readonly instanceId: string;
   private readonly hostname: string;
+  private readonly clawVersion: string;
   private readonly timeout: number;
 
   constructor(config: AomMetricsReporterConfig) {
@@ -56,6 +58,7 @@ export class AomMetricsReporter {
     this.token = config.token;
     this.instanceId = config.instanceId ?? `api-${Date.now()}`;
     this.hostname = config.hostname ?? getHostname();
+    this.clawVersion = config.clawVersion ?? 'unknown';
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
   }
 
@@ -73,6 +76,7 @@ export class AomMetricsReporter {
         { name: 'instance', value: this.instanceId },
         { name: 'hostname', value: this.hostname },
         { name: 'project_id', value: this.projectId },
+        { name: 'claw_version', value: this.clawVersion },
       ];
 
       if (metric.labels) {
@@ -158,6 +162,7 @@ export class AomMetricsReporter {
       token: this.token,
       instanceId: this.instanceId,
       hostname: this.hostname,
+      clawVersion: this.clawVersion,
       timeout: this.timeout,
     };
   }
@@ -173,6 +178,7 @@ export function createAomMetricsReporterFromEnv(): AomMetricsReporter | null {
   const token = process.env.AOM_TOKEN;
   const instanceId = process.env.AOM_INSTANCE_ID;
   const hostname = process.env.AOM_HOSTNAME;
+  const clawVersion = process.env.CLAW_VERSION;
   const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
 
   if (!endpoint || !projectId || !token) {
@@ -185,6 +191,7 @@ export function createAomMetricsReporterFromEnv(): AomMetricsReporter | null {
     token,
     instanceId,
     hostname,
+    clawVersion,
     timeout,
   });
 }
