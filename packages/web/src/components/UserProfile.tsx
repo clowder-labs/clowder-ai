@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type ThemeType, useTheme } from '@/hooks/useTheme';
@@ -202,7 +202,10 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowUsageStats(false);
   };
 
-  const handleOpenVersionUpdate = () => {
+  const handleOpenVersionUpdate = async () => {
+    if (!hasNewVersion) {
+      await checkVersion();
+    }
     setShowVersionUpdate(true);
     setShowThemePanel(false);
     setShowAboutPanel(false);
