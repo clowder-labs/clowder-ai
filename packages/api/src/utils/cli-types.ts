@@ -10,7 +10,7 @@
  */
 
 import type { Readable } from 'node:stream';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../domains/cats/services/types.js';
 
 /**

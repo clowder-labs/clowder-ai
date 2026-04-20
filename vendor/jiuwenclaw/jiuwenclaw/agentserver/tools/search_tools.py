@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import os
 import re
 from html import unescape
@@ -351,6 +352,144 @@ def _engine_display_name(engine: str) -> str:
     return mapping.get(engine, engine)
 
 
+def _resolve_petal_search_url() -> str:
+    """Build Petal Search URL from LLM API_BASE: strip trailing /v2, append /v1/ai-tools/web-search."""
+    api_base = (
+        os.environ.get("API_BASE")
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or ""
+    ).strip()
+    if not api_base:
+        raise ValueError(
+            "API_BASE is not set (use the same OpenAI-compatible base URL as the LLM)"
+        )
+    trimmed = api_base.rstrip("/")
+    if trimmed.lower().endswith("/v2"):
+        trimmed = trimmed[:-3]
+    trimmed = trimmed.rstrip("/")
+    return f"{trimmed}/v1/ai-tools/web-search"
+
+
+def _load_llm_default_headers() -> dict[str, str]:
+    """Same JSON object as LLM client (e.g. Authorization); env name ``default_headers``."""
+    raw = os.environ.get("default_headers", "").strip()
+    if not raw:
+        raise ValueError(
+            "default_headers is not set (use the same JSON headers as the LLM, e.g. Authorization)"
+        )
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"default_headers is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("default_headers must be a JSON object")
+    return {str(k): str(v) for k, v in parsed.items() if v is not None}
+
+
+def enable_petal_search() -> bool:
+    """True when Petal web-search can run: config switch enabled AND same API base + default_headers as the LLM client."""
+    try:
+        from jiuwenclaw.config import get_config_raw
+        if not (get_config_raw().get("enable_petal_search") or False):
+            return False
+    except Exception:
+        return False
+    api_base = (
+        os.environ.get("API_BASE")
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or ""
+    ).strip()
+    if not api_base:
+        return False
+    raw = os.environ.get("default_headers", "").strip()
+    if not raw:
+        return False
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed, dict)
+
+
+# Align with common search-record assembly (title / url / content); avoid huge tool payloads.
+_PETAL_MAX_TITLE_LEN = 2000
+_PETAL_MAX_URL_LEN = 2048
+_PETAL_MAX_CONTENT_LEN = 8000
+
+
+def _petal_normalize_web_page_item(item: dict[str, Any]) -> dict[str, str]:
+    """Map Petal ``web_pages[]`` entry to page record fields (same shape as collector ``new_item``)."""
+    raw_url = item.get("url") or item.get("link") or item.get("source_url") or ""
+    title = (item.get("title") or item.get("name") or "").strip()
+    content = (
+        item.get("content")
+        or item.get("snippet")
+        or item.get("description")
+        or item.get("summary")
+        or ""
+    )
+    content = str(content).strip()
+    return {
+        "title": title[:_PETAL_MAX_TITLE_LEN],
+        "url": str(raw_url).strip()[:_PETAL_MAX_URL_LEN],
+        "content": content[:_PETAL_MAX_CONTENT_LEN],
+    }
+
+
+def _petal_format_answer_from_records(records: list[dict[str, str]]) -> str:
+    """One block per result: title, URL, content (same layout idea as ``mcp_free_search``)."""
+    lines: list[str] = []
+    n = 0
+    for rec in records:
+        title = (rec.get("title") or "").strip()
+        url = (rec.get("url") or "").strip()
+        content = (rec.get("content") or "").strip()
+        if not title and not url and not content:
+            continue
+        n += 1
+        display_title = title if title else "(无标题)"
+        lines.append(f"{n}. {display_title}")
+        if url:
+            lines.append(f"   URL: {url}")
+        if content:
+            lines.append(f"   Content: {content}")
+    return "\n".join(lines)
+
+
+def _petal_search_sync(
+    query: str, max_results: int, timeout_seconds: int
+) -> dict[str, Any]:
+    """Petal Search API: POST JSON with query + content; response.web_pages[]."""
+    search_url = _resolve_petal_search_url()
+    header_map = _load_llm_default_headers()
+    headers = {**header_map, "Content-Type": "application/json"}
+    payload = {"query": query, "content": True}
+
+    response = _http_request(
+        "POST",
+        search_url,
+        headers=headers,
+        json=payload,
+        timeout=timeout_seconds,
+    )
+    response.raise_for_status()
+    data = response.json()
+    web_pages = data.get("web_pages", [])
+
+    records: list[dict[str, str]] = []
+    if isinstance(web_pages, list):
+        for raw in web_pages[:max_results]:
+            if not isinstance(raw, dict):
+                continue
+            records.append(_petal_normalize_web_page_item(raw))
+
+    answer = _petal_format_answer_from_records(records)
+    urls = [r["url"] for r in records if r.get("url")][:max_results]
+    return {"provider": "petal", "answer": answer, "urls": urls}
+
+
 def _parse_perplexity_citations(data: dict[str, Any]) -> list[str]:
     for key in ("citations", "search_results", "web_search_results", "sources"):
         entries = data.get(key)
@@ -517,7 +656,10 @@ async def mcp_free_search(
 
 @tool(
     name="mcp_paid_search",
-    description="Paid search via Perplexity/SERPER/JINA. Support provider=auto|perplexity|serper|jina.",
+    description=(
+        "Paid search via Petal/Perplexity/SERPER/JINA. "
+        "provider=auto|petal|perplexity|serper|jina."
+    ),
 )
 async def mcp_paid_search(
     query: str,
@@ -530,13 +672,16 @@ async def mcp_paid_search(
         return "[ERROR]: query cannot be empty."
 
     provider = (provider or "auto").strip().lower()
-    if provider not in {"auto", "jina", "serper", "perplexity"}:
-        return "[ERROR]: provider must be one of auto|jina|serper|perplexity."
+    if provider not in {"auto", "jina", "serper", "perplexity", "petal"}:
+        return "[ERROR]: provider must be one of auto|petal|jina|serper|perplexity."
 
     timeout_seconds = max(10, min(timeout_seconds, 120))
     max_results = max(1, min(max_results, 20))
 
     runners = {
+        "petal": lambda: _petal_search_sync(
+            query=query, max_results=max_results, timeout_seconds=timeout_seconds
+        ),
         "jina": lambda: _jina_search_sync(query=query, timeout_seconds=timeout_seconds),
         "serper": lambda: _serper_search_sync(
             query=query, max_results=max_results, timeout_seconds=timeout_seconds
@@ -545,7 +690,11 @@ async def mcp_paid_search(
             query=query, max_results=max_results, timeout_seconds=timeout_seconds
         ),
     }
-    order = [provider] if provider != "auto" else ["perplexity", "serper", "jina"]
+    order = (
+        [provider]
+        if provider != "auto"
+        else ["perplexity", "serper", "jina", "petal"]
+    )
 
     errors: list[str] = []
     for name in order:

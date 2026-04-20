@@ -27,7 +27,15 @@ function getWorkspaceTarget(url: string): { worktreeId: string; path: string } |
   return worktreeId && path ? { worktreeId, path } : null;
 }
 
-export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
+export function ContentBlocks({
+  blocks,
+  enableSkillAndQuickActionTokens = false,
+  showFileAction = true,
+}: {
+  blocks: MessageContent[];
+  enableSkillAndQuickActionTokens?: boolean;
+  showFileAction?: boolean;
+}) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [openingFileUrl, setOpeningFileUrl] = useState<string | null>(null);
   const resolveIcon = (fileName: string) => {
@@ -44,7 +52,13 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
     <>
       {blocks.map((block, i) => {
         if (block.type === 'text') {
-          return <MarkdownContent key={i} content={block.text} />;
+          return (
+            <MarkdownContent
+              key={i}
+              content={block.text}
+              enableSkillAndQuickActionTokens={enableSkillAndQuickActionTokens}
+            />
+          );
         }
         if (block.type === 'image') {
           const src = resolveMediaUrl(block.url);
@@ -62,6 +76,7 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
         if (block.type === 'file') {
           const href = resolveMediaUrl(block.url);
           const workspaceTarget = getWorkspaceTarget(block.url);
+          const shouldShowWorkspaceAction = showFileAction && workspaceTarget;
           return (
             <div
               key={i}
@@ -72,7 +87,7 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
                 <div className="truncate text-sm text-[#191919]">{block.fileName}</div>
                 <div className="text-xs text-gray-500">{block.mimeType || 'file'}</div>
               </div>
-              {workspaceTarget ? (
+              {shouldShowWorkspaceAction ? (
                 <button
                   type="button"
                   className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs text-[#191919] transition-colors hover:bg-gray-50"
@@ -87,7 +102,7 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
                 >
                   {openingFileUrl === block.url ? '打开中...' : '打开'}
                 </button>
-              ) : (
+              ) : showFileAction ? (
                 <a
                   href={href}
                   target="_blank"
@@ -96,7 +111,7 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
                 >
                   下载
                 </a>
-              )}
+              ) : null}
             </div>
           );
         }

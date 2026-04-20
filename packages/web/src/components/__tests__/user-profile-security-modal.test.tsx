@@ -25,6 +25,7 @@ vi.mock('@/utils/api-client', () => ({
 
 vi.mock('@/utils/userId', () => ({
   getUserId: () => 'user:Alice',
+  getUserName: () => 'Alice',
   getIsSkipAuth: () => false,
 }));
 

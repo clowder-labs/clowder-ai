@@ -10,7 +10,7 @@
  * Part of 4-A feature for Phase 4.0.
  */
 
-import { type CatId, type CreateTaskInput, catRegistry } from '@cat-cafe/shared';
+import { type CatId, type CreateTaskInput, catRegistry } from '@office-claw/shared';
 import { getAllCatIdsFromConfig } from '../../../../config/cat-config-loader.js';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import type { AgentService } from '../types.js';

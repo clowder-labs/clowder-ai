@@ -11,8 +11,8 @@
  * Runtime lifecycle is owned by ConnectorRuntimeManager.
  */
 
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
 import { getConnectorEnvValue } from '../../config/local-secret-store.js';
 import type { ConnectorWebhookHandler } from '../../routes/connector-webhooks.js';
@@ -38,8 +38,6 @@ export interface ConnectorGatewayConfig {
   xiaoyiAk?: string | undefined;
   xiaoyiSk?: string | undefined;
   xiaoyiAgentId?: string | undefined;
-  xiaoyiWsUrl1?: string | undefined;
-  xiaoyiWsUrl2?: string | undefined;
   wecomBotId?: string | undefined;
   wecomBotSecret?: string | undefined;
   wecomCorpId?: string | undefined;
@@ -162,20 +160,18 @@ export type { ConnectorRuntimeApplySummary } from './ConnectorRuntimeManager.js'
 export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
   return {
     telegramBotToken: getConnectorEnvValue('TELEGRAM_BOT_TOKEN'),
-    feishuAppId: process.env.FEISHU_APP_ID,
+    feishuAppId: getConnectorEnvValue('FEISHU_APP_ID'),
     feishuAppSecret: getConnectorEnvValue('FEISHU_APP_SECRET'),
     feishuVerificationToken: getConnectorEnvValue('FEISHU_VERIFICATION_TOKEN'),
     feishuBotOpenId: process.env.FEISHU_BOT_OPEN_ID,
     feishuAdminOpenIds: process.env.FEISHU_ADMIN_OPEN_IDS,
     feishuConnectionMode: process.env.FEISHU_CONNECTION_MODE === 'websocket' ? 'websocket' : 'webhook',
-    dingtalkAppKey: process.env.DINGTALK_APP_KEY,
+    dingtalkAppKey: getConnectorEnvValue('DINGTALK_APP_KEY'),
     dingtalkAppSecret: getConnectorEnvValue('DINGTALK_APP_SECRET'),
     weixinBotToken: getConnectorEnvValue('WEIXIN_BOT_TOKEN'),
     xiaoyiAk: getConnectorEnvValue('XIAOYI_AK'),
     xiaoyiSk: getConnectorEnvValue('XIAOYI_SK'),
-    xiaoyiAgentId: process.env.XIAOYI_AGENT_ID,
-    xiaoyiWsUrl1: process.env.XIAOYI_WS_URL1,
-    xiaoyiWsUrl2: process.env.XIAOYI_WS_URL2,
+    xiaoyiAgentId: getConnectorEnvValue('XIAOYI_AGENT_ID'),
     wecomBotId: process.env.WECOM_BOT_ID,
     wecomBotSecret: process.env.WECOM_BOT_SECRET,
     wecomCorpId: process.env.WECOM_CORP_ID,

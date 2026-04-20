@@ -12,11 +12,13 @@
 import { spawnSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log, warn, error, configureFromArgs } from './utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // 解析参数
 const args = process.argv.slice(2);
+configureFromArgs(args);
 const checkOnly = args.includes('--check-only');
 const fixMode = args.includes('--fix');
 const singleMode = ['--tags', '--layout', '--charts', '--deps', '--detect-overflow', '--fix-overflow']
@@ -24,11 +26,12 @@ const singleMode = ['--tags', '--layout', '--charts', '--deps', '--detect-overfl
 const targetDir = args.find(a => !a.startsWith('--'));
 
 if (!targetDir) {
-  console.error('用法: node pptx-check.js <目录> [--check-only|--fix|--tags|--layout|--charts|--deps|--detect-overflow|--fix-overflow]');
+  error('用法: node pptx-check.js <目录> [--check-only|--fix|--tags|--layout|--charts|--deps|--detect-overflow|--fix-overflow]');
   process.exit(1);
 }
 
 // 脚本配置
+// 除 tags 外，子脚本默认 --log-level=error，只透传致命错误信息
 const scripts = {
   tags: {
     name: 'HTML 标签校验',
@@ -38,32 +41,32 @@ const scripts = {
   },
   layout: {
     name: '布局属性检查',
-    script: 'check/check-layout-props.js',
-    args: [targetDir, ...(fixMode ? ['--fix'] : [])],
+    script: 'fix/fix-layout-props.js',
+    args: [targetDir, ...(fixMode ? ['--fix'] : []), '--log-level=error'],
     stopOnFail: false,
   },
   charts: {
     name: '图表容器修复',
     script: 'fix/fix-chart-layout.js',
-    args: [targetDir, ...(checkOnly ? ['--dry-run'] : [])],
+    args: [targetDir, ...(checkOnly ? ['--dry-run'] : []), '--log-level=error'],
     stopOnFail: false,
   },
   deps: {
     name: 'CDN 依赖检查',
-    script: 'check/check-html-deps.js',
-    args: [targetDir],
+    script: 'fix/fix-html-deps.js',
+    args: [targetDir, '--log-level=error'],
     stopOnFail: false,
   },
   'detect-overflow': {
     name: '纵向溢出检测',
     script: 'analysis/analyze-overflow.js',
-    args: [targetDir],
+    args: [targetDir, '--log-level=error'],
     stopOnFail: false,
   },
   'fix-overflow': {
     name: '纵向溢出修复',
     script: 'fix/fix-overflow.js',
-    args: [targetDir],
+    args: [targetDir, '--log-level=error'],
     stopOnFail: false,
   }
 };
@@ -71,7 +74,13 @@ const scripts = {
 // 确定要运行的脚本
 const toRun = singleMode
   ? [singleMode.replace('--', '')]
-  : ['tags', 'layout', 'charts', 'deps', 'detect-overflow'];
+  : [
+    'tags', 
+    'layout', 
+    'charts', 
+    'deps', 
+    'detect-overflow'
+  ];
 
 // --fix 模式下追加溢出修复
 if (fixMode && !singleMode) {
@@ -79,15 +88,15 @@ if (fixMode && !singleMode) {
 }
 
 // 执行脚本
-console.log('🔍 PPT HTML 校验/修复');
-console.log(`📁 目标目录: ${targetDir}`);
-console.log('='.repeat(50) + '\n');
+log('🔍 PPT HTML 校验/修复');
+log(`📁 目标目录: ${targetDir}`);
+log('='.repeat(50) + '\n');
 
 let hasError = false;
 
 for (const key of toRun) {
   const cfg = scripts[key];
-  console.log(`\n▶ ${cfg.name}`);
+  log(`\n▶ ${cfg.name}`);
 
   const result = spawnSync('node', [path.join(__dirname, cfg.script), ...cfg.args], {
     encoding: 'utf-8',
@@ -95,21 +104,21 @@ for (const key of toRun) {
   });
 
   if (result.status !== 0) {
-    console.log(`❌ ${cfg.name} 失败`);
+    warn(`❌ ${cfg.name} 失败`);
     if (cfg.stopOnFail) {
-      console.log('\n🛑 因基础检查失败，停止后续检查');
+      error('\n🛑 因基础检查失败，停止后续检查');
       process.exit(1);
     }
     hasError = true;
   } else {
-    console.log(`✅ ${cfg.name} 完成`);
+    log(`✅ ${cfg.name} 完成`);
   }
 }
 
-console.log('\n' + '='.repeat(50));
+log('\n' + '='.repeat(50));
 if (hasError) {
-  console.log('⚠️  部分检查发现问题，请查看上方详情');
+  warn('⚠️  部分检查发现问题，请查看上方详情');
   process.exit(1);
 } else {
-  console.log('✨ 所有检查通过！');
+  log('✨ 所有检查通过！');
 }

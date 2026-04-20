@@ -11,7 +11,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@cat-cafe/shared';
+import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -63,6 +63,24 @@ export interface MultiMentionRouteDeps {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  outboundHook?: {
+    deliver(
+      threadId: string,
+      content: string,
+      catId?: string,
+      richBlocks?: RichBlock[],
+      threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
+      origin?: 'callback' | 'agent' | 'system',
+      triggerMessageId?: string,
+      presentation?: {
+        headerTitle?: string;
+        suppressCatPrefix?: boolean;
+        suppressOriginDecoration?: boolean;
+        stripLeadingHeaderFromFormattedBody?: boolean;
+      },
+    ): Promise<void>;
+    notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
+  };
   router: AgentRouter;
   invocationRecordStore: IInvocationRecordStore;
   invocationTracker?: InvocationTracker | undefined;
@@ -120,7 +138,7 @@ function dispatchViaQueue(
 
   const orch = getMultiMentionOrchestrator();
 
-  const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
+  const messageContent = [`[共识总结 from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
     '\n\n',
   );
 
@@ -149,13 +167,21 @@ function dispatchViaQueue(
     if ((result.outcome === 'enqueued' || result.outcome === 'merged') && result.entry) {
       queueProcessor.registerEntryCompleteHook?.(result.entry.id, (_entryId, status, responseText) => {
         if (status === 'canceled') {
-          log.info({ requestId, catId }, '[F122B B6] multi-mention queue entry canceled, skipping recordResponse');
+          const newStatus = orch.recordFailure(requestId, catId, '[dispatch canceled]');
+          log.info({ requestId, catId, newStatus }, '[F122B B6] multi-mention queue entry canceled');
+          if (newStatus === 'done') {
+            cancelTimeout(requestId);
+            void flushResult(deps, requestId, threadId, userId, log);
+          }
           return;
         }
         const finalResponse = responseText || (status === 'failed' ? '[dispatch error]' : '');
-        const newStatus = orch.recordResponse(requestId, catId, finalResponse);
+        const newStatus =
+          status === 'failed'
+            ? orch.recordFailure(requestId, catId, finalResponse)
+            : orch.recordResponse(requestId, catId, finalResponse);
         log.info(
-          { requestId, catId, newStatus, responseLength: finalResponse.length },
+          { requestId, catId, status, newStatus, responseLength: finalResponse.length },
           '[F122B B6] multi-mention queue response recorded',
         );
         if (newStatus === 'done') {
@@ -187,7 +213,7 @@ async function dispatchToTarget(
   // Build the message for this target
   // Include multi-mention context as structured prefix so the target cat
   // understands the request is from another cat, not the user directly.
-  const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
+  const messageContent = [`[共识总结 from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
     '\n\n',
   );
 
@@ -204,7 +230,12 @@ async function dispatchToTarget(
   const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
   try {
     if (controller.signal.aborted) {
-      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch canceled before start (deleting)');
+      const newStatus = orch.recordFailure(requestId, targetCatId, '[dispatch canceled]');
+      log.info({ requestId, targetCatId, newStatus }, '[F086] Multi-mention dispatch canceled before start');
+      if (newStatus === 'done') {
+        cancelTimeout(requestId);
+        await flushResult(deps, requestId, threadId, userId, log);
+      }
       return;
     }
 
@@ -285,13 +316,22 @@ async function dispatchToTarget(
       orch.unregisterDispatch(requestId, targetCatId);
     }
 
-    // If aborted or governance-blocked, do NOT record response
-    // or flush result — the partial/empty text would produce a misleading summary.
+    // Record aborted / policy-blocked dispatches as failed so the multi-mention
+    // request itself can still converge to a terminal state.
     if (controller.signal.aborted || governanceErrorCode) {
-      log.info(
-        { requestId, targetCatId, governanceErrorCode },
-        '[F086] Multi-mention dispatch aborted/blocked, skipping recordResponse',
+      const newStatus = orch.recordFailure(
+        requestId,
+        targetCatId,
+        controller.signal.aborted ? '[dispatch canceled]' : `[policy blocked: ${governanceErrorCode}]`,
       );
+      log.info(
+        { requestId, targetCatId, governanceErrorCode, newStatus },
+        '[F086] Multi-mention dispatch aborted/blocked recorded as failed',
+      );
+      if (newStatus === 'done') {
+        cancelTimeout(requestId);
+        await flushResult(deps, requestId, threadId, userId, log);
+      }
       return;
     }
 
@@ -335,12 +375,11 @@ async function dispatchToTarget(
         );
       }
     }
-    // Record failure response in orchestrator
-    orch.recordResponse(
-      requestId,
-      targetCatId,
-      `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
-    );
+    const newStatus = orch.recordFailure(requestId, targetCatId, `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
+    if (newStatus === 'done') {
+      cancelTimeout(requestId);
+      await flushResult(deps, requestId, threadId, userId, log);
+    }
   } finally {
     // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
     // throw, routeExecution crash, and normal completion. InvocationTracker.complete()
@@ -359,10 +398,10 @@ async function flushResult(
 ): Promise<void> {
   const orch = getMultiMentionOrchestrator();
   const result = orch.getResult(requestId);
-  const { messageStore, socketManager } = deps;
+  const { messageStore, outboundHook, socketManager } = deps;
 
   // Build aggregated result message
-  const lines: string[] = [`## Multi-Mention 结果汇总`, '', `**问题**: ${result.request.question}`, ''];
+  const lines: string[] = [`## 共识总结结果汇总`, '', `**问题**: ${result.request.question}`, ''];
 
   for (const resp of result.responses) {
     const entry = catRegistry.tryGet(resp.catId);
@@ -382,7 +421,7 @@ async function flushResult(
   // F098-C2: Include initiator + targets metadata for frontend direction rendering
   const connectorSource = {
     connector: 'multi-mention-result' as const,
-    label: 'Multi-Mention 结果',
+    label: '共识总结结果',
     icon: 'users',
     meta: {
       initiator: result.request.callbackTo,
@@ -411,6 +450,20 @@ async function flushResult(
       timestamp: stored.timestamp,
     },
   });
+
+  if (outboundHook) {
+    try {
+      await outboundHook.deliver(threadId, content, result.request.callbackTo, undefined, undefined, 'callback', undefined, {
+        headerTitle: '共识总结结果汇总',
+        suppressCatPrefix: true,
+        suppressOriginDecoration: true,
+        stripLeadingHeaderFromFormattedBody: true,
+      });
+      await outboundHook.notifyDeliveryBatchDone?.(threadId, true);
+    } catch (err) {
+      log.warn({ err, threadId, requestId }, '[F086] Multi-mention outbound delivery failed');
+    }
+  }
 
   log.info(
     {

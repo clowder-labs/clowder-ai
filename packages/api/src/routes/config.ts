@@ -17,9 +17,11 @@ import { resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
+import type { AgentRegistry } from '../domains/cats/services/agents/registry/AgentRegistry.js';
 import {
   buildEnvSummary,
   ENV_CATEGORIES,
@@ -37,6 +39,11 @@ import {
 } from '../config/local-secret-store.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
+import {
+  createRelayClawSecurityClient,
+  type RelayClawSecurityClient,
+  type RelayClawSecurityPermissionsConfig,
+} from './relayclaw-security-proxy.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 
 const patchSchema = z.object({
@@ -46,6 +53,15 @@ const patchSchema = z.object({
 
 const envPatchSchema = z.object({
   updates: z.array(z.object({ name: z.string().min(1), value: z.string().nullable() })).min(1),
+});
+
+const relayClawSecurityPatchSchema = z.object({
+  permissions: z
+    .object({
+      enabled: z.boolean().optional(),
+      tools: z.record(z.string(), z.unknown()).optional(),
+    })
+    .refine((value) => Object.keys(value).length > 0, 'permissions patch must not be empty'),
 });
 
 const coCreatorPatchSchema = z.object({
@@ -73,6 +89,8 @@ interface ConfigRoutesOptions {
   envFilePath?: string;
   projectRoot?: string;
   connectorRuntimeManager?: ConnectorRuntimeReconciler;
+  relayClawSecurityClient?: RelayClawSecurityClient;
+  agentRegistry?: AgentRegistry;
 }
 
 function getSnapshotValue(snapshot: ConfigSnapshot, key: string): unknown {
@@ -141,6 +159,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
   const auditLog = opts.auditLog ?? getEventAuditLog();
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
   const envFilePath = opts.envFilePath ?? resolve(projectRoot, '.env');
+  const relayClawSecurityClient = opts.relayClawSecurityClient ?? createRelayClawSecurityClient(projectRoot, opts.agentRegistry);
 
   app.get('/api/config', async () => ({
     config: collectConfigSnapshot(),
@@ -250,8 +269,47 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     return handleCoCreatorPatch(request, reply);
   });
 
+  app.get('/api/config/relayclaw/security', async (request, reply) => {
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    if (!operator) {
+      reply.status(400);
+      return { error: 'Identity required (X-Office-Claw-User header)' };
+    }
+
+    try {
+      const permissions = await relayClawSecurityClient.getPermissions();
+      return { permissions };
+    } catch (err) {
+      reply.status(502);
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  app.patch('/api/config/relayclaw/security', async (request, reply) => {
+    const parsed = relayClawSecurityPatchSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request', details: parsed.error.issues };
+    }
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    if (!operator) {
+      reply.status(400);
+      return { error: 'Identity required (X-Office-Claw-User header)' };
+    }
+
+    try {
+      const permissions = await relayClawSecurityClient.setPermissions(
+        parsed.data.permissions as RelayClawSecurityPermissionsConfig,
+      );
+      return { permissions };
+    } catch (err) {
+      reply.status(502);
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   app.get('/api/config/env-summary', async () => {
-    const apiCwd = process.cwd();
+    const monoRoot = findMonorepoRoot();
     const home = os.homedir();
     return {
       categories: ENV_CATEGORIES,
@@ -260,11 +318,11 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         projectRoot,
         homeDir: home,
         dataDirs: {
-          auditLogs: resolve(apiCwd, process.env.AUDIT_LOG_DIR ?? './data/audit-logs'),
-          runtimeLogs: resolve(apiCwd, './data/logs/api'),
-          cliArchive: resolve(apiCwd, process.env.CLI_RAW_ARCHIVE_DIR ?? './data/cli-raw-archive'),
+          auditLogs: resolve(monoRoot, process.env.AUDIT_LOG_DIR ?? 'data/audit-logs'),
+          runtimeLogs: resolve(monoRoot, 'data/logs/api'),
+          cliArchive: resolve(monoRoot, process.env.CLI_RAW_ARCHIVE_DIR ?? 'data/cli-raw-archive'),
           redisDevSandbox: resolve(home, '.office-claw/redis-dev-sandbox'),
-          uploads: resolve(apiCwd, process.env.UPLOAD_DIR ?? './uploads'),
+          uploads: resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads'),
         },
       },
     };
@@ -298,9 +356,10 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       const definition = ENV_VARS.find((item) => item.name === name);
       const isConnectorSecret = Boolean(definition && isConnectorSensitiveEditable(definition));
       const refName = buildConnectorEnvRefVarName(name);
+      const normalizedValue = isConnectorEnvVarName(name) ? (value?.trim() ?? '') : value;
 
       if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name) && secretBacked) {
-        const trimmed = value?.trim() ?? '';
+        const trimmed = normalizedValue ?? '';
         if (!trimmed) {
           clearConnectorEnvSecret(name);
           delete process.env[name];
@@ -323,12 +382,12 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         fileUpdates.set(refName, null);
       }
 
-      if (value == null || value === '') {
+      if (normalizedValue == null || normalizedValue === '') {
         delete process.env[name];
         fileUpdates.set(name, null);
       } else {
-        process.env[name] = value;
-        fileUpdates.set(name, value);
+        process.env[name] = normalizedValue;
+        fileUpdates.set(name, normalizedValue);
       }
     }
 
@@ -340,10 +399,14 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       changedKeys.push(name);
     }
 
+    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
+    if (changedConnectorEnv && opts.connectorRuntimeManager?.setOwnerUserId) {
+      await opts.connectorRuntimeManager.setOwnerUserId(operator);
+    }
+
     const runtime = opts.connectorRuntimeManager && changedKeys.length > 0
       ? await opts.connectorRuntimeManager.reconcile(changedKeys)
       : undefined;
-    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
     const needsRestart = changedConnectorEnv && (!runtime || !runtime.applied);
 
     try {

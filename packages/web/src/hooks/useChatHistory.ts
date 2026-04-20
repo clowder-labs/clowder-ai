@@ -49,6 +49,10 @@ const EXPORT_LIMIT = 10000;
 // Keep first-screen message priority, but don't let secondary hydration stall indefinitely.
 const SECONDARY_HYDRATION_FALLBACK_MS = 300;
 const LIVE_THREAD_REFRESH_DEBOUNCE_MS = 180;
+const HYDRATION_REPLY_MATCH_WINDOW_MS = 20_000;
+const HYDRATION_CONTENT_MATCH_WINDOW_MS = 12_000;
+const HYDRATION_PREFIX_MATCH_MIN_CHARS = 24;
+const HYDRATION_STOPPED_STREAM_MATCH_WINDOW_MS = 120_000;
 
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
@@ -79,6 +83,104 @@ function getLocalPlaceholderInvocationId(
   if (msg.id.startsWith('draft-')) return msg.id.slice('draft-'.length);
   if (msg.type !== 'assistant' || msg.origin !== 'stream' || !msg.isStreaming || !msg.catId) return undefined;
   return currentCatInvocations[msg.catId]?.invocationId;
+}
+
+function normalizeHydrationText(text: string | undefined): string {
+  return text?.replace(/\s+/g, ' ').trim().toLowerCase() ?? '';
+}
+
+function hasHydrationTextOverlap(current: ChatMessageData, history: ChatMessageData): boolean {
+  const currentText = normalizeHydrationText(current.content);
+  const historyText = normalizeHydrationText(history.content);
+  if (!currentText || !historyText) return false;
+  if (currentText === historyText) return true;
+
+  const shorter = currentText.length <= historyText.length ? currentText : historyText;
+  const longer = shorter === currentText ? historyText : currentText;
+  return shorter.length >= HYDRATION_PREFIX_MATCH_MIN_CHARS && longer.startsWith(shorter);
+}
+
+function hasSharedHydrationToolEvent(current: ChatMessageData, history: ChatMessageData): boolean {
+  if (!current.toolEvents?.length || !history.toolEvents?.length) return false;
+  const currentToolEventIds = new Set(current.toolEvents.map((event) => event.id));
+  return history.toolEvents.some((event) => currentToolEventIds.has(event.id));
+}
+
+function areMessagesCloseInTime(current: ChatMessageData, history: ChatMessageData, windowMs: number): boolean {
+  return Math.abs(getMessageOrderTimestamp(current) - getMessageOrderTimestamp(history)) <= windowMs;
+}
+
+function getPreviousUserAnchorId(messages: ChatMessageData[], index: number): string | undefined {
+  for (let i = index - 1; i >= 0; i--) {
+    const candidate = messages[i];
+    if (!candidate) continue;
+    if (candidate.type === 'user' || candidate.type === 'connector') return candidate.id;
+  }
+  return undefined;
+}
+
+function isLikelySameHydrationReply(
+  current: ChatMessageData,
+  currentIndex: number,
+  currentMsgs: ChatMessageData[],
+  history: ChatMessageData,
+  historyIndex: number,
+  historyMsgs: ChatMessageData[],
+  currentCatInvocations: Record<string, CatInvocationInfo>,
+): boolean {
+  if (current.type !== 'assistant' || history.type !== 'assistant') return false;
+  if (!current.catId || current.catId !== history.catId) return false;
+
+  if (current.replyTo && history.replyTo && current.replyTo !== history.replyTo) {
+    return false;
+  }
+
+  const sameReplyTarget = !!current.replyTo && current.replyTo === history.replyTo;
+  const currentInvocationId = getLocalPlaceholderInvocationId(current, currentCatInvocations);
+  const historyInvocationId = getHistoryInvocationId(history);
+  const hasExplicitInvocationMismatch =
+    !!currentInvocationId && !!historyInvocationId && currentInvocationId !== historyInvocationId;
+  const hasTextOverlap = hasHydrationTextOverlap(current, history);
+  const hasSharedToolEvent = hasSharedHydrationToolEvent(current, history);
+  const currentPreviousUserAnchorId = getPreviousUserAnchorId(currentMsgs, currentIndex);
+  const historyPreviousUserAnchorId = getPreviousUserAnchorId(historyMsgs, historyIndex);
+  const hasSamePreviousUserAnchor =
+    !!currentPreviousUserAnchorId && currentPreviousUserAnchorId === historyPreviousUserAnchorId;
+  const hasSharedReplyContext = sameReplyTarget || hasSamePreviousUserAnchor;
+  const isStoppedLocalStreamPlaceholder = current.origin === 'stream' && !current.isStreaming;
+
+  if (hasSharedReplyContext) {
+    if (isStoppedLocalStreamPlaceholder) {
+      return areMessagesCloseInTime(current, history, HYDRATION_STOPPED_STREAM_MATCH_WINDOW_MS);
+    }
+    return (
+      areMessagesCloseInTime(current, history, HYDRATION_REPLY_MATCH_WINDOW_MS) || hasTextOverlap || hasSharedToolEvent
+    );
+  }
+
+  if (hasExplicitInvocationMismatch) return false;
+  if (hasSharedToolEvent && areMessagesCloseInTime(current, history, HYDRATION_CONTENT_MATCH_WINDOW_MS)) return true;
+  if (hasTextOverlap && areMessagesCloseInTime(current, history, HYDRATION_CONTENT_MATCH_WINDOW_MS)) return true;
+  return false;
+}
+
+function findFallbackHistoryMatchIndex(
+  current: ChatMessageData,
+  currentIndex: number,
+  currentMsgs: ChatMessageData[],
+  historyMsgs: ChatMessageData[],
+  mergedMsgs: ChatMessageData[],
+  currentCatInvocations: Record<string, CatInvocationInfo>,
+): number | undefined {
+  for (let i = historyMsgs.length - 1; i >= 0; i--) {
+    const historyMsg = mergedMsgs[i];
+    if (!historyMsg) continue;
+    if (!isLikelySameHydrationReply(current, currentIndex, currentMsgs, historyMsg, i, historyMsgs, currentCatInvocations)) {
+      continue;
+    }
+    return i;
+  }
+  return undefined;
 }
 
 function getMessageRichness(msg: ChatMessageData): [number, number, number, number] {
@@ -150,7 +252,8 @@ function mergeReplaceHydrationMessages(
   let reconciledToHistoryCount = 0;
   let replacedHistoryCount = 0;
 
-  for (const msg of currentMsgs) {
+  for (let currentIndex = 0; currentIndex < currentMsgs.length; currentIndex++) {
+    const msg = currentMsgs[currentIndex]!;
     if (historyIds.has(msg.id)) continue;
 
     const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
@@ -168,6 +271,25 @@ function mergeReplaceHydrationMessages(
         }
         continue;
       }
+    }
+
+    const fallbackHistoryIndex = findFallbackHistoryMatchIndex(
+      msg,
+      currentIndex,
+      currentMsgs,
+      historyMsgs,
+      mergedMsgs,
+      currentCatInvocations,
+    );
+    if (fallbackHistoryIndex !== undefined) {
+      const historyMsg = mergedMsgs[fallbackHistoryIndex]!;
+      if (shouldPreferCurrentMessage(msg, historyMsg)) {
+        mergedMsgs[fallbackHistoryIndex] = msg;
+        replacedHistoryCount++;
+      } else {
+        reconciledToHistoryCount++;
+      }
+      continue;
     }
 
     mergedMsgs.push(msg);
@@ -721,6 +843,24 @@ export function useChatHistory(threadId: string) {
     [threadId],
   );
 
+  const followLayoutChangeIfPinned = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      if (scrollPositionsByThread.get(threadId)?.anchor !== 'bottom') return;
+      if (autoFollowRafRef.current !== null) {
+        cancelAnimationFrame(autoFollowRafRef.current);
+      }
+      autoFollowRafRef.current = requestAnimationFrame(() => {
+        autoFollowRafRef.current = null;
+        messagesEndRef.current?.scrollIntoView({ behavior });
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scrollPositionsByThread.set(threadId, { top: scroller.scrollTop, anchor: 'bottom' });
+        }
+      });
+    },
+    [threadId],
+  );
+
   // Snapshot scroll height before history load
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -834,6 +974,7 @@ export function useChatHistory(threadId: string) {
     scrollContainerRef,
     messagesEndRef,
     scrollToBottom,
+    followLayoutChangeIfPinned,
     isLoadingHistory,
     hasMore,
   };

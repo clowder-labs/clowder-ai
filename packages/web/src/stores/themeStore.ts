@@ -5,10 +5,15 @@
  */
 
 import { create } from 'zustand';
+import {
+  DEFAULT_THEME,
+  persistTheme,
+  readThemeFromDocument,
+  resolvePersistedTheme,
+  type ThemeType,
+} from '@/utils/theme-persistence';
 
-export type ThemeType = 'warm' | 'business';
-
-const THEME_STORAGE_KEY = 'clowder-ai-theme';
+export type { ThemeType } from '@/utils/theme-persistence';
 
 interface ThemeStore {
   theme: ThemeType;
@@ -19,26 +24,22 @@ interface ThemeStore {
 }
 
 export const useThemeStore = create<ThemeStore>((set, get) => ({
-  theme: 'business',
+  theme: readThemeFromDocument() ?? DEFAULT_THEME,
   isLoaded: false,
 
   setTheme: (newTheme: ThemeType) => {
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    persistTheme(newTheme);
     set({ theme: newTheme });
   },
 
   toggleTheme: () => {
     const { theme } = get();
-    const newTheme = theme === 'business' ? 'warm' : 'business';
+    const newTheme = theme === 'business' ? 'warm' : theme === 'warm' ? 'dark' : 'business';
     get().setTheme(newTheme);
   },
 
   initializeTheme: () => {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    const theme: ThemeType = savedTheme === 'warm' ? 'warm' : 'business';
-    if (savedTheme === 'default') {
-      localStorage.setItem(THEME_STORAGE_KEY, 'business');
-    }
+    const theme = resolvePersistedTheme();
     set({ theme, isLoaded: true });
   },
 }));

@@ -6,6 +6,12 @@
 
 import { ChatContainer } from '@/components/ChatContainer';
 
-export default function Home() {
-  return <ChatContainer mode="new" requireLoginCheck />;
+export default function Home({
+  searchParams,
+}: {
+  searchParams?: { authSuccess?: string | string[] };
+}) {
+  const authSuccess = Array.isArray(searchParams?.authSuccess) ? searchParams?.authSuccess[0] : searchParams?.authSuccess;
+
+  return <ChatContainer mode="new" requireLoginCheck skipInitialAuthGate={authSuccess === '1'} />;
 }

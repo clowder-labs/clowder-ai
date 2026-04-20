@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
 import { OutboundDeliveryHook } from '../dist/infrastructure/connectors/OutboundDeliveryHook.js';
 
@@ -14,6 +14,9 @@ import { OutboundDeliveryHook } from '../dist/infrastructure/connectors/Outbound
 for (const [id, config] of Object.entries(CAT_CONFIGS)) {
   if (!catRegistry.has(id)) catRegistry.register(id, config);
 }
+
+const OPUS_DISPLAY_NAME = CAT_CONFIGS.opus?.displayName ?? 'opus';
+const OPUS_PREFIX = `[${OPUS_DISPLAY_NAME}] `;
 
 function noopLog() {
   const noop = () => {};
@@ -119,7 +122,61 @@ describe('OutboundDeliveryHook', () => {
     bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
     await hook.deliver('thread-abc', 'Hello!', 'opus');
     assert.equal(feishuMock.sent.length, 1);
-    assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+    assert.equal(feishuMock.sent[0].content, `${OPUS_PREFIX}Hello!`);
+  });
+
+  it('suppresses cat prefix when presentation requests summary-style rendering', async () => {
+    bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+    await hook.deliver(
+      'thread-abc',
+      '## 共识总结结果汇总',
+      'opus',
+      undefined,
+      undefined,
+      'callback',
+      undefined,
+      { headerTitle: '共识总结结果汇总', suppressCatPrefix: true },
+    );
+    assert.equal(feishuMock.sent.length, 1);
+    assert.equal(feishuMock.sent[0].content, '## 共识总结结果汇总');
+  });
+
+  it('keeps summary heading for plain-text adapters but strips it from formatted card bodies', async () => {
+    const formattedCalls = [];
+    const formattedAdapter = {
+      connectorId: 'feishu',
+      async sendReply(externalChatId, content) {
+        feishuMock.sent.push({ externalChatId, content });
+      },
+      async sendFormattedReply(externalChatId, envelope) {
+        formattedCalls.push({ externalChatId, envelope });
+      },
+    };
+    const plainMock = mockAdapter('weixin');
+    hook = new OutboundDeliveryHook({
+      bindingStore,
+      adapters: new Map([
+        ['feishu', formattedAdapter],
+        ['weixin', plainMock.adapter],
+      ]),
+      log: noopLog(),
+    });
+    bindingStore.bind('feishu', 'chat-feishu', 'thread-abc', 'user-1');
+    bindingStore.bind('weixin', 'chat-weixin', 'thread-abc', 'user-1');
+
+    const content = '## 共识总结结果汇总\n\n**问题**: What do you think?';
+    await hook.deliver('thread-abc', content, 'opus', undefined, undefined, 'callback', undefined, {
+      headerTitle: '共识总结结果汇总',
+      stripLeadingHeaderFromFormattedBody: true,
+      suppressCatPrefix: true,
+      suppressOriginDecoration: true,
+    });
+
+    assert.equal(formattedCalls.length, 1);
+    assert.equal(formattedCalls[0].envelope.header, '共识总结结果汇总');
+    assert.equal(formattedCalls[0].envelope.body, '**问题**: What do you think?');
+    assert.equal(plainMock.sent.length, 1);
+    assert.equal(plainMock.sent[0].content, content);
   });
 
   it('sends plain content when catId is omitted (backward compat)', async () => {
@@ -157,7 +214,7 @@ describe('OutboundDeliveryHook', () => {
     await hook.deliver('thread-abc', 'Summary text', 'opus', blocks);
 
     assert.equal(richSent.length, 1);
-    assert.equal(richSent[0].catDisplayName, '布偶猫');
+    assert.equal(richSent[0].catDisplayName, OPUS_DISPLAY_NAME);
     assert.equal(richSent[0].blocks.length, 1);
     assert.equal(feishuMock.sent.length, 0); // sendReply NOT called
   });
@@ -170,7 +227,7 @@ describe('OutboundDeliveryHook', () => {
 
     assert.equal(feishuMock.sent.length, 1);
     // Should contain both text prefix and plaintext-rendered block
-    assert.ok(feishuMock.sent[0].content.includes('[布偶猫🐱]'));
+    assert.ok(feishuMock.sent[0].content.includes(OPUS_PREFIX));
     assert.ok(feishuMock.sent[0].content.includes('Review'));
     assert.ok(feishuMock.sent[0].content.includes('LGTM'));
   });
@@ -179,14 +236,14 @@ describe('OutboundDeliveryHook', () => {
     bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
     await hook.deliver('thread-abc', 'Hello!', 'opus', undefined);
     assert.equal(feishuMock.sent.length, 1);
-    assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+    assert.equal(feishuMock.sent[0].content, `${OPUS_PREFIX}Hello!`);
   });
 
   it('sends text via sendReply when rich blocks is empty array', async () => {
     bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
     await hook.deliver('thread-abc', 'Hello!', 'opus', []);
     assert.equal(feishuMock.sent.length, 1);
-    assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+    assert.equal(feishuMock.sent[0].content, `${OPUS_PREFIX}Hello!`);
   });
 
   // P1-1: block-only responses (empty content) must still trigger delivery
@@ -257,8 +314,8 @@ describe('OutboundDeliveryHook', () => {
       assert.equal(feishuMock.sent.length, 0, 'sendReply should NOT be called');
       assert.equal(formattedCalls[0].chatId, 'oc_chat_1');
       const env = formattedCalls[0].envelope;
-      assert.ok(env.header.includes('布偶猫'), 'header should contain cat display name');
-      assert.ok(env.subtitle.includes('T42'), 'subtitle should have thread short ID');
+      assert.ok(env.header.includes(OPUS_DISPLAY_NAME), 'header should contain cat display name');
+      assert.ok(env.subtitle.includes('飞书登录bug排查'), 'subtitle should have thread title');
       assert.ok(env.subtitle.includes('F088'), 'subtitle should have feat ID');
       assert.equal(env.body, 'Hello from cat!');
     });
@@ -298,8 +355,48 @@ describe('OutboundDeliveryHook', () => {
       assert.equal(formattedCalls.length, 1, 'sendFormattedReply SHOULD be called even without threadMeta');
       assert.equal(feishuMock.sent.length, 0, 'sendReply should NOT be called');
       const env = formattedCalls[0].envelope;
-      assert.ok(env.header.includes('布偶猫'), 'header should contain cat display name');
+      assert.ok(env.header.includes(OPUS_DISPLAY_NAME), 'header should contain cat display name');
       assert.equal(env.body, 'Old style message');
+    });
+
+    it('uses header override for callback summary cards', async () => {
+      const formattedCalls = [];
+      const richAdapter = {
+        connectorId: 'feishu',
+        async sendReply(chatId, content) {
+          feishuMock.sent.push({ chatId, content });
+        },
+        async sendFormattedReply(chatId, envelope) {
+          formattedCalls.push({ chatId, envelope });
+        },
+      };
+      hook = new OutboundDeliveryHook({
+        bindingStore,
+        adapters: new Map([['feishu', richAdapter]]),
+        log: noopLog(),
+      });
+      bindingStore.bind('feishu', 'oc_chat_1', 'thread-1', 'user-1');
+
+      await hook.deliver(
+        'thread-1',
+        '## 共识总结结果汇总',
+        'opus',
+        undefined,
+        undefined,
+        'callback',
+        undefined,
+        {
+          headerTitle: '共识总结结果汇总',
+          suppressCatPrefix: true,
+          suppressOriginDecoration: true,
+        },
+      );
+
+      assert.equal(formattedCalls.length, 1);
+      const env = formattedCalls[0].envelope;
+      assert.equal(env.header, '共识总结结果汇总');
+      assert.equal(env.origin, undefined);
+      assert.equal(env.body, '## 共识总结结果汇总');
     });
   });
 

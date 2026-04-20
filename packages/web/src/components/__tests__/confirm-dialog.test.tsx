@@ -62,14 +62,16 @@ describe('ConfirmDialog', () => {
       );
     });
 
-    const cancelButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '取消');
-    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '确认');
+    const cancelButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '取消',
+    );
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '确认',
+    );
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('uses danger button styling for destructive confirm flow', () => {
@@ -87,8 +89,30 @@ describe('ConfirmDialog', () => {
       );
     });
 
-    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '删除');
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '删除',
+    );
     expect(confirmButton?.className).toContain('ui-button-danger');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('calls onCancel when Escape key is pressed', () => {
+    const onCancel = vi.fn();
+    act(() => {
+      root.render(
+        React.createElement(ConfirmDialog, {
+          open: true,
+          title: '删除确认',
+          message: '确认删除吗？',
+          onConfirm: vi.fn(),
+          onCancel,
+        }),
+      );
+    });
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,11 +15,9 @@ No dependencies beyond the Python stdlib are required.
 import argparse
 import base64
 import json
-import logging
 import mimetypes
 import os
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -290,9 +288,8 @@ def generate_html(
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
-        lsof_path = shutil.which("lsof") or "lsof"
         result = subprocess.run(
-            [lsof_path, "-ti", f":{port}"],
+            ["lsof", "-ti", f":{port}"],
             capture_output=True, text=True, timeout=5,
         )
         for pid_str in result.stdout.strip().split("\n"):
@@ -306,8 +303,7 @@ def _kill_port(port: int) -> None:
     except subprocess.TimeoutExpired:
         pass
     except FileNotFoundError:
-        logging.error("Note: lsof not found, cannot check if port is in use")
-
+        print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
 
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
@@ -333,7 +329,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
         self.benchmark_path = benchmark_path
         super().__init__(*args, **kwargs)
 
-    def do_get(self) -> None:
+    def do_GET(self) -> None:
         if self.path == "/" or self.path == "/index.html":
             # Regenerate HTML on each request (re-scans workspace for new outputs)
             runs = find_runs(self.workspace)
@@ -362,7 +358,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    def do_post(self) -> None:
+    def do_POST(self) -> None:
         if self.path == "/api/feedback":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
@@ -373,7 +369,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
                 resp = b'{"ok":true}'
                 self.send_response(200)
-            except (OSError, ValueError) as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 resp = json.dumps({"error": str(e)}).encode()
                 self.send_response(500)
             self.send_header("Content-Type", "application/json")
@@ -409,12 +405,12 @@ def main() -> None:
 
     workspace = args.workspace.resolve()
     if not workspace.is_dir():
-        logging.error(f"Error: {workspace} is not a directory")
+        print(f"Error: {workspace} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     runs = find_runs(workspace)
     if not runs:
-        logging.error(f"No runs found in {workspace}")
+        print(f"No runs found in {workspace}", file=sys.stderr)
         sys.exit(1)
 
     skill_name = args.skill_name or workspace.name.replace("-workspace", "")
@@ -436,7 +432,7 @@ def main() -> None:
         html = generate_html(runs, skill_name, previous, benchmark)
         args.static.parent.mkdir(parents=True, exist_ok=True)
         args.static.write_text(html)
-        logging.info(f"\n  Static viewer written to: {args.static}\n")
+        print(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 
     # Kill any existing process on the target port
@@ -451,23 +447,23 @@ def main() -> None:
         port = server.server_address[1]
 
     url = f"http://localhost:{port}"
-    logging.info(f"\n  Eval Viewer")
-    logging.info(f"  ─────────────────────────────────")
-    logging.info(f"  URL:       {url}")
-    logging.info(f"  Workspace: {workspace}")
-    logging.info(f"  Feedback:  {feedback_path}")
+    print(f"\n  Eval Viewer")
+    print(f"  ─────────────────────────────────")
+    print(f"  URL:       {url}")
+    print(f"  Workspace: {workspace}")
+    print(f"  Feedback:  {feedback_path}")
     if previous:
-        logging.info(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
+        print(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
     if benchmark_path:
-        logging.info(f"  Benchmark: {benchmark_path}")
-    logging.info(f"\n  Press Ctrl+C to stop.\n")
+        print(f"  Benchmark: {benchmark_path}")
+    print(f"\n  Press Ctrl+C to stop.\n")
 
     webbrowser.open(url)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        logging.info("\nStopped.")
+        print("\nStopped.")
         server.server_close()
 
 

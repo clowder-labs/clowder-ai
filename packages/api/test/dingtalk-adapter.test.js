@@ -274,6 +274,7 @@ describe('DingTalkAdapter', () => {
 
       const envelope = {
         header: '🐱 布偶猫',
+        subtitle: 'T1 测试会话',
         body: 'Hello world',
         origin: 'direct',
       };
@@ -283,6 +284,9 @@ describe('DingTalkAdapter', () => {
       assert.ok(createCardCalled, 'createCardFn must be called to exercise the API-error fallback');
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].msgType, 'markdown');
+      const markdown = JSON.parse(sendCalls[0].content);
+      assert.equal(markdown.title, '🐱 布偶猫');
+      assert.match(markdown.text, /^\*\*🐱 布偶猫\*\*\n\nT1 测试会话\n\nHello world/);
     });
 
     it('sends via AI Card when available', async () => {
@@ -299,6 +303,7 @@ describe('DingTalkAdapter', () => {
 
       const envelope = {
         header: '🐱 布偶猫',
+        subtitle: 'T1 测试会话',
         body: 'Hello world',
         origin: 'direct',
       };
@@ -307,6 +312,7 @@ describe('DingTalkAdapter', () => {
       assert.equal(cardCalls.length, 1);
       assert.equal(streamCalls.length, 1);
       assert.equal(streamCalls[0].state, 'FINISHED');
+      assert.equal(streamCalls[0].content, 'T1 测试会话\n\nHello world');
     });
 
     it('AI Card uses real conversationId from inbound parseEvent, not staffId', async () => {

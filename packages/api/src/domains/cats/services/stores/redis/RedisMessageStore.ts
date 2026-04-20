@@ -9,20 +9,21 @@
  * Redis-backed message storage with same interface as in-memory MessageStore.
  *
  * Redis 数据结构:
- *   cat-cafe:msg:{id}                → Hash (消息详情)
- *   cat-cafe:msg:timeline            → Sorted Set (全局时间线, score=timestamp)
- *   cat-cafe:msg:user:{userId}       → Sorted Set (用户维度)
- *   cat-cafe:msg:mentions:{catId}    → Sorted Set (提及维度)
- *   cat-cafe:msg:thread:{threadId}   → Sorted Set (对话维度)
+ *   office-claw:msg:{id}                → Hash (消息详情)
+ *   office-claw:msg:timeline            → Sorted Set (全局时间线, score=timestamp)
+ *   office-claw:msg:user:{userId}       → Sorted Set (用户维度)
+ *   office-claw:msg:mentions:{catId}    → Sorted Set (提及维度)
+ *   office-claw:msg:thread:{threadId}   → Sorted Set (对话维度)
  *
  * 消息 TTL 可配置 (默认 7 天)。
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { DEFAULT_THREAD_ID, generateSortableId, isDelivered } from '../ports/MessageStore.js';
+import { matchesThreadHistoryUserScope } from '../visibility.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
 import {
   safeParseConnectorSource,
@@ -32,6 +33,7 @@ import {
   safeParseMetadata,
   safeParseToolEvents,
 } from './redis-message-parsers.js';
+import { tokenUsageCollector } from '../../../../../services/metrics/token-usage-collector.js';
 
 const log = createModuleLogger('redis-message-store');
 
@@ -189,6 +191,22 @@ export class RedisMessageStore {
         void Promise.resolve(this.onAppend(stored)).catch(() => {});
       } catch {
         /* best-effort */
+      }
+    }
+
+    if (msg.metadata?.usage) {
+      const usage = msg.metadata.usage;
+      const inputTokens = usage.inputTokens ?? 0;
+      const outputTokens = usage.outputTokens ?? 0;
+      if (inputTokens > 0 || outputTokens > 0) {
+        tokenUsageCollector.collect({
+          sessionId: threadId,
+          model: msg.metadata.model ?? 'unknown',
+          agent: msg.catId ?? 'unknown',
+          inputTokens,
+          outputTokens,
+          timestamp: msg.timestamp,
+        });
       }
     }
 
@@ -378,7 +396,7 @@ export class RedisMessageStore {
   async getByThread(threadId: string, limit?: number, userId?: string): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
-    return this.fetchDeliveredDesc(key, n, userId ? (m) => m.userId === userId : undefined);
+    return this.fetchDeliveredDesc(key, n, userId ? (m) => matchesThreadHistoryUserScope(m, userId) : undefined);
   }
 
   /**
@@ -429,7 +447,7 @@ export class RedisMessageStore {
     const messages = await this.hydrateMessages(ids, { includeDeleted: true });
     const delivered = messages.filter(isDelivered);
     if (!userId) return delivered;
-    return delivered.filter((m) => m.userId === userId);
+    return delivered.filter((m) => matchesThreadHistoryUserScope(m, userId));
   }
 
   async getByThreadBefore(
@@ -441,7 +459,7 @@ export class RedisMessageStore {
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
-    const userFilter = userId ? (m: StoredMessage) => m.userId === userId : undefined;
+    const userFilter = userId ? (m: StoredMessage) => matchesThreadHistoryUserScope(m, userId) : undefined;
 
     if (!beforeId) {
       // F117: Chunked desc scan — collect N delivered, scan until full or exhausted

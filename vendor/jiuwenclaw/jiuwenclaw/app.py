@@ -47,6 +47,7 @@ from jiuwenclaw.jiuwen_core_patch import PatchOpenAIModelClient
 
 OpenAIModelClient._create_async_openai_client = PatchOpenAIModelClient._create_async_openai_client
 OpenAIModelClient._parse_stream_chunk = PatchOpenAIModelClient._parse_stream_chunk
+OpenAIModelClient._build_request_params = PatchOpenAIModelClient._build_request_params
 
 from openjiuwen.core.foundation.llm import ProviderType
 
@@ -56,8 +57,8 @@ from jiuwenclaw.utils import (
     get_env_file,
     get_root_dir,
     is_package_installation,
-    logger,
 )
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import (
     get_config,
     get_config_raw,

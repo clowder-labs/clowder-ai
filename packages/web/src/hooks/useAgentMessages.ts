@@ -9,13 +9,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import {
-  getFriendlyAgentErrorMessage,
-  getSensitiveInputErrorToastContent,
-  isSensitiveInputAgentError,
+  getAgentErrorToastContent,
+  getDailyQuotaExhaustedChatMessage,
+  getRateLimitChatMessage,
+  isDailyQuotaExhaustedAgentError,
+  isRateLimitError,
 } from '@/hooks/agent-error-fallback';
+import { getCachedCats } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
 import { requestThreadLiveRefresh, type ThreadLiveRefreshScope } from './thread-live-refresh';
 
@@ -30,6 +32,7 @@ interface AgentMsg {
   catId: string;
   threadId?: string;
   content?: string;
+  source?: import('../stores/chat-types').ConnectorSourceData;
   error?: string;
   errorCode?: string;
   isFinal?: boolean;
@@ -45,13 +48,18 @@ interface AgentMsg {
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   /** F121: Reply-to message ID */
   replyTo?: string;
   /** F121: Server-hydrated reply preview */
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /** F142: Tool call ID for precise pairing (from backend AgentMessage) */
+  toolCallId?: string;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -66,6 +74,32 @@ function safeJsonPreview(value: unknown, maxLength: number): string {
   } catch {
     return '[unserializable input]';
   }
+}
+
+function isScheduledTriggerPlaceholderMessage(msg: Pick<AgentMsg, 'catId' | 'content' | 'origin' | 'source'>): boolean {
+  return (
+    msg.origin === 'callback' &&
+    msg.catId === 'system' &&
+    msg.source?.connector === 'scheduler' &&
+    typeof msg.content === 'string' &&
+    msg.content.startsWith('[定时任务]')
+  );
+}
+
+function resolveCatLabel(catId: string): string {
+  return getCachedCats().find((cat) => cat.id === catId)?.displayName ?? catId;
+}
+
+function buildMessageExtra(
+  msg: Pick<AgentMsg, 'extra'>,
+  invocationId?: string,
+): NonNullable<import('../stores/chat-types').ChatMessage['extra']> | undefined {
+  const extra = {
+    ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+    ...(msg.extra?.errorFallback ? { errorFallback: msg.extra.errorFallback } : {}),
+    ...(invocationId ? { stream: { invocationId } } : {}),
+  };
+  return Object.keys(extra).length > 0 ? extra : undefined;
 }
 
 function findLatestActiveInvocationIdForCat(
@@ -135,8 +169,6 @@ export function useAgentMessages() {
    *  防止旧事件被路由到新 bubble。成员在新 invocation_created 时移除（自愈）。 */
   const cancelledInvocationsRef = useRef<Set<string>>(new Set());
 
-  /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
-  const a2aGroupRef = useRef<string | null>(null);
 
   /** F118 AC-C3: Pending timeout diagnostics keyed by catId to prevent cross-cat mismatch */
   const pendingTimeoutDiagRef = useRef<Map<string, Record<string, unknown>>>(new Map());
@@ -398,7 +430,6 @@ export function useAgentMessages() {
         origin: 'stream',
         ...(metadata ? { metadata } : {}),
         ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-        ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
         timestamp: Date.now(),
         isStreaming: true,
       });
@@ -503,7 +534,12 @@ export function useAgentMessages() {
         return;
       }
 
+      if (isScheduledTriggerPlaceholderMessage(msg)) {
+        return;
+      }
+
       if (msg.type === 'text' && msg.content) {
+        const errorFallback = msg.extra?.errorFallback;
         if (
           msg.origin !== 'callback' &&
           (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId) ||
@@ -511,7 +547,7 @@ export function useAgentMessages() {
         ) {
           return;
         }
-        setCatStatus(msg.catId, 'streaming');
+        setCatStatus(msg.catId, errorFallback ? 'error' : 'streaming');
         // F118: Clear liveness warning when cat resumes output
         setCatInvocation(msg.catId, { livenessWarning: undefined });
         if (msg.origin !== 'callback') {
@@ -534,16 +570,8 @@ export function useAgentMessages() {
               origin: 'callback',
               isStreaming: false,
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost || invocationId
-                ? {
-                    extra: {
-                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                      ...(invocationId ? { stream: { invocationId } } : {}),
-                    },
-                  }
-                : {}),
+              ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
@@ -563,16 +591,8 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'callback',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost || invocationId
-                ? {
-                    extra: {
-                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                      ...(invocationId ? { stream: { invocationId } } : {}),
-                    },
-                  }
-                : {}),
+              ...(buildMessageExtra(msg, invocationId) ? { extra: buildMessageExtra(msg, invocationId) } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -611,7 +631,6 @@ export function useAgentMessages() {
               origin: 'stream',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -650,10 +669,11 @@ export function useAgentMessages() {
         const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
         appendToolEvent(messageId, {
-          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: msg.toolCallId ?? `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_use',
           label: `${msg.catId} → ${toolName}`,
           ...(detail ? { detail } : {}),
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
         if (isFileChange) {
@@ -670,23 +690,29 @@ export function useAgentMessages() {
         setCatStatus(msg.catId, 'streaming');
         const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
-        const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
-          id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: msg.toolCallId ?? `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_result',
           label: `${msg.catId} ← result`,
-          detail,
+          detail: msg.content ?? '',
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {
-        setCatStatus(msg.catId, 'done');
+        const currentMessage = useChatStore
+          .getState()
+          .messages.filter((m) => m.type === 'assistant' && m.catId === msg.catId)
+          .at(-1);
+        const hasErrorFallback = Boolean(currentMessage?.extra?.errorFallback);
+        setCatStatus(msg.catId, hasErrorFallback ? 'error' : 'done');
         const suppressedAfterTerminalError = terminalStreamSuppressionRef.current.has(msg.catId);
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
             taskProgress: {
               ...currentProgress,
-              snapshotStatus: currentProgress.snapshotStatus === 'interrupted' ? 'interrupted' : 'completed',
+              snapshotStatus:
+                currentProgress.snapshotStatus === 'interrupted' || hasErrorFallback ? 'interrupted' : 'completed',
               lastUpdate: Date.now(),
             },
           });
@@ -754,7 +780,6 @@ export function useAgentMessages() {
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
           // would allow reordered stale chunks to recreate ghost bubbles.
-          a2aGroupRef.current = null;
           // Bug C safety net: if done(isFinal) arrived but no streaming bubble
           // was ever created for this cat, text events were lost (socket transport
           // drop, dual-pointer guard mismatch, etc.). Request a history catch-up
@@ -774,19 +799,6 @@ export function useAgentMessages() {
           requestActiveThreadRefresh('panels', 'done_final');
           sawStreamDataRef.current.delete(msg.catId);
         }
-      } else if (msg.type === 'a2a_handoff') {
-        // Start or continue an A2A group
-        if (!a2aGroupRef.current) {
-          a2aGroupRef.current = `a2a-group-${Date.now()}`;
-        }
-        addMessage({
-          id: `a2a-${Date.now()}-${msg.catId}`,
-          type: 'system',
-          variant: 'info',
-          content: msg.content ?? '',
-          a2aGroupId: a2aGroupRef.current,
-          timestamp: Date.now(),
-        });
       } else if (msg.type === 'system_info') {
         sawStreamDataRef.current.add(msg.catId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
@@ -1092,8 +1104,18 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'error') {
+        // 理论上后端已转换为 text 消息，但保留降级处理
+        console.warn('[useAgentMessages] Received raw error event (backend not upgraded or error in transformation)', {
+          catId: msg.catId,
+        });
+
+        // 状态清理逻辑（必须保留）
         setCatStatus(msg.catId, 'error');
-        terminalStreamSuppressionRef.current.set(msg.catId, msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId) ?? null);
+        terminalStreamSuppressionRef.current.set(
+          msg.catId,
+          msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId) ?? null,
+        );
+
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
@@ -1105,12 +1127,13 @@ export function useAgentMessages() {
             },
           });
         }
+
         const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
         if (messageId) {
           setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
-        // Consume pending timeout diagnostics silently; keep raw details in debug logs, not UI.
+
         if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
 
         recordDebugEvent({
@@ -1120,38 +1143,34 @@ export function useAgentMessages() {
           catId: msg.catId,
           invocationId: msg.invocationId,
           reason: msg.error ?? 'Unknown error',
-          action: 'error_fallback',
+          action: 'error_fallback_frontend_degradation',
           origin: msg.origin,
         });
 
-        addMessage({
-          id: `err-${Date.now()}-${msg.catId}`,
-          type: 'assistant',
-          catId: msg.catId,
-          content: (() => {
-            const base = getFriendlyAgentErrorMessage(msg);
-            try {
-              const meta = JSON.parse(msg.content ?? '{}');
-              const subtype = meta?.errorSubtype;
-              if (subtype) {
-                const labels: Record<string, string> = {
-                  error_max_turns: '超出 turn 限制',
-                  error_max_budget_usd: '预算用尽',
-                  error_during_execution: '运行时错误',
-                  error_max_structured_output_retries: '结构化输出重试超限',
-                };
-                return labels[subtype] ? `${base} (${labels[subtype]})` : base;
-              }
-            } catch {
-              /* no subtype */
-            }
-            return base;
-          })(),
-          timestamp: Date.now(),
-          origin: 'stream',
+        // Toast 通知（降级）
+        const toast = getAgentErrorToastContent({
+          ...msg,
+          catDisplayName: resolveCatLabel(msg.catId),
         });
-        if (isSensitiveInputAgentError(msg)) {
-          const toast = getSensitiveInputErrorToastContent();
+
+        // 瞬时限流：在对话框中显示固定文案（优先于 toast）
+        if (isRateLimitError(msg)) {
+          addMessage({
+            id: `rate-limit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: 'error',
+            content: getRateLimitChatMessage(),
+            timestamp: Date.now(),
+          });
+        } else if (isDailyQuotaExhaustedAgentError(msg)) {
+          addMessage({
+            id: `daily-quota-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: 'error',
+            content: getDailyQuotaExhaustedChatMessage(),
+            timestamp: Date.now(),
+          });
+        } else {
           useToastStore.getState().addToast({
             type: 'error',
             title: toast.title,
@@ -1160,14 +1179,14 @@ export function useAgentMessages() {
             duration: 8000,
           });
         }
-        // Only stop loading on isFinal; size===0 would false-positive in serial gaps
+
+        // 清理 loading 状态
         if (msg.isFinal) {
-          clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
+          clearDoneTimeout();
           setLoading(false);
-          // F108: clear this cat's invocation slot on terminal error
+
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
-            // Same hydrated-only orphan cleanup as the done(isFinal) path above.
             const stateAfter = useChatStore.getState();
             const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
             if (orphan?.startsWith('hydrated-')) {
@@ -1182,8 +1201,7 @@ export function useAgentMessages() {
             }
           }
           setIntentMode(null);
-          // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
-          // not match the cat that was actually running (e.g. codex/gemini)
+
           for (const ref of activeRefs.current.values()) {
             setStreaming(ref.id, false);
           }
@@ -1278,7 +1296,15 @@ export function useAgentMessages() {
       }
       terminalStreamSuppressionRef.current.clear();
     },
-    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout, setCatInvocation],
+    [
+      setLoading,
+      clearAllActiveInvocations,
+      setStreaming,
+      setIntentMode,
+      clearCatStatuses,
+      clearDoneTimeout,
+      setCatInvocation,
+    ],
   );
 
   const resetRefs = useCallback(() => {
@@ -1289,7 +1315,6 @@ export function useAgentMessages() {
     terminalStreamSuppressionRef.current.clear();
     pendingTimeoutDiagRef.current.clear();
     cancelledInvocationsRef.current.clear();
-    a2aGroupRef.current = null;
     clearDoneTimeout();
   }, [clearDoneTimeout]);
 

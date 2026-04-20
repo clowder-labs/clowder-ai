@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Clowder AI (Cat Cafe) - Windows Startup Script
+  OfficeClaw - Windows Startup Script
 
 .DESCRIPTION
   Starts API server and Frontend (Next.js) with .env loading.
@@ -107,6 +107,14 @@ if (-not $nodeCommand) {
 }
 Write-Ok "Node: $nodeCommand"
 
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $ProjectRoot "office-claw-skills\.playwright-browsers"
+try {
+    Ensure-OfficeSkillNodeDependencies -ProjectRoot $ProjectRoot | Out-Null
+} catch {
+    Write-Warn "Skill dependency refresh failed - continuing startup"
+    Write-InstallerExceptionDetails -Context "Skill dependency refresh" -ErrorRecord $_
+}
+
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
 $jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot $ProjectRoot
 
@@ -190,7 +198,9 @@ function Test-ClowderOwnedProcess {
     # Normalize ProjectRoot with trailing separator to avoid substring false positives
     # e.g. C:\projects\clowder must not match C:\projects\clowder-test
     $normalizedRoot = $ProjectRoot.TrimEnd('\', '/') + '\'
-    return ($commandLine -like "*$normalizedRoot*") -or ($commandLine -like "*$ProjectRoot`"*") -or ($commandLine -like "*$ProjectRoot'*")
+    return (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle $normalizedRoot) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ProjectRoot + '"')) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ProjectRoot + "'"))
 }
 
 function Stop-PortProcess {
@@ -333,12 +343,32 @@ if ($useExternalRedis) {
         $redisSource = $redisCommands.Source
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
+    # -- Redis auth (read-or-generate, consistent across sessions) ---
+    $localRedisPassword = $null
+    if (-not $configuredRedisUrl) {
+        try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
+        if ($localRedisPassword) {
+            Write-Ok "Redis auth: password loaded from Credential Manager"
+        } else {
+            $bytes = New-Object byte[] 24
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+            $localRedisPassword = [Convert]::ToBase64String($bytes)
+            Write-Ok "Redis auth: new password generated"
+        }
+        try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
+        $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
+        $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+    }
     $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
         $redisLogFile = Join-Path $redisLayout.Logs "redis-$RedisPort.log"
         $redisPidFile = Join-Path $redisLayout.Data "redis-$RedisPort.pid"
         Write-Ok "Redis port selected: $RedisPort (random)"
+        if ($localRedisPassword) {
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+            $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
+        }
     }
     # Check if Redis is already running
     try {
@@ -499,6 +529,7 @@ $runtimeEnvOverrides = @{
     REDIS_PORT = $env:REDIS_PORT
     MEMORY_STORE = $env:MEMORY_STORE
     OFFICE_CLAW_MCP_SERVER_PATH = $env:OFFICE_CLAW_MCP_SERVER_PATH
+    PLAYWRIGHT_BROWSERS_PATH = $env:PLAYWRIGHT_BROWSERS_PATH
     API_SERVER_PORT = $ApiPort
     FRONTEND_PORT = $WebPort
     NEXT_PUBLIC_API_URL = "http://127.0.0.1:$ApiPort"
@@ -518,7 +549,8 @@ $runtimeEnvOverrides = @{
         ApiPort = [int]$ApiPort
         WebPort = [int]$WebPort
         RedisPort = if ($useRedis -and -not $useExternalRedis) { [int]$RedisPort } else { $null }
-        RedisUrl = if ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisUrl = if ($localRedisPassword -and $env:REDIS_URL) { Get-RedactedRedisUrl -RedisUrl $env:REDIS_URL } elseif ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
+        RedisAuthFromCredentialManager = [bool]$localRedisPassword
         UseExternalRedis = [bool]$useExternalRedis
         RedisStartedByLauncher = [bool]$startedRedis
         PreferRandomPorts = [bool]$PreferRandomPorts
@@ -605,7 +637,7 @@ $runtimeEnvOverrides = @{
             [Console]::InputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
-            $env:HOSTNAME = "0.0.0.0"
+            $env:HOSTNAME = "127.0.0.1"
             & $nodeCommand $webServerEntry 2>&1
         } -ArgumentList $webStandaloneServer, $WebPort, $nodeCommand
     } else {
@@ -617,7 +649,7 @@ $runtimeEnvOverrides = @{
             [Console]::InputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
-            & $nodeCommand $nextCli start (Join-Path $root "packages/web") -p $port -H 0.0.0.0 2>&1
+            & $nodeCommand $nextCli start (Join-Path $root "packages/web") -p $port -H 127.0.0.1 2>&1
         } -ArgumentList $ProjectRoot, $WebPort, $nextCli, $nodeCommand
     }
     $jobs += $webJob

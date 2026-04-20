@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
+import { formatCronFrequency } from './scheduled-task-frequency';
 import { EmptyDataState } from './shared/EmptyDataState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 type ScheduledTasksPanelProps = {
   onCreateTask?: () => void;
@@ -11,12 +13,15 @@ type ScheduledTasksPanelProps = {
 
 type ScheduleTrigger =
   | { type: 'interval'; ms: number }
-  | { type: 'cron'; expression: string; timezone?: string };
+  | { type: 'cron'; expression: string; timezone?: string }
+  | { type: 'once'; fireAt: number };
 
 type ScheduleTaskSummaryResponse = {
   tasks: Array<{
     id: string;
     dynamicTaskId?: string;
+    deliveryThreadId?: string | null;
+    threadTitle?: string | null;
     source: 'builtin' | 'dynamic';
     trigger: ScheduleTrigger;
     enabled: boolean;
@@ -55,7 +60,7 @@ type ScheduledTaskItem = {
   status: string;
   enabled: boolean;
   createTime: string;
-  sessionId: string;
+  sessionName: string;
 };
 
 type ScheduleControlSnapshot = {
@@ -64,58 +69,19 @@ type ScheduleControlSnapshot = {
 };
 const TASK_TIME_ICON = '/icons/time-time.svg';
 
-function toChineseWeekdays(dayOfWeek: string): string {
-  const map: Record<string, string> = {
-    '0': '日',
-    '7': '日',
-    '1': '一',
-    '2': '二',
-    '3': '三',
-    '4': '四',
-    '5': '五',
-    '6': '六',
-  };
-  return dayOfWeek
-    .split(',')
-    .map((n) => map[n.trim()] ?? n.trim())
-    .join('、');
-}
-
-function formatClock(hour: string, minute: string): string {
-  const hh = Number(hour);
-  const mm = Number(minute);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return `${hour}:${minute}`;
-
-  const period = hh < 12 ? '上午' : '下午';
-  const hour12 = ((hh + 11) % 12) + 1;
-  const minuteText = String(mm).padStart(2, '0');
-  return `${period} ${hour12}：${minuteText}`;
-}
-
-function formatCronFrequency(expression: string): string {
-  const parts = expression.trim().split(/\s+/);
-  if (parts.length < 5) return expression;
-
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-  const timeText = formatClock(hour, minute);
-
-  if (dayOfWeek !== '*' && dayOfMonth === '*' && month === '*') {
-    return `每周${toChineseWeekdays(dayOfWeek)} ${timeText}`;
-  }
-
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-    return `每天 ${timeText}`;
-  }
-
-  return expression;
-}
-
 function formatFrequency(trigger: ScheduleTrigger): string {
   if (trigger.type === 'interval') {
     const minutes = Math.max(1, Math.round(trigger.ms / 60000));
     return `每隔 ${minutes} 分钟`;
   }
-  return formatCronFrequency(trigger.expression);
+  if (trigger.type === 'once') {
+    const date = new Date(trigger.fireAt);
+    return date.toLocaleString('zh-CN');
+  }
+  if (trigger.type === 'cron') {
+    return formatCronFrequency(trigger.expression);
+  }
+  return `任务类型: ${(trigger as any).type || '未知'}`;
 }
 
 function extractThreadId(subjectKey: string | null | undefined): string | null {
@@ -142,8 +108,11 @@ function toViewTask(
   control?: ScheduleControlSnapshot,
 ): ScheduledTaskItem {
   const id = task.dynamicTaskId ?? task.id;
-  const threadId = extractThreadId(task.lastRun?.subject_key);
+  const threadId = task.deliveryThreadId ?? extractThreadId(task.lastRun?.subject_key);
+  const threadName = task.threadTitle?.trim() || threadId || '-';
   const effectiveEnabled = computeEffectiveEnabled(task, control);
+  const isOnce = task.trigger.type === 'once';
+  const fireAtTime = isOnce ? (task.trigger as { type: 'once'; fireAt: number }).fireAt : null;
   return {
     taskId: id,
     dynamicTaskId: task.dynamicTaskId,
@@ -152,11 +121,11 @@ function toViewTask(
     prompt: task.display?.description?.trim() || '暂无描述',
     frequency: formatFrequency(task.trigger),
     nextExcuteTime: '-',
-    effectiveTime: '长期有效',
+    effectiveTime: isOnce && fireAtTime ? new Date(fireAtTime).toLocaleString('zh-CN') : '长期有效',
     status: effectiveEnabled ? 'running' : 'paused',
     enabled: effectiveEnabled,
     createTime: task.lastRun?.started_at ?? '',
-    sessionId: threadId ?? '-',
+    sessionName: threadName,
   };
 }
 
@@ -278,11 +247,11 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
     maskPosition: 'center',
     WebkitMaskSize: 'contain',
     maskSize: 'contain',
-    backgroundColor: 'rgba(194,194,194,1)',
+    backgroundColor: 'var(--text-muted)',
   } as const;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="ui-page-title">定时任务</h1>
         <button
@@ -294,99 +263,105 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
         </button>
       </div>
 
-      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 p-6 shadow-none">
+      <div className="ui-panel border-0 shadow-none">
         {isLoading ? (
-          <div className="flex h-full min-h-0 items-center justify-center">
-            <div className="text-[12px] text-[#9AA3B2]">加载中...</div>
+          <div className="flex min-h-[320px] items-center justify-center">
+            <div className="text-[12px] text-[var(--text-muted)]">加载中...</div>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="flex h-full min-h-0 items-center justify-center">
+          <div className="flex min-h-[320px] items-center justify-center">
             <div className="text-center">
               <EmptyDataState title="暂无定时任务" />
-              <p className="mt-2 text-[12px] text-[#9AA3B2]">暂无数据，您可以点击创建按钮新增定时任务</p>
+              <p className="mt-2 text-[12px] text-[var(--text-muted)]">暂无数据，您可以点击创建按钮新增定时任务</p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-1">
-            {tasks.map((task) => (
-              <article
-                key={task.taskId}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedTask(task)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedTask(task);
-                  }
-                }}
-                className="group h-[194px] cursor-pointer rounded-[14px] border border-[#E9EDF3] bg-white p-6"
-              >
-                <div className="flex h-full flex-col gap-4">
-                  <div className="flex h-[48px] items-start justify-between gap-3">
-                    <div className="flex h-full min-w-0 items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
-                        <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
+          <div className="px-1 pb-4">
+            <div className="grid grid-cols-3 gap-x-4 gap-y-6">
+              {tasks.map((task) => (
+                <article
+                  key={task.taskId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTask(task)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedTask(task);
+                    }
+                  }}
+                  className="group h-[194px] cursor-pointer rounded-[16px] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 transition-shadow hover:bg-[var(--card-hover-bg)] hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
+                >
+                  <div className="flex h-full flex-col gap-4">
+                    <div className="flex h-[48px] items-center justify-between gap-3">
+                      <div className="flex h-full min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[var(--surface-card-muted)]">
+                          <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
+                        </div>
+                        <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[var(--text-primary)]">{task.taskName}</h3>
                       </div>
-                      <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
-                    </div>
-                    {task.source === 'dynamic' ? (
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={task.enabled}
-                        aria-label={`${task.taskName}开关`}
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          await handleToggleTask(task);
-                        }}
-                        disabled={togglingTaskIds.has(task.taskId)}
-                        className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full px-1 transition ${
-                          task.enabled ? 'justify-end bg-[#2D7AF8]' : 'justify-start bg-[#D8DDE5]'
-                        }`}
-                      >
-                        <span className="h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.25)]" />
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <p className="line-clamp-2 h-[44px] text-[14px] leading-[22px] text-[#98A1AF]">{task.prompt}</p>
-
-                  <div className="h-[24px]">
-                    <div className="flex items-center gap-1.5 text-[12px] leading-6 text-[#AAB2BE] group-hover:hidden">
-                      <span aria-hidden="true" className="h-[14px] w-[14px] shrink-0" style={taskIconMaskStyle} />
-                      <span>{task.frequency}</span>
-                    </div>
-                    <div className="hidden group-hover:flex">
                       {task.source === 'dynamic' ? (
                         <button
                           type="button"
-                          onClick={(event) => {
+                          role="switch"
+                          aria-checked={task.enabled}
+                          aria-label={`${task.taskName}开关`}
+                          onClick={async (event) => {
                             event.stopPropagation();
-                            handleDeleteTask(task);
+                            await handleToggleTask(task);
                           }}
-                          className="bg-transparent p-0 text-[14px] font-normal leading-6 text-[#1476ff]"
+                          disabled={togglingTaskIds.has(task.taskId)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-60 ${
+                            task.enabled ? 'bg-[var(--text-accent)]' : 'bg-[var(--border-default)]'
+                          }`}
                         >
-                          删除
+                          <span
+                            className={`absolute left-1 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.25)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                              task.enabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          aria-disabled="true"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                          }}
-                          className="cursor-not-allowed bg-transparent p-0 text-[14px] font-normal leading-6 text-[#C1C7D0]"
-                        >
-                          删除
-                        </button>
-                      )}
+                      ) : null}
+                    </div>
+
+                    <p className="line-clamp-2 h-[44px] text-[14px] leading-[22px] text-[var(--text-secondary)]">{task.prompt}</p>
+
+                    <div className="h-[24px]">
+                      <div className="flex items-center gap-1.5 text-[12px] leading-6 text-[var(--text-muted)] group-hover:hidden">
+                        <span aria-hidden="true" className="h-4 w-4 shrink-0" style={taskIconMaskStyle} />
+                        <span>{task.frequency}</span>
+                      </div>
+                      <div className="hidden group-hover:flex">
+                        {task.source === 'dynamic' ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteTask(task);
+                            }}
+                            className="bg-transparent p-0 text-[14px] font-normal leading-6 text-[var(--text-accent)]"
+                          >
+                            删除
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                            className="cursor-not-allowed bg-transparent p-0 text-[14px] font-normal leading-6 text-[var(--text-disabled)]"
+                          >
+                            删除
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -410,18 +385,24 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
             </div>
             <div className="flex items-start gap-6">
               <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">描述</div>
-              <div className="min-w-0 flex-1 leading-6">{selectedTask.prompt}</div>
+              <div className="min-w-0 flex-1">
+                <OverflowTooltip content={selectedTask.prompt} className="inline-flex max-w-full align-top">
+                  <div className="min-w-0 leading-6 line-clamp-2">{selectedTask.prompt}</div>
+                </OverflowTooltip>
+              </div>
             </div>
             <div className="flex items-start gap-6">
-              <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">会话ID</div>
-              <div className="min-w-0 flex-1 font-mono text-[13px] leading-6 text-[#2F3A4B]">{selectedTask.sessionId}</div>
+              <div className="w-[72px] shrink-0 text-[12px] leading-6 text-[#98A1AF]">执行会话</div>
+              <div className="min-w-0 flex-1">
+                <OverflowTooltip content={selectedTask.sessionName} className="inline-flex max-w-full align-top">
+                  <div className="min-w-0 max-w-full truncate text-[14px] leading-6 text-[#2F3A4B]">
+                    {selectedTask.sessionName}
+                  </div>
+                </OverflowTooltip>
+              </div>
             </div>
             <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedTask(null)}
-                className="ui-button-primary ui-modal-action-button"
-              >
+              <button type="button" onClick={() => setSelectedTask(null)} className="ui-button-primary">
                 确定
               </button>
             </div>
@@ -456,7 +437,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               type="button"
               onClick={() => setDeleteTargetTask(null)}
               disabled={isDeletingTask}
-              className="ui-button-default ui-modal-action-button"
+              className="ui-button-default"
             >
               取消
             </button>
@@ -466,7 +447,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                 await handleDeleteConfirm();
               }}
               disabled={isDeletingTask}
-              className="ui-button-primary ui-modal-action-button"
+              className="ui-button-primary"
             >
               {isDeletingTask ? '删除中...' : '删除'}
             </button>

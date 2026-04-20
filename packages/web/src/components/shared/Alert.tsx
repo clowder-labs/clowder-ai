@@ -64,7 +64,7 @@ export function Alert({ mode, children, closable = true, onClose, className = ''
       {closable && onClose && (
         <button
           onClick={onClose}
-          className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[4px] text-[var(--text-secondary)] transition-colors hover:bg-black/10"
+          className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[4px] text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
           aria-label="Close"
         >
           <CloseIcon />

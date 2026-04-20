@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -29,7 +29,7 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
 
   const getFileExt = (name: string) => {
     const parts = name.split('.');
-    if (parts.length <= 1) return '未知';
+    if (parts.length <= 1) return 'UNKNOWN';
     return parts[parts.length - 1].toUpperCase();
   };
 
@@ -39,25 +39,22 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     return name.slice(0, lastDot);
   };
 
-  // Create object URLs once per file set, revoke on cleanup
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
 
   const resolveFileIcon = (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    if (ext === 'pdf') return '/icons/file-pdf.svg';
-    if (ext === 'doc' || ext === 'docx') return '/icons/file-docx.svg';
-    if (ext === 'xls' || ext === 'xlsx') return '/icons/file-xlsx.svg';
-    if (ext === 'ppt' || ext === 'pptx') return '/icons/file-ppt.svg';
-    if (ext === 'csv') return '/icons/file-csv.svg';
-    if (ext === 'txt') return '/icons/file-txt.svg';
-    return '/icons/file-html.svg';
+    if (ext === 'pdf') return '/icons/files-pdf.svg';
+    if (ext === 'doc' || ext === 'docx') return '/icons/files-docx.svg';
+    if (ext === 'xls' || ext === 'xlsx') return '/icons/files-xlsx.svg';
+    if (ext === 'ppt' || ext === 'pptx') return '/icons/files-ppt.svg';
+    if (ext === 'csv') return '/icons/files-csv.svg';
+    if (ext === 'txt') return '/icons/files-txt.svg';
+    return '/icons/files-txt.svg';
   };
 
   useEffect(() => {
     return () => {
-      for (const url of urls) {
-        URL.revokeObjectURL(url);
-      }
+      for (const url of urls) URL.revokeObjectURL(url);
     };
   }, [urls]);
 
@@ -65,47 +62,56 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
 
   return (
     <>
-      <div className="flex gap-2 border-b pt-5 border-gray-100 overflow-visible pb-3 mb-0 mx-5">
-        {files.map((file, i) => (
-          <div key={`${getFileBaseName(file.name)}-${i}`} className="relative inline-flex gap-[10px] py-2 flex-shrink-0 group border border-gray-200 rounded-lg px-2  hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)] hover:border-[rgb(240,240,240)] w-[201px] h-[56px]" title={getFileBaseName(file.name)}>
-            {file.type.startsWith('image/') ? (
-              <img
-                src={urls[i]}
-                alt={getFileBaseName(file.name)}
-                className="w-10 h-10 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => setLightboxIdx(i)}
-              />
-            ) : (
-              <img src={resolveFileIcon(file)} alt="" aria-hidden="true" className="w-10 h-10 rounded-lg" />
-            )}
+      <div className="mx-3 mb-0 border-b border-gray-100 pb-3 pt-2">
+        <div className="w-full max-h-[160px] overflow-y-auto overflow-x-hidden px-2 pt-3">
+          <div className="grid w-full min-w-0 grid-cols-3 gap-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {files.map((file, i) => (
             <div
-              className={`flex-1 min-w-0 ${file.type.startsWith('image/') ? 'cursor-pointer' : ''}`}
-              onClick={() => {
-                if (file.type.startsWith('image/')) setLightboxIdx(i);
-              }}
+              key={`${getFileBaseName(file.name)}-${i}`}
+              className="group relative inline-flex h-[56px] gap-[10px] rounded-lg border border-gray-200 pl-2 py-2 hover:border-[rgb(240,240,240)] hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
+              style={{ paddingRight: 12 }}
+              title={getFileBaseName(file.name)}
             >
+              {file.type.startsWith('image/') ? (
+                <img
+                  src={urls[i]}
+                  alt={getFileBaseName(file.name)}
+                  className="h-10 w-10 cursor-pointer rounded-lg object-cover transition-opacity hover:opacity-90"
+                  onClick={() => setLightboxIdx(i)}
+                />
+              ) : (
+                <img src={resolveFileIcon(file)} alt="" aria-hidden="true" className="h-10 w-10 rounded-lg" />
+              )}
               <div
-                className="truncate max-w-[120px] text-ellipsis overflow-hidden"
-                style={{ color: '#191919', fontSize: 12, fontWeight: 400, lineHeight: '18px' }}
+                className={`min-w-0 flex-1 ${file.type.startsWith('image/') ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (file.type.startsWith('image/')) setLightboxIdx(i);
+                }}
               >
-                {getFileBaseName(file.name)}
+                <div
+                  className="truncate overflow-hidden text-ellipsis"
+                  style={{ color: '#191919', fontSize: 12, fontWeight: 400, lineHeight: '18px' }}
+                >
+                  {getFileBaseName(file.name)}
+                </div>
+                <div className="mt-1 text-[12px]" style={{ color: '#808080', fontWeight: 400, lineHeight: '18px' }}>
+                  <span>{getFileExt(file.name)}</span>
+                  <span className="ml-3">{formatFileSize(file.size)}</span>
+                </div>
               </div>
-              <div className="mt-1 text-[12px]" style={{ color: '#808080', fontWeight: 400, lineHeight: '18px' }}>
-                <span>{getFileExt(file.name)}</span>
-                <span className='ml-3'>{formatFileSize(file.size)}</span>
-              </div>
+              <button
+                onClick={() => onRemove(i)}
+                className="absolute -right-2 -top-2 z-10 hidden h-4 w-4 items-center justify-center rounded-full bg-[#c2c2c2] pb-1 text-xs text-white group-hover:flex"
+                style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.8)' }}
+                title={`移除 ${getFileBaseName(file.name)}`}
+                aria-label={`Remove ${getFileBaseName(file.name)}`}
+              >
+                x
+              </button>
             </div>
-            <button
-              onClick={() => onRemove(i)}
-              className="hidden group-hover:flex items-center absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-[#c2c2c2] pb-1 text-white text-xs flex items-center justify-center z-10"
-              style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.8)' }}
-              title={`移除 ${getFileBaseName(file.name)}`}
-              aria-label={`Remove ${getFileBaseName(file.name)}`}
-            >
-              x
-            </button>
+          ))}
           </div>
-        ))}
+        </div>
       </div>
       {lightboxIdx !== null && urls[lightboxIdx] && files[lightboxIdx]?.type.startsWith('image/') && (
         <Lightbox
@@ -117,4 +123,3 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     </>
   );
 }
-

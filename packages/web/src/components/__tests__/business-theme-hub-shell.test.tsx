@@ -8,11 +8,16 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HubCapabilityTab } from '@/components/HubCapabilityTab';
+import { ToastContainer } from '@/components/ToastContainer';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
+vi.mock('@/utils/skill-options-cache', () => ({ notifySkillOptionsChanged: vi.fn() }));
+const mockConfirm = vi.fn(() => Promise.resolve(true));
 vi.mock('@/components/useConfirm', () => ({
-  useConfirm: () => vi.fn(() => Promise.resolve(true)),
+  useConfirm: () => mockConfirm,
 }));
 vi.mock('@/components/useProviderProfilesState', () => ({
   useProviderProfilesState: () => ({ providerCreateSectionProps: {} }),
@@ -28,6 +33,7 @@ vi.mock('@/stores/chatStore', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockNotifySkillOptionsChanged = vi.mocked(notifySkillOptionsChanged);
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -65,6 +71,7 @@ describe('business theme hub shell', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useToastStore.setState({ toasts: [] });
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith('/api/capabilities?')) {
@@ -115,6 +122,10 @@ describe('business theme hub shell', () => {
     act(() => root.unmount());
     container.remove();
     mockApiFetch.mockReset();
+    mockNotifySkillOptionsChanged.mockReset();
+    mockConfirm.mockReset();
+    mockConfirm.mockResolvedValue(true);
+    useToastStore.setState({ toasts: [] });
   });
 
   afterAll(() => {
@@ -332,7 +343,7 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('ops-skill');
   });
 
-  it('keeps search controls outside the scrolling card region', async () => {
+  it('keeps search controls outside the card region', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
     });
@@ -344,7 +355,7 @@ describe('business theme hub shell', () => {
 
     expect(fixedHeader).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
   });
@@ -369,5 +380,181 @@ describe('business theme hub shell', () => {
       skillName: 'ops-skill',
       avatarUrl: null,
     });
+  });
+
+  it('uses default confirm styling for uninstalling external skills', async () => {
+    mockConfirm.mockResolvedValue(false);
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const uninstallButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '卸载',
+    );
+    expect(uninstallButton).not.toBeUndefined();
+
+    await act(async () => {
+      uninstallButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).toHaveBeenCalledWith({
+      title: '卸载技能',
+      message: '确定要卸载 “doc-skill” 吗？此操作不可恢复。',
+      confirmLabel: '卸载',
+      cancelLabel: '取消',
+      variant: 'default',
+    });
+  });
+
+  it('shows a global success toast after uninstalling a user-added skill', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'project-a',
+            catFamilies: [{ id: 'ops', name: 'Ops', catIds: ['office'] }],
+            items: [
+              {
+                id: 'ops-skill',
+                type: 'skill',
+                source: 'builtin',
+                enabled: true,
+                cats: { office: true },
+                description: 'automation helper',
+                triggers: ['ops'],
+                category: 'Automation',
+                mounts: { codex: true },
+                connectionStatus: 'connected',
+              },
+              {
+                id: 'doc-skill',
+                type: 'skill',
+                source: 'external',
+                enabled: true,
+                cats: { office: true },
+                description: 'document helper',
+                triggers: ['doc'],
+                category: 'Knowledge',
+                mounts: { codex: true },
+                connectionStatus: 'connected',
+              },
+            ],
+            skillHealth: {
+              allMounted: true,
+              registrationConsistent: true,
+              unregistered: [],
+              phantom: [],
+            },
+          }),
+        );
+      }
+      if (url === '/api/skills/uninstall' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ ok: true }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(HubCapabilityTab),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const uninstallButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '卸载',
+    );
+    expect(uninstallButton).not.toBeUndefined();
+
+    await act(async () => {
+      uninstallButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const toasts = useToastStore.getState().toasts;
+    expect(
+      toasts.some((toast) => toast.type === 'success' && toast.title === '卸载成功' && toast.message.includes('doc-skill')),
+    ).toBe(true);
+    expect(mockNotifySkillOptionsChanged).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector('.fixed')?.textContent).toContain('卸载成功');
+  });
+
+  it('shows a global error toast when uninstalling a user-added skill fails', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'project-a',
+            catFamilies: [{ id: 'ops', name: 'Ops', catIds: ['office'] }],
+            items: [
+              {
+                id: 'doc-skill',
+                type: 'skill',
+                source: 'external',
+                enabled: true,
+                cats: { office: true },
+                description: 'document helper',
+                triggers: ['doc'],
+                category: 'Knowledge',
+                mounts: { codex: true },
+                connectionStatus: 'connected',
+              },
+            ],
+            skillHealth: {
+              allMounted: true,
+              registrationConsistent: true,
+              unregistered: [],
+              phantom: [],
+            },
+          }),
+        );
+      }
+      if (url === '/api/skills/uninstall' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: '权限不足' }, 500));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(HubCapabilityTab),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const uninstallButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '卸载',
+    );
+    expect(uninstallButton).not.toBeUndefined();
+
+    await act(async () => {
+      uninstallButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const toasts = useToastStore.getState().toasts;
+    expect(
+      toasts.some((toast) => toast.type === 'error' && toast.title === '卸载失败' && toast.message.includes('权限不足')),
+    ).toBe(true);
+    expect(mockNotifySkillOptionsChanged).not.toHaveBeenCalled();
+    expect(document.body.querySelector('.fixed')?.textContent).toContain('卸载失败');
   });
 });

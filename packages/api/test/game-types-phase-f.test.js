@@ -9,7 +9,7 @@ import { assert, describe, it } from 'vitest';
 describe('Phase F types', () => {
   describe('ActionStatus', () => {
     it('isValidActionStatus accepts valid statuses', async () => {
-      const { isValidActionStatus } = await import('@cat-cafe/shared');
+      const { isValidActionStatus } = await import('@office-claw/shared');
       assert.isTrue(isValidActionStatus('waiting'));
       assert.isTrue(isValidActionStatus('acting'));
       assert.isTrue(isValidActionStatus('acted'));
@@ -18,7 +18,7 @@ describe('Phase F types', () => {
     });
 
     it('isValidActionStatus rejects invalid statuses', async () => {
-      const { isValidActionStatus } = await import('@cat-cafe/shared');
+      const { isValidActionStatus } = await import('@office-claw/shared');
       assert.isFalse(isValidActionStatus('pending'));
       assert.isFalse(isValidActionStatus(''));
       assert.isFalse(isValidActionStatus(42));
@@ -28,8 +28,8 @@ describe('Phase F types', () => {
 
   describe('PendingAction', () => {
     it('has status and requestedAt fields', async () => {
-      const { isValidActionStatus } = await import('@cat-cafe/shared');
-      /** @type {import('@cat-cafe/shared').PendingAction} */
+      const { isValidActionStatus } = await import('@office-claw/shared');
+      /** @type {import('@office-claw/shared').PendingAction} */
       const action = {
         seatId: 'P1',
         actionName: 'kill',
@@ -43,7 +43,7 @@ describe('Phase F types', () => {
     });
 
     it('PendingAction with fallback has fallbackSource', async () => {
-      /** @type {import('@cat-cafe/shared').PendingAction} */
+      /** @type {import('@office-claw/shared').PendingAction} */
       const action = {
         seatId: 'P1',
         actionName: 'kill',
@@ -60,7 +60,7 @@ describe('Phase F types', () => {
 
   describe('Ballot', () => {
     it('has required fields', async () => {
-      /** @type {import('@cat-cafe/shared').Ballot} */
+      /** @type {import('@office-claw/shared').Ballot} */
       const ballot = {
         voterSeat: 'P1',
         choice: 'P3',
@@ -75,7 +75,7 @@ describe('Phase F types', () => {
     });
 
     it('choice can be null (abstain)', async () => {
-      /** @type {import('@cat-cafe/shared').Ballot} */
+      /** @type {import('@office-claw/shared').Ballot} */
       const ballot = {
         voterSeat: 'P2',
         choice: null,
@@ -91,7 +91,7 @@ describe('Phase F types', () => {
 
   describe('Resolution', () => {
     it('has required fields', async () => {
-      /** @type {import('@cat-cafe/shared').Resolution} */
+      /** @type {import('@office-claw/shared').Resolution} */
       const resolution = {
         winningChoice: 'P3',
         tiePolicy: 'no_kill',
@@ -103,7 +103,7 @@ describe('Phase F types', () => {
     });
 
     it('winningChoice is null on no_kill tie', async () => {
-      /** @type {import('@cat-cafe/shared').Resolution} */
+      /** @type {import('@office-claw/shared').Resolution} */
       const resolution = {
         winningChoice: null,
         tiePolicy: 'no_kill',
@@ -117,7 +117,7 @@ describe('Phase F types', () => {
 
   describe('GameEvent revealPolicy', () => {
     it('accepts revealPolicy field', async () => {
-      /** @type {import('@cat-cafe/shared').GameEvent} */
+      /** @type {import('@office-claw/shared').GameEvent} */
       const event = {
         eventId: 'e1',
         round: 1,

@@ -320,6 +320,17 @@ if (-not $frozenInstallOk) {
 }
 Write-Ok "Dependencies installed"
 
+Write-Host "  Installing office skill runtime dependencies..."
+try {
+    Ensure-OfficeSkillNodeDependencies -ProjectRoot $ProjectRoot | Out-Null
+    Write-Ok "Office skill runtime dependencies"
+} catch {
+    Exit-InstallerIfCancelled -ErrorRecord $_ -Context "office skill dependency installation"
+    Write-Err "Office skill dependency installation failed"
+    Write-InstallerExceptionDetails -Context "Office skill dependency installation" -ErrorRecord $_
+    exit 1
+}
+
 if (-not $SkipBuild) {
     $buildSteps = @(
         @{ Name = "shared"; Path = "packages/shared" },
@@ -343,7 +354,7 @@ Write-Step "Step 6/9 - Skills mount"
 Mount-InstallerSkills -ProjectRoot $ProjectRoot
 
 Write-Step "Step 7/9 - AI CLI tools"
-Write-Host "  Custom install — no external CLI tools required"
+Write-Host "  Custom install - no external CLI tools required"
 Write-Ok "Skipped (dare/jiuwen use vendored runtimes)"
 
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot

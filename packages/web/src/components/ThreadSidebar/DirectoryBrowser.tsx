@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -23,6 +23,7 @@ interface BrowseResult {
   name: string;
   parent: string | null;
   homePath: string;
+  drives?: BrowseEntry[];
   entries: BrowseEntry[];
 }
 
@@ -33,11 +34,48 @@ interface DirectoryBrowserProps {
   onCancel: () => void;
 }
 
-function pathToSegments(absPath: string, homePath: string): { label: string; path: string }[] {
+interface BreadcrumbSegment {
+  label: string;
+  path: string;
+}
+
+const MY_COMPUTER_LABEL = '\u6211\u7684\u7535\u8111';
+const CURRENT_PROJECT_LABEL = '\u5f53\u524d\u9879\u76ee';
+const FALLBACK_INFO_LABEL = '\u914d\u7f6e\u8def\u5f84\u4e0d\u53ef\u7528\uff0c\u5df2\u5207\u6362\u5230\u4e3b\u76ee\u5f55';
+const CANCEL_LABEL = '\u53d6\u6d88';
+const CONFIRM_LABEL = '\u786e\u5b9a';
+const COMPUTER_VIEW_PATH = '__my_computer__';
+
+function isWindowsPath(path: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(path);
+}
+
+function isWindowsBrowseResult(result: BrowseResult | null): boolean {
+  if (!result) return false;
+  return isWindowsPath(result.current) || isWindowsPath(result.homePath) || Array.isArray(result.drives);
+}
+
+function pathToSegments(absPath: string, homePath: string): BreadcrumbSegment[] {
   const sep = absPath.includes('\\') ? '\\' : '/';
 
+  if (isWindowsPath(absPath)) {
+    const parts = absPath.split(/[/\\]/).filter(Boolean);
+    if (parts.length === 0) return [];
+
+    const driveRoot = `${parts[0]}\\`;
+    const segments: BreadcrumbSegment[] = [{ label: parts[0], path: driveRoot }];
+    let accumulated = driveRoot;
+
+    for (let i = 1; i < parts.length; i++) {
+      accumulated = accumulated.endsWith(sep) ? `${accumulated}${parts[i]}` : `${accumulated}${sep}${parts[i]}`;
+      segments.push({ label: parts[i], path: accumulated });
+    }
+
+    return segments;
+  }
+
   if (absPath === homePath || absPath.startsWith(homePath + sep)) {
-    const segments: { label: string; path: string }[] = [{ label: 'Home', path: '' }];
+    const segments: BreadcrumbSegment[] = [{ label: 'Home', path: '' }];
     if (absPath === homePath) return segments;
 
     const relative = absPath.slice(homePath.length + 1);
@@ -53,9 +91,9 @@ function pathToSegments(absPath: string, homePath: string): { label: string; pat
   }
 
   const parts = absPath.split(/[/\\]/).filter(Boolean);
-  const segments: { label: string; path: string }[] = [];
+  const segments: BreadcrumbSegment[] = [];
 
-  let accumulated = absPath.startsWith('/') ? '' : parts[0];
+  let accumulated = absPath.startsWith('/') ? '' : parts[0] ?? '';
   const startIdx = absPath.startsWith('/') ? 0 : 1;
   for (let i = startIdx; i < parts.length; i++) {
     accumulated += sep + parts[i];
@@ -71,6 +109,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState('');
+  const [showComputerView, setShowComputerView] = useState(false);
 
   const fetchDirectory = useCallback(async (path?: string, fallbackOnForbidden = false) => {
     setIsLoading(true);
@@ -80,7 +119,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
       const res = await apiFetch(url);
       if (!res.ok) {
         if (fallbackOnForbidden && path && res.status === 403) {
-          setInfo('配置路径不可用，已切换到主目录');
+          setInfo(FALLBACK_INFO_LABEL);
           await fetchDirectory(undefined, false);
           return;
         }
@@ -91,6 +130,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
       const data: BrowseResult = await res.json();
       setBrowseResult(data);
       setPathInput(data.current);
+      setShowComputerView(false);
     } catch {
       setError('Unable to connect to server');
     } finally {
@@ -107,12 +147,20 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
     if (trimmed) fetchDirectory(trimmed);
   }, [pathInput, fetchDirectory]);
 
-  const segments = browseResult ? pathToSegments(browseResult.current, browseResult.homePath) : [];
+  const isWindowsBrowse = isWindowsBrowseResult(browseResult);
+  const pathSegments = browseResult ? pathToSegments(browseResult.current, browseResult.homePath) : [];
+  const breadcrumbSegments =
+    browseResult && isWindowsBrowse
+      ? showComputerView
+        ? [{ label: MY_COMPUTER_LABEL, path: COMPUTER_VIEW_PATH }]
+        : [{ label: MY_COMPUTER_LABEL, path: COMPUTER_VIEW_PATH }, ...pathSegments]
+      : pathSegments;
+  const listedEntries = browseResult ? (showComputerView ? (browseResult.drives ?? []) : browseResult.entries) : [];
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#EEF2F6] bg-white">
       <div className="flex h-10 flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-[#EEF2F6] bg-white px-5">
-        {segments.map((seg, i) => (
+        {breadcrumbSegments.map((seg, i) => (
           <span key={seg.path || `_${i}`} className="flex flex-shrink-0 items-center gap-1">
             {i > 0 && (
               <svg aria-hidden="true" className="h-3 w-3 text-[#A8B0BD]" viewBox="0 0 20 20" fill="currentColor">
@@ -123,24 +171,29 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
                 />
               </svg>
             )}
-            {i === segments.length - 1 ? (
-              <span className="text-xs font-semibold text-[#2E3440]">{seg.label}</span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fetchDirectory(seg.path || undefined)}
-                className="text-xs font-medium text-[#5F6775] transition-colors hover:text-[#2E3440] hover:underline"
-              >
-                {i === 0 && seg.label === 'Home' ? (
-                  <span className="flex items-center gap-1">
-                    <HomeIcon />
-                    {seg.label}
-                  </span>
-                ) : (
-                  seg.label
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (seg.path === COMPUTER_VIEW_PATH) {
+                  setShowComputerView(true);
+                  setError(null);
+                  return;
+                }
+                fetchDirectory(seg.path || undefined);
+              }}
+              className={`text-xs transition-colors hover:text-[#2E3440] hover:underline ${
+                i === breadcrumbSegments.length - 1 ? 'font-semibold text-[#2E3440]' : 'font-medium text-[#5F6775]'
+              }`}
+            >
+              {i === 0 && (seg.label === 'Home' || seg.label === MY_COMPUTER_LABEL) ? (
+                <span className="flex items-center gap-1">
+                  <HomeIcon />
+                  {seg.label}
+                </span>
+              ) : (
+                seg.label
+              )}
+            </button>
           </span>
         ))}
       </div>
@@ -164,15 +217,15 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
           </div>
         )}
 
-        {!isLoading && browseResult && browseResult.entries.length === 0 && (
+        {!isLoading && browseResult && listedEntries.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <span className="text-xs text-[#A8B0BD]">No subdirectories</span>
+            <span className="text-xs text-[#A8B0BD]">{showComputerView ? 'No drives' : 'No subdirectories'}</span>
           </div>
         )}
 
         {!isLoading &&
-          browseResult?.entries.map((entry) => {
-            const isActive = activeProjectPath === entry.path;
+          listedEntries.map((entry) => {
+            const isActive = !showComputerView && activeProjectPath === entry.path;
             return (
               <button
                 key={entry.path}
@@ -185,7 +238,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
               >
                 <FolderIcon className={isActive ? 'text-[#2E3440]' : 'text-[#A8B0BD]'} />
                 <span className="flex-1 truncate font-medium text-[#2E3440]">{entry.name}</span>
-                {isActive && <span className="flex-shrink-0 text-[10px] text-[#5F6775]">当前项目</span>}
+                {isActive && <span className="flex-shrink-0 text-[10px] text-[#5F6775]">{CURRENT_PROJECT_LABEL}</span>}
                 <svg
                   aria-hidden="true"
                   className="h-3.5 w-3.5 flex-shrink-0 text-[#A8B0BD]"
@@ -237,19 +290,19 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
         <div className="flex items-center gap-2 pt-1">
           {browseResult && (
             <span className="flex-1 truncate text-[11px] text-[#5F6775]" title={browseResult.current}>
-              {browseResult.current}
+              {showComputerView ? MY_COMPUTER_LABEL : browseResult.current}
             </span>
           )}
           <button type="button" onClick={onCancel} className="ui-button-default">
-            取消
+            {CANCEL_LABEL}
           </button>
           <button
             type="button"
-            onClick={() => browseResult && onSelect(browseResult.current)}
-            disabled={!browseResult}
+            onClick={() => browseResult && !showComputerView && onSelect(browseResult.current)}
+            disabled={!browseResult || showComputerView}
             className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            确定
+            {CONFIRM_LABEL}
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@ interface PreviewRouteOpts {
   portDiscovery: PortDiscoveryService;
   gatewayPort: number;
   runtimePorts?: number[];
+  uploadDir?: string;
   /** F120 Phase C: emit socket events to a specific room */
   socketEmit?: (event: string, data: unknown, room: string) => void;
 }
@@ -133,11 +134,11 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
     const { dataUrl, threadId } = req.body;
     const match = dataUrl?.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
     if (!match) {
-      return reply.status(400).send({ error: 'Invalid data URL — expected data:image/{png|jpeg|webp};base64,...' });
+      return reply.status(400).send({ error: '上传失败，请检查文件是否正确或重试' });
     }
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1]!;
     const buffer = Buffer.from(match[2]!, 'base64');
-    const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
+    const uploadDir = resolve(opts.uploadDir ?? process.env.UPLOAD_DIR ?? './uploads');
     await mkdir(uploadDir, { recursive: true });
     const filename = `screenshot-${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
     await writeFile(join(uploadDir, filename), buffer);

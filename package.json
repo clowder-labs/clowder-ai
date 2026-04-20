@@ -1,6 +1,6 @@
 {
-  "name": "cat-cafe",
-  "version": "0.1.0",
+  "name": "office-claw",
+  "version": "0.1.2",
   "private": true,
   "description": "三只 AI 猫猫的协作空间",
   "scripts": {
@@ -44,8 +44,8 @@
     "check": "pnpm biome check . --diagnostic-level=error && pnpm check:features && pnpm check:env-ports && pnpm check:start-profile-isolation",
     "check:fix": "pnpm biome check --write .",
     "test": "pnpm -r --if-present run test",
-    "test:api:redis": "pnpm --filter @cat-cafe/api run test:redis",
-    "test:api:redis:repeat": "pnpm --filter @cat-cafe/api run test:redis:repeat",
+    "test:api:redis": "pnpm --filter @office-claw/api run test:redis",
+    "test:api:redis:repeat": "pnpm --filter @office-claw/api run test:redis:repeat",
     "check:dir-size": "bash scripts/check-dir-size.sh",
     "check:deps": "depcruise packages/api/src packages/shared/src --config .dependency-cruiser.cjs",
     "check:lockfile": "pnpm install --frozen-lockfile",

@@ -6,9 +6,16 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+  getDailyQuotaExhaustedChatMessage,
+  MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
+  getAgentErrorToastContent,
   getFriendlyAgentErrorMessage,
+  getRateLimitChatMessage,
   getSensitiveInputErrorToastContent,
+  isDailyQuotaExhaustedAgentError,
+  isRateLimitError,
   isSensitiveInputAgentError,
 } from '@/hooks/agent-error-fallback';
 
@@ -26,7 +33,7 @@ describe('agent sensitive-input error classification', () => {
     expect(
       isSensitiveInputAgentError({
         error:
-          "{‘error’: {‘code’: ‘ModelArts.81011’, ‘message’: ‘Input text May contain sensitive information, please try again.’}}",
+          '{‘error’: {‘code’: ‘ModelArts.81011’, ‘message’: ‘Input text May contain sensitive information, please try again.’}}',
       }),
     ).toBe(true);
   });
@@ -43,6 +50,50 @@ describe('agent sensitive-input error classification', () => {
       title: '检测到敏感词',
       message: '当前对话触发了敏感词校验，请重新打开一个新会话后再试。',
     });
+  });
+});
+
+describe('agent rate-limit error classification', () => {
+  it('detects structured ModelArts rate-limit errors', () => {
+    expect(
+      isRateLimitError({
+        errorCode: MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      }),
+    ).toBe(true);
+  });
+
+  it('returns the fixed retry guidance copy', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        errorCode: MODEL_ARTS_RATE_LIMIT_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'ModelArts.81101', 'message': 'Too many requests, the rate limit is 2000000 tokens per minute.', 'type': 'TooManyRequests'}, 'error_code': 'ModelArts.81101', 'error_msg': 'Too many requests, the rate limit is 2000000 tokens per minute.'}",
+      }),
+    ).toBe(getRateLimitChatMessage());
+  });
+});
+
+describe('agent daily quota exhaustion classification', () => {
+  it('detects structured APIG daily quota exhaustion errors', () => {
+    expect(
+      isDailyQuotaExhaustedAgentError({
+        errorCode: APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      }),
+    ).toBe(true);
+  });
+
+  it('returns the fixed daily quota guidance copy', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        errorCode: APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE,
+        error:
+          "[181001] model call failed, reason: openAI API async stream error: Error code: 429 - {'error': {'code': 'APIG.0308', 'message': 'Daily quota exhausted', 'type': 'TooManyRequests'}, 'error_code': 'APIG.0308', 'error_msg': 'Daily quota exhausted'}",
+      }),
+    ).toBe(getDailyQuotaExhaustedChatMessage());
   });
 });
 
@@ -80,6 +131,17 @@ describe('getFriendlyAgentErrorMessage', () => {
     );
   });
 
+  it('explains jiuwenclaw max ReAct iterations explicitly', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        error: 'Max iterations reached without completion',
+      }),
+    ).toBe('已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。');
+    expect(getFriendlyAgentErrorMessage({ error: 'max_iterations_reached' })).toBe(
+      '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。',
+    );
+  });
+
   it('distinguishes connection errors from abrupt exit errors', () => {
     // Connection errors
     expect(getFriendlyAgentErrorMessage({ error: 'connection failed' })).toBe(
@@ -87,9 +149,7 @@ describe('getFriendlyAgentErrorMessage', () => {
     );
     expect(
       getFriendlyAgentErrorMessage({ error: 'assistant connection failed: WebSocket connection closed unexpectedly' }),
-    ).toBe(
-      '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。',
-    );
+    ).toBe('当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。');
 
     // Abrupt exit errors (should NOT match "connection closed unexpectedly" in connection context)
     expect(getFriendlyAgentErrorMessage({ error: 'CLI 异常退出 (code: 1, signal: none)' })).toBe(
@@ -98,5 +158,45 @@ describe('getFriendlyAgentErrorMessage', () => {
     expect(getFriendlyAgentErrorMessage({ error: 'subprocess exited unexpectedly' })).toBe(
       '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。',
     );
+  });
+});
+
+describe('getAgentErrorToastContent', () => {
+  it('uses generic error toast title for non-sensitive agent failures', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'codex',
+        error: 'request timed out before completion',
+      }),
+    ).toEqual({
+      title: 'codex 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+    });
+  });
+
+  it('includes known error subtype labels in toast message', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'codex',
+        error: 'some unexpected upstream failure',
+        content: JSON.stringify({ errorSubtype: 'error_max_budget_usd' }),
+      }),
+    ).toEqual({
+      title: 'codex 出错',
+      message: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。 (预算用尽)',
+    });
+  });
+
+  it('prefers cat display name for toast title when available', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'agent-abc123',
+        catDisplayName: '产品分析助手',
+        error: 'request timed out before completion',
+      }),
+    ).toEqual({
+      title: '产品分析助手 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+    });
   });
 });

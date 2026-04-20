@@ -46,6 +46,7 @@ export interface RelayClawAgentConfig {
 export type RelayClawEventType =
   | 'chat.delta'
   | 'chat.final'
+  | 'chat.tool_calls.delta'
   | 'chat.tool_call'
   | 'chat.tool_result'
   | 'chat.error'

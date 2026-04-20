@@ -19,7 +19,7 @@ import type {
   PermissionRequest,
   PermissionResponse,
   RespondScope,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getPushNotificationService } from '../push/PushNotificationService.js';
 import type { IAuthorizationAuditStore } from '../stores/ports/AuthorizationAuditStore.js';
@@ -142,6 +142,36 @@ export class AuthorizationManager {
 
       this.inFlightWaiters.set(record.requestId, { resolve, timer });
     });
+  }
+
+  async createPendingFromExternalSource(
+    input: Pick<PermissionRequest, 'invocationId' | 'action' | 'reason' | 'context'> & {
+      catId: CatId;
+      threadId: string;
+    },
+  ): Promise<PendingRequestRecord> {
+    const record = await this.pendingStore.create({
+      invocationId: input.invocationId,
+      catId: input.catId,
+      threadId: input.threadId,
+      action: input.action,
+      reason: input.reason,
+      ...(input.context ? { context: input.context } : {}),
+    });
+
+    if (this.io) {
+      this.io.to(`thread:${input.threadId}`).emit('authorization:request', {
+        requestId: record.requestId,
+        catId: input.catId,
+        threadId: input.threadId,
+        action: input.action,
+        reason: input.reason,
+        createdAt: record.createdAt,
+        ...(input.context ? { context: input.context } : {}),
+      });
+    }
+
+    return record;
   }
 
   /**

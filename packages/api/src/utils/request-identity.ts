@@ -7,7 +7,7 @@
 /**
  * Unified request identity resolver.
  *
- * Priority: X-Office-Claw-User header > X-Cat-Cafe-User (legacy) > userId query > fallback > default
+ * Priority: X-Office-Claw-User header > userId query > fallback > default
  *
  * Header-based identity is preferred because:
  * - Not logged in access logs / referer headers / browser history
@@ -51,10 +51,26 @@ export function resolveEffectiveUserId(value: unknown): string | null {
  * Trusted request identity source for browser/API calls.
  *
  * Unlike resolveUserId(), this does not accept caller-controlled query params.
- * Reads X-Office-Claw-User first, falls back to legacy X-Cat-Cafe-User.
+ * Reads only X-Office-Claw-User.
  */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
   return resolveEffectiveUserId(request.headers['x-office-claw-user']);
+}
+
+/**
+ * Trusted identity resolver for sensitive routes.
+ *
+ * Unlike resolveUserId(), this does NOT accept query params, so callers can
+ * stop trusting URL-controlled identity without refactoring the entire app.
+ */
+export function resolveTrustedUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
+  const fromHeader = resolveHeaderUserId(request);
+  if (fromHeader) return fromHeader;
+
+  const fromFallback = resolveEffectiveUserId(options?.fallbackUserId);
+  if (fromFallback) return fromFallback;
+
+  return resolveEffectiveUserId(options?.defaultUserId);
 }
 
 export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {

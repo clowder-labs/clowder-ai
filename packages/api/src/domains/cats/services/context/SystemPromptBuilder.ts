@@ -11,8 +11,8 @@
  * 纯函数，无副作用。读取 CAT_CONFIGS 生成身份上下文。
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatConfig, CatId } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 import {
   catHasRole,
   getCoCreatorConfig,
@@ -197,6 +197,11 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: 'Google',
 };
 
+const MCP_RICH_BLOCK_SECTION = `
+${RICH_BLOCK_SHORT}
+When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
+富消息块规范详见 refs/rich-blocks.md。`;
+
 /**
  * Skills-as-source-of-truth: MCP tools section is minimal.
  * Full specs live in refs/ (rich-blocks.md, mcp-callbacks.md).
@@ -213,16 +218,12 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 
 **协作工具：**
 - office_claw_post_message / office_claw_cross_post_message / office_claw_register_pr_tracking / office_claw_get_pending_mentions / office_claw_get_thread_context / office_claw_list_threads / office_claw_update_task：异步协作
-- office_claw_create_rich_block / office_claw_get_rich_block_rules：富消息
-- office_claw_generate_document：生成报告/导出文档/发 PDF 时用；不要手动 pandoc + create_rich_block
 - office_claw_multi_mention：并行拉 1-3 个 agent（先搜后问，需 searchEvidenceRefs 或 overrideReason）
 
 **共享 Skills：**office_claw_list_skills/office_claw_load_skill。先 list+load，再 search/grep/read；对比→collaborative-thinking；空结果试短词或skill名
+`;
 
-${RICH_BLOCK_SHORT}
-When office_claw_generate_document succeeds, your natural-language reply must explicitly tell the user where the file is. Include the file name and at least the returned /uploads/... path; if the tool also returns absolutePath, include that too. Do not reply with only "generated and sent".
-When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
-富消息块规范详见 refs/rich-blocks.md。`;
+const MCP_RICH_BLOCK_TOOL_LINE = '- office_claw_create_rich_block / office_claw_get_rich_block_rules：富消息';
 
 /**
  * L0 Governance Digest — always-on first principles & operational floor.
@@ -238,8 +239,9 @@ const GOVERNANCE_L0_DIGEST = `## 家规（shared-rules.md）
 - Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
 - 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
 - "完成"附证据（测试/截图/日志）。Bug先红后绿
-- scope失控→记录；同类错误→提案；有价值经验→Episode→蒸馏→Eval（self-evolution+五级阶梯）
-Magic Words（用户对你说以下词=手动拉闸，仅用户当前指令触发，引用/复述/讨论历史不触发）：
+- scope失控→记录；同类错误→提案；有价值经验→Episode→蒸馏→Eval（self-evolution+五级阶梯）`;
+
+const GOVERNANCE_MAGIC_WORDS_SECTION = `Magic Words（用户对你说以下词=手动拉闸，仅用户当前指令触发，引用/复述/讨论历史不触发）：
 -「脚手架」= 你在偷懒写临时方案 → 停，审视产物是否终态，不是→重写
 -「绕路了」= 局部最优但全局绕路 → 停，画出直线路径，丢掉绕路部分
 -「公约」= 你忘了我们的约定 → 重读本段家规，逐条对照当前行为
@@ -269,10 +271,10 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
     const mention = pickVariantMention(id, config);
     const strengths = config.teamStrengths ?? config.roleDescription;
     const caution = config.caution ?? '—';
-    rows.push(`| ${label} | ${mention} | ${strengths} | ${caution} |`);
+    rows.push(`| ${label} | ${id} | ${mention} | ${strengths} | ${caution} |`);
   }
 
-  return ['## 队友名册', '| Agent | @mention | 擅长 | 注意 |', '|------|---------|------|------|', ...rows].join('\n');
+  return ['## 队友名册', '| Agent | catId | @mention | 擅长 | 注意 |', '|------|------|---------|------|------|', ...rows].join('\n');
 }
 
 /**
@@ -291,6 +293,12 @@ export interface StaticIdentityOptions {
    * session history and MAY be lost on compression.
    */
   mcpAvailable?: boolean;
+  /** Skip Magic Words section for providers that need a shorter system prompt. */
+  omitMagicWords?: boolean;
+  /** Hide the rich-block MCP tool line from the collab tools section. */
+  omitRichBlockToolLine?: boolean;
+  /** Skip rich-block usage reference in MCP section for shorter prompts. */
+  omitRichBlockReference?: boolean;
 }
 
 /**
@@ -355,12 +363,21 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
   // L0 Governance Digest — always-on principles from shared-rules.md (F086 post-completion fix)
   // Source of truth: refs/shared-rules.md
   lines.push('', GOVERNANCE_L0_DIGEST);
+  if (!options?.omitMagicWords) {
+    lines.push('', GOVERNANCE_MAGIC_WORDS_SECTION);
+  }
 
   // MCP tools documentation — ONLY for Claude (--append-system-prompt survives compression).
   // Non-Claude cats (Codex/Gemini) inject HTTP callback instructions per-message
   // because their systemPrompt lives in session history and may be lost on compression.
   if (options?.mcpAvailable) {
-    lines.push('', MCP_TOOLS_SECTION.trim());
+    const mcpToolsSection = options?.omitRichBlockToolLine
+      ? MCP_TOOLS_SECTION.replace(`\n${MCP_RICH_BLOCK_TOOL_LINE}`, '')
+      : MCP_TOOLS_SECTION;
+    lines.push('', mcpToolsSection.trim());
+    if (!options?.omitRichBlockReference) {
+      lines.push('', MCP_RICH_BLOCK_SECTION.trim());
+    }
   }
 
   return lines.join('\n');
@@ -413,7 +430,10 @@ export function buildInvocationContext(context: InvocationContext): string {
   }
   // Mode context
   if (context.mode === 'serial' && context.chainIndex != null && context.chainTotal != null) {
-    lines.push(`当前模式：你是第 ${context.chainIndex}/${context.chainTotal} 个被调用的 agent，请注意前面 agent 的回复。`, '');
+    lines.push(
+      `当前模式：你是第 ${context.chainIndex}/${context.chainTotal} 个被调用的 agent，请注意前面 agent 的回复。`,
+      '',
+    );
   } else if (context.mode === 'parallel') {
     lines.push('当前模式：独立思考。你和队友各自独立回答同一问题，给出你自己的观点。', '');
   } else {

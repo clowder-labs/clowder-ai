@@ -1,10 +1,12 @@
 import { resolve } from 'node:path';
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
+import { findMonorepoRoot } from '../../utils/monorepo-root.js';
+import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import {
   type ConnectorGatewayConfig,
   type ConnectorGatewayDeps,
@@ -106,6 +108,12 @@ function isStreamableAdapter(adapter: IOutboundAdapter): adapter is IStreamableO
   return 'sendPlaceholder' in adapter && 'editMessage' in adapter;
 }
 
+function normalizeConnectorOwnerUserId(candidate?: string | null): string | null {
+  const trimmed = candidate?.trim();
+  if (!trimmed || trimmed === FRONTEND_DEFAULT_USER_ID) return null;
+  return trimmed;
+}
+
 function sameList(a: string | undefined, b: string | undefined): boolean {
   return (a ?? '').trim() === (b ?? '').trim();
 }
@@ -155,9 +163,7 @@ function connectorSliceChanged(
       return (
         (prev.xiaoyiAk ?? '') !== (next.xiaoyiAk ?? '') ||
         (prev.xiaoyiSk ?? '') !== (next.xiaoyiSk ?? '') ||
-        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '') ||
-        (prev.xiaoyiWsUrl1 ?? '') !== (next.xiaoyiWsUrl1 ?? '') ||
-        (prev.xiaoyiWsUrl2 ?? '') !== (next.xiaoyiWsUrl2 ?? '')
+        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '')
       );
   }
 }
@@ -182,9 +188,7 @@ export function inferConnectorsFromEnvKeys(changedKeys: readonly string[]): Conn
     } else if (
       key === 'XIAOYI_AK' ||
       key === 'XIAOYI_SK' ||
-      key === 'XIAOYI_AGENT_ID' ||
-      key === 'XIAOYI_WS_URL1' ||
-      key === 'XIAOYI_WS_URL2'
+      key === 'XIAOYI_AGENT_ID'
     ) {
       ids.push('xiaoyi');
     }
@@ -232,7 +236,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       bindingStore: ctx.bindingStore,
       adapters: ctx.adapters,
       log: ctx.log,
-      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? './data/connector-media'),
+      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? 'data/connector-media'),
       messageLookup: ctx.messageLookup,
     });
     this.streamingHook = new StreamingOutboundHook({
@@ -461,11 +465,13 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       : [];
     if (adminOpenIds.length === 0) return;
 
-    const alreadyConfigured = await this.permissionStore.hasAdminConfig('feishu');
+    // F152: Use owner userId for multi-user isolation
+    const userId = this.ownerUserIdState.current;
+    const alreadyConfigured = await this.permissionStore.hasAdminConfig(userId, 'feishu');
     if (!alreadyConfigured) {
-      await this.permissionStore.setAdminOpenIds('feishu', adminOpenIds);
+      await this.permissionStore.setAdminOpenIds(userId, 'feishu', adminOpenIds);
       this.log.info(
-        { adminCount: adminOpenIds.length },
+        { adminCount: adminOpenIds.length, userId },
         '[ConnectorGateway] Feishu admin open_ids seeded from env (first boot)',
       );
       return;
@@ -572,10 +578,10 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
           chatName = await feishu.resolveChatName(parsed.chatId).catch(() => undefined);
         }
       }
-      const sender =
-        parsed.chatType === 'group' && parsed.senderId !== 'unknown'
-          ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
-          : undefined;
+      // F152: Pass sender for both P2P and group (needed for whitelist check + /myid command)
+      const sender = parsed.senderId !== 'unknown'
+        ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
+        : undefined;
 
       return this.connectorRouter.route(
         'feishu',
@@ -739,8 +745,6 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       agentId: config.xiaoyiAgentId,
       ak: config.xiaoyiAk,
       sk: config.xiaoyiSk,
-      wsUrl1: config.xiaoyiWsUrl1,
-      wsUrl2: config.xiaoyiWsUrl2,
     });
     this.registerAdapter('xiaoyi', xiaoyi);
 
@@ -812,8 +816,6 @@ function mergeConnectorConfig(
         xiaoyiAk: incoming.xiaoyiAk,
         xiaoyiSk: incoming.xiaoyiSk,
         xiaoyiAgentId: incoming.xiaoyiAgentId,
-        xiaoyiWsUrl1: incoming.xiaoyiWsUrl1,
-        xiaoyiWsUrl2: incoming.xiaoyiWsUrl2,
       };
   }
 }
@@ -843,7 +845,7 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     permissionStore,
   });
 
-  const mediaDir = config.connectorMediaDir ?? './data/connector-media';
+  const mediaDir = resolve(findMonorepoRoot(), config.connectorMediaDir ?? 'data/connector-media');
   const mediaService = new ConnectorMediaService({ mediaDir });
 
   let sttProvider:
@@ -854,8 +856,10 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     sttProvider = new WhisperSttProvider({ baseUrl: config.whisperUrl });
   }
 
-  const persistedOwner = ownerStore.load();
-  const effectiveUserId = persistedOwner?.ownerUserId || config.coCreatorUserId || deps.defaultUserId;
+  const persistedOwner = normalizeConnectorOwnerUserId(ownerStore.load()?.ownerUserId);
+  const configuredOwner = normalizeConnectorOwnerUserId(config.coCreatorUserId);
+  const fallbackOwner = normalizeConnectorOwnerUserId(deps.defaultUserId);
+  const effectiveUserId = persistedOwner || configuredOwner || fallbackOwner || '';
   const ownerUserIdState = { current: effectiveUserId };
   const connectorRouter = new ConnectorRouter({
     bindingStore,
@@ -923,9 +927,10 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
 }
 
 function buildMediaPathResolver(mediaDir: string): (url: string) => string | undefined {
-  const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
-  const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
-  const resolvedMediaDir = resolve(mediaDir);
+  const monoRoot = findMonorepoRoot();
+  const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
+  const ttsCacheDir = resolve(monoRoot, process.env.TTS_CACHE_DIR ?? 'data/tts-cache');
+  const resolvedMediaDir = resolve(monoRoot, mediaDir);
 
   return (url: string): string | undefined => {
     const safeResolve = (base: string, suffix: string): string | undefined => {

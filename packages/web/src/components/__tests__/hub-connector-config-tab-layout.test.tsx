@@ -257,11 +257,11 @@ describe('HubConnectorConfigTab layout', () => {
             platforms: [
               {
                 id: 'weixin',
-                name: '寰俊',
+                name: '微信',
                 nameEn: 'WeChat',
                 configured: statusCallCount === 1,
                 docsUrl: '',
-                steps: ['鎵爜缁戝畾', '瀹屾垚纭'],
+                steps: ['扫码绑定', '完成确认'],
                 fields: [],
               },
             ],
@@ -329,10 +329,7 @@ describe('HubConnectorConfigTab layout', () => {
     expect(testButton).toBeUndefined();
     const saveButton = Array.from(container.querySelectorAll('button')).find((node) => node.textContent?.includes('保存配置'));
     expect(saveButton).toBeUndefined();
-    expect(mockApiFetch).not.toHaveBeenCalledWith(
-      '/api/connector/test/feishu',
-      expect.anything(),
-    );
+    expect(mockApiFetch).not.toHaveBeenCalledWith('/api/connector/test/feishu', expect.anything());
   });
 
   it('refreshes platform status after Feishu QR panel reports configuration success', async () => {
@@ -376,6 +373,7 @@ describe('HubConnectorConfigTab layout', () => {
     expect(statusCallCount).toBeGreaterThanOrEqual(2);
     expect(container.querySelector('[data-testid="platform-item-feishu"]')?.textContent).toContain('已启用');
   });
+
   it('marks connector credential fields with standard anti-autofill attributes', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
@@ -385,11 +383,11 @@ describe('HubConnectorConfigTab layout', () => {
             platforms: [
               {
                 id: 'dingtalk',
-                name: '閽夐挐',
+                name: '钉钉',
                 nameEn: 'DingTalk',
                 configured: false,
                 docsUrl: 'https://open.dingtalk.com/',
-                steps: ['鍒涘缓搴旂敤', '濉啓鍑瘉', '淇濆瓨閰嶇疆'],
+                steps: ['创建应用', '填写凭证', '保存配置'],
                 fields: [
                   { envName: 'DINGTALK_CLIENT_ID', label: 'Client ID', sensitive: false, currentValue: null },
                   { envName: 'DINGTALK_CLIENT_SECRET', label: 'Client Secret', sensitive: true, currentValue: null },
@@ -408,9 +406,7 @@ describe('HubConnectorConfigTab layout', () => {
     await flushEffects();
 
     const accountInput = container.querySelector('[data-testid="field-DINGTALK_CLIENT_ID"]') as HTMLInputElement | null;
-    const secretInput = container.querySelector(
-      '[data-testid="field-DINGTALK_CLIENT_SECRET"]',
-    ) as HTMLInputElement | null;
+    const secretInput = container.querySelector('[data-testid="field-DINGTALK_CLIENT_SECRET"]') as HTMLInputElement | null;
 
     expect(accountInput).not.toBeNull();
     expect(secretInput).not.toBeNull();
@@ -455,6 +451,7 @@ describe('HubConnectorConfigTab layout', () => {
     expect(weixinItem?.textContent).toContain('微信');
     expect(weixinItem?.textContent).not.toContain('WeChat');
   });
+
   it('routes dingtalk test-connection feedback through the global toast container', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -539,6 +536,9 @@ describe('HubConnectorConfigTab layout', () => {
           }),
         );
       }
+      if (url === '/api/connector/test/xiaoyi' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ ok: true, message: '连接测试成功' }));
+      }
       if (url === '/api/config/env' && init?.method === 'PATCH') {
         return Promise.resolve(jsonResponse({ runtime: { applied: true } }));
       }
@@ -582,6 +582,84 @@ describe('HubConnectorConfigTab layout', () => {
         .getState()
         .toasts.some((toast) => toast.type === 'success' && toast.title === '保存配置成功' && toast.message.includes('配置已保存并立即生效')),
     ).toBe(true);
+  });
+
+  it('trims connector field values before test and save requests', async () => {
+    let testPayload: Record<string, string> | null = null;
+    let savePayload: { updates?: Array<{ name: string; value: string | null }> } | null = null;
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'dingtalk',
+                name: '钉钉',
+                nameEn: 'DingTalk',
+                configured: false,
+                docsUrl: 'https://open.dingtalk.com/',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [
+                  { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false, currentValue: null },
+                  { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true, currentValue: null },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/connector/test/dingtalk' && init?.method === 'POST') {
+        testPayload = JSON.parse(String(init.body)) as Record<string, string>;
+        return Promise.resolve(jsonResponse({ ok: true, message: '连接测试成功' }));
+      }
+      if (url === '/api/config/env' && init?.method === 'PATCH') {
+        savePayload = JSON.parse(String(init.body)) as { updates?: Array<{ name: string; value: string | null }> };
+        return Promise.resolve(jsonResponse({ runtime: { applied: true } }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const appKeyInput = container.querySelector('[data-testid="field-DINGTALK_APP_KEY"]') as HTMLInputElement | null;
+    const appSecretInput = container.querySelector('[data-testid="field-DINGTALK_APP_SECRET"]') as HTMLInputElement | null;
+    expect(appKeyInput).not.toBeNull();
+    expect(appSecretInput).not.toBeNull();
+
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(appKeyInput, '  ding-app-key  ');
+      appKeyInput!.dispatchEvent(new Event('input', { bubbles: true }));
+      appKeyInput!.dispatchEvent(new Event('change', { bubbles: true }));
+      valueSetter?.call(appSecretInput, '\tding-app-secret \n');
+      appSecretInput!.dispatchEvent(new Event('input', { bubbles: true }));
+      appSecretInput!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const saveButton = container.querySelector('[data-testid="save-dingtalk"]');
+    expect(saveButton).not.toBeNull();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(testPayload).toEqual({
+      DINGTALK_APP_KEY: 'ding-app-key',
+      DINGTALK_APP_SECRET: 'ding-app-secret',
+    });
+    expect(savePayload).toEqual({
+      updates: [
+        { name: 'DINGTALK_APP_KEY', value: 'ding-app-key' },
+        { name: 'DINGTALK_APP_SECRET', value: 'ding-app-secret' },
+      ],
+    });
   });
 
   it('routes disconnect feedback through the global toast container', async () => {
@@ -637,5 +715,42 @@ describe('HubConnectorConfigTab layout', () => {
         .getState()
         .toasts.some((toast) => toast.type === 'success' && toast.title === '断开连接成功' && toast.message.includes('已断开连接')),
     ).toBe(true);
+  });
+
+  it('opens the platform help document in a new tab from the config header', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'dingtalk',
+                name: '钉钉',
+                nameEn: 'DingTalk',
+                configured: false,
+                docsUrl: 'https://open.dingtalk.com/',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [{ envName: 'DINGTALK_CLIENT_ID', label: 'Client ID', sensitive: false, currentValue: null }],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const helpLink = container.querySelector('[data-testid="platform-help-link-dingtalk"]') as HTMLAnchorElement | null;
+    expect(helpLink).not.toBeNull();
+    expect(helpLink?.getAttribute('href')).toBe(
+      'https://support.huaweicloud.com/officeclaw-agentarts-pc/dingtalk.html',
+    );
+    expect(helpLink?.getAttribute('target')).toBe('_blank');
+    expect(helpLink?.getAttribute('rel')).toBe('noopener noreferrer');
   });
 });

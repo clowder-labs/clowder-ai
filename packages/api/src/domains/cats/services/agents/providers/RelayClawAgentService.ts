@@ -15,14 +15,21 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 
 const log = createModuleLogger('relayclaw-agent');
 import { appendLocalUploadPathHints } from './image-cli-bridge.js';
 import { extractUploadRefs } from './image-paths.js';
+import {
+  getJiuwenPermissionBridge,
+  type JiuwenAskUserQuestionPayload,
+  type JiuwenBridgeAnswerSubmission,
+  type JiuwenPermissionBridge,
+} from '../../auth/JiuwenPermissionBridge.js';
 import {
   FrameQueue,
   RelayClawConnectionManager,
@@ -38,7 +45,8 @@ import {
 } from './relayclaw-sidecar.js';
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
-const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 24 * 7 * 60 * 1000;
+const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
@@ -49,6 +57,7 @@ export interface RelayClawAgentServiceDeps {
   createConnection?: RelayClawConnectionFactory;
   createSidecarController?: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
   sidecarDeps?: RelayClawSidecarControllerDeps;
+  permissionBridge?: JiuwenPermissionBridge;
 }
 
 interface RelayClawScopeDescriptor {
@@ -57,6 +66,17 @@ interface RelayClawScopeDescriptor {
 }
 
 interface RelayClawScopeRuntime {
+  scopeKey: string;
+  homeDir?: string;
+  requestQueues: Map<string, FrameQueue>;
+  connection: RelayClawConnection;
+  sidecar: RelayClawSidecarController;
+  resolvedUrl: string | null;
+}
+
+export interface RelayClawRuntimeHandle {
+  scopeKey: string;
+  homeDir?: string;
   requestQueues: Map<string, FrameQueue>;
   connection: RelayClawConnection;
   sidecar: RelayClawSidecarController;
@@ -103,6 +123,7 @@ export class RelayClawAgentService implements AgentService {
   private readonly config: RelayClawAgentConfig;
   private readonly createConnection: RelayClawConnectionFactory;
   private readonly createSidecarController: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
+  private readonly permissionBridge: JiuwenPermissionBridge;
   private readonly scopes = new Map<string, RelayClawScopeRuntime>();
 
   constructor(options: RelayClawAgentServiceOptions, deps?: RelayClawAgentServiceDeps) {
@@ -113,11 +134,12 @@ export class RelayClawAgentService implements AgentService {
     this.createSidecarController =
       deps?.createSidecarController ??
       ((catId, config) => new DefaultRelayClawSidecarController(catId, config, deps?.sidecarDeps));
+    this.permissionBridge = deps?.permissionBridge ?? getJiuwenPermissionBridge();
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const signal = buildSignal(this.config.timeoutMs ?? DEFAULT_RELAYCLAW_TIMEOUT_MS, options?.signal);
-    const channelId = this.config.channelId ?? 'catcafe';
+    const channelId = this.config.channelId ?? 'officeclaw';
     const sessionId = resolveRelayClawSessionId(channelId, options);
     const scope = this.resolveScope(options);
     const runtime = this.getOrCreateScopeRuntime(scope);
@@ -138,7 +160,12 @@ export class RelayClawAgentService implements AgentService {
     const requestId = randomUUID();
     const queue = new FrameQueue();
     runtime.requestQueues.set(requestId, queue);
-    const onAbort = () => queue.abort();
+    const onAbort = () => {
+      void (async () => {
+        await this.sendInterrupt(runtime, channelId, sessionId, requestId);
+      })();
+      queue.abort();
+    };
     signal.addEventListener('abort', onAbort, { once: true });
 
     const sendTs = Date.now();
@@ -146,7 +173,7 @@ export class RelayClawAgentService implements AgentService {
       const request = buildRequest(requestId, channelId, sessionId, prompt, options);
       log.info({ requestId, catId: this.catId, sessionId, promptLen: prompt.length }, 'jiuwen request sent');
       runtime.connection.send(request);
-      yield* this.consumeFrames(requestId, queue, signal, options?.signal, sendTs);
+      yield* this.consumeFrames(runtime, requestId, queue, signal, options, sendTs);
     } catch (err) {
       if (options?.signal?.aborted) {
         yield agentMsg('done', this.catId);
@@ -165,12 +192,24 @@ export class RelayClawAgentService implements AgentService {
   }
 
   dispose(): void {
-    for (const runtime of this.scopes.values()) {
+    for (const [scopeKey, runtime] of this.scopes.entries()) {
+      log.info({ catId: this.catId, scopeKey }, 'relayclaw service disposing scope');
       runtime.connection.close();
-      runtime.sidecar.stop();
+      runtime.sidecar.stop('service_disposed');
       runtime.requestQueues.clear();
     }
     this.scopes.clear();
+  }
+
+  listRelayClawRuntimeHandles(): RelayClawRuntimeHandle[] {
+    return Array.from(this.scopes.values(), (runtime) => ({
+      scopeKey: runtime.scopeKey,
+      homeDir: runtime.homeDir,
+      requestQueues: runtime.requestQueues,
+      connection: runtime.connection,
+      sidecar: runtime.sidecar,
+      resolvedUrl: runtime.resolvedUrl,
+    }));
   }
 
   private resolveScope(options?: AgentServiceOptions): RelayClawScopeDescriptor {
@@ -184,7 +223,7 @@ export class RelayClawAgentService implements AgentService {
     const modelName = this.config.modelName?.trim() || '';
     const scopeHash = createHash('sha256').update([apiBase, apiKey, modelName].join('\n')).digest('hex').slice(0, 12);
     const baseHomeDir =
-      this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
+      this.config.homeDir?.trim() || join(findMonorepoRoot(), '.office-claw', 'relayclaw', this.catId as string);
 
     return {
       key: `auto:${scopeHash}`,
@@ -202,6 +241,8 @@ export class RelayClawAgentService implements AgentService {
       ...(scope.homeDir ? { homeDir: scope.homeDir } : {}),
     };
     const runtime: RelayClawScopeRuntime = {
+      scopeKey: scope.key,
+      homeDir: scope.homeDir,
       requestQueues,
       connection: this.createConnection(requestQueues),
       sidecar: this.createSidecarController(this.catId, scopeConfig),
@@ -225,10 +266,11 @@ export class RelayClawAgentService implements AgentService {
   }
 
   private async *consumeFrames(
+    runtime: RelayClawScopeRuntime,
     requestId: string,
     queue: FrameQueue,
     signal: AbortSignal,
-    callerSignal?: AbortSignal,
+    options?: AgentServiceOptions,
     sendTs?: number,
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
@@ -259,6 +301,27 @@ export class RelayClawAgentService implements AgentService {
       }
 
       const payload = frame.payload;
+      if (
+        payload?.event_type === 'chat.ask_user_question' &&
+        options?.auditContext &&
+        typeof payload.request_id === 'string' &&
+        Array.isArray(payload.questions)
+      ) {
+        const bridged = await this.permissionBridge.ingestAskUserQuestion({
+          catId: this.catId,
+          threadId: options.auditContext.threadId,
+          invocationId: options.auditContext.invocationId,
+          sessionId:
+            typeof payload.session_id === 'string' && payload.session_id.trim().length > 0
+              ? payload.session_id
+              : resolveRelayClawSessionId(this.config.channelId ?? 'officeclaw', options),
+          payload: payload as unknown as JiuwenAskUserQuestionPayload,
+          submitAnswer: async (submission) => {
+            await this.submitJiuwenUserAnswer(runtime, submission);
+          },
+        });
+        if (bridged) continue;
+      }
       const message = transformRelayClawChunk(frame, this.catId);
       if (message) {
         yield message;
@@ -289,7 +352,7 @@ export class RelayClawAgentService implements AgentService {
       usage,
     };
 
-    if (!sawError && signal.aborted && !callerSignal?.aborted) {
+      if (!sawError && signal.aborted && !options?.signal?.aborted) {
       sawError = true;
       yield {
         type: 'error',
@@ -302,6 +365,106 @@ export class RelayClawAgentService implements AgentService {
     const durationMs = sendTs ? Date.now() - sendTs : undefined;
     log.info({ requestId, catId: this.catId, frameCount, durationMs, sawError, usage }, 'jiuwen request complete');
     yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+  }
+
+  private async submitJiuwenUserAnswer(
+    runtime: RelayClawScopeRuntime,
+    submission: JiuwenBridgeAnswerSubmission,
+  ): Promise<void> {
+    const requestId = randomUUID();
+    const queue = new FrameQueue();
+    runtime.requestQueues.set(requestId, queue);
+
+    try {
+      const url = runtime.resolvedUrl ?? this.config.url;
+      if (!url) throw new Error('jiuwen WebSocket URL is not configured');
+      await runtime.connection.ensureConnected(url);
+      runtime.connection.send({
+        request_id: requestId,
+        channel_id: this.config.channelId ?? 'officeclaw',
+        session_id: submission.sessionId,
+        req_method: 'chat.user_answer',
+        params: {
+          request_id: submission.jiuwenRequestId,
+          answers: submission.answers,
+        },
+        is_stream: false,
+        timestamp: Date.now() / 1000,
+      });
+      await this.drainControlFrames(queue, 5000);
+    } finally {
+      runtime.requestQueues.delete(requestId);
+    }
+  }
+
+  private async sendInterrupt(
+    runtime: RelayClawScopeRuntime,
+    channelId: string,
+    sessionId: string,
+    sourceRequestId: string,
+  ): Promise<void> {
+    if (!runtime.connection.isOpen()) return;
+
+    const interruptRequestId = `interrupt_${randomUUID()}`;
+    const interruptQueue = new FrameQueue();
+    runtime.requestQueues.set(interruptRequestId, interruptQueue);
+
+    try {
+      runtime.connection.send({
+        request_id: interruptRequestId,
+        channel_id: channelId,
+        session_id: sessionId,
+        req_method: 'chat.interrupt',
+        params: {
+          intent: 'cancel',
+          request_id: sourceRequestId,
+        },
+        is_stream: false,
+        timestamp: Date.now() / 1000,
+      });
+
+      const interruptFrame = await Promise.race([
+        interruptQueue.take(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS)),
+      ]);
+
+      if (interruptFrame && interruptFrame.ok === false) {
+        log.warn(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request was rejected',
+        );
+      } else if (interruptFrame) {
+        log.info(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request acknowledged',
+        );
+      }
+    } catch (err) {
+      log.warn(
+        {
+          catId: this.catId,
+          sessionId,
+          sourceRequestId,
+          err,
+        },
+        'jiuwen interrupt request failed',
+      );
+    } finally {
+      runtime.requestQueues.delete(interruptRequestId);
+    }
+  }
+
+  private async drainControlFrames(queue: FrameQueue, timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const remaining = Math.max(deadline - Date.now(), 1);
+      const frame = await Promise.race([
+        queue.take(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), remaining)),
+      ]);
+      if (frame === null) return;
+      if (frame.is_complete === true || frame.payload?.is_complete === true) return;
+    }
   }
 }
 

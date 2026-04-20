@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateAgentModal } from '@/components/CreateAgentModal';
+import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -17,7 +18,7 @@ vi.mock('@/utils/api-client', () => ({
 
 const mockApiFetch = vi.mocked(apiFetch);
 const AGENT_NAME_VALIDATION_MESSAGE =
-  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+  '创建智能体名称支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -54,6 +55,21 @@ function setInputValue(input: HTMLInputElement, value: string) {
   descriptor?.set?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+
+function setTextareaValue(input: HTMLTextAreaElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const DEFAULT_MODEL_ITEM = {
+  id: 'model_config:huawei-maas:glm-5',
+  name: 'GLM-5',
+  provider: 'Huawei MaaS',
+  accountRef: 'huawei-maas',
+  protocol: 'huawei_maas',
+  enabled: true,
+};
 
 describe('CreateAgentModal', () => {
   let container: HTMLDivElement;
@@ -138,12 +154,139 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    const postCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST',
+    );
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.accountRef).toBe('huawei-maas');
     expect(payload.defaultModel).toBe('glm-5');
     expect(onSaved).toHaveBeenCalledWith('huawei-bot');
+  });
+
+  it('hides the client selector and saves relayclaw for new agents', async () => {
+    const onSaved = vi.fn();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'new-agent' } }, 201));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'New Agent',
+          description: 'Create flow',
+          onClose: vi.fn(),
+          onSaved,
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
+    expect(container.textContent).not.toContain('Client');
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST',
+    );
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.catId).toMatch(/^agent-[a-z0-9]+$/);
+    expect(payload.client).toBe('relayclaw');
+    expect(onSaved).toHaveBeenCalledWith('new-agent');
+  });
+
+  it('hides the client selector and saves relayclaw for edited agents', async () => {
+    const onSaved = vi.fn();
+    const cat: CatData = {
+      id: 'cat-1',
+      name: 'Edited Agent',
+      displayName: 'Edited Agent',
+      color: { primary: '#111111', secondary: '#222222' },
+      mentionPatterns: ['@edited-agent'],
+      provider: 'openai',
+      accountRef: 'legacy-account',
+      defaultModel: 'legacy-model',
+      avatar: '/avatars/agent-avatar-1.png',
+      roleDescription: 'Existing description',
+      personality: '',
+      source: 'runtime',
+    };
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats/cat-1' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'cat-1' } }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          cat,
+          name: 'Edited Agent',
+          description: 'Edit flow',
+          onClose: vi.fn(),
+          onSaved,
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
+    expect(container.textContent).not.toContain('Client');
+
+    const saveButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(saveButton).toBeTruthy();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats/cat-1' && requestInit?.method === 'PATCH',
+    );
+    expect(patchCall).toBeTruthy();
+    const payload = JSON.parse(String(patchCall?.[1]?.body));
+    expect(payload.client).toBe('relayclaw');
+    expect(onSaved).toHaveBeenCalledWith('cat-1');
   });
 
   it('uses shared footer button classes', async () => {
@@ -163,14 +306,12 @@ describe('CreateAgentModal', () => {
     await flushEffects();
     await flushEffects();
 
-    const cancelButton = container.querySelector('button[aria-label=\"Cancel\"]') as HTMLButtonElement | null;
-    const confirmButton = container.querySelector('button[aria-label=\"Create\"]') as HTMLButtonElement | null;
+    const cancelButton = container.querySelector('button[aria-label="Cancel"]') as HTMLButtonElement | null;
+    const confirmButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('shows inline validation and disables confirm when name is empty', async () => {
@@ -204,7 +345,9 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
   });
 
   it('shows inline validation and disables confirm when name has no valid characters', async () => {
@@ -238,7 +381,180 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
+  });
+
+  it('keeps the description textarea character counter behavior unchanged', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Description Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const descriptionTextarea = container.querySelector('textarea[aria-label="Description"]') as HTMLTextAreaElement | null;
+    expect(descriptionTextarea).toBeTruthy();
+    expect(container.textContent).toContain('0/1000');
+
+    await act(async () => {
+      setTextareaValue(descriptionTextarea!, 'hello world');
+    });
+
+    await flushEffects();
+
+    expect(descriptionTextarea?.value).toBe('hello world');
+    expect(container.textContent).toContain('11/1000');
+    expect(descriptionTextarea?.className).toContain('ui-textarea');
+  });
+
+  it('shows /api/cats duplicate-name errors beneath the name input instead of the global error area', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: '名称 "Duplicate Bot" 已被使用' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Duplicate Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[aria-label="Name"]') as HTMLInputElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const nameError = container.querySelector('[data-testid="create-agent-name-error"]') as HTMLDivElement | null;
+    expect(nameError?.textContent).toBe('名称 "Duplicate Bot" 已被使用');
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
+  });
+
+  it('normalizes unavailable-model save errors into a reselection hint', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: 'model "DD" is not available on provider "huawei-maas"' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Model Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型不存在，请重新选择');
+    expect(container.textContent).not.toContain('model "DD" is not available on provider "huawei-maas"');
+  });
+
+  it('normalizes missing-provider save errors into a reselection hint', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ error: 'provider "af1f012e" not found' }, 400));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Provider Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型不存在，请重新选择');
+    expect(container.textContent).not.toContain('provider "af1f012e" not found');
   });
 
   it('shows inline validation when name starts or ends with spaces', async () => {
@@ -272,7 +588,9 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
   });
 
   it('blocks unsupported avatar formats before upload', async () => {
@@ -305,8 +623,32 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('仅支持上传 png、jpeg、gif、jpg 格式图片');
+    expect(container.querySelector('[data-testid="create-agent-avatar-error"]')?.textContent).toContain(
+      '仅支持上传 png、jpeg、jpg 格式图片',
+    );
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
+  });
+
+  it('shows the avatar upload size hint with uppercase KB', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Avatar Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain('200KB');
+    expect(container.textContent).not.toContain('200kb');
   });
 
   it('blocks oversized avatar files before upload', async () => {
@@ -339,7 +681,73 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('头像大小不能超过 200KB');
+    expect(container.querySelector('[data-testid="create-agent-avatar-error"]')?.textContent).toContain(
+      '头像大小不能超过 200KB',
+    );
+    expect(container.querySelector('[data-testid="create-agent-global-error"]')).toBeNull();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onCloseFn = vi.fn();
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Test Bot',
+          description: 'Test description',
+          onClose: onCloseFn,
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="create-agent-modal"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(onCloseFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the edit modal when Escape key is pressed', async () => {
+    const onCloseFn = vi.fn();
+    mockModalBootApi();
+
+    const mockCat: Partial<CatData> = {
+      id: 'test-cat-id',
+      name: 'Existing Bot',
+      roleDescription: 'Existing description',
+      icon: '/images/cat-1.svg',
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          cat: mockCat as CatData,
+          onClose: onCloseFn,
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="create-agent-modal"]')).not.toBeNull();
+    expect(container.textContent).toContain('编辑智能体');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(onCloseFn).toHaveBeenCalledTimes(1);
   });
 });

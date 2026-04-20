@@ -68,6 +68,27 @@ _EMBED_MODEL_KEY_MAP = {
 }
 
 
+def dedicated_multimodal_model_configured(
+    config_base: dict[str, Any] | None, model_type: str
+) -> bool:
+    """Whether ``models.{model_type}`` has its own non-empty ``api_key`` (after YAML env resolution).
+
+    Used to gate image / video / **audio LLM** tools so we do not mount them when only the
+    default chat ``API_KEY`` exists (unlike ``apply_*_model_config_from_yaml``, which may
+    fall back to embed / main API). Same idea as ``get_mcp_tools`` omitting ``mcp_paid_search``
+    when no paid search credentials exist.
+
+    ``audio_metadata`` (ACRCloud) is not covered here — it uses ``ACR_*`` env vars.
+    """
+    if model_type not in ("audio", "vision", "video"):
+        return False
+    if not isinstance(config_base, dict):
+        return False
+    mc = _get_model_config(config_base, model_type)
+    api_key = str(mc.get("api_key") or "").strip()
+    return bool(api_key)
+
+
 def _get_embed_model_name(embed_cfg: dict[str, Any], model_type: str) -> str:
     """
     从 embed 配置中获取指定类型的模型名称

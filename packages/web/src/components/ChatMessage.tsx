@@ -6,7 +6,9 @@
 
 'use client';
 
+import { memo } from 'react';
 import { useRouter } from 'next/navigation';
+import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
 import { getCachedCats, type CatData } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
@@ -61,9 +63,18 @@ function formatDualTime(timestamp: number, deliveredAt?: number): string {
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
+  pendingAuthRequests?: AuthPendingRequest[];
+  onAuthRespond?: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void | Promise<void>;
+  onOpenSecurityManagement?: () => void;
 }
 
-export function ChatMessage({ message, getCatById }: ChatMessageProps) {
+function ChatMessageInner({
+  message,
+  getCatById,
+  pendingAuthRequests,
+  onAuthRespond,
+  onOpenSecurityManagement,
+}: ChatMessageProps) {
   const coCreator = useCoCreatorConfig();
   const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
@@ -87,7 +98,6 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         const isCallback = message.origin === 'callback';
         return {
           label,
-          radius: breed.radius,
           font: breed.font,
           bgColor: isCallback ? tintedLight(catData.color.primary, 0.08) : catData.color.secondary,
           borderColor: isCallback ? hexToRgba(catData.color.primary, 0.12) : hexToRgba(catData.color.primary, 0.3),
@@ -167,7 +177,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.
 
     const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
-    const isError = message.variant === 'error' || isLegacyError;
+    const isError = message.variant === 'error' || isLegacyError || Boolean(message.extra?.errorFallback);
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
 
@@ -193,7 +203,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
           {isFollowup && <span className="mr-1">🔗</span>}
-          {message.content}
+          {isError ? <MarkdownContent content={message.content} disableCommandPrefix /> : message.content}
           {isFollowup && <span className="block mt-1 text-xs text-purple-500">输入 @智能体 跟进 来发起 follow-up</span>}
         </div>
       </div>
@@ -235,16 +245,16 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             style={
               !isWhisper || isRevealed
                 ? {
-                    backgroundColor: 'rgb(222, 236, 255)',
+                    backgroundColor: 'var(--chat-user-bubble-bg)',
                     color: 'rgb(25, 25, 25)',
                   }
                 : undefined
             }
           >
             {hasBlocks ? (
-              <ContentBlocks blocks={message.contentBlocks!} />
+              <ContentBlocks blocks={message.contentBlocks!} enableSkillAndQuickActionTokens showFileAction={false} />
             ) : (
-              <MarkdownContent content={message.content} />
+              <MarkdownContent content={message.content} enableSkillAndQuickActionTokens />
             )}
           </div>
         </div>
@@ -300,9 +310,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         {catStyle && (
           <div className="answer-header flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0 text-[rgb(128_128_128)]">
-              <span className="text-xs">
-                {catStyle.label}
-              </span>
+              <span className="text-xs">{catStyle.label}</span>
               <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
               {isWhisper && (
                 <span
@@ -368,13 +376,17 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         )}
         <div
           className={`answer-body overflow-hidden ${
-            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
+            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200'
           }`}
         >
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
+            <MarkdownContent
+              content={message.content}
+              className={catStyle?.font}
+              enableSkillAndQuickActionTokens={false}
+            />
           ) : message.isStreaming ? (
             <span className="text-xs text-gray-500 hidden">Thinking...</span>
           ) : null}
@@ -399,6 +411,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               defaultExpanded={uiThinkingExpandedByDefault}
               breedColor={catData?.color.primary}
               projectPath={currentThread?.projectPath}
+              authorizationRequests={pendingAuthRequests}
+              onAuthorizationRespond={onAuthRespond}
+              onOpenSecurityManagement={onOpenSecurityManagement}
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
@@ -414,3 +429,16 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     </div>
   );
 }
+
+function areChatMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): boolean {
+  return (
+    prev.message === next.message &&
+    prev.getCatById === next.getCatById &&
+    prev.pendingAuthRequests === next.pendingAuthRequests &&
+    prev.onAuthRespond === next.onAuthRespond &&
+    prev.onOpenSecurityManagement === next.onOpenSecurityManagement
+  );
+}
+
+export const ChatMessage = memo(ChatMessageInner, areChatMessagePropsEqual);
+ChatMessage.displayName = 'ChatMessage';

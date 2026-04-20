@@ -9,11 +9,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import styles from './HubSkillsTab.module.css';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
+import { SearchInput } from './shared/SearchInput';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -21,6 +23,7 @@ interface SearchSkill {
   slug: string;
   name: string;
   description: string;
+  category?: string;
   tags: string[];
   stars?: number;
   repo: { githubOwner: string; githubRepoName: string };
@@ -43,13 +46,13 @@ const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
 const INSTALLED_LABEL = '已安装';
-const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索技能';
 const ALL_CATEGORY = '全部';
 const PAGE_SIZE = 24;
 const SEARCH_DEBOUNCE_MS = 300;
 const INSTALL_SUCCESS_TITLE = '安装成功';
 const INSTALL_FAILURE_TITLE = '安装失败';
+const CATEGORY_TAB_PRIORITY = ['办公套件'];
 
 const CATEGORY_MAP: Record<string, string> = {
   'ai-intelligence': 'AI 智能',
@@ -65,12 +68,29 @@ function normalizeCategory(cat: string): string {
   return CATEGORY_MAP[cat] ?? cat;
 }
 
+function sortCategoryTabs(categories: string[]): string[] {
+  const unique = [...new Set(categories)];
+  return unique.sort((left, right) => {
+    const leftIndex = CATEGORY_TAB_PRIORITY.indexOf(left);
+    const rightIndex = CATEGORY_TAB_PRIORITY.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    return left.localeCompare(right, 'zh-CN');
+  });
+}
+
 function resolveCategoryParam(category: string): string | null {
   if (!category || category === ALL_CATEGORY) return null;
   return Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
 }
 
 function getSkillCategory(skill: SearchSkill): string {
+  if (skill.category?.trim()) {
+    return normalizeCategory(skill.category.trim());
+  }
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
   return primaryTag ? primaryTag.replace(/[-_]/g, ' ') : GENERAL_CATEGORY;
 }
@@ -120,9 +140,10 @@ function SkillList({
       <div className={styles.skillGrid}>
         {results.skills.map((skill) => {
           const resolvedDescription = skill.description.trim() || FALLBACK_DESCRIPTION;
+          const resolvedCategory = getSkillCategory(skill);
 
           return (
-            <article key={skill.id} className={`ui-card ui-card-hover ${styles.card}`}>
+            <article key={skill.id} className={`ui-card ${styles.card}`}>
               <div className={styles.header}>
                 <NameInitialIcon name={skill.slug} />
                 <div className={styles.content}>
@@ -135,7 +156,12 @@ function SkillList({
                         textClassName={`${styles.title} block truncate`}
                       />
                       <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
-                        <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
+                        <OverflowTooltip
+                          content={resolvedCategory}
+                          className="inline-flex max-w-full min-w-0"
+                          as="span"
+                          textClassName="ui-badge-muted inline-block max-w-full truncate align-middle leading-[18px]"
+                        />
                         {skill.stars !== undefined ? (
                           <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
                             <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
@@ -206,7 +232,7 @@ export function HubSkillsTab() {
       const res = await apiFetch('/api/skills/categories');
       if (res.ok) {
         const data = (await res.json()) as { categories: string[] };
-        setCategories(data.categories.map(normalizeCategory));
+        setCategories(sortCategoryTabs(data.categories.map(normalizeCategory)));
       }
     } catch {
       // ignore error
@@ -409,6 +435,7 @@ export function HubSkillsTab() {
         if (res.ok) {
           clearInstallStatus(skill);
           markSkillInstalled(skill);
+          notifySkillOptionsChanged();
           addToast({
             type: 'success',
             title: INSTALL_SUCCESS_TITLE,
@@ -444,8 +471,8 @@ export function HubSkillsTab() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex flex-col">
+      <section className="flex flex-col">
         <div className="shrink-0" data-testid="hub-skills-fixed-header">
           {categories.length > 0 && (
             <div className="flex flex-wrap items-center gap-4 pb-6">
@@ -474,19 +501,20 @@ export function HubSkillsTab() {
               {results ? ` (${results.total})` : ''}
             </p>
             <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
-              <input
-                type="text"
+              <SearchInput
+                wrapperClassName="flex-1"
                 aria-label={SEARCH_ARIA_LABEL}
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+                onChange={(value) => setSearchQuery(value)}
+                onClear={() => setSearchQuery('')}
+                placeholder={SEARCH_ARIA_LABEL}
+                clearAriaLabel="清除搜索"
               />
             </div>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
+        <div data-testid="hub-skills-scroll-region">
           {results ? (
             <>
               {results.skills.length === 0 ? (

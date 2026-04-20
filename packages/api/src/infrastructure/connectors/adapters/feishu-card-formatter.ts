@@ -4,7 +4,7 @@
  *
  */
 
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@office-claw/shared';
 
 const TONE_TO_COLOR: Record<string, string> = {
   info: 'blue',
@@ -21,6 +21,7 @@ interface LarkCardElement {
 export interface LarkCard {
   header: { title: { content: string; tag: string }; template: string };
   elements: LarkCardElement[];
+  [key: string]: unknown;
 }
 
 function blockToElements(block: RichBlock): LarkCardElement[] {

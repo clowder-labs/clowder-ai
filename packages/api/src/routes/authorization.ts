@@ -6,41 +6,28 @@
 
 /**
  * Authorization Management Routes — 铲屎官审批 + 规则管理 + 审计查询
- * 安全: X-Office-Claw-User header（兼容 legacy x-user-id）
+ * 安全: X-Office-Claw-User header
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';
+import {
+  getJiuwenPermissionBridge,
+  type JiuwenPermissionBridge,
+} from '../domains/cats/services/auth/JiuwenPermissionBridge.js';
 import type { IAuthorizationAuditStore } from '../domains/cats/services/stores/ports/AuthorizationAuditStore.js';
 import type { IAuthorizationRuleStore } from '../domains/cats/services/stores/ports/AuthorizationRuleStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface AuthorizationRoutesOptions {
   authManager: AuthorizationManager;
   ruleStore: IAuthorizationRuleStore;
   auditStore: IAuthorizationAuditStore;
   socketManager: SocketManager;
-}
-
-function resolveAuthorizationUserId(request: {
-  headers: Record<string, string | string[] | undefined>;
-}): string | null {
-  const fromPrimary = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']);
-  if (typeof fromPrimary === 'string' && fromPrimary.trim().length > 0) return fromPrimary.trim();
-  if (Array.isArray(fromPrimary) && typeof fromPrimary[0] === 'string' && fromPrimary[0].trim().length > 0) {
-    return fromPrimary[0].trim();
-  }
-
-  // Legacy compatibility: old clients used x-user-id
-  const fromLegacy = request.headers['x-user-id'];
-  if (typeof fromLegacy === 'string' && fromLegacy.trim().length > 0) return fromLegacy.trim();
-  if (Array.isArray(fromLegacy) && typeof fromLegacy[0] === 'string' && fromLegacy[0].trim().length > 0) {
-    return fromLegacy[0].trim();
-  }
-
-  return null;
+  jiuwenPermissionBridge?: JiuwenPermissionBridge;
 }
 
 const respondSchema = z.object({
@@ -61,10 +48,11 @@ const addRuleSchema = z.object({
 
 export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions> = async (app, opts) => {
   const { authManager, ruleStore, auditStore, socketManager } = opts;
+  const jiuwenPermissionBridge = opts.jiuwenPermissionBridge ?? getJiuwenPermissionBridge();
 
   // POST /api/authorization/respond — 铲屎官审批
   app.post('/api/authorization/respond', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -83,6 +71,15 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
       return { error: 'Request not found or already resolved' };
     }
 
+    try {
+      await jiuwenPermissionBridge.submitAuthorizationDecision({ localRequestId: requestId, granted, scope, reason });
+    } catch (error) {
+      request.log.warn(
+        { err: error, requestId, threadId: updated.threadId },
+        'failed to bridge authorization response back to Jiuwen',
+      );
+    }
+
     // Broadcast resolution to frontend
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'authorization:response', {
       requestId,
@@ -96,7 +93,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
   // GET /api/authorization/pending — 待审批列表
   app.get('/api/authorization/pending', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -109,7 +106,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
   // GET /api/authorization/rules — 规则列表
   app.get('/api/authorization/rules', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -125,7 +122,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
   // POST /api/authorization/rules — 手动添加规则
   app.post('/api/authorization/rules', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -153,7 +150,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
   // DELETE /api/authorization/rules/:id — 删除规则
   app.delete('/api/authorization/rules/:id', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -171,7 +168,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
   // GET /api/authorization/audit — 审计日志
   app.get('/api/authorization/audit', async (request, reply) => {
-    const userId = resolveAuthorizationUserId(request);
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Office-Claw-User header)' };

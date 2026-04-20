@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, BacklogStatus, CatId } from '@cat-cafe/shared';
+import type { BacklogItem, BacklogStatus, CatId } from '@office-claw/shared';
 import { useMemo, useState } from 'react';
 import { useFeatureDocDetail } from '../../hooks/useFeatureDocDetail';
 import { extractFeatureId } from './FeatureBirdEyePanel';

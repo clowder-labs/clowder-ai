@@ -12,6 +12,7 @@
  * Mapping (event_type → AgentMessageType):
  *   chat.delta              → text   (streaming text fragment)
  *   chat.final              → (skip; completion marker only)
+ *   chat.tool_calls.delta   → (skip; partial tool-call fragment)
  *   chat.tool_call          → tool_use
  *   chat.tool_result        → tool_result
  *   chat.error              → error
@@ -21,7 +22,7 @@
  *   todo.updated            → (skip)
  */
 
-import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@cat-cafe/shared';
+import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage } from '../../types.js';
 
@@ -80,28 +81,51 @@ export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): 
       return null;
     }
 
+    case 'chat.tool_calls.delta': {
+      return null;
+    }
+
     case 'chat.tool_call': {
       const toolCall = payload.tool_call;
       if (!toolCall) return null;
       const toolName = (toolCall.name ?? toolCall.tool_name ?? 'unknown') as string;
       const toolInput = (toolCall.arguments ?? toolCall.input ?? toolCall) as Record<string, unknown>;
+      const toolCallId = (toolCall.id ?? toolCall.tool_call_id ?? payload.tool_call_id) as string | undefined;
       return {
         type: 'tool_use',
         catId,
         toolName,
         toolInput,
+        toolCallId,
         timestamp: Date.now(),
       };
     }
 
     case 'chat.tool_result': {
-      const result = payload.result ?? '';
-      return msg('tool_result', catId, typeof result === 'string' ? result : JSON.stringify(result));
+      const toolResult = (payload.tool_result ?? payload) as Record<string, unknown>;
+      const result = (payload.result ?? toolResult.result ?? '') as string | unknown;
+      const toolCallId = (toolResult.tool_call_id ?? payload.tool_call_id) as string | undefined;
+      const toolName = (toolResult.tool_name ?? payload.tool_name) as string | undefined;
+      return {
+        type: 'tool_result',
+        catId,
+        content: typeof result === 'string' ? result : JSON.stringify(result),
+        toolCallId,
+        toolName,
+        timestamp: Date.now(),
+      };
     }
 
     case 'chat.error': {
       const error = payload.error ?? 'Unknown relay-claw error';
-      return { type: 'error', catId, error, timestamp: Date.now() };
+      // 提取 error_code，用于前端精准识别特定错误类型（如 ModelArts.81101 限流）
+      const errorStr = typeof error === 'string' ? error : JSON.stringify(error);
+      const errorCodeMatch = errorStr.match(/'error_code':\s*'([^']+)'/) ||
+        errorStr.match(/"error_code":\s*"([^"]+)"/)||
+        errorStr.match(/'code':\s*'([^']+)'/) ||
+        errorStr.match(/"code":\s*"([^"]+)"/); 
+      const errorCode = errorCodeMatch?.[1];
+      return { type: 'error', catId, error: errorStr, ...(errorCode ? { errorCode } : {}), timestamp: Date.now() };
     }
 
     case 'chat.processing_status': {

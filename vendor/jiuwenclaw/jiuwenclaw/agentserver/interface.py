@@ -38,10 +38,9 @@ from jiuwenclaw.utils import (
     get_agent_registered_skill_dirs,
     get_checkpoint_dir,
     get_env_file,
-    get_workspace_dir,
-    logger,
-    sync_shared_agent_skills_cache,
+    get_workspace_dir
 )
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
 from jiuwenclaw.agentserver.tools.browser_tools import register_browser_runtime_mcp_server
@@ -51,7 +50,11 @@ from jiuwenclaw.agentserver.tools.audio_tools import (
 )
 from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
-from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
+from jiuwenclaw.agentserver.tools.todo_toolkits import (
+    TodoToolkit,
+    reset_todo_request_scope,
+    todo_request_scope_token,
+)
 from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
 from jiuwenclaw.agentserver.tools.load_skill_tools import LoadSkillToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
@@ -83,6 +86,7 @@ from jiuwenclaw.agentserver.tools.multimodal_config import (
     apply_audio_model_config_from_yaml,
     apply_vision_model_config_from_yaml,
     apply_video_model_config_from_yaml,
+    dedicated_multimodal_model_configured,
 )
 from jiuwenclaw.agentserver.runtime_config_yaml import (
     apply_config_yaml_patch,
@@ -121,21 +125,6 @@ SYSTEM_PROMPT = """# 角色
 请勿猜测或编造缺失的内容
 
 存储类型："in_memory"（会话缓存）
-"""
-
-TODO_PROMPT = """
-# 任务执行规则
-1. 所有任务必须通过 todo 工具进行记录和追踪。
-2. 首先，你应该尝试使用 todo_create 创建新任务。
-3. 但如果遇到"错误：待办列表已存在"的提示，则必须使用 todo_insert 函数添加任务。
-4. 如果用户有新的需求，请分析当前已有任务，并结合当前执行情况，对当前的 todo 任务实现最小改动，以满足用户的需求。
-5. **完成任务强制规则**：
-   - 任务的每个子项执行完毕后，**必须调用 todo_complete 工具**将其标记为已完成
-   - todo_complete 工具需要传入对应的任务ID（从当前待办列表中获取）
-   - 只有成功调用 todo_complete 工具后，才能向用户报告任务已完成
-6. 严禁仅用语言表示任务完成，必须实际调用工具。
-
-处理用户请求时，请检查你的技能是否适用，阅读对应的技能描述，使用合理的技能。
 """
 
 # Skills 请求路由表
@@ -191,6 +180,8 @@ class JiuWenClaw:
         self._session_priorities: dict[str, int] = {}  # session_id -> 优先级计数器（用于先进后出）
         self._session_queues: dict[str, asyncio.PriorityQueue] = {}  # session_id -> 优先队列
         self._session_processors: dict[str, asyncio.Task] = {}  # session_id -> processor_task
+        self._request_session_toolkits: dict[str, MultiSessionToolkit] = {}  # request_id -> toolkit
+        self._session_toolkit_requests: dict[str, set[str]] = {}  # session_id -> request_ids
         # Session-bound project_dir (resolved str), isolated from self._workspace_dir (agent root for memory).
         self._session_project_dir: dict[str, str] = {}
         # Memory system expects workspace_dir/layout:
@@ -342,7 +333,6 @@ class JiuWenClaw:
         # register installed skills (compatible with openjiuwen variants).
         if hasattr(self._instance, "_skill_util"):
             try:
-                sync_shared_agent_skills_cache()
                 skill_paths = [str(path) for path in get_agent_registered_skill_dirs() if path.exists()]
                 if len(skill_paths) == 1:
                     await self._instance.register_skill(skill_paths[0])
@@ -422,15 +412,22 @@ class JiuWenClaw:
             except Exception as exc:
                 logger.warning("[JiuWenClaw] task memory tools registration failed: %s", exc)
 
-        # add video_understanding tool
-        try:
-            if not Runner.resource_mgr.get_tool(video_understanding.card.id):
-                Runner.resource_mgr.add_tool(video_understanding)
-            self._instance.ability_manager.add(video_understanding.card)
+        # add video_understanding tool（仅当 models.video 配置了独立 api_key，避免误用主模型 Key）
+        if dedicated_multimodal_model_configured(config_base, "video"):
+            try:
+                if not Runner.resource_mgr.get_tool(video_understanding.card.id):
+                    Runner.resource_mgr.add_tool(video_understanding)
+                self._instance.ability_manager.add(video_understanding.card)
+                self._video_tool_registered = True
+                logger.info("[JiuWenClaw] video_understanding tool registered")
+            except Exception as exc:
+                self._video_tool_registered = False
+                logger.warning("[JiuWenClaw] video_understanding tool registration failed: %s", exc)
+        else:
             self._video_tool_registered = True
-        except Exception as exc:
-            self._video_tool_registered = False
-            logger.warning("[JiuWenClaw] video_understanding tool registration failed: %s", exc)
+            logger.info(
+                "[JiuWenClaw] skip video_understanding: models.video 未配置独立 api_key"
+            )
 
         for mcp_tool in get_mcp_tools():
             Runner.resource_mgr.add_tool(mcp_tool)
@@ -508,19 +505,33 @@ class JiuWenClaw:
         except Exception as exc:
             logger.warning("[JiuWenClaw] browser MCP registration skipped: %s", exc)
 
-        # add vision tools (直接注册方式)
-        try:
-            for tool in [visual_question_answering]:
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
+        # add vision tools（仅当 models.vision 配置了独立 api_key）
+        if dedicated_multimodal_model_configured(config_base, "vision"):
+            try:
+                for tool in [visual_question_answering]:
+                    Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+                self._vision_mcp_registered = True
+                logger.info("[JiuWenClaw] vision tools registered successfully")
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] vision tools registration skipped: %s", exc)
+        else:
             self._vision_mcp_registered = True
-            logger.info("[JiuWenClaw] vision tools registered successfully")
-        except Exception as exc:
-            logger.warning("[JiuWenClaw] vision tools registration skipped: %s", exc)
+            logger.info(
+                "[JiuWenClaw] skip visual_question_answering: models.vision 未配置独立 api_key"
+            )
 
-        # add audio tools (直接注册方式)
+        # add audio tools：大模型问答需 models.audio 独立 api_key；metadata 仍注册（ACR）
         try:
-            for tool in [audio_question_answering, audio_metadata]:
+            if dedicated_multimodal_model_configured(config_base, "audio"):
+                for tool in [audio_question_answering]:
+                    Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+            else:
+                logger.info(
+                    "[JiuWenClaw] skip audio_question_answering: models.audio 未配置独立 api_key"
+                )
+            for tool in [audio_metadata]:
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
             self._audio_mcp_registered = True
@@ -785,6 +796,23 @@ class JiuWenClaw:
                 },
                 metadata=request.metadata,
             )
+        # Inject description from ability_manager into permissions.tools
+        if trees and self._instance is not None:
+            permissions = trees.get("permissions")
+            if isinstance(permissions, dict):
+                tools_cfg = permissions.get("tools")
+                if isinstance(tools_cfg, dict):
+                    for tool_name, tool_cfg in tools_cfg.items():
+                        card = self._instance.ability_manager.get(tool_name)
+                        if not isinstance(card, ToolCard):
+                            continue
+                        desc = getattr(card, 'description', None)
+                        if not desc:
+                            continue
+                        if isinstance(tool_cfg, str):
+                            tools_cfg[tool_name] = {"level": tool_cfg, "description": desc}
+                        elif isinstance(tool_cfg, dict):
+                            tool_cfg["description"] = desc
         return AgentResponse(
             request_id=request.request_id,
             channel_id=request.channel_id,
@@ -887,26 +915,12 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
-        todo_toolkit = TodoToolkit(session_id=effective_session_id)
-        for tool in todo_toolkit.get_tools():
-            Runner.resource_mgr.add_tool(tool)
-            self._instance.ability_manager.add(tool.card)
-        self._todo_tool_sessions_registered.add(effective_session_id)
-
-        if mode != "plan":
-            # agent 模式额外注册并行子任务工具
-            config_base = get_config()
-            session_toolkits = MultiSessionToolkit(
-                session_id=effective_session_id,
-                channel_id=channel_id,
-                request_id=request_id,
-                sub_agent_config=self._load_react_config(config_base)
-            )
-            for tool in session_toolkits.get_tools():
+        if mode == "plan":
+            todo_toolkit = TodoToolkit(session_id=effective_session_id)
+            for tool in todo_toolkit.get_tools():
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
-
+            self._todo_tool_sessions_registered.add(effective_session_id)
         # Register send file toolkit
         if not self._send_file_tool_registered:
             send_file_toolkit = SendFileToolkit(
@@ -945,27 +959,51 @@ class JiuWenClaw:
                 logger.warning("[JiuWenClaw] ensure task memory tools failed: %s", exc)
 
         if not self._video_tool_registered:
-            try:
-                if not Runner.resource_mgr.get_tool(video_understanding.card.id):
-                    Runner.resource_mgr.add_tool(video_understanding)
-                self._instance.ability_manager.add(video_understanding.card)
+            cfg_video = get_config()
+            if dedicated_multimodal_model_configured(cfg_video, "video"):
+                try:
+                    if not Runner.resource_mgr.get_tool(video_understanding.card.id):
+                        Runner.resource_mgr.add_tool(video_understanding)
+                    self._instance.ability_manager.add(video_understanding.card)
+                    self._video_tool_registered = True
+                except Exception as exc:
+                    logger.warning("[JiuWenClaw] ensure video_understanding tool failed: %s", exc)
+            else:
                 self._video_tool_registered = True
-            except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure video_understanding tool failed: %s", exc)
+                logger.info(
+                    "[JiuWenClaw] skip ensure video_understanding: models.video 未配置独立 api_key"
+                )
 
         if not self._vision_mcp_registered:
-            try:
-                for tool in [visual_question_answering]:
-                    if not Runner.resource_mgr.get_tool(tool.card.id):
-                        Runner.resource_mgr.add_tool(tool)
-                    self._instance.ability_manager.add(tool.card)
+            cfg_vision = get_config()
+            if dedicated_multimodal_model_configured(cfg_vision, "vision"):
+                try:
+                    for tool in [visual_question_answering]:
+                        if not Runner.resource_mgr.get_tool(tool.card.id):
+                            Runner.resource_mgr.add_tool(tool)
+                        self._instance.ability_manager.add(tool.card)
+                    self._vision_mcp_registered = True
+                except Exception as exc:
+                    logger.warning("[JiuWenClaw] ensure vision tools failed: %s", exc)
+            else:
                 self._vision_mcp_registered = True
-            except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure vision tools failed: %s", exc)
+                logger.info(
+                    "[JiuWenClaw] skip ensure visual_question_answering: models.vision 未配置独立 api_key"
+                )
 
         if not self._audio_mcp_registered:
+            cfg_audio = get_config()
             try:
-                for tool in [audio_question_answering, audio_metadata]:
+                if dedicated_multimodal_model_configured(cfg_audio, "audio"):
+                    for tool in [audio_question_answering]:
+                        if not Runner.resource_mgr.get_tool(tool.card.id):
+                            Runner.resource_mgr.add_tool(tool)
+                        self._instance.ability_manager.add(tool.card)
+                else:
+                    logger.info(
+                        "[JiuWenClaw] skip ensure audio_question_answering: models.audio 未配置独立 api_key"
+                    )
+                for tool in [audio_metadata]:
                     if not Runner.resource_mgr.get_tool(tool.card.id):
                         Runner.resource_mgr.add_tool(tool)
                     self._instance.ability_manager.add(tool.card)
@@ -995,6 +1033,14 @@ class JiuWenClaw:
                 workspace_dir=prompt_workspace_dir,
             ),
         }]
+
+        # 记录当前注册的工具列表
+        registered_tools = self._instance.ability_manager.list()
+        tool_names = [t.name for t in registered_tools if hasattr(t, 'name')]
+        logger.info(
+            "[JiuWenClaw] _register_runtime_tools complete: request_id=%s session_id=%s tool_count=%d tools=%s",
+            request_id, session_id, len(tool_names), tool_names[:20] if tool_names else [],
+        )
 
         return session_toolkits
 
@@ -1045,8 +1091,9 @@ class JiuWenClaw:
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
 
-            # 取消当前 session 的非流式任务
+            # 先取消当前 session 的子协程工具包，避免父任务 cancel 后 finally 提前 untrack
             session_id = self._get_session_id(request)
+            await self._cancel_session_toolkits(session_id, "interrupt(supplement): ")
             await self._cancel_session_task(session_id, "interrupt(supplement): ")
 
             # 取消流式任务
@@ -1069,7 +1116,8 @@ class JiuWenClaw:
             # 先恢复暂停（防止 cancel 时 task 阻塞在 pause_event.wait 上）
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
-
+            # 取消所有 session 的子协程工具包
+            await self._cancel_all_session_toolkits(f"interrupt(intent={intent}): ")
             # 取消所有 session 的非流式任务
             await self._cancel_all_session_tasks(f"interrupt(intent={intent}): ")
 
@@ -1085,21 +1133,15 @@ class JiuWenClaw:
                     for t in active:
                         t.cancel()
 
-            # 将未完成的 todo 项标记为 cancelled（保留在列表中，agent 不会执行）
+            # 将未完成的 todo 项标记为 cancelled（legacy 与各 request 分目录下的列表）
             if request.session_id:
                 try:
-                    todo_toolkit = TodoToolkit(session_id=request.session_id)
-                    tasks = todo_toolkit._load_tasks()
-                    cancel_count = 0
-                    for t in tasks:
-                        if t.status.value in ("waiting", "running"):
-                            t.status = TaskStatus.CANCELLED
-                            cancel_count += 1
+                    cancel_count = TodoToolkit.cancel_all_incomplete_for_session(request.session_id)
                     if cancel_count:
-                        todo_toolkit._save_tasks(tasks)
                         logger.info(
                             "[JiuWenClaw] interrupt: 已将 %d 个未完成 todo 项标记为 cancelled session_id=%s",
-                            cancel_count, request.session_id,
+                            cancel_count,
+                            request.session_id,
                         )
                 except Exception as exc:
                     logger.warning("[JiuWenClaw] 标记 todo cancelled 失败: %s", exc)
@@ -1163,6 +1205,25 @@ class JiuWenClaw:
     def _get_session_id(self, request: AgentRequest) -> str:
         """获取 session_id，默认为 'default'."""
         return request.session_id or "default"
+
+    def _track_session_toolkit(self, request_id: str, session_id: str, toolkit: MultiSessionToolkit) -> None:
+        """Track request-scoped MultiSessionToolkit so interrupt can cancel spawned sub-sessions."""
+        self._request_session_toolkits[request_id] = toolkit
+        request_ids = self._session_toolkit_requests.setdefault(session_id, set())
+        request_ids.add(request_id)
+
+    def _untrack_session_toolkit(self, request_id: str) -> None:
+        """Remove request-scoped toolkit tracking after the parent request finishes."""
+        toolkit = self._request_session_toolkits.pop(request_id, None)
+        if toolkit is None:
+            return
+        session_id = toolkit.session_id
+        request_ids = self._session_toolkit_requests.get(session_id)
+        if request_ids is None:
+            return
+        request_ids.discard(request_id)
+        if not request_ids:
+            self._session_toolkit_requests.pop(session_id, None)
 
     def _effective_project_dir_for_session(
         self, session_id: str, param_project_dir: str | None
@@ -1245,10 +1306,44 @@ class JiuWenClaw:
                 pass
             self._session_tasks[session_id] = None
 
+    async def _cancel_session_toolkits(self, session_id: str, log_msg_prefix: str = "") -> None:
+        """取消指定 session 关联的 MultiSessionToolkit 子协程."""
+        request_ids = list(self._session_toolkit_requests.get(session_id, set()))
+        if not request_ids:
+            return
+        logger.info(
+            "[JiuWenClaw] %s取消 session 子协程工具包: session_id=%s request_count=%d",
+            log_msg_prefix,
+            session_id,
+            len(request_ids),
+        )
+        for request_id in request_ids:
+            toolkit = self._request_session_toolkits.get(request_id)
+            if toolkit is None:
+                self._untrack_session_toolkit(request_id)
+                continue
+            try:
+                await toolkit.cancel_all_sessions()
+            except Exception as exc:
+                logger.warning(
+                    "[JiuWenClaw] %s取消 MultiSessionToolkit 失败: session_id=%s request_id=%s error=%s",
+                    log_msg_prefix,
+                    session_id,
+                    request_id,
+                    exc,
+                )
+            finally:
+                self._untrack_session_toolkit(request_id)
+
     async def _cancel_all_session_tasks(self, log_msg_prefix: str = "") -> None:
         """取消所有 session 的非流式任务."""
         for session_id in list(self._session_tasks.keys()):
             await self._cancel_session_task(session_id, log_msg_prefix)
+
+    async def _cancel_all_session_toolkits(self, log_msg_prefix: str = "") -> None:
+        """取消所有 request 关联的 MultiSessionToolkit 子协程."""
+        for session_id in list(self._session_toolkit_requests.keys()):
+            await self._cancel_session_toolkits(session_id, log_msg_prefix)
 
     async def _ensure_session_processor(self, session_id: str) -> None:
         """确保 session 的任务处理器在运行."""
@@ -1268,10 +1363,15 @@ class JiuWenClaw:
                         if task_func is None:  # 信号：关闭队列
                             break
 
+                        logger.info(
+                            "[Queue] 开始执行: session=%s priority=%d queue_size=%d",
+                            session_id, priority, queue.qsize(),
+                        )
                         # 执行任务
                         self._session_tasks[session_id] = asyncio.create_task(task_func())
                         try:
                             await self._session_tasks[session_id]
+                            logger.info("[Queue] 执行完成: session=%s", session_id)
                         finally:
                             self._session_tasks[session_id] = None
                             queue.task_done()
@@ -1499,6 +1599,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1517,6 +1618,7 @@ class JiuWenClaw:
         result_future = asyncio.get_event_loop().create_future()
 
         async def run_agent_task():
+            token = todo_request_scope_token(request.request_id)
             try:
                 await self._register_runtime_tools(
                     session_id,
@@ -1533,6 +1635,9 @@ class JiuWenClaw:
             except Exception as e:
                 logger.error("[JiuWenClaw] Agent 任务执行异常: %s", e)
                 raise
+            finally:
+                self._untrack_session_toolkit(request.request_id)
+                reset_todo_request_scope(token)
 
         # 包装任务，完成后将结果放入 future
         async def task_wrapper():
@@ -1546,6 +1651,7 @@ class JiuWenClaw:
         # 每次递减，新请求的优先级更高
         self._session_priorities[session_id] -= 1
         priority = self._session_priorities[session_id]
+        logger.info("[Queue] 入队: session=%s priority=%d", session_id, priority)
         await self._session_queues[session_id].put((priority, task_wrapper))
 
         # 等待任务完成
@@ -1688,6 +1794,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1713,6 +1820,7 @@ class JiuWenClaw:
         async def run_stream_task():
             """执行流式任务，将产生的 chunk 放入队列."""
             nonlocal session_tool
+            token = todo_request_scope_token(request.request_id)
             try:
                 session_tool = await self._register_runtime_tools(
                     session_id,
@@ -1734,6 +1842,8 @@ class JiuWenClaw:
                 logger.exception("[JiuWenClaw] 流式任务异常: %s", exc)
                 await stream_queue.put(("error", exc))
             finally:
+                self._untrack_session_toolkit(request.request_id)
+                reset_todo_request_scope(token)
                 stream_done.set()
 
         # 包装任务
@@ -1743,6 +1853,7 @@ class JiuWenClaw:
         # 使用负数优先级实现先进后出（新请求优先级更高）
         self._session_priorities[session_id] -= 1
         priority = self._session_priorities[session_id]
+        logger.info("[Queue] 入队: session=%s priority=%d", session_id, priority)
         await self._session_queues[session_id].put((priority, task_wrapper))
 
         # 从流式队列中读取并 yield 结果
@@ -1929,6 +2040,20 @@ class JiuWenClaw:
                     if usage:
                         result["usage"] = usage
                     return result
+
+                if chunk_type == "tool_calls.delta":
+                    if isinstance(payload, dict):
+                        result = {
+                            "event_type": "chat.tool_calls.delta",
+                            "tool_calls": payload.get("tool_calls", []),
+                        }
+                        if "source" in payload:
+                            result["source"] = payload.get("source")
+                        return result
+                    return {
+                        "event_type": "chat.tool_calls.delta",
+                        "tool_calls": payload,
+                    }
 
                 if chunk_type == "tool_call":
                     tool_info = (

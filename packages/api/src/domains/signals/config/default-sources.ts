@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSourceConfig } from '@cat-cafe/shared';
+import type { SignalSourceConfig } from '@office-claw/shared';
 import { PAPER_SOURCES } from './sources-papers.js';
 import { TIER1_CHINA_SOURCES } from './sources-tier1-china.js';
 import { TIER1_GLOBAL_SOURCES } from './sources-tier1-global.js';

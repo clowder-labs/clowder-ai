@@ -6,38 +6,41 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { type CSSProperties, KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { useCatData } from '@/hooks/useCatData';
-import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
-import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
-import { apiFetch } from '@/utils/api-client';
-import { fetchSkillOptionsWithCache, seedSkillOptionsCache, type SkillOption } from '@/utils/skill-options-cache';
+import {
+  fetchSkillOptionsWithCache,
+  SKILL_OPTIONS_UPDATED_EVENT,
+  type SkillOption,
+  seedSkillOptionsCache,
+} from '@/utils/skill-options-cache';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import {
-  buildCatOptions,
-  buildWhisperOptions,
-  type CatOption,
-  detectMenuTrigger,
-  GAME_LIST,
-  WEREWOLF_MODES,
-} from './chat-input-options';
+import { buildCatOptions, buildWhisperOptions, type CatOption, detectMenuTrigger } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
-import { GameLobby, type GameStartPayload } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
-import { OverflowTooltip } from './shared/OverflowTooltip';
 import { PathCompletionMenu } from './PathCompletionMenu';
 import { RichTextarea, type RichTextareaHandle } from './RichTextarea';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 /** Module-level draft storage — survives component unmount/remount across thread switches */
 export const threadDrafts = new Map<string, string>();
@@ -93,14 +96,31 @@ const SUPPORTED_ATTACHMENT_MIME_TYPES = new Set([
 ]);
 const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'csv']);
 const UNSUPPORTED_FILE_TYPE_MESSAGE = '该附件类型暂不支持';
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const FILE_SIZE_EXCEEDED_MESSAGE = '文件大小超过限制，最大支持 10MB';
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
 const MAX_INPUT_LENGTH = 5000;
+const MAX_ATTACHMENT_FILES = 5;
 const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const QUICK_ACTION_BUTTON_CLASS =
+  'inline-flex items-center gap-1 rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50';
+const QUICK_PROMPT_BUTTON_CLASS =
+  'min-w-0 rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]';
+const EXPERT_CARD_BUTTON_CLASS =
+  'group min-w-0 rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-3 text-left transition-colors hover:bg-[var(--overlay-item-hover-bg)] hover:border-[var(--border-accent)]';
+const SKILL_TRIGGER_BUTTON_CLASS =
+  'inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-[7px] text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)]';
+const SKILL_MENU_CLASS =
+  'ui-overlay-card absolute bottom-full left-0 mb-2 z-[200] flex w-[240px] flex-col overflow-hidden rounded-xl border border-[var(--overlay-border)] p-2 shadow-[var(--overlay-shadow)]';
+const SKILL_MENU_ITEM_CLASS =
+  'flex h-[32px] w-full items-center gap-2 rounded-[6px] px-2 py-[7px] text-left text-[12px] font-normal text-[var(--overlay-text)] transition-colors';
+const ICON_BUTTON_CLASS =
+  'inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-[var(--text-label-secondary)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] hover:text-[var(--text-accent)] disabled:cursor-not-allowed disabled:opacity-30';
 
 function getSkillToken(name: string): string {
   return `${SKILL_TOKEN_PREFIX}${name}${SKILL_TOKEN_SUFFIX}`;
@@ -164,8 +184,13 @@ function getSkillInitial(name: string): string {
   return /[a-z]/i.test(initial) ? initial.toUpperCase() : initial;
 }
 
-function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] {
+function mergeFilesByName(
+  prev: File[],
+  incoming: File[],
+  maxCount = MAX_ATTACHMENT_FILES,
+): { files: File[]; dropped: number } {
   const next = [...prev];
+  let dropped = 0;
   for (const file of incoming) {
     const normalizedName = file.name.toLowerCase();
     const existingIndex = next.findIndex((item) => item.name.toLowerCase() === normalizedName);
@@ -173,10 +198,13 @@ function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] 
       next[existingIndex] = file;
       continue;
     }
-    if (next.length >= maxCount) continue;
+    if (next.length >= maxCount) {
+      dropped += 1;
+      continue;
+    }
     next.push(file);
   }
-  return next.slice(0, maxCount);
+  return { files: next.slice(0, maxCount), dropped };
 }
 
 function SkillOptionIcon({ name, iconUrl }: { name: string; iconUrl?: string | null }) {
@@ -236,9 +264,7 @@ export function ChatInput({
     setInputState(clampInputLength(next));
   }, []);
   const [showMentions, setShowMentions] = useState(false);
-  const [showGameMenu, setShowGameMenu] = useState(false);
   const [showSkillMenu, setShowSkillMenu] = useState(false);
-  const [gameStep, setGameStep] = useState<'list' | 'modes'>('list');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [mentionEnd, setMentionEnd] = useState(-1);
@@ -247,21 +273,25 @@ export function ChatInput({
   const [skillFilter, setSkillFilter] = useState('');
   const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
   const [skillOptionsLoading, setSkillOptionsLoading] = useState(false);
+  const skillOptionsRequestSeqRef = useRef(0);
+  const skillOptionsMountedRef = useRef(true);
   const [images, setImages] = useState<File[]>([]);
+  const imagesRef = useRef<File[]>([]);
   const isPreparingImages = false;
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
-  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [pendingQuickPromptExpand, setPendingQuickPromptExpand] = useState(false);
+  /** 标记专家团思辨卡片是否已点击（用于控制卡片隐藏） */
+  const expertCardClickedRef = useRef(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const gameBtnRef = useRef<HTMLButtonElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
   const skillOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const skillInsertAnchorRef = useRef<{ start: number; end: number } | null>(null);
@@ -273,21 +303,46 @@ export function ChatInput({
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
 
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
   // F63-AC15: consume pendingChatInsert from workspace (thread-guarded)
   const pendingChatInsert = useChatStore((s) => s.pendingChatInsert);
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   useEffect(() => {
     if (!pendingChatInsert) return;
     if (pendingChatInsert.threadId !== threadId) return;
+    let nextCaret = -1;
+    const isQuickActionInsert = pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX);
+
     setInput((prev) => {
-      const separator = prev && !prev.endsWith('\n') ? '\n' : '';
-      return prev + separator + pendingChatInsert.text;
+      // Scheduled-task quick action should behave like clicking the quick-action chip:
+      // clear current input, insert only the capsule token, and then show prompt chips.
+      if (isQuickActionInsert) {
+        const next = pendingChatInsert.text;
+        nextCaret = next.length;
+        return next;
+      }
+
+      const base = prev;
+      const separator = base && !base.endsWith('\n') ? '\n' : '';
+      const next = base + separator + pendingChatInsert.text;
+      nextCaret = next.length;
+      return next;
     });
-    if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
-      setPendingQuickPromptExpand(true);
+    if (isQuickActionInsert) {
+      setPendingQuickPromptExpand(false);
+      setShowQuickPrompts(true);
     }
     setPendingChatInsert(null);
-    textareaRef.current?.focus();
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const caret = nextCaret >= 0 ? nextCaret : el.getSelectionEnd();
+      el.setSelectionRange(caret, caret);
+    }, 0);
   }, [pendingChatInsert, setPendingChatInsert, threadId]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -297,23 +352,31 @@ export function ChatInput({
     });
   }, []);
 
-  const handleQuickAction = useCallback(
-    (action: QuickActionConfig) => {
-      const token = getQuickActionToken(action.label);
-      const next = `${token} `;
-      setInput(next);
-      setPendingQuickPromptExpand(false);
-      setShowQuickPrompts(true);
-      setTimeout(() => {
-        const el = textareaRef.current;
-        if (!el) return;
-        const cursorPos = next.length;
-        el.focus();
-        el.setSelectionRange(cursorPos, cursorPos);
-      }, 0);
-    },
-    [],
-  );
+  const applyProgrammaticInput = useCallback((next: string, caret: number) => {
+    const el = textareaRef.current;
+    if (el) {
+      el.applyProgrammaticChange(next, caret, caret);
+      return;
+    }
+    setInput(next);
+  }, []);
+
+  const handleQuickAction = useCallback((action: QuickActionConfig) => {
+    const token = getQuickActionToken(action.label);
+    const next = `${token} `;
+    applyProgrammaticInput(next, next.length);
+    setPendingQuickPromptExpand(false);
+    setShowQuickPrompts(true);
+    // 重置专家团思辨点击标记
+    expertCardClickedRef.current = false;
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const cursorPos = next.length;
+      el.focus();
+      el.setSelectionRange(cursorPos, cursorPos);
+    }, 0);
+  }, []);
 
   const handleQuickPrompt = useCallback(
     (prompt: string) => {
@@ -342,7 +405,7 @@ export function ChatInput({
         caret = next.length;
       }
 
-      setInput(next);
+      applyProgrammaticInput(next, caret);
       setPendingQuickPromptExpand(false);
       setShowQuickPrompts(false);
       setTimeout(() => {
@@ -352,7 +415,56 @@ export function ChatInput({
         el.setSelectionRange(caret, caret);
       }, 0);
     },
-    [input],
+    [applyProgrammaticInput, input],
+  );
+
+  /** 专家团思辨：插入@智能体和文本内容（保留胶囊token，隐藏卡片） */
+  const handleExpertCardClick = useCallback(
+    (agentName: string, content: string) => {
+      // 注意：@智能体后必须跟空格才能被识别为mention（中文逗号不行）
+      const fullText = `@${agentName} ${content}`;
+
+      // 在token后插入内容，保留token
+      const startIdx = input.indexOf(QUICK_ACTION_TOKEN_PREFIX);
+      const endIdx =
+        startIdx >= 0 ? input.indexOf(QUICK_ACTION_TOKEN_SUFFIX, startIdx + QUICK_ACTION_TOKEN_PREFIX.length) : -1;
+
+      let next = input;
+      let caret = 0;
+      if (startIdx >= 0 && endIdx > startIdx) {
+        // 在token后面插入内容，保留token
+        const tokenEndExclusive = endIdx + QUICK_ACTION_TOKEN_SUFFIX.length;
+        const before = input.slice(0, tokenEndExclusive);
+        const after = input.slice(tokenEndExclusive).replace(/^\s+/, '');
+        const joiner = ' ';
+        const rightJoiner = after.length > 0 ? ' ' : '';
+        next = `${before}${joiner}${fullText}${rightJoiner}${after}`;
+        caret = (before + joiner + fullText).length;
+      } else {
+        // 没有token时，在光标位置插入
+        const ta = textareaRef.current;
+        const start = ta?.getSelectionStart() ?? input.length;
+        const end = ta?.getSelectionEnd() ?? input.length;
+        const before = input.slice(0, start);
+        const after = input.slice(end);
+        const leftJoiner = before.endsWith(' ') || before.length === 0 ? '' : ' ';
+        const rightJoiner = after.startsWith(' ') || after.length === 0 ? '' : ' ';
+        next = `${before}${leftJoiner}${fullText}${rightJoiner}${after}`;
+        caret = (before + leftJoiner + fullText).length;
+      }
+
+      applyProgrammaticInput(next, caret);
+      // 标记已点击卡片，隐藏卡片区域，回到胶囊按钮展示
+      expertCardClickedRef.current = true;
+      setShowQuickPrompts(false);
+      setTimeout(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }, 0);
+    },
+    [applyProgrammaticInput, input],
   );
 
   const visibleQuickActions = useMemo(() => QUICK_ACTIONS.filter((action) => action.show !== false), []);
@@ -364,18 +476,28 @@ export function ChatInput({
 
   useEffect(() => {
     if (selectedQuickAction) {
-      if (pendingQuickPromptExpand) {
-        setShowQuickPrompts(true);
-        setPendingQuickPromptExpand(false);
+      // 专家团思辨：有 expertCards 但没有 prompts
+      if (selectedQuickAction.expertCards && selectedQuickAction.expertCards.length > 0) {
+        // 如果已点击过卡片，则隐藏卡片区域
+        if (expertCardClickedRef.current) {
+          setShowQuickPrompts(false);
+        } else {
+          setShowQuickPrompts(true);
+        }
+        if (pendingQuickPromptExpand) setPendingQuickPromptExpand(false);
+        return;
       }
+      const hasMatchedPrompt = selectedQuickAction.prompts.some((prompt) => input.includes(prompt));
+      // Rule:
+      // 1) scene + matched prompt => show quick actions row (hide prompts row)
+      // 2) scene only (no matched prompt) => show quick prompts row
+      setShowQuickPrompts(!hasMatchedPrompt);
+      if (pendingQuickPromptExpand) setPendingQuickPromptExpand(false);
       return;
     }
 
-    if (!pendingQuickPromptExpand) {
-      setShowQuickPrompts(false);
-    }
-  }, [pendingQuickPromptExpand, selectedQuickAction]);
-
+    if (!pendingQuickPromptExpand) setShowQuickPrompts(false);
+  }, [input, pendingQuickPromptExpand, selectedQuickAction]);
 
   const filteredCatOptions = useMemo(() => {
     if (!mentionFilter) return catOptions;
@@ -394,32 +516,43 @@ export function ChatInput({
     return skillOptions.filter((item) => item.name.toLowerCase().includes(lower));
   }, [skillFilter, skillOptions]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadSkillOptions = useCallback((force = false) => {
+    const requestId = ++skillOptionsRequestSeqRef.current;
     setSkillOptionsLoading(true);
-    fetchSkillOptionsWithCache()
+    void fetchSkillOptionsWithCache(force ? { force: true } : undefined)
       .then((options) => {
-        if (cancelled) return;
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
         setSkillOptions(options);
         // Keep shared cache warm so message renderer can reuse immediately.
         seedSkillOptionsCache(options);
       })
       .finally(() => {
-        if (!cancelled) setSkillOptionsLoading(false);
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
+        setSkillOptionsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  const activeMenu = showMentions ? 'mention' : showGameMenu ? 'game' : showSkillMenu ? 'skill' : null;
-  const gameMenuItems = gameStep === 'list' ? GAME_LIST : WEREWOLF_MODES;
-  const activeOptionsCount =
-    activeMenu === 'mention'
-      ? filteredCatOptions.length
-      : activeMenu === 'skill'
-        ? filteredSkillOptions.length
-        : gameMenuItems.length;
+  useEffect(() => {
+    skillOptionsMountedRef.current = true;
+    loadSkillOptions();
+    return () => {
+      skillOptionsMountedRef.current = false;
+      skillOptionsRequestSeqRef.current += 1;
+    };
+  }, [loadSkillOptions]);
+
+  useEffect(() => {
+    const handleSkillOptionsUpdated = () => {
+      loadSkillOptions(true);
+    };
+    window.addEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    return () => {
+      window.removeEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    };
+  }, [loadSkillOptions]);
+
+  const activeMenu = showMentions ? 'mention' : showSkillMenu ? 'skill' : null;
+  const activeOptionsCount = activeMenu === 'mention' ? filteredCatOptions.length : filteredSkillOptions.length;
 
   const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
   const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
@@ -448,7 +581,6 @@ export function ChatInput({
         setGhostSuggestion(null);
         setImages([]);
         setShowMentions(false);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setSelectedQuickAction(null);
         setPendingQuickPromptExpand(false);
@@ -475,7 +607,6 @@ export function ChatInput({
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu(false);
     setSkillFilter('');
   }, []);
@@ -485,7 +616,7 @@ export function ChatInput({
     const ta = textareaRef.current;
     const root = ta?.getElement();
     if (!root) return;
-    const offset = mentionStart >= 0 ? mentionStart : ta?.getSelectionStart() ?? 0;
+    const offset = mentionStart >= 0 ? mentionStart : (ta?.getSelectionStart() ?? 0);
     const anchorRect = ta?.getClientRectAtOffset(offset) ?? root.getBoundingClientRect();
     const menuWidth = 200;
     const menuHeight = Math.max(120, menuRef.current?.offsetHeight ?? 220);
@@ -498,55 +629,6 @@ export function ChatInput({
     const top = Math.min(Math.max(desiredTop, viewportPadding), Math.max(viewportPadding, maxTop));
     setMentionMenuStyle({ left, top });
   }, [showMentions, mentionStart]);
-
-  const router = useRouter();
-  const [gameStarting, setGameStarting] = useState(false);
-
-  const startGame = useCallback(
-    async (payload: GameStartPayload) => {
-      closeMenus();
-      if (disabled || sendTemporarilyDisabled || gameStarting) return;
-      setGameStarting(true);
-      try {
-        const res = await apiFetch('/api/game/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          useChatStore.getState().addMessage({
-            id: `game-err-${Date.now()}`,
-            type: 'system',
-            variant: 'error',
-            content: `开局失败: ${data.error ?? `HTTP ${res.status}`}`,
-            timestamp: Date.now(),
-          });
-          // Restore lobby so user can retry without re-selecting
-          setLobbyMode(payload.humanRole);
-          return;
-        }
-        // Success — dismiss lobby and navigate
-        setLobbyMode(null);
-        router.push(`/thread/${data.gameThreadId}`);
-        // Hydrate game state immediately (socket reconnect won't fire for same connection)
-        reconnectGame(data.gameThreadId).catch(() => { });
-      } catch (err) {
-        useChatStore.getState().addMessage({
-          id: `game-err-${Date.now()}`,
-          type: 'system',
-          variant: 'error',
-          content: `开局失败: ${err instanceof Error ? err.message : '网络异常'}`,
-          timestamp: Date.now(),
-        });
-        // Restore lobby so user can retry
-        setLobbyMode(payload.humanRole);
-      } finally {
-        setGameStarting(false);
-      }
-    },
-    [closeMenus, disabled, sendTemporarilyDisabled, gameStarting, router],
-  );
 
   const insertMention = useCallback(
     (option: CatOption) => {
@@ -613,15 +695,8 @@ export function ChatInput({
       const normalizedSelectionEnd = Math.min(selectionEnd, next.length);
       skillInsertAnchorRef.current = { start: normalizedSelectionStart, end: normalizedSelectionEnd };
       const trigger = detectMenuTrigger(next, normalizedSelectionStart);
-      if (trigger?.type === 'game') {
-        setShowGameMenu(true);
-        setGameStep('list');
-        setShowMentions(false);
-        setShowSkillMenu(false);
-        setSelectedIdx(0);
-      } else if (trigger?.type === 'mention') {
+      if (trigger?.type === 'mention') {
         setShowMentions(true);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setMentionStart(trigger.start);
         setMentionEnd(normalizedSelectionStart);
@@ -705,12 +780,12 @@ export function ChatInput({
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {
           e.preventDefault();
         }
-          closeMenus();
-          setMentionStart(-1);
-          setMentionEnd(-1);
-          setMentionFilter('');
-          setSkillFilter('');
-          return;
+        closeMenus();
+        setMentionStart(-1);
+        setMentionEnd(-1);
+        setMentionFilter('');
+        setSkillFilter('');
+        return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -738,16 +813,6 @@ export function ChatInput({
             return;
           }
           insertSkill(skill.name);
-        } else if (gameStep === 'list') {
-          // Layer 1: drill into mode selection
-          setGameStep('modes');
-          setSelectedIdx(0);
-        } else {
-          // Layer 2: open lobby for mode configuration
-          const mode = WEREWOLF_MODES[selectedIdx];
-          const role = mode.id === 'detective' ? 'detective' : mode.id.startsWith('god') ? 'god-view' : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
         }
         return;
       }
@@ -825,8 +890,23 @@ export function ChatInput({
       const files = e.target.files;
       if (!files) return;
       const selectedFiles = Array.from(files);
-      const supportedFiles = selectedFiles.filter(isSupportedAttachmentFile);
-      const hasUnsupported = supportedFiles.length !== selectedFiles.length;
+
+      const supportedFiles: File[] = [];
+      let hasUnsupported = false;
+      let hasOversized = false;
+
+      for (const file of selectedFiles) {
+        if (!isSupportedAttachmentFile(file)) {
+          hasUnsupported = true;
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          hasOversized = true;
+          continue;
+        }
+        supportedFiles.push(file);
+      }
+
       if (hasUnsupported) {
         addToast({
           type: 'error',
@@ -835,8 +915,27 @@ export function ChatInput({
           duration: 2600,
         });
       }
+
+      if (hasOversized) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: FILE_SIZE_EXCEEDED_MESSAGE,
+          duration: 2600,
+        });
+      }
+
       if (supportedFiles.length > 0) {
-        setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+        const result = mergeFilesByName(imagesRef.current, supportedFiles, MAX_ATTACHMENT_FILES);
+        setImages(result.files);
+        if (result.dropped > 0) {
+          addToast({
+            type: 'error',
+            title: '附件数量已达上限',
+            message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+            duration: 2600,
+          });
+        }
       }
       e.target.value = '';
     },
@@ -847,6 +946,10 @@ export function ChatInput({
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
+      const hasText = Array.from(items).some(
+        (item) => item.kind === 'string' && (item.type === 'text/plain' || item.type === 'text/html'),
+      );
+      if (hasText) return;
       const pastedFiles: File[] = [];
       for (let i = 0; i < items.length; i++) {
         if (items[i].kind !== 'file') continue;
@@ -854,8 +957,23 @@ export function ChatInput({
         if (file) pastedFiles.push(file);
       }
       if (pastedFiles.length === 0) return;
-      const supportedFiles = pastedFiles.filter(isSupportedAttachmentFile);
-      const hasUnsupported = supportedFiles.length !== pastedFiles.length;
+
+      const supportedFiles: File[] = [];
+      let hasUnsupported = false;
+      let hasOversized = false;
+
+      for (const file of pastedFiles) {
+        if (!isSupportedAttachmentFile(file)) {
+          hasUnsupported = true;
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          hasOversized = true;
+          continue;
+        }
+        supportedFiles.push(file);
+      }
+
       if (hasUnsupported) {
         addToast({
           type: 'error',
@@ -864,9 +982,28 @@ export function ChatInput({
           duration: 2600,
         });
       }
+
+      if (hasOversized) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: FILE_SIZE_EXCEEDED_MESSAGE,
+          duration: 2600,
+        });
+      }
+
       if (supportedFiles.length === 0) return;
       e.preventDefault();
-      setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+      const result = mergeFilesByName(imagesRef.current, supportedFiles, MAX_ATTACHMENT_FILES);
+      setImages(result.files);
+      if (result.dropped > 0) {
+        addToast({
+          type: 'error',
+          title: '附件数量已达上限',
+          message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+          duration: 2600,
+        });
+      }
     },
     [addToast],
   );
@@ -957,22 +1094,12 @@ export function ChatInput({
     });
   }, [whisperOptions, whisperMode, activeCatIds]);
 
-  const handleGameClick = useCallback(() => {
-    setShowMentions(false);
-    setShowSkillMenu(false);
-    setMentionStart(-1);
-    setShowGameMenu((prev) => !prev);
-    setGameStep('list');
-    setSelectedIdx(0);
-  }, []);
-
   const handleSkillClick = useCallback(() => {
     const ta = textareaRef.current;
     const start = ta?.getSelectionStart() ?? input.length;
     const end = ta?.getSelectionEnd() ?? input.length;
     skillInsertAnchorRef.current = { start, end };
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu((prev) => !prev);
     setSelectedIdx(0);
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -1013,12 +1140,7 @@ export function ChatInput({
       // detaching the original target (e.g. layer 1 unmounts when drilling
       // into layer 2). A detached target is not a genuine outside click.
       if (!target.isConnected) return;
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(target) &&
-        !gameBtnRef.current?.contains(target) &&
-        !skillBtnRef.current?.contains(target)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(target) && !skillBtnRef.current?.contains(target)) {
         closeMenus();
       }
     };
@@ -1034,17 +1156,15 @@ export function ChatInput({
         style={{
           borderRadius: '490px',
           width: 'calc(80% - 80px)',
-          background:
-            'linear-gradient(90deg,rgba(255,246,190,1),rgba(253,159,112,1) 20%,rgba(239,131,250,1) 43%,rgba(128,134,254,1) 73%,rgba(160,244,255,1) 97%)',
+          background: 'var(--chat-input-accent-glow)',
         }}
-      >
-      </div>
+      ></div>
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 hidden items-center gap-2 mx-auto w-[80%]">
-          <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
-          <span className="text-xs text-[#9B7EBD] font-medium">正在回复中...</span>
-          <span className="text-xs text-gray-400">继续输入，消息会排队</span>
+          <span className="inline-block w-2 h-2 rounded-full bg-[var(--chat-input-queue-accent)] animate-pulse" />
+          <span className="text-xs font-medium text-[var(--chat-input-queue-accent)]">正在回复中...</span>
+          <span className="hidden text-xs text-[var(--text-label-secondary)]">继续输入，消息会排队</span>
         </div>
       )}
 
@@ -1075,45 +1195,32 @@ export function ChatInput({
           setMentionEnd(-1);
           setMentionFilter('');
         }}
-        showGameMenu={showGameMenu}
-        gameStep={gameStep}
-        onGameStepChange={setGameStep}
         selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx}
         onInsertMention={insertMention}
-        onSendCommand={(command) => {
-          // Open lobby instead of sending directly
-          const role = command.includes('detective')
-            ? 'detective'
-            : command.includes('god-view')
-              ? 'god-view'
-              : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
-        }}
         menuRef={menuRef}
         mentionMenuStyle={mentionMenuStyle}
       />
 
       {imageLifecycleStatus === 'preparing' && (
-        <div className="px-4 pt-2 text-xs text-gray-500 mx-auto w-[80%]" role="status">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--text-muted)]" role="status">
           文件处理中，完成后可发送
         </div>
       )}
       {imageLifecycleStatus === 'uploading' && (
-        <div className="px-4 pt-2 text-xs text-indigo-500 mx-auto w-[80%]" role="status">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--state-info-text)]" role="status">
           文件上传中，请稍候...
         </div>
       )}
       {imageLifecycleStatus === 'failed' && uploadError && (
-        <div className="px-4 pt-2 text-xs text-red-500 mx-auto w-[80%]" role="alert">
+        <div className="mx-auto w-[80%] px-4 pt-2 text-xs text-[var(--state-error-text)]" role="alert">
           文件发送失败：{uploadError}
         </div>
       )}
 
       {whisperMode && (
         <div className="px-4 pt-2 flex items-center gap-2 flex-wrap mx-auto w-[80%]">
-          <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
+          <span className="text-xs font-medium text-[var(--state-warning-text)]">悄悄话发给:</span>
           {whisperOptions.map((cat) => {
             const isActive = activeCatIds.has(cat.id);
             const isSelected = whisperTargets.has(cat.id);
@@ -1122,12 +1229,13 @@ export function ChatInput({
                 key={cat.id}
                 onClick={() => !isActive && toggleWhisperTarget(cat.id)}
                 disabled={isActive}
-                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${isActive
-                    ? 'text-gray-300 border-gray-200 bg-gray-50 cursor-not-allowed'
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  isActive
+                    ? 'cursor-not-allowed border-[var(--button-disabled-border)] bg-[var(--button-disabled-bg)] text-[var(--button-disabled-text)]'
                     : isSelected
-                      ? 'border-current bg-amber-50 font-medium'
-                      : 'text-gray-400 border-gray-200 hover:border-gray-400'
-                  }`}
+                      ? 'border-current bg-[var(--state-warning-surface)] font-medium'
+                      : 'border-[var(--border-default)] text-[var(--text-label-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)]'
+                }`}
                 style={!isActive && isSelected ? { color: cat.color } : undefined}
                 title={isActive ? `${cat.label.replace('@', '')} 执行中，不可选` : undefined}
               >
@@ -1136,7 +1244,9 @@ export function ChatInput({
               </button>
             );
           })}
-          {whisperTargets.size === 0 && <span className="text-xs text-red-400">请至少选一个智能体</span>}
+          {whisperTargets.size === 0 && (
+            <span className="text-xs text-[var(--state-error-text)]">请至少选一个智能体</span>
+          )}
         </div>
       )}
 
@@ -1154,11 +1264,11 @@ export function ChatInput({
         <MobileInputToolbar
           onAttach={() => fileInputRef.current?.click()}
           onWhisperToggle={handleWhisperToggle}
-          onGameClick={handleGameClick}
+          onGameClick={() => {}}
           onClose={() => setMobileToolbar(false)}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
-          maxImages={images.length >= 5}
+          maxImages={images.length >= MAX_ATTACHMENT_FILES}
           whisperMode={whisperMode}
         />
       )}
@@ -1166,12 +1276,13 @@ export function ChatInput({
       <div className="relative z-10 px-4 pt-2 mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
           {/* Mobile: + toggle button */}
-          <button
+          { false && <button
             onClick={() => setMobileToolbar((v) => !v)}
-            className={`p-3 rounded-xl transition-all md:hidden ${mobileToolbar
-                ? 'text-cocreator-primary bg-cocreator-light rotate-45'
-                : 'text-gray-400 hover:text-cocreator-primary hover:bg-white'
-              }`}
+            className={`p-3 rounded-xl transition-all md:hidden ${
+              mobileToolbar
+                ? 'rotate-45 bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                : 'text-[var(--text-label-secondary)] hover:bg-[var(--surface-panel)] hover:text-[var(--text-accent)]'
+            }`}
             aria-label="展开工具栏"
           >
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1181,7 +1292,7 @@ export function ChatInput({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </button> }
 
           <div className="flex-1">
             <div>
@@ -1193,8 +1304,7 @@ export function ChatInput({
                       type="button"
                       onClick={() => handleQuickAction(action)}
                       disabled={disabled}
-                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                      className={QUICK_ACTION_BUTTON_CLASS}
                     >
                       <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                       <span>{action.label}</span>
@@ -1205,29 +1315,47 @@ export function ChatInput({
               {showQuickPrompts && selectedQuickAction && (
                 <div
                   className="mb-2 grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${selectedQuickAction.prompts.length}, minmax(0, 1fr))` }}
+                  style={{
+                    gridTemplateColumns: selectedQuickAction.expertCards
+                      ? 'repeat(3, minmax(0, 1fr))'
+                      : `repeat(${selectedQuickAction.prompts.length}, minmax(0, 1fr))`,
+                  }}
                 >
-                  {selectedQuickAction.prompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => handleQuickPrompt(prompt)}
-                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-gray-50"
-                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+                  {selectedQuickAction.expertCards
+                    ? // 专家团思辨卡片渲染
+                    selectedQuickAction.expertCards.map((card) => (
+                      <button
+                        key={card.agentId}
+                        type="button"
+                        onClick={() => handleExpertCardClick(card.agentName, card.content)}
+                        className={EXPERT_CARD_BUTTON_CLASS}
+                      >
+                        <p className="line-clamp-4 text-[13px] leading-[20px] text-[var(--text-secondary)]">
+                          <span className="font-medium text-[var(--text-accent)]">@{card.agentName}</span>，{card.content}
+                        </p>
+                      </button>
+                    ))
+                    : // 普通快捷提示卡片渲染
+                    selectedQuickAction.prompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => handleQuickPrompt(prompt)}
+                        className={QUICK_PROMPT_BUTTON_CLASS}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
                 </div>
               )}
 
               <div className="relative">
                 <div
-                  className={`relative min-h-[114px] overflow-visible rounded-[24px] border bg-white transition-colors ${
+                  className={`relative min-h-[114px] overflow-visible rounded-[24px] border transition-colors ${
                     whisperMode
-                      ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
-                      : 'border-[#dbdbdb] focus-within:border-[#dbdbdb]'
-                  }`}
+                      ? 'border-[var(--chat-input-whisper-border)] bg-[var(--chat-input-whisper-bg)] focus-within:border-[var(--chat-input-whisper-focus-border)]'
+                      : 'chat-input-shell bg-[var(--surface-panel)]'
+                  } w-full min-w-0`}
                 >
                   <ImagePreview files={images} onRemove={handleRemoveImage} />
                   <div className="relative overflow-hidden rounded-t-[24px]">
@@ -1235,13 +1363,16 @@ export function ChatInput({
                       ref={textareaRef}
                       value={input}
                       onValueChange={handleChange}
+                      onCompositionStateChange={setIsComposing}
                       maxLength={MAX_INPUT_LENGTH}
                       onInput={resizeTextarea}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
                       onScroll={handleTextareaScroll}
-                      placeholder={hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'}
-                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      placeholder={
+                        hasActiveInvocation ? '描述你想研究的主题或@助手协助工作' : '描述你想研究的主题或@助手协助工作'
+                      }
+                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent px-[18px] py-4 text-[16px] leading-[24px] text-[var(--text-primary)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] placeholder:text-[var(--text-field-placeholder)] focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1250,195 +1381,204 @@ export function ChatInput({
                         token: getQuickActionToken(action.label),
                       }))}
                     />
-                    {ghostSuggestion && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
-                      <div
-                        data-testid="ghost-suggestion"
-                        className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
-                        aria-hidden="true"
-                      >
-                        <span className="invisible">{input}</span>
-                        <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
-                      </div>
-                    )}
+                    {ghostSuggestion &&
+                      !isComposing &&
+                      !pathCompletion.isOpen &&
+                      !showMentions &&
+                      !/(^|\s)@/.test(input) && (
+                        <div
+                          data-testid="ghost-suggestion"
+                          className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
+                          aria-hidden="true"
+                        >
+                          <span className="invisible">{input}</span>
+                          <span className="text-[var(--text-field-placeholder)]">{ghostSuggestion.slice(input.length)}</span>
+                        </div>
+                      )}
                   </div>
                   <div className="px-[10px] pb-[10px]">
                     <div className="flex items-center justify-between gap-2">
-                    <div className="relative">
-                      <button
-                        ref={skillBtnRef}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const ta = textareaRef.current;
-                          const start = ta?.getSelectionStart() ?? input.length;
-                          const end = ta?.getSelectionEnd() ?? input.length;
-                          skillInsertAnchorRef.current = { start, end };
-                        }}
-                        onClick={handleSkillClick}
-                        className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
-                      >
-                        <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
-                        技能
-                      </button>
-                      {showSkillMenu && (
-                        <div
-                          ref={menuRef}
-                          className="absolute bottom-full left-0 mb-2 z-[200] flex w-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+                      <div className="relative">
+                        <button
+                          ref={skillBtnRef}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            const ta = textareaRef.current;
+                            const start = ta?.getSelectionStart() ?? input.length;
+                            const end = ta?.getSelectionEnd() ?? input.length;
+                            skillInsertAnchorRef.current = { start, end };
+                          }}
+                          onClick={handleSkillClick}
+                          className={SKILL_TRIGGER_BUTTON_CLASS}
                         >
-                          <div className="px-1 pt-0 pb-2">
-                            <div className="relative">
-                              <svg
-                                className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <circle cx="11" cy="11" r="7" />
-                                <path d="M20 20l-3.5-3.5" />
-                              </svg>
-                              <input
-                                value={skillFilter}
-                                onChange={(e) => {
-                                  setSkillFilter(e.target.value);
-                                  setSelectedIdx(0);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (filteredSkillOptions.length === 0) {
+                          <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+                          技能
+                        </button>
+                        {showSkillMenu && (
+                          <div
+                            ref={menuRef}
+                            className={SKILL_MENU_CLASS}
+                          >
+                            <div className="px-1 pt-0 pb-2">
+                              <div className="relative">
+                                <svg
+                                  className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-label-secondary)]"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <circle cx="11" cy="11" r="7" />
+                                  <path d="M20 20l-3.5-3.5" />
+                                </svg>
+                                <input
+                                  value={skillFilter}
+                                  onChange={(e) => {
+                                    setSkillFilter(e.target.value);
+                                    setSelectedIdx(0);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (filteredSkillOptions.length === 0) {
+                                      if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        closeMenus();
+                                      }
+                                      return;
+                                    }
+                                    if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      setSelectedIdx((idx) => (idx + 1) % filteredSkillOptions.length);
+                                      return;
+                                    }
+                                    if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      setSelectedIdx(
+                                        (idx) => (idx - 1 + filteredSkillOptions.length) % filteredSkillOptions.length,
+                                      );
+                                      return;
+                                    }
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const skill = filteredSkillOptions[selectedIdx];
+                                      if (skill) insertSkill(skill.name);
+                                      return;
+                                    }
                                     if (e.key === 'Escape') {
                                       e.preventDefault();
                                       closeMenus();
                                     }
-                                    return;
-                                  }
-                                  if (e.key === 'ArrowDown') {
-                                    e.preventDefault();
-                                    setSelectedIdx((idx) => (idx + 1) % filteredSkillOptions.length);
-                                    return;
-                                  }
-                                  if (e.key === 'ArrowUp') {
-                                    e.preventDefault();
-                                    setSelectedIdx((idx) => (idx - 1 + filteredSkillOptions.length) % filteredSkillOptions.length);
-                                    return;
-                                  }
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    const skill = filteredSkillOptions[selectedIdx];
-                                    if (skill) insertSkill(skill.name);
-                                    return;
-                                  }
-                                  if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    closeMenus();
-                                  }
-                                }}
-                                placeholder="请输入关键字搜索"
-                                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
-                              />
+                                  }}
+                                  placeholder="请输入关键字搜索"
+                                  className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
+                                />
+                              </div>
                             </div>
-                          </div>
-                          <div className="max-h-[260px] overflow-y-auto">
-                            {skillOptionsLoading &&
-                              Array.from({ length: 5 }).map((_, i) => (
-                                <div
-                                  key={`skill-loading-${i}`}
-                                  className="flex h-[24px] w-full items-center gap-2 rounded-[6px] p-2"
-                                  style={{ animationDelay: `${i * 70}ms` }}
-                                >
-                                  <div className="h-4 w-4 shrink-0 rounded-sm bg-gray-200/70 animate-pulse" />
-                                  <div className="h-3 w-[120px] rounded bg-gray-200/70 animate-pulse" />
-                                </div>
-                              ))}
-                            {!skillOptionsLoading &&
-                              filteredSkillOptions.map((skill, i) => (
-                                <button
-                                  key={skill.name}
-                                  type="button"
-                                  ref={(node) => {
-                                    skillOptionRefs.current[i] = node;
-                                  }}
-                                  className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
+                            <div className="-mr-1 max-h-[260px] overflow-y-auto pr-1 [scrollbar-gutter:auto]">
+                              {skillOptionsLoading &&
+                                Array.from({ length: 5 }).map((_, i) => (
+                                  <div
+                                    key={`skill-loading-${i}`}
+                                    className="flex h-[24px] w-full items-center gap-2 rounded-[6px] p-2"
+                                    style={{ animationDelay: `${i * 70}ms` }}
+                                  >
+                                    <div className="h-4 w-4 shrink-0 rounded-sm bg-[var(--surface-card-muted)] animate-pulse" />
+                                    <div className="h-3 w-[120px] rounded bg-[var(--surface-card-muted)] animate-pulse" />
+                                  </div>
+                                ))}
+                              {!skillOptionsLoading &&
+                                filteredSkillOptions.map((skill, i) => (
+                                  <button
+                                    key={skill.name}
+                                    type="button"
+                                    ref={(node) => {
+                                      skillOptionRefs.current[i] = node;
+                                    }}
+                                    className={`${SKILL_MENU_ITEM_CLASS} ${
+                                      i === selectedIdx
+                                        ? 'bg-[var(--overlay-item-hover-bg)]'
+                                        : 'hover:bg-[var(--overlay-item-hover-bg)]'
                                     }`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    insertSkill(skill.name);
-                                  }}
-                                >
-                                  <SkillOptionIcon name={skill.name} iconUrl={skill.iconUrl} />
-                                  <span className="truncate">{skill.name}</span>
-                                </button>
-                              ))}
-                            {!skillOptionsLoading && filteredSkillOptions.length === 0 && (
-                              <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
-                            )}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      insertSkill(skill.name);
+                                    }}
+                                  >
+                                    <SkillOptionIcon name={skill.name} iconUrl={skill.iconUrl} />
+                                    <span className="truncate">{skill.name}</span>
+                                  </button>
+                                ))}
+                              {!skillOptionsLoading && filteredSkillOptions.length === 0 && (
+                                <div className="px-2 py-2 text-xs text-[var(--text-label-secondary)]">无匹配技能</div>
+                              )}
+                            </div>
+                            <div className="p-2">
+                              <div className="h-px w-full bg-[var(--panel-divider)]" />
+                            </div>
+                            <button
+                              type="button"
+                              className="ui-button-default mx-2 inline-flex h-[24px] min-w-0 items-center justify-center px-3 text-[12px]"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                closeMenus();
+                                window.dispatchEvent(
+                                  new CustomEvent('cat-cafe:open-sidebar-menu', { detail: { menu: 'skills' } }),
+                                );
+                              }}
+                            >
+                              管理技能
+                            </button>
                           </div>
-                          <div className="px-4 py-2">
-                            <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
-                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        <OverflowTooltip
+                          content={selectedFolderTitle?.trim() || folderButtonLabel}
+                          forceShow={shouldShowFolderTooltip}
+                          copyable={shouldShowFolderTooltip}
+                          className="mr-2 flex items-center"
+                        >
                           <button
                             type="button"
-                            className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              closeMenus();
-                              window.dispatchEvent(
-                                new CustomEvent('cat-cafe:open-sidebar-menu', { detail: { menu: 'skills' } }),
-                              );
-                            }}
+                            data-testid="folder-select-button"
+                            onClick={onOpenFolderPicker}
+                            disabled={isFolderButtonDisabled}
+                            className="ui-button-default inline-flex h-8 min-w-0 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none"
                           >
-                            管理技能
+                            <FolderBadgeIcon className="h-6 w-6 shrink-0" />
+                            <span className="truncate">{folderButtonLabel}</span>
                           </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center">
-                      <OverflowTooltip
-                        content={selectedFolderTitle?.trim() || folderButtonLabel}
-                        forceShow={shouldShowFolderTooltip}
-                        copyable={shouldShowFolderTooltip}
-                        className="mr-2 flex items-center"
-                      >
-                        <button
-                          type="button"
-                          data-testid="folder-select-button"
-                          onClick={onOpenFolderPicker}
-                          disabled={isFolderButtonDisabled}
-                          className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                          <FolderBadgeIcon className="h-6 w-6 shrink-0" />
-                          <span className="truncate">{folderButtonLabel}</span>
-                        </button>
-                      </OverflowTooltip>
-                      <OverflowTooltip content="选择附件" forceShow className="inline-flex">
-                        <button
-                          type="button"
-                          data-testid="attach-file-button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                          aria-label="选择附件"
-                        >
-                          <AttachIcon className="h-5 w-5" />
-                        </button>
-                      </OverflowTooltip>
-                      <ChatInputActionButton
-                        onTranscript={handleTranscript}
-                        onSend={handleSend}
-                        onStop={onStop}
-                        onQueueSend={handleQueueSend}
-                        onForceSend={handleForceSend}
-                        disabled={disabled}
-                        sendDisabled={sendTemporarilyDisabled}
-                        hasActiveInvocation={hasActiveInvocation}
-                        hasText={!!input.trim()}
-                      />
-                    </div>
+                        </OverflowTooltip>
+                        <OverflowTooltip content="选择附件" forceShow className="inline-flex">
+                          <button
+                            type="button"
+                            data-testid="attach-file-button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={disabled || sendTemporarilyDisabled || images.length >= MAX_ATTACHMENT_FILES}
+                            className={ICON_BUTTON_CLASS}
+                            aria-label="上传附件"
+                          >
+                            <AttachIcon className="h-5 w-5" />
+                          </button>
+                        </OverflowTooltip>
+                        <ChatInputActionButton
+                          onTranscript={handleTranscript}
+                          onSend={handleSend}
+                          onStop={onStop}
+                          onQueueSend={handleQueueSend}
+                          onForceSend={handleForceSend}
+                          disabled={disabled}
+                          sendDisabled={sendTemporarilyDisabled}
+                          hasActiveInvocation={hasActiveInvocation}
+                          hasText={!!input.trim()}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[rgb(194,194,194)]">
-                内容由AI生成，仅供参考
-              </p>
+                <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[var(--text-disabled)]">
+                  内容由AI生成，仅供参考
+                </p>
               </div>
             </div>
           </div>
@@ -1447,17 +1587,6 @@ export function ChatInput({
 
       {showHistorySearch && (
         <HistorySearchModal onSelect={handleHistorySelect} onClose={() => setShowHistorySearch(false)} />
-      )}
-
-      {lobbyMode && (
-        <GameLobby
-          mode={lobbyMode}
-          cats={cats}
-          onConfirm={(payload) => {
-            startGame(payload);
-          }}
-          onCancel={() => setLobbyMode(null)}
-        />
       )}
     </div>
   );

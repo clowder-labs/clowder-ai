@@ -67,3 +67,15 @@ export function sanitizeThreadTitleOrNull(
   const cleaned = withoutAgentWords.replace(LEADING_NOISE_RE, '').trim();
   return cleaned && MEANINGFUL_CHAR_RE.test(cleaned) ? cleaned : null;
 }
+
+export function normalizeStoredThreadTitleOrNull(rawTitle: string | null | undefined): string | null {
+  const trimmed = (rawTitle ?? '').trim();
+  return trimmed || null;
+}
+
+export function normalizeStoredThreadTitle(
+  rawTitle: string | null | undefined,
+  fallback = '\u672A\u547D\u540D\u5BF9\u8BDD',
+): string {
+  return normalizeStoredThreadTitleOrNull(rawTitle) ?? fallback;
+}

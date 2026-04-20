@@ -10,7 +10,7 @@
  */
 
 import { Server as HttpServer } from 'node:http';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId } from '@office-claw/shared';
 import { Server, Socket } from 'socket.io';
 import { isOriginAllowed, resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type {
@@ -113,9 +113,9 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      // Browser/API defaults use the "default-user" sentinel. When a deployment
-      // routes frontend-visible data under DEFAULT_OWNER_USER_ID, map the socket
-      // connection to that effective user so emitToUser reaches the UI.
+      // Real-time user-scoped events (`emitToUser`) route on the socket's room identity.
+      // Until we have a server-verified socket auth substrate (cookie/session/ephemeral
+      // token), keep consuming the existing handshake userId so multi-user delivery works.
       const requestedUserId = readSocketHandshakeUserId(socket) ?? FRONTEND_DEFAULT_USER_ID;
       const userId = resolveEffectiveUserId(requestedUserId) ?? FRONTEND_DEFAULT_USER_ID;
 
@@ -178,10 +178,17 @@ export class SocketManager {
           // F108 + F086: Also abort multi-mention dispatches for this specific cat
           this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, data.catId);
         } else {
-          // Backward compat: cancel all slots in thread
-          this.invocationTracker.cancelAll(data.threadId);
-          this.multiMentionOrchestrator?.abortByThread(data.threadId);
-          log.info({ threadId: data.threadId }, 'Cancelled all invocations');
+          // Only cancel invocations owned by this socket's user.
+          const cancelledCatIds = this.invocationTracker.cancelAll(data.threadId, userId);
+          if (cancelledCatIds.length > 0) {
+            for (const msg of buildCancelMessages({ cancelled: true, catIds: cancelledCatIds })) {
+              this.broadcastAgentMessage(msg, data.threadId);
+            }
+          }
+          for (const catId of cancelledCatIds) {
+            this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, catId);
+          }
+          log.info({ threadId: data.threadId, socketId: socket.id, userId, cancelledCatIds }, 'Cancelled all invocations');
         }
       });
     });

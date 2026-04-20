@@ -31,7 +31,6 @@ const EXPECTED_TOOLS = [
   'office_claw_load_skill',
   'office_claw_update_task',
   'office_claw_create_rich_block',
-  'office_claw_generate_document',
   'office_claw_get_rich_block_rules',
   'office_claw_register_pr_tracking',
   // Workflow SOP tools (F073 P1)
@@ -96,7 +95,6 @@ const EXPECTED_COLLAB_TOOLS = [
   'office_claw_list_tasks',
   'office_claw_update_task',
   'office_claw_create_rich_block',
-  'office_claw_generate_document',
   'office_claw_get_rich_block_rules',
   'office_claw_request_permission',
   'office_claw_check_permission_status',
@@ -188,6 +186,52 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(!registeredNames.includes('read_file'));
     assert.ok(!registeredNames.includes('write_file'));
     assert.ok(!registeredNames.includes('list_files'));
+  });
+
+  test('relayclaw MCP denylist removes blocked tools from registration', async () => {
+    const previous = process.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS;
+    process.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS = [
+      'limb_list_available',
+      'limb_invoke',
+      'limb_pair_list',
+      'limb_pair_approve',
+      'office_claw_list_tasks',
+      'office_claw_update_task',
+      'office_claw_load_skill',
+      'office_claw_create_rich_block',
+      'office_claw_get_rich_block_rules',
+      'office_claw_request_permission',
+      'office_claw_check_permission_status',
+      'office_claw_update_workflow',
+      'office_claw_feat_index',
+    ].join(',');
+
+    try {
+      const { createServer } = await import('../dist/index.js');
+      const server = createServer();
+      const registeredNames = Object.keys(server._registeredTools);
+
+      assert.ok(!registeredNames.includes('limb_list_available'));
+      assert.ok(!registeredNames.includes('limb_invoke'));
+      assert.ok(!registeredNames.includes('limb_pair_list'));
+      assert.ok(!registeredNames.includes('limb_pair_approve'));
+      assert.ok(!registeredNames.includes('office_claw_list_tasks'));
+      assert.ok(!registeredNames.includes('office_claw_update_task'));
+      assert.ok(!registeredNames.includes('office_claw_load_skill'));
+      assert.ok(!registeredNames.includes('office_claw_create_rich_block'));
+      assert.ok(!registeredNames.includes('office_claw_get_rich_block_rules'));
+      assert.ok(!registeredNames.includes('office_claw_request_permission'));
+      assert.ok(!registeredNames.includes('office_claw_check_permission_status'));
+      assert.ok(!registeredNames.includes('office_claw_update_workflow'));
+      assert.ok(!registeredNames.includes('office_claw_feat_index'));
+      assert.ok(registeredNames.includes('office_claw_post_message'));
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS;
+      } else {
+        process.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS = previous;
+      }
+    }
   });
 
   test('src/index.ts stays under 350 lines (hard limit)', () => {

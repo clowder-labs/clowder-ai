@@ -18,6 +18,24 @@ const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
   'OFFICE_CLAW_SIGNAL_USER',
 ] as const;
 
+export const RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS = [
+  'limb_list_available',
+  'limb_invoke',
+  'limb_pair_list',
+  'limb_pair_approve',
+  'office_claw_list_tasks',
+  'office_claw_update_task',
+  'office_claw_load_skill',
+  'office_claw_create_rich_block',
+  'office_claw_get_rich_block_rules',
+  'office_claw_request_permission',
+  'office_claw_check_permission_status',
+  'office_claw_update_workflow',
+  'office_claw_feat_index',
+] as const;
+
+export const RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV = 'OFFICE_CLAW_MCP_EXCLUDED_TOOLS';
+
 export interface RelayClawCatCafeMcpServer {
   command: string;
   args: string[];
@@ -61,9 +79,12 @@ export function resolveCatCafeMcpServer(
 
 export function buildCatCafeMcpEnv(callbackEnv?: Record<string, string>): Record<string, string> {
   const resolvedEnv = callbackEnv ?? {};
-  return Object.fromEntries(
-    CAT_CAFE_MCP_CALLBACK_ENV_KEYS.map((key) => [key, resolvedEnv[key]]).filter(([, value]) => Boolean(value)),
-  ) as Record<string, string>;
+  return {
+    ...(Object.fromEntries(
+      CAT_CAFE_MCP_CALLBACK_ENV_KEYS.map((key) => [key, resolvedEnv[key]]).filter(([, value]) => Boolean(value)),
+    ) as Record<string, string>),
+    [RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV]: RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS.join(','),
+  };
 }
 
 export function buildCatCafeMcpRequestConfig(options?: AgentServiceOptions): Record<string, unknown> | undefined {

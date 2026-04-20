@@ -16,7 +16,7 @@
  */
 
 import { basename } from 'node:path';
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
@@ -238,22 +238,26 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     const isCallback = envelope.origin === 'callback';
     const headerTitle = isCallback ? `📨 ${envelope.header} · 传话` : envelope.header;
 
-    // Build markdown body for AI Card
-    let body = '';
+    // AI Card already renders title separately; keep body focused on context + content.
+    let cardBody = '';
     if (envelope.subtitle) {
-      body += `**${envelope.subtitle}**\n\n`;
+      cardBody += `${envelope.subtitle}\n\n`;
     }
-    body += envelope.body;
+    cardBody += envelope.body;
     if (envelope.footer) {
-      body += `\n\n---\n${envelope.footer}`;
+      cardBody += `\n\n---\n${envelope.footer}`;
     }
+
+    // DingTalk markdown `title` is notification-only; the visible content is `text`,
+    // so fallback mode must repeat the agent name inside the markdown body.
+    const markdownBody = `**${headerTitle}**\n\n${cardBody}`;
 
     // Try AI Card first, fall back to markdown
     try {
-      await this.sendAICard(externalChatId, headerTitle, body);
+      await this.sendAICard(externalChatId, headerTitle, cardBody);
     } catch (err) {
       this.log.warn({ err }, '[DingTalkAdapter] AI Card sendFormattedReply failed, falling back to markdown');
-      await this.sendMarkdown(externalChatId, headerTitle, body);
+      await this.sendMarkdown(externalChatId, headerTitle, markdownBody);
     }
   }
 

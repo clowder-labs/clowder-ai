@@ -56,11 +56,6 @@ export {
   searchEvidenceInputSchema,
 } from './evidence-tools.js';
 export {
-  gameActionTools,
-  handleSubmitGameAction,
-  submitGameActionInputSchema,
-} from './game-action-tools.js';
-export {
   handleLimbInvoke,
   handleLimbListAvailable,
   limbInvokeInputSchema,
@@ -91,17 +86,3 @@ export {
   sessionSearchInputSchema,
 } from './session-chain-tools.js';
 export { scheduleTools } from './schedule-tools.js';
-export { signalStudyTools } from './signal-study-tools.js';
-export {
-  handleSignalGetArticle,
-  handleSignalListInbox,
-  handleSignalMarkRead,
-  handleSignalSearch,
-  handleSignalSummarize,
-  signalGetArticleInputSchema,
-  signalListInboxInputSchema,
-  signalMarkReadInputSchema,
-  signalSearchInputSchema,
-  signalSummarizeInputSchema,
-  signalsTools,
-} from './signals-tools.js';

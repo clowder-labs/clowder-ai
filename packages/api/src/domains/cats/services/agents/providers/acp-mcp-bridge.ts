@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { McpServerDescriptor } from '@cat-cafe/shared';
+import type { McpServerDescriptor } from '@office-claw/shared';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { JSONRPCMessage, JSONRPCRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -455,7 +455,7 @@ export class ACPMcpBridge {
 
   private async createLocalConnection(sessionId: string, serverId: string, connectionId: string): Promise<void> {
     const resolved = buildCatCafeMcpRequestConfig(this.options);
-    if (!resolved) throw new ACPRequestError(-32602, 'Cat Cafe MCP server is unavailable');
+    if (!resolved) throw new ACPRequestError(-32602, 'OfficeClaw MCP server is unavailable');
 
     const existingConnectionId = this.sessionServers.get(sessionId)?.get(serverId);
     if (existingConnectionId) {

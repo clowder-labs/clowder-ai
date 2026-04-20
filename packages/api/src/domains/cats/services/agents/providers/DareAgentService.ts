@@ -17,7 +17,7 @@ import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSy
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:path';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@office-claw/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -277,6 +277,10 @@ const ADAPTER_ENDPOINT_ENV: Record<string, string> = {
   'huawei-modelarts': 'HUAWEI_MODELARTS_BASE_URL',
 };
 
+function hasDareModuleEntry(darePath: string): boolean {
+  return existsSync(join(darePath, 'client', '__main__.py')) || existsSync(join(darePath, 'client', '__main__.pyc'));
+}
+
 function readWorkspaceDareConfig(workspace?: string): DareWorkspaceConfig | null {
   if (!workspace) return null;
   const configPath = join(workspace, '.dare', 'config.json');
@@ -398,7 +402,7 @@ function buildModuleLaunchSpec(darePath?: string): DareLaunchSpec {
 
 function resolveConfiguredDareLaunchSpec(darePath: string | undefined): DareLaunchSpec | null {
   if (!darePath) return null;
-  if (existsSync(join(darePath, 'client', '__main__.py'))) {
+  if (hasDareModuleEntry(darePath)) {
     return buildModuleLaunchSpec(darePath);
   }
   if (isExistingFile(darePath)) {
@@ -417,10 +421,10 @@ export function resolveDefaultDarePath(): string | undefined {
   if (isExistingFile(vendoredExecutable)) return vendoredExecutable;
 
   const vendorPath = resolveVendorDarePath();
-  if (existsSync(join(vendorPath, 'client', '__main__.py'))) return vendorPath;
+  if (hasDareModuleEntry(vendorPath)) return vendorPath;
 
   const legacyPath = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
-  if (existsSync(join(legacyPath, 'client', '__main__.py'))) return legacyPath;
+  if (hasDareModuleEntry(legacyPath)) return legacyPath;
 
   return undefined;
 }
@@ -439,14 +443,14 @@ export function dareBundleAvailable(darePath = resolvePreferredDarePath()): bool
   const resolvedPath = darePath?.trim();
   if (!resolvedPath) return false;
   if (isExistingFile(resolvedPath)) return true;
-  if (!existsSync(join(resolvedPath, 'client', '__main__.py'))) return false;
+  if (!hasDareModuleEntry(resolvedPath)) return false;
 
   const pythonCommand = resolveVenvPython(resolvedPath);
   return isExistingFile(pythonCommand) || commandExistsOnPath(pythonCommand);
 }
 
 function formatInvalidDarePath(darePath: string): string {
-  return `DARE_PATH invalid: ${darePath} (missing client/__main__.py and not an executable file)`;
+  return `DARE_PATH invalid: ${darePath} (missing client/__main__.py or client/__main__.pyc and not an executable file)`;
 }
 
 export class DareAgentService implements AgentService {

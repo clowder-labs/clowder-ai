@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -10,7 +10,6 @@ import { getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-hi
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
-import { CatAvatar } from '../CatAvatar';
 import { OverflowTooltip } from '../shared/OverflowTooltip';
 import { formatRelativeTime } from './thread-utils';
 
@@ -38,10 +37,29 @@ export interface ThreadItemProps {
 type ContextMenuState = {
   x: number;
   y: number;
-  anchorX: number;
-  anchorY: number;
-  arrowY: number;
+  anchorLeft: number;
+  anchorTop: number;
+  anchorBottom: number;
 };
+
+function resolveMoreMenuAnchor(container: HTMLDivElement, fallbackEvent?: MouseEvent) {
+  const moreButton = container.querySelector<HTMLButtonElement>('button[aria-label="更多操作"]');
+  if (moreButton) {
+    const rect = moreButton.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return { left: rect.left, top: rect.top, bottom: rect.bottom };
+    }
+  }
+
+  const rowRect = container.getBoundingClientRect();
+  const fallbackLeft = rowRect.right - 28;
+  const fallbackTop = rowRect.top + rowRect.height * 0.62;
+  const fallbackBottom = fallbackTop + 16;
+  if (fallbackEvent) {
+    return { left: fallbackLeft, top: fallbackTop, bottom: fallbackBottom, x: fallbackEvent.clientX, y: fallbackEvent.clientY };
+  }
+  return { left: fallbackLeft, top: fallbackTop, bottom: fallbackBottom };
+}
 
 function getMentionedCatIdsFromMessages(
   messages: ThreadState['messages'] | undefined,
@@ -101,30 +119,36 @@ function normalizeTitleMentions(
   cats: Array<{ id: string; displayName: string; mentionPatterns: string[] }>,
 ): string {
   const mentionLabel = getMentionLabel();
-  const aliasToLabel: Record<string, string> = { ...mentionLabel };
+  const knownAliases = new Set<string>(Object.keys(mentionLabel).map((alias) => alias.toLowerCase()));
 
   for (const cat of cats) {
     const display = cat.displayName.trim();
     if (!display) continue;
-    const label = display.startsWith('@') ? display : `@${display}`;
-    aliasToLabel[cat.id.toLowerCase()] = label;
-    aliasToLabel[display.replace(/^@/, '').toLowerCase()] = label;
+    knownAliases.add(cat.id.toLowerCase());
+    knownAliases.add(display.replace(/^@/, '').toLowerCase());
     for (const pattern of cat.mentionPatterns) {
       const alias = pattern.replace(/^@/, '').trim().toLowerCase();
-      if (alias) aliasToLabel[alias] = label;
+      if (alias) knownAliases.add(alias);
     }
   }
 
   const tokenRe = /@([^\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)/g;
-  return title.replace(tokenRe, (fullMatch: string, alias: string) => {
-    const mapped = aliasToLabel[alias.toLowerCase()];
-    return mapped ?? fullMatch;
-  });
+  return title
+    .replace(tokenRe, (fullMatch: string, alias: string) => (knownAliases.has(alias.toLowerCase()) ? '' : fullMatch))
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.:;!?，。！？、：；])/g, '$1')
+    .trim();
 }
 
+type ThreadFallbackAvatarMeta = {
+  avatar: string;
+  color: string;
+  displayName: string;
+};
+
 function resolveThreadFallbackAvatar(
-  cats: Array<{ id: string; displayName: string; mentionPatterns: string[]; avatar: string }>,
-): string {
+  cats: Array<{ id: string; displayName: string; mentionPatterns: string[]; avatar: string; color?: { primary?: string } }>,
+): ThreadFallbackAvatarMeta {
   const officeCat =
     cats.find((cat) => cat.id.toLowerCase() === 'office') ??
     cats.find((cat) => cat.id.toLowerCase() === 'jiuwenclaw') ??
@@ -132,8 +156,21 @@ function resolveThreadFallbackAvatar(
     cats.find((cat) => cat.displayName.includes('办公'));
 
   const avatar = officeCat?.avatar?.trim() ?? '';
-  if (!avatar) return '/avatars/assistant.svg';
-  return avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+  return {
+    avatar: avatar ? (avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar) : '/avatars/assistant.svg',
+    color: officeCat?.color?.primary ?? 'var(--accent-primary)',
+    displayName: officeCat?.displayName ?? '办公智能体',
+  };
+}
+
+function isImageAvatar(avatar: string): boolean {
+  return /^(https?:\/\/|\/|data:image)/.test(avatar);
+}
+
+function getAvatarInitial(name?: string): string {
+  const normalized = (name ?? '').replace(/^@/, '').trim();
+  const first = normalized.slice(0, 1);
+  return (first || '智').toUpperCase();
 }
 
 export function ThreadItem({
@@ -153,7 +190,7 @@ export function ThreadItem({
   isHubThread,
   sourceLabel,
 }: ThreadItemProps) {
-  const { cats, getCatById } = useCatData();
+  const { cats = [], getCatById } = useCatData();
   const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
   const showUnreadBadge = unreadCount > 0;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
@@ -198,43 +235,29 @@ export function ThreadItem({
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
     const viewportPadding = 8;
-    const anchorGap = 10;
+    const anchorGap = 6;
     const rect = menuRef.current.getBoundingClientRect();
     const maxX = window.innerWidth - rect.width - viewportPadding;
     const nextX = Math.min(
-      Math.max(contextMenu.anchorX + anchorGap, viewportPadding),
+      Math.max(contextMenu.anchorLeft, viewportPadding),
       Math.max(viewportPadding, maxX),
     );
 
     const topBoundY = viewportPadding;
     const bottomBoundY = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
-    const oneFifthOffset = rect.height * 0.2;
-    const fourFifthsOffset = rect.height * 0.8;
-    const arrowMargin = 18;
-    const clampedOneFifth = Math.min(
-      Math.max(oneFifthOffset, arrowMargin),
-      Math.max(arrowMargin, rect.height - arrowMargin),
-    );
-    const clampedFourFifths = Math.min(
-      Math.max(fourFifthsOffset, arrowMargin),
-      Math.max(arrowMargin, rect.height - arrowMargin),
-    );
-
-    const oneFifthRawY = contextMenu.anchorY - clampedOneFifth;
-    const fourFifthsRawY = contextMenu.anchorY - clampedFourFifths;
-    const oneFifthWouldOverflowBottom = oneFifthRawY + rect.height > window.innerHeight - viewportPadding;
-    const useOneFifth = !oneFifthWouldOverflowBottom;
-    const targetRawY = useOneFifth ? oneFifthRawY : fourFifthsRawY;
-    const nextArrowY = useOneFifth ? clampedOneFifth : clampedFourFifths;
+    const preferredBelowY = contextMenu.anchorBottom + anchorGap;
+    const preferredAboveY = contextMenu.anchorTop - rect.height - anchorGap;
+    const fitsBelow = preferredBelowY + rect.height <= window.innerHeight - viewportPadding;
+    const targetRawY = fitsBelow ? preferredBelowY : preferredAboveY;
     const nextY = Math.min(Math.max(targetRawY, topBoundY), bottomBoundY);
 
-    if (nextX !== contextMenu.x || nextY !== contextMenu.y || nextArrowY !== contextMenu.arrowY) {
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
       setContextMenu({
         x: nextX,
         y: nextY,
-        anchorX: contextMenu.anchorX,
-        anchorY: contextMenu.anchorY,
-        arrowY: nextArrowY,
+        anchorLeft: contextMenu.anchorLeft,
+        anchorTop: contextMenu.anchorTop,
+        anchorBottom: contextMenu.anchorBottom,
       });
     }
   }, [contextMenu]);
@@ -267,7 +290,7 @@ export function ThreadItem({
   const recentAssistantNames = recentAssistantCatIds.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = recentAssistantNames || participantNames || (isHubThread ? 'Hub 会话' : '暂无智能体');
-  const fallbackAvatarSrc = resolveThreadFallbackAvatar(cats);
+  const fallbackAvatar = resolveThreadFallbackAvatar(cats);
   const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
   const fallbackAvatarCatIds = Array.from(
     new Set(
@@ -278,86 +301,140 @@ export function ThreadItem({
   );
   const avatarCatIds = (recentAssistantCatIds.length > 0 ? recentAssistantCatIds : fallbackAvatarCatIds).slice(0, 4);
   const contextMenuItemClass =
-    'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
-  const openContextMenu = useCallback((clientX: number, clientY: number, anchorY?: number) => {
+    'ui-overlay-item block w-full whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-xs text-[var(--overlay-text)] transition-colors focus-visible:outline-none';
+  const isContextMenuOpen = contextMenu !== null;
+  const openContextMenu = useCallback((anchorLeft: number, anchorTop: number, anchorBottom: number) => {
     setContextMenu({
-      x: clientX + 10,
-      y: clientY + 10,
-      anchorX: clientX,
-      anchorY: anchorY ?? clientY,
-      arrowY: 16,
+      x: anchorLeft,
+      y: anchorBottom + 6,
+      anchorLeft,
+      anchorTop,
+      anchorBottom,
     });
   }, []);
+
+  const renderCatAvatar = useCallback(
+    (catId: string, size: number) => {
+      const cat = getCatById(catId);
+      const avatar = cat?.avatar?.trim() ?? '';
+      const avatarSrc = avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+      const imageAvatar = isImageAvatar(avatarSrc);
+
+      if (imageAvatar) {
+        return (
+          <div className="overflow-hidden rounded-full bg-gray-100" style={{ width: size, height: size }}>
+            <img
+              src={avatarSrc}
+              alt={cat?.displayName ?? catId}
+              width={size}
+              height={size}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div
+          className="inline-flex items-center justify-center rounded-full font-semibold text-[var(--thread-avatar-initial-text)]"
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: cat?.color?.primary ?? 'var(--accent-primary)',
+            fontSize: size <= 16 ? 10 : 12,
+            lineHeight: 1,
+          }}
+          aria-hidden="true"
+          title={cat?.displayName ?? catId}
+        >
+          {avatar || getAvatarInitial(cat?.displayName ?? catId)}
+        </div>
+      );
+    },
+    [getCatById],
+  );
 
   return (
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 rounded-[8px] ${isActive ? 'ui-thread-item-active' : 'ui-thread-item-inactive'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        const itemRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-        openContextMenu(e.clientX, e.clientY, itemRect.top + itemRect.height / 2);
+        const anchor = resolveMoreMenuAnchor(e.currentTarget, e.nativeEvent);
+        openContextMenu(anchor.left, anchor.top, anchor.bottom);
       }}
     >
       <div className="flex items-center gap-[10px]">
         <div className="relative shrink-0">
           {avatarCatIds.length === 1 ? (
-            <CatAvatar catId={avatarCatIds[0]!} size={32} showRing={false} />
+            renderCatAvatar(avatarCatIds[0]!, 32)
           ) : avatarCatIds.length > 1 ? (
             <div className="relative h-8 w-8">
               {avatarCatIds.length === 2 && (
                 <>
                   <div className="absolute left-[1px] top-[6px] z-10">
-                    <CatAvatar catId={avatarCatIds[0]!} size={20} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 20)}
                   </div>
                   <div className="absolute left-[11px] top-[6px] z-0">
-                    <CatAvatar catId={avatarCatIds[1]!} size={20} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 20)}
                   </div>
                 </>
               )}
               {avatarCatIds.length === 3 && (
                 <>
                   <div className="absolute left-[8px] top-0">
-                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 16)}
                   </div>
                   <div className="absolute left-0 top-[16px]">
-                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-[16px]">
-                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[2]!, 16)}
                   </div>
                 </>
               )}
               {avatarCatIds.length >= 4 && (
                 <>
                   <div className="absolute left-0 top-0">
-                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-0">
-                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 16)}
                   </div>
                   <div className="absolute left-0 top-[16px]">
-                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[2]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-[16px]">
-                    <CatAvatar catId={avatarCatIds[3]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[3]!, 16)}
                   </div>
                 </>
               )}
             </div>
           ) : (
             <div className="ui-avatar-fallback-shell h-8 w-8">
-              {/* biome-ignore lint/performance/noImgElement: fallback avatar uses static local asset */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fallbackAvatarSrc} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+              {isImageAvatar(fallbackAvatar.avatar) ? (
+                <>
+                  {/* biome-ignore lint/performance/noImgElement: fallback avatar uses static local asset */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fallbackAvatar.avatar} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                </>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold text-[var(--thread-avatar-initial-text)]"
+                  style={{ backgroundColor: fallbackAvatar.color }}
+                >
+                  {fallbackAvatar.avatar || getAvatarInitial(fallbackAvatar.displayName)}
+                </span>
+              )}
             </div>
           )}
           {showUnreadBadge && (
             <span
-              className="absolute -right-1 border -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3B30] px-1 text-[10px] font-medium leading-none text-white"
+              className="ui-thread-unread-badge absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border px-1 text-[10px] font-medium leading-none"
               aria-label={`未读消息 ${unreadCount}`}
             >
               {unreadLabel}
@@ -368,31 +445,33 @@ export function ThreadItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <OverflowTooltip content={displayTitle} className="min-w-0 flex-1">
-              <span className="ui-thread-title block min-w-0 truncate text-[#191919] font-semibold">{displayTitle}</span>
+              <span className="ui-thread-title block min-w-0 truncate font-semibold">{displayTitle}</span>
             </OverflowTooltip>
             {sourceLabel && (
-              <span className="shrink-0 rounded-full bg-[rgba(20,118,255,0.1)] px-2 py-[1px] text-[10px] leading-4 text-[rgba(20,118,255,1)]">
+              <span className="ui-thread-source-badge shrink-0 rounded-full px-2 py-[1px] text-[10px] leading-4">
                 {sourceLabel}
               </span>
             )}
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="block min-w-0 flex-1 truncate text-[12px] text-[#808080]">{description}</span>
+            <OverflowTooltip content={description} className="min-w-0 flex-1">
+              <span className="ui-thread-description block min-w-0 truncate">{description}</span>
+            </OverflowTooltip>
             <div className="flex shrink-0 items-center gap-1.5">
-              <span className="ui-thread-meta shrink-0 text-[#808080] group-hover:hidden">
+              <span className={`ui-thread-meta shrink-0 ${isContextMenuOpen ? 'hidden' : 'group-hover:hidden'}`}>
                 {formatRelativeTime(lastActiveAt, true)}
               </span>
               <button
                 type="button"
                 aria-label="更多操作"
-                className={`h-4 w-4 items-center justify-center rounded text-[#808080] hover:bg-[rgba(0,0,0,0.05)] ${
-                  contextMenu ? 'inline-flex' : 'hidden group-hover:inline-flex focus-visible:inline-flex'
+                className={`ui-thread-action h-4 w-4 items-center justify-center ${
+                  isContextMenuOpen ? 'inline-flex' : 'hidden group-hover:inline-flex focus-visible:inline-flex'
                 }`}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                  openContextMenu(rect.right, rect.top + rect.height / 2, rect.top + rect.height / 2);
+                  openContextMenu(rect.left, rect.top, rect.bottom);
                 }}
               >
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -409,7 +488,7 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-lg"
+          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] border border-[var(--overlay-border)] py-2 shadow-[var(--overlay-shadow)]"
           data-testid="thread-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
@@ -505,10 +584,10 @@ export function ThreadItem({
           />
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
               确定
             </button>
           </div>

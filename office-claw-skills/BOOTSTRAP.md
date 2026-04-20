@@ -3,107 +3,71 @@
 <EXTREMELY_IMPORTANT>
 你已加载 OfficeClaw Skills。路由规则定义在 `manifest.yaml`。
 
-## Skills 列表（24 个）
+## Skills 目录（共 4 大类 27 个）
 
-### 开发流程链
-```
-feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
-    → quality-gate → request-review → receive-review
-    → merge-gate → feat-lifecycle(完成)
-```
-
-| Skill | 触发场景 | SOP Step |
-|-------|----------|----------|
-| `collaborative-thinking` | brainstorm/多智能体讨论/收敛 | — |
-| `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
-| `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
- 
-### 文档处理
+### 办公套件
 
 | Skill | 触发场景 |
 |-------|----------|
-| `pdf` | 读取/合并/拆分/加密/OCR PDF 文件 |
-| `docx` | 创建/编辑 Word 文档（.docx） |
-| `xlsx` | 创建/编辑/读取电子表格（.xlsx/.csv） |
-| `diagram-generator` | 生成流程图/序列图/ER图/架构图 |
-| `pptx-craft`        | 创建/编辑/读取演示文稿（.pptx） |
-| `pptx-craft-simple`        | 创建/编辑/读取演示文稿（.pptx） |
+| `minimax-docx` | 专业 DOCX 生成、编辑、套模板与结构化排版 |
+| `minimax-pdf` | 高视觉质量 PDF 生成、填表与重设计 |
+| `minimax-xlsx` | Excel / CSV / TSV 创建、分析、零损编辑与校验 |
+| `official-doc-formatter` | 按国标公文规范格式化 Word 文档 |
+| `pptx-craft` | 多阶段研究、规划、生成一体化 PPT 流程 |
+| `weather` | 天气查询与短期预报，适用于出行和日常工作安排 |
 
-### 搜索与信息
-
-| Skill | 触发场景 |
-|-------|----------|
-| `weather` | 查天气/温度/天气预报 |
-| `github` | GitHub issue/PR/CI 查询操作 |
-| `multi-search-engine` | 17 搜索引擎聚合搜索 |
-| `summarize` | URL/播客/文件内容摘要提取 |
-
-### AI 智能
+### 企业协作
 
 | Skill | 触发场景 |
 |-------|----------|
-| `adaptive-reasoning` | 自动评估任务复杂度，调整推理级别 |
-| `proactive-agent` | 主动式 agent，预判需求并持续改进 |
-| `persistent-agent-memory` | Agent 持久化记忆（跨 session 上下文） |
-| `self-improving-agent` | 捕获错误/纠正，持续自我改进 |
-| `cross-agent-handoff`          | 协作交接  |
+| `meeting-autopilot-pro` | 会议全生命周期准备、记录、跟进与行动项追踪 |
+| `email-manager` | 邮件发送、查收、回复、标记与多邮箱管理 |
 
-### 工具与自动化
+### 自媒体
 
 | Skill | 触发场景 |
 |-------|----------|
-| `agent-browser` | 无头浏览器自动化（点击/截图/填表） |
-| `auto-updater` | 自动更新 Clawdbot 和已安装 skill |
+| `daily-briefing` | 每日销售简报、优先级和会前准备 |
+| `knowledge-organizer-xiaping` | 文章/笔记整理、归档、摘要与同步 |
+| `lidan-writing-framework` | 用七步框架把复杂概念写清楚 |
+| `canned-responses-review` | 常见法务询问模板回复与升级识别 |
+| `openai-whisper-cn` | 本地语音转文字、音频转录、会议录音转文本 |
 
-### 生活与会议
-
-| Skill | 触发场景 |
-|-------|----------|
-| `daily-life-autopilot` | 日常生活管理（邮件/日程/提醒/账单） |
-| `meeting-autopilot-pro` | 会议全生命周期（准备/笔记/跟进） |
-
-### 安全与质量
+### 开发与工程
 
 | Skill | 触发场景 |
 |-------|----------|
-| `credential-manager` | API 密钥/凭证集中管理（.env 标准化） |
-| `skill-vetter` | 安装 skill 前的安全审查 |
-| `skill-creator` | 创建/修改/优化 skill |
+| `skill-creator` | 创建、迭代、评估和优化 skill 的开发工作流 |
+| `skill-vetter` | 安全优先的 skill 审核与风险评估，用于安装前审查 |
 
-### 参考文件（refs/，按需读取）
+## 说明
 
-| 文件 | 内容 |
-|------|------|
-| `refs/shared-rules.md` | 协作规则（单一真相源） |
-| `refs/decision-matrix.md` | 决策权漏斗矩阵 |
-| `refs/commit-signatures.md` | 智能体签名表 + @ 句柄 |
-| `refs/pr-template.md` | PR 模板 + 云端 review 触发模板 |
-| `refs/review-request-template.md` | Review 请求信模板 |
-| `refs/vision-evidence-workflow.md` | 前端截图/录屏证据流程（B1） |
-| `refs/requirements-checklist-template.md` | 需求点 checklist 模板（B3） |
-| `refs/mcp-callbacks.md` | HTTP callback API 参考 |
-| `refs/rich-blocks.md` | Rich block 创建指南 |
-
+- 当前官方清单以 `office-claw-skills/` 顶层目录中的实际 skill 为准。
+- `pptx-craft/designer`、`pptx-craft/planner`、`pptx-craft/outline-research` 是 `pptx-craft` 内部模块，不在本目录中单独注册。
+- `BOOTSTRAP.md` 负责分类速览，`manifest.yaml` 负责路由与元数据。
+- 
 ## 关键规则
 
-1. **Skill 适用就必须加载，没有选择**
-2. **完整流程见 `docs/SOP.md`**
-3. **三条铁律**：Redis production Redis (sacred) / 同一个体不能 self-review / 不能冒充其他智能体
-4. **共用规则在 `refs/shared-rules.md`**（不在各智能体文件里重复）
-5. **Reviewer 选择是动态匹配**（`docs/SOP.md` 配对规则），禁止写死"reviewer 是Ragdoll"
+1. **Skill 适用就必须使用。**
+2. **`manifest.yaml` 是触发、路由、描述的单一真相源。**
+3. **`BOOTSTRAP.md` 只维护官方 skills 的分类速览，不承载实现细节。**
+4. **`refs/` 是参考材料，不是独立 skill。**
+5. **新增或修改 skill 时，必须同时同步目录、`manifest.yaml` 与 `BOOTSTRAP.md`。**
+6. **技能分类按 4 大类组织：办公套件、企业协作、自媒体、开发与工程**
 
 ## 使用方式
 
 - **Claude**: Skills 自动触发（`~/.claude/skills/`）
-- **Codex**: 手动加载 `cat ~/.codex/skills/{skill-name}/SKILL.md`
+- **Codex**: 读取对应 `SKILL.md` 后执行
 - **Gemini**: Skills 自动触发（`~/.gemini/skills/`）
 
 ## 新增/修改 skill
 
-1. 在 `{skills-dir}/{name}/` 创建 SKILL.md
-2. 在 `manifest.yaml` 添加路由条目
-3. 创建 symlink：`ln -s .../{skills-dir}/{name} ~/.{claude,codex,gemini}/skills/{name}`（OpenCode 读 `~/.claude/`，自动覆盖）
-4. 运行 `pnpm check:skills` 验证
+1. 在 `{skills-dir}/{name}/` 创建或更新 `SKILL.md`
+2. 在 `manifest.yaml` 添加或更新路由条目（按 4 大类分组）
+3. 在 `BOOTSTRAP.md` 将 skill 放入正确分类
+4. 保持顶��目录、注册表与说明文档一致
+5. 运行校验，确认目录、注册表与 refs 一致
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
 </EXTREMELY_IMPORTANT>

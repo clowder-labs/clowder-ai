@@ -173,7 +173,6 @@ def _resolve_execution_plan(command: str, shell_type: str) -> tuple[list[str] | 
 
 def _run_command_sync(
     command: str,
-    timeout_seconds: int,
     workdir: Path,
     shell_type: str,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
@@ -186,7 +185,6 @@ def _run_command_sync(
         encoding='utf-8',
         errors='replace',
         capture_output=True,
-        timeout=timeout_seconds,
     )
     return result, resolved_shell
 
@@ -231,7 +229,6 @@ def _run_command_background(
 )
 async def mcp_exec_command(
     command: str,
-    timeout_seconds: int = 15,
     workdir: str = ".",
     max_output_chars: int = 8000,
     shell_type: str = "auto",
@@ -250,7 +247,6 @@ async def mcp_exec_command(
     except Exception:
         return "[ERROR]: workdir is outside project workspace."
 
-    timeout_seconds = max(1, min(timeout_seconds, 60))
     max_output_chars = max(200, min(max_output_chars, 20000))
     normalized_shell_type = _normalize_shell_type(shell_type)
 
@@ -281,12 +277,9 @@ async def mcp_exec_command(
         result, resolved_shell = await asyncio.to_thread(
             _run_command_sync,
             command,
-            timeout_seconds,
             resolved_workdir,
             normalized_shell_type,
         )
-    except subprocess.TimeoutExpired:
-        return f"[ERROR]: command timed out after {timeout_seconds}s."
     except Exception as exc:
         return f"[ERROR]: command execution failed: {exc}"
 

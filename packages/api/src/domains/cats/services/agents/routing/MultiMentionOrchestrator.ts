@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import {
   MAX_MULTI_MENTION_TARGETS,
   MAX_TIMEOUT_MINUTES,
@@ -13,10 +13,11 @@ import {
   MULTI_MENTION_TERMINAL_STATES,
   type MultiMentionRequest,
   type MultiMentionResponse,
+  type MultiMentionResponseStatus,
   type MultiMentionResult,
   type MultiMentionStatus,
   type MultiMentionTriggerType,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { isValidTransition } from './multi-mention-state-machine.js';
 
 // ── Create params ────────────────────────────────────────────────────
@@ -107,6 +108,19 @@ export class MultiMentionOrchestrator {
   }
 
   recordResponse(requestId: string, catId: CatId, content: string): MultiMentionStatus {
+    return this.recordOutcome(requestId, catId, 'received', content);
+  }
+
+  recordFailure(requestId: string, catId: CatId, content = ''): MultiMentionStatus {
+    return this.recordOutcome(requestId, catId, 'failed', content);
+  }
+
+  private recordOutcome(
+    requestId: string,
+    catId: CatId,
+    responseStatus: MultiMentionResponseStatus,
+    content: string,
+  ): MultiMentionStatus {
     const entry = this.entries.get(requestId);
     if (!entry) throw new Error(`Multi-mention request not found: ${requestId}`);
 
@@ -129,7 +143,7 @@ export class MultiMentionOrchestrator {
       catId,
       content,
       timestamp: Date.now(),
-      status: 'received',
+      status: responseStatus,
     });
 
     // Check completion

@@ -5,7 +5,6 @@
  */
 
 'use client';
-
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
@@ -13,11 +12,9 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
-import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
-import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
-import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
+import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
@@ -26,16 +23,12 @@ import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { QUICK_ACTIONS } from '@/config/quick-actions';
-import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
-import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId, setIsSkipAuth } from '@/utils/userId';
-import { A2ACollapsible } from './A2ACollapsible';
+import { clearAuthIdentity, getUserId, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 import { AgentsPanel } from './AgentsPanel';
-import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
 import { ChannelsPanel } from './ChannelsPanel';
@@ -43,7 +36,6 @@ import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
-import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
 import { MobileStatusSheet } from './MobileStatusSheet';
@@ -54,20 +46,26 @@ import { QueuePanel } from './QueuePanel';
 import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { ScheduledTasksPanel } from './ScheduledTasksPanel';
+import SecurityManagementModal from './SecurityManagementModal';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
-import { VoteActiveBar } from './VoteActiveBar';
-import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
+import { LoadingPointStyle } from './LoadingPointStyle';
+import { AuthHeroShowcase } from './auth/AuthShell';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
+let cachedAuthChecked = false;
+let cachedIsLoggedIn = false;
+let cachedIsSkipAuth = false;
+
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 660;
+const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
+const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
-const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/time-time.svg';
 
 function buildScheduledTaskQuickActionInsertText(): string | null {
   const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
@@ -87,6 +85,7 @@ type ChatContainerProps =
   | {
       mode: 'new';
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       threadId?: never;
       initialSidebarMenu?: never;
     }
@@ -94,58 +93,222 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
 
-function AuthLoadingPanel() {
+function hasAuthSuccessFlagInLocation(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URL(window.location.href).searchParams.get('authSuccess') === '1';
+}
+
+function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
   return (
-    <div className="flex h-full items-center justify-center" data-testid="chat-container-loading-panel">
-      <div className="text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/chart/loading.svg" alt="加载中" className="mx-auto h-8 w-8 animate-spin" />
-        <p className="mt-3 text-gray-600">加载中...</p>
+    <div
+      data-testid="chat-container-loading-panel"
+      className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16"
+    >
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] items-center justify-center lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <AuthHeroShowcase layout="standalone" />
+
+          <div className="mt-12 flex items-center gap-3 text-[16px] font-normal text-[#595959] sm:text-base">
+            <LoadingPointStyle className="h-5 w-5 flex-shrink-0" />
+            <span>{message}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+function getMessageToolActivityTimestamp(message: ChatMessageData): number | null {
+  if (!message.toolEvents || message.toolEvents.length === 0) return null;
+  return Math.max(
+    message.timestamp,
+    ...message.toolEvents.map((event) => event.timestamp ?? message.timestamp),
+  );
+}
+
+function mapPendingAuthorizationToMessages(
+  messages: ChatMessageData[],
+  pending: import('@/hooks/useAuthorization').AuthPendingRequest[],
+): Map<string, import('@/hooks/useAuthorization').AuthPendingRequest[]> {
+  const pendingByMessageId = new Map<string, import('@/hooks/useAuthorization').AuthPendingRequest[]>();
+  const hostMessages = messages.filter(
+    (message) =>
+      message.type === 'assistant' &&
+      Boolean(message.catId) &&
+      Array.isArray(message.toolEvents) &&
+      message.toolEvents.length > 0,
+  );
+
+  for (const request of pending) {
+    const bestHost = hostMessages
+      .filter((message) => message.catId === request.catId)
+      .sort((left, right) => {
+        if (left.isStreaming !== right.isStreaming) {
+          return left.isStreaming ? -1 : 1;
+        }
+
+        const leftDelta = Math.abs((getMessageToolActivityTimestamp(left) ?? left.timestamp) - request.createdAt);
+        const rightDelta = Math.abs((getMessageToolActivityTimestamp(right) ?? right.timestamp) - request.createdAt);
+        if (leftDelta !== rightDelta) return leftDelta - rightDelta;
+
+        return right.timestamp - left.timestamp;
+      })[0];
+
+    if (!bestHost) continue;
+
+    const existing = pendingByMessageId.get(bestHost.id) ?? [];
+    existing.push(request);
+    pendingByMessageId.set(bestHost.id, existing);
+  }
+
+  return pendingByMessageId;
+}
+
 export function ChatContainer(props: ChatContainerProps) {
-  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
-  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const [skipInitialAuthGate] = useState(() => Boolean(props.skipInitialAuthGate) || hasAuthSuccessFlagInLocation());
+  const [authChecked, setAuthChecked] = useState(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return true;
+    console.log('ChatContainer: initializing authChecked from cache:', cachedAuthChecked, 'cachedIsLoggedIn:', cachedIsLoggedIn);
+    return cachedAuthChecked;
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return true;
+    console.log('ChatContainer: initializing isLoggedIn from cache:', cachedIsLoggedIn);
+    return cachedIsLoggedIn;
+  });
+  const hasAuthRedirectedRef = useRef(false);
   const router = useRouter();
+  const authPending = Boolean(props.requireLoginCheck) && !authChecked;
+  const authRedirecting = Boolean(props.requireLoginCheck) && authChecked && !isLoggedIn;
 
   useEffect(() => {
-    if (!props.requireLoginCheck) return;
+    if (!skipInitialAuthGate || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('authSuccess')) return;
+    url.searchParams.delete('authSuccess');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl || '/');
+  }, [skipInitialAuthGate]);
 
+  // Thread pages skip requireLoginCheck to avoid the loading panel flash.
+  // But this leaves cachedAuthChecked=false, causing "新建会话" to show
+  // the loading panel on the home page. Silently warm up the cache here.
+  useEffect(() => {
+    if (props.mode !== 'thread' || props.requireLoginCheck || cachedAuthChecked) return;
+    apiFetch('/api/islogin')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.islogin) {
+          cachedAuthChecked = true;
+          cachedIsLoggedIn = true;
+          setCanCreateModel(Boolean(data?.canCreateModel));
+        }
+      })
+      .catch(() => {});
+    // intentionally run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return;
+
+    console.log('ChatContainer: checking cache - cachedAuthChecked:', cachedAuthChecked, 'cachedIsLoggedIn:', cachedIsLoggedIn);
+    if (cachedAuthChecked && cachedIsLoggedIn) {
+      console.log('ChatContainer: using cached auth state');
+      setIsSkipAuth(cachedIsSkipAuth);
+      setIsLoggedIn(true);
+      setAuthChecked(true);
+      return;
+    }
+
+    console.log('ChatContainer: cache not valid, making API call');
     let cancelled = false;
+
+    const redirectTo = (target: string, external = false) => {
+      if (hasAuthRedirectedRef.current) return;
+      hasAuthRedirectedRef.current = true;
+      if (external) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
+
     (async () => {
+      let data: any = null;
       try {
         const response = await apiFetch('/api/islogin');
-        const data = await response.json();
+        data = await response.json();
         if (cancelled) return;
         setIsSkipAuth(Boolean(data?.isskip));
+        setCanCreateModel(Boolean(data?.canCreateModel));
         if (data?.islogin) {
+          console.log('ChatContainer: auth success, setting cache');
           setIsLoggedIn(true);
+          cachedIsLoggedIn = true;
         } else {
-          router.replace('/login');
+          console.log('ChatContainer: auth failed, clearing cache');
+          cachedIsLoggedIn = false;
+          if (data?.pendingInvitation) {
+            redirectTo('/login/invitation');
+          } else {
+            const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+            if (loginUrl) {
+              redirectTo(loginUrl, true);
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
-          router.replace('/login');
+          // API 不可用（如服务重启/ERR_FAILED）时，用 sessionStorage 限制重试次数，
+          // 避免 authChecked=true + isLoggedIn=false 导致永久卡在"正在跳转登录页..."。
+          const retries = Number(sessionStorage.getItem('_chat_auth_retry') || '0');
+          if (retries < 2) {
+            sessionStorage.setItem('_chat_auth_retry', String(retries + 1));
+            // 延迟 3s 后 reload，等待 API 服务恢复
+            setTimeout(() => {
+              if (!cancelled) window.location.reload();
+            }, 3000);
+            return; // 不执行 finally 里的 setAuthChecked(true)，保持 loading 状态
+          }
+          // 重试耗尽：跳转 CAS 重新登录
+          sessionStorage.removeItem('_chat_auth_retry');
+          const casUrl = sessionStorage.getItem('_cas_login_url');
+          if (casUrl) {
+            window.location.replace(casUrl);
+          } else {
+            window.location.reload();
+          }
+          return;
         }
       } finally {
-        if (!cancelled) setAuthChecked(true);
+        if (!cancelled) {
+          console.log('ChatContainer: auth check completed, setting cachedAuthChecked = true');
+          setAuthChecked(true);
+          cachedAuthChecked = true;
+          cachedIsSkipAuth = Boolean(data?.isskip);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [props.requireLoginCheck, router]);
+  }, [props.requireLoginCheck, router, skipInitialAuthGate]);
 
-  if (authChecked && !isLoggedIn) {
-    return null;
+  // Keep a full-screen transition state while auth is unresolved or redirecting
+  // to login so the desktop shell never falls through to a blank page.
+  if (authPending || authRedirecting) {
+    return (
+      <div className="ui-shell-surface flex h-screen h-dvh w-full overflow-hidden">
+        <AuthLoadingPanel message={authRedirecting ? '正在跳转登录页...' : '加载中...'} />
+      </div>
+    );
   }
 
   if (props.mode === 'new') {
@@ -190,23 +353,6 @@ function ThreadModeChatContainer({
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
   const threads = useChatStore((s) => s.threads);
 
-  // F101: Game state from Zustand store
-  const gameView = useGameStore((s) => s.gameView);
-  const isGameActive = useGameStore((s) => s.isGameActive);
-  const isNight = useGameStore((s) => s.isNight);
-  const selectedTarget = useGameStore((s) => s.selectedTarget);
-  const godScopeFilter = useGameStore((s) => s.godScopeFilter);
-  const myRole = useGameStore((s) => s.myRole);
-  const myRoleIcon = useGameStore((s) => s.myRoleIcon);
-  const myActionLabel = useGameStore((s) => s.myActionLabel);
-  const myActionHint = useGameStore((s) => s.myActionHint);
-  const isGodView = useGameStore((s) => s.isGodView);
-  const isDetective = useGameStore((s) => s.isDetective);
-  const detectiveBoundName = useGameStore((s) => s.detectiveBoundName);
-  const godSeats = useGameStore((s) => s.godSeats);
-  const godNightSteps = useGameStore((s) => s.godNightSteps);
-  const hasTargetedAction = useGameStore((s) => s.hasTargetedAction);
-  const altActionName = useGameStore((s) => s.altActionName);
 
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -224,6 +370,7 @@ function ThreadModeChatContainer({
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
   const sidebarOpen = true;
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
+  const [showSecurityManagement, setShowSecurityManagement] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
   const [stoppedIntentRecognition, setStoppedIntentRecognition] = useState<{
@@ -244,31 +391,7 @@ function ThreadModeChatContainer({
       text: scheduledTaskQuickActionInsertText,
     });
   }, [scheduledTaskQuickActionInsertText, setPendingChatInsert, threadId]);
-  // F106: fetch bootcamp count independently of sidebar lifecycle
-  // refreshKey increments only on modal close to avoid duplicate fetch on open
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_bootcampRefreshKey, setBootcampRefreshKey] = useState(0);
-  const handleBootcampModalClose = useCallback(() => {
-    setShowBootcampList(false);
-    setBootcampRefreshKey((k) => k + 1);
-  }, []);
-  const [bootcampCount, setBootcampCount] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch('/api/bootcamp/threads')
-      .then(async (res) => {
-        if (cancelled || !res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setBootcampCount(data.threads?.length ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) setBootcampCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  // F063: resizable split pane, chatBasis as percentage (20-80), persisted
+// F063: resizable split pane, chatBasis as percentage (20-80), persisted
   // F063 Gap 6: sidebar width in px, persisted
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
     'cat-cafe:sidebarWidth',
@@ -283,7 +406,15 @@ function ThreadModeChatContainer({
   );
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
-  const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
+  const {
+    handleScroll,
+    scrollContainerRef,
+    messagesEndRef,
+    scrollToBottom,
+    followLayoutChangeIfPinned,
+    isLoadingHistory,
+    hasMore,
+  } =
     useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId, { resetRefs });
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
@@ -293,16 +424,7 @@ function ThreadModeChatContainer({
     handleAuthRequest,
     handleAuthResponse,
   } = useAuthorization(threadId);
-
-  useEffect(() => {
-    const pending = consumePendingNewThreadSend(threadId);
-    if (!pending) return;
-    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
-
-    consumedPendingRequestIdsRef.current.add(pending.requestId);
-    scrollToBottom('smooth');
-    handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
-  }, [consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
+  const seenAuthRequestIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -326,53 +448,7 @@ function ThreadModeChatContainer({
     return () => window.removeEventListener('cat-cafe:interactive-send', handler);
   }, [handleSend, scrollToBottom]);
 
-  // F079: Vote modal
-  const showVoteModal = useChatStore((s) => s.showVoteModal);
-  const setShowVoteModal = useChatStore((s) => s.setShowVoteModal);
   const { addMessage } = useChatStore();
-  const handleVoteSubmit = useCallback(
-    async (config: VoteConfig) => {
-      setShowVoteModal(false);
-      try {
-        const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(config),
-        });
-        if (res.status === 409) {
-          addMessage({
-            id: `vote-${Date.now()}`,
-            type: 'system',
-            variant: 'error',
-            content: '已有活跃投票，请先 /vote end',
-            timestamp: Date.now(),
-          });
-          return;
-        }
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error ?? `Server error: ${res.status}`);
-        }
-        const responseData = await res.json();
-        // Build @mention notification message and send as user message to trigger cats
-        const mentions = config.voters.map((v) => `@${v}`).join(' ');
-        const optionList = config.options.map((o) => `- ${o}`).join('\n');
-        const questionText = String(responseData.question ?? '');
-        const notifyMsg = `${mentions}\n投票请求：${questionText}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
-        scrollToBottom('smooth');
-        handleSend(notifyMsg);
-      } catch (err) {
-        addMessage({
-          id: `vote-${Date.now()}`,
-          type: 'system',
-          variant: 'error',
-          content: `发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-          timestamp: Date.now(),
-        });
-      }
-    },
-    [threadId, handleSend, scrollToBottom, setShowVoteModal, addMessage],
-  );
 
   const messageSummary = useMemo(() => {
     const c = { total: messages.length, assistant: 0, system: 0, evidence: 0, followup: 0 };
@@ -412,8 +488,6 @@ function ThreadModeChatContainer({
     }
     // First mount: sync threadId to store without save/restore
     setCurrentThread(threadId);
-    // F101: Recover game state for the new thread (or clear stale game from previous thread)
-    reconnectGame(threadId).catch(() => {});
   }, [
     threadId,
     clearTasks, // Clean up non-thread-scoped refs
@@ -442,33 +516,20 @@ function ThreadModeChatContainer({
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
-  type RenderItem =
-    | { kind: 'message'; msg: ChatMessageData }
-    | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
 
-  const renderItems = useMemo<RenderItem[]>(() => {
-    const items: RenderItem[] = [];
-    let currentGroup: { groupId: string; messages: ChatMessageData[] } | null = null;
+  const pendingAuthorizationByMessageId = useMemo(
+    () => mapPendingAuthorizationToMessages(messages, authPending),
+    [authPending, messages],
+  );
 
-    for (const msg of messages) {
-      if (msg.a2aGroupId) {
-        if (currentGroup && currentGroup.groupId === msg.a2aGroupId) {
-          currentGroup.messages.push(msg);
-        } else {
-          if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = { groupId: msg.a2aGroupId, messages: [msg] };
-        }
-      } else {
-        if (currentGroup) {
-          items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = null;
-        }
-        items.push({ kind: 'message', msg });
-      }
+  useEffect(() => {
+    const seenRequestIds = seenAuthRequestIdsRef.current;
+    const hasNewPendingRequest = authPending.some((request) => !seenRequestIds.has(request.requestId));
+    seenAuthRequestIdsRef.current = new Set(authPending.map((request) => request.requestId));
+    if (hasNewPendingRequest) {
+      followLayoutChangeIfPinned('smooth');
     }
-    if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-    return items;
-  }, [messages]);
+  }, [authPending, followLayoutChangeIfPinned]);
 
   const pendingIntentRecognitionTimestamp = useMemo(() => {
     const lastMessage = messages[messages.length - 1];
@@ -549,14 +610,23 @@ function ThreadModeChatContainer({
     sidebarMenu === 'chat' &&
     intentMode === 'execute' &&
     pendingIntentRecognitionTimestamp == null;
+  const handleOpenSecurityManagement = useCallback(() => {
+    setShowSecurityManagement(true);
+  }, []);
 
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
-        <ChatMessage message={msg} getCatById={getCatById} />
+        <ChatMessage
+          message={msg}
+          getCatById={getCatById}
+          pendingAuthRequests={pendingAuthorizationByMessageId.get(msg.id)}
+          onAuthRespond={authRespond}
+          onOpenSecurityManagement={handleOpenSecurityManagement}
+        />
       </MessageActions>
     ),
-    [threadId, getCatById],
+    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond, handleOpenSecurityManagement],
   );
 
   useVoiceAutoPlay();
@@ -576,7 +646,38 @@ function ThreadModeChatContainer({
     return [...ids];
   }, [threads, splitPaneThreadIds]);
 
-  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+  const { cancelInvocation, awaitThreadRoom = async () => 'timed_out' as const } = useSocket(
+    socketCallbacks,
+    threadId,
+    watchedThreadIds,
+  );
+
+  useEffect(() => {
+    const pending = consumePendingNewThreadSend(threadId);
+    if (!pending) return;
+    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
+
+    consumedPendingRequestIdsRef.current.add(pending.requestId);
+    scrollToBottom('smooth');
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await awaitThreadRoom(threadId);
+      } catch (error) {
+        console.warn('[chat] awaitThreadRoom failed, continuing with best-effort send', {
+          threadId,
+          error,
+        });
+      }
+      if (cancelled) return;
+      handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitThreadRoom, consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
 
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
@@ -591,10 +692,22 @@ function ThreadModeChatContainer({
 
   // F069-R5: Ack read cursor server-side. The backend finds the latest real message
   // and acks it atomically, with no frontend ID guessing and no timing races with fetchHistory.
-  // Fires on thread entry AND when new messages arrive (messages.length changes),
-  // so switching away after receiving new messages still acks to the latest.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _messageCount = messages.length;
+  // Trigger on thread entry and on latest-message identity/state changes.
+  // Using messages.length alone misses callback finalization that patches in-place
+  // (same array length, but the latest message transitions stream -> callback/done).
+  const readAckTriggerKey = useMemo(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return `${threadId}:empty`;
+    return [
+      threadId,
+      lastMessage.id,
+      lastMessage.timestamp,
+      lastMessage.origin ?? 'none',
+      lastMessage.isStreaming ? 'streaming' : 'done',
+      lastMessage.deliveredAt ?? 'none',
+    ].join('|');
+  }, [messages, threadId]);
+
   useEffect(() => {
     // Re-arm suppression before each ack. /read/latest is idempotent, so any
     // successful POST means server cursor is at latest, so any successful ack
@@ -611,7 +724,7 @@ function ThreadModeChatContainer({
       .catch((err) => {
         console.debug('[F069] read ack failed:', err);
       });
-  }, [threadId, _messageCount, confirmUnreadAck, armUnreadSuppression]);
+  }, [threadId, readAckTriggerKey, confirmUnreadAck, armUnreadSuppression]);
 
   const handleStop = useCallback(
     (overrideThreadId?: unknown) => {
@@ -657,24 +770,13 @@ function ThreadModeChatContainer({
     return (
       <div className="min-h-screen bg-white">
         <div className="max-w-4xl mx-auto p-4">
-          {renderItems.map((item) =>
-            item.kind === 'a2a_group' ? (
-              <A2ACollapsible
-                key={item.groupId}
-                group={{ groupId: item.groupId, messages: item.messages }}
-                renderMessage={renderSingleMessage}
-                getCatColor={(catId) => getCatById(catId)?.color.primary}
-              />
-            ) : (
-              renderSingleMessage(item.msg)
-            ),
-          )}
+          {messages.map((msg) => renderSingleMessage(msg))}
         </div>
       </div>
     );
   }
   return (
-    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh w-screen">
         <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
           <ThreadSidebar
             className="w-full"
@@ -688,9 +790,15 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
-        <RightContentHeader />
+      <div className="min-w-0 flex-1 flex min-h-0 flex-col">
+        <div className="ui-shell-surface z-40 shrink-0">
+          <RightContentHeader />
+        </div>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <div
+            className="flex h-full min-h-0 flex-col"
+            style={{ minWidth: sidebarMenu === 'chat' ? MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}
+          >
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
@@ -708,9 +816,15 @@ function ThreadModeChatContainer({
         {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
-        <div className="relative flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex-1 min-h-0">
           {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
+            <div
+              className={`ui-shell-surface h-full px-12 py-8 ${
+                sidebarMenu === 'models' || sidebarMenu === 'skills' || sidebarMenu === 'scheduledTasks'
+                  ? 'overflow-y-auto'
+                  : 'overflow-hidden'
+              }`}
+            >
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
@@ -733,23 +847,11 @@ function ThreadModeChatContainer({
                   )}
                   {messages.length === 0 && !isLoadingHistory ? (
                     <ChatEmptyState
-                      bootcampCount={bootcampCount}
-                      isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
-                      onOpenBootcampList={() => setShowBootcampList(true)}
+                      onAgentsClick={() => setSidebarMenu('agents')}
+                      onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
-                    renderItems.map((item) =>
-                      item.kind === 'a2a_group' ? (
-                        <A2ACollapsible
-                          key={item.groupId}
-                          group={{ groupId: item.groupId, messages: item.messages }}
-                          renderMessage={renderSingleMessage}
-                          getCatColor={(catId) => getCatById(catId)?.color.primary}
-                        />
-                      ) : (
-                        renderSingleMessage(item.msg)
-                      ),
-                    )
+                    messages.map((msg) => renderSingleMessage(msg))
                   )}
                   {pendingIntentRecognitionTimestamp != null &&
                     renderSingleMessage({
@@ -790,19 +892,8 @@ function ThreadModeChatContainer({
             </main>
           )}
         </div>
-
-        {sidebarMenu === 'chat' && authPending.length > 0 && (
-          <div className="border-t border-amber-200 bg-amber-50/40 py-2">
-            {authPending.map((req) => (
-              <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
-            ))}
-          </div>
-        )}
-
         {sidebarMenu === 'chat' && <ThreadExecutionBar />}
         {sidebarMenu === 'chat' && <QueuePanel threadId={threadId} />}
-        {sidebarMenu === 'chat' && <VoteActiveBar threadId={threadId} onEnd={() => {}} />}
-
         {sidebarMenu === 'chat' && isResearchMode && (
           <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             多智能体研究模式 - 文章上下文已注入。请输入研究问题，智能体会自动调用 multi_mention 邀请其他智能体参与分析。
@@ -830,60 +921,7 @@ function ThreadModeChatContainer({
           />
         )}
 
-        {/* F101: Game overlay, renders when a game is active */}
-        <GameOverlayConnector
-          gameView={gameView}
-          isGameActive={isGameActive}
-          currentThreadId={threadId}
-          isNight={isNight}
-          selectedTarget={selectedTarget}
-          godScopeFilter={godScopeFilter}
-          isGodView={isGodView}
-          isDetective={isDetective}
-          detectiveBoundName={detectiveBoundName ?? undefined}
-          godSeats={godSeats}
-          godNightSteps={godNightSteps}
-          hasTargetedAction={hasTargetedAction}
-          myRole={myRole ?? undefined}
-          myRoleIcon={myRoleIcon ?? undefined}
-          myActionLabel={myActionLabel ?? undefined}
-          myActionHint={myActionHint ?? undefined}
-          altActionName={altActionName ?? undefined}
-          onClose={() => {
-            abortGame(threadId);
-            useGameStore.getState().clearGame();
-          }}
-          onSelectTarget={(seatId) => useGameStore.getState().setSelectedTarget(seatId)}
-          onGodScopeChange={(scope) => useGameStore.getState().setGodScopeFilter(scope)}
-          onGodAction={(action) => godAction(threadId, action)}
-          onVote={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId) {
-              submitAction(threadId, state.mySeatId, 'vote', state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-          onSpeak={(content) => {
-            const state = useGameStore.getState();
-            if (state.mySeatId) {
-              submitAction(threadId, state.mySeatId, 'speak', undefined, { content });
-            }
-          }}
-          onConfirmAction={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId && state.currentActionName) {
-              submitAction(threadId, state.mySeatId, state.currentActionName, state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-          onConfirmAltAction={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId && state.altActionName) {
-              submitAction(threadId, state.mySeatId, state.altActionName, state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-        />
+          </div>
         </div>
       </div>
 
@@ -898,9 +936,13 @@ function ThreadModeChatContainer({
         messageSummary={messageSummary}
       />
       <CatCafeHub />
-      <BootcampListModal open={showBootcampList} onClose={handleBootcampModalClose} currentThreadId={threadId} />
       <HubListModal open={showHubList} onClose={() => setShowHubList(false)} currentThreadId={threadId} />
-      {showVoteModal && <VoteConfigModal onSubmit={handleVoteSubmit} onCancel={() => setShowVoteModal(false)} />}
+      <BootcampListModal
+        open={showBootcampList}
+        onClose={() => setShowBootcampList(false)}
+        currentThreadId={threadId}
+      />
+      <SecurityManagementModal open={showSecurityManagement} onClose={() => setShowSecurityManagement(false)} />
     </div>
   );
 }

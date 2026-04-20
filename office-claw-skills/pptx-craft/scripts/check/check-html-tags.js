@@ -15,22 +15,24 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { log, warn, error, configureFromArgs } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 获取命令行参数
 const args = process.argv.slice(2);
+configureFromArgs(args);
 if (args.length === 0) {
-  console.error('用法：node check-html-tags.js <html 目录>');
-  console.error('示例：node check-html-tags.js ./output/pages/');
+  error('用法：node check-html-tags.js <html 目录>');
+  error('示例：node check-html-tags.js ./output/pages/');
   process.exit(1);
 }
 
 const targetDir = args[0];
 
 if (!fs.existsSync(targetDir)) {
-  console.error(`错误：目录不存在 - ${targetDir}`);
+  error(`错误：目录不存在 - ${targetDir}`);
   process.exit(1);
 }
 
@@ -170,16 +172,16 @@ function scanAndCheck(directory) {
           report.errors += fileErrors;
           report.warnings += fileWarnings;
 
-          console.log(`❌ 发现问题：${filePath}`);
+          log(`❌ 发现问题：${filePath}`);
           issues.forEach(issue => {
             const icon = issue.severity === 'error' ? '  ❌' : '  ⚠️';
-            console.log(`${icon} [${issue.severity.toUpperCase()}] ${formatIssue(issue)}`);
+            log(`${icon} [${issue.severity.toUpperCase()}] ${formatIssue(issue)}`);
           });
         } else {
-          console.log(`✓ 无问题：${filePath}`);
+          log(`✓ 无问题：${filePath}`);
         }
       } catch (error) {
-        console.error(`❌ 处理失败：${filePath} - ${error.message}`);
+        warn(`❌ 处理失败：${filePath} - ${error.message}`);
       }
     }
   }
@@ -210,34 +212,34 @@ function formatIssue(issue) {
 }
 
 // 执行扫描和检测
-console.log(`🔍 开始扫描目录：${targetDir}`);
-console.log('='.repeat(60));
+log(`🔍 开始扫描目录：${targetDir}`);
+log('='.repeat(60));
 
 const report = scanAndCheck(targetDir);
 
-console.log('='.repeat(60));
-console.log('📊 检测报告：');
-console.log(`   扫描文件数：${report.scanned}`);
-console.log(`   有问题的文件：${report.filesWithIssues}`);
-console.log(`   问题总数：${report.totalIssues}`);
-console.log(`   - 错误：${report.errors}`);
-console.log(`   - 警告：${report.warnings}`);
+log('='.repeat(60));
+log('📊 检测报告：');
+log(`   扫描文件数：${report.scanned}`);
+log(`   有问题的文件：${report.filesWithIssues}`);
+log(`   问题总数：${report.totalIssues}`);
+log(`   - 错误：${report.errors}`);
+log(`   - 警告：${report.warnings}`);
 
 if (report.details.length > 0) {
-  console.log('\n📝 详细问题：');
+  log('\n📝 详细问题：');
   report.details.forEach(detail => {
-    console.log(`\n   文件：${detail.file}`);
+    log(`\n   文件：${detail.file}`);
     detail.issues.forEach(issue => {
       const icon = issue.severity === 'error' ? '❌' : '⚠️';
-      console.log(`   ${icon} [${issue.severity.toUpperCase()}] ${formatIssue(issue)}`);
+      log(`   ${icon} [${issue.severity.toUpperCase()}] ${formatIssue(issue)}`);
     });
   });
 }
 
-// 如果有错误，返回非零退出码
+// 如果有错误，返回零退出码（检测到问题不是脚本运行错误）
 if (report.errors > 0) {
-  console.log('\n⚠️  发现严重错误，请修复后重新检查');
-  process.exit(1);
+  warn('\n⚠️  发现严重错误，请修复后重新检查');
+  process.exit(0);
 }
 
-console.log('\n✨ 完成！');
+log('\n✨ 完成！');

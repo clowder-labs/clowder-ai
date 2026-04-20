@@ -70,19 +70,19 @@ export function VoteConfigModal({
   return (
     <div
       role="presentation"
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)]"
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="mx-4 flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-xl border border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]"
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-cafe-black">发起投票</h2>
+        <div className="flex items-center justify-between border-b border-[var(--modal-divider)] px-5 py-4">
+          <h2 className="text-base font-semibold text-[var(--modal-title-text)]">发起投票</h2>
           <button
             type="button"
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            className="text-[var(--modal-text-subtle)] hover:text-[var(--modal-text-muted)] transition-colors p-1"
             title="关闭"
             aria-label="关闭"
           >
@@ -99,7 +99,7 @@ export function VoteConfigModal({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Question */}
           <div>
-            <label htmlFor="vote-question" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="vote-question" className="block text-sm font-medium text-[var(--modal-text)] mb-1">
               问题
             </label>
             <input
@@ -115,7 +115,7 @@ export function VoteConfigModal({
 
           {/* Options */}
           <div>
-            <span className="block text-sm font-medium text-gray-700 mb-1">选项</span>
+            <span className="block text-sm font-medium text-[var(--modal-text)] mb-1">选项</span>
             <div className="space-y-2">
               {options.map((opt, i) => (
                 <div key={i} className="flex gap-2">
@@ -138,7 +138,7 @@ export function VoteConfigModal({
                     <button
                       type="button"
                       onClick={() => removeOption(i)}
-                      className="text-gray-400 hover:text-red-500 transition-colors px-1"
+                      className="text-[var(--modal-text-subtle)] hover:text-[var(--modal-danger-text)] transition-colors px-1"
                       title={`删除选项 ${i + 1}`}
                       aria-label={`删除选项 ${i + 1}`}
                     >
@@ -158,7 +158,7 @@ export function VoteConfigModal({
               <button
                 type="button"
                 onClick={addOption}
-                className="mt-2 text-xs text-cocreator-primary hover:text-cocreator-dark transition-colors"
+                className="mt-2 text-xs text-[var(--modal-accent-text)] hover:opacity-80 transition-colors"
               >
                 + 添加选项
               </button>
@@ -167,29 +167,29 @@ export function VoteConfigModal({
 
           {/* Voter cats */}
           <div>
-            <span className="block text-sm font-medium text-gray-700 mb-1">投票智能体</span>
+            <span className="block text-sm font-medium text-[var(--modal-text)] mb-1">投票智能体</span>
             <CatSelector selectedCats={voters} onSelectionChange={setVoters} />
           </div>
 
           {/* Settings row */}
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-[var(--modal-text)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={anonymous}
                 onChange={(e) => setAnonymous(e.target.checked)}
-                className="rounded border-gray-300 text-cocreator-primary focus:ring-cocreator-primary"
+                className="rounded border-[var(--modal-muted-border)] text-[var(--modal-accent-text)] focus:ring-[var(--border-accent)]"
               />
               匿名投票
             </label>
 
-            <div className="flex items-center gap-2 text-sm text-gray-700">
+            <div className="flex items-center gap-2 text-sm text-[var(--modal-text)]">
               <label htmlFor="vote-timeout">超时</label>
               <select
                 id="vote-timeout"
                 value={timeoutSec}
                 onChange={(e) => setTimeoutSec(Number(e.target.value))}
-                className="text-sm px-2 py-1 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
+                className="text-sm px-2 py-1 rounded border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] focus:outline-none focus:ring-1 focus:ring-[var(--border-accent)]"
               >
                 <option value={60}>1 分钟</option>
                 <option value={120}>2 分钟</option>
@@ -201,11 +201,11 @@ export function VoteConfigModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-3">
+        <div className="flex justify-end gap-3 border-t border-[var(--modal-divider)] px-5 py-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-sm text-[var(--modal-text-muted)] hover:text-[var(--modal-text)] transition-colors"
           >
             取消
           </button>
@@ -213,7 +213,7 @@ export function VoteConfigModal({
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="ui-button-primary rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
           >
             开始投票
           </button>

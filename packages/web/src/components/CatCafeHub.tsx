@@ -27,7 +27,6 @@ import { HubCoCreatorEditor } from './HubCoCreatorEditor';
 import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { HubGovernanceTab } from './HubGovernanceTab';
-import { HubLeaderboardTab } from './HubLeaderboardTab';
 import { HubProviderProfilesTab } from './HubProviderProfilesTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { HubSkillsTab } from './HubSkillsTab';
@@ -275,7 +274,6 @@ export function CatCafeHub() {
             {tab === 'notify' && <PushSettingsPanel />}
             {tab === 'governance' && <HubGovernanceTab />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
-            {tab === 'leaderboard' && <HubLeaderboardTab />}
             {tab === 'skills' && <HubSkillsTab />}
           </div>
         </div>

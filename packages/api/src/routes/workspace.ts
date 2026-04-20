@@ -48,7 +48,14 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
 const LOCAL_AGENT_ROOT = resolve(homedir(), '.jiuwenclaw', 'agent');
-const LOCAL_AGENT_PRESENTATION_EXTS = new Set(['.ppt', '.pptx']);
+const LOCAL_AGENT_OPENABLE_EXTS = new Set([
+  '.ppt',
+  '.pptx',
+  '.doc',
+  '.docx',
+  '.md',
+  '.markdown',
+]);
 
 const MIME_MAP: Record<string, string> = {
   '.ts': 'text/typescript',
@@ -107,7 +114,7 @@ function isPathWithinAnyRoot(roots: string[], target: string): boolean {
   return roots.some((root) => isPathWithinRoot(root, target));
 }
 
-async function getAllowedLocalPresentationRoots(projectPath?: string): Promise<string[]> {
+async function getAllowedLocalOpenRoots(projectPath?: string): Promise<string[]> {
   const [worktrees, linkedRoots] = await Promise.all([
     listWorktrees().catch(() => []),
     getLinkedRootsAsync().catch(() => []),
@@ -864,11 +871,11 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
 
     const resolved = resolve(filePath);
     const extension = extname(resolved).toLowerCase();
-    if (!LOCAL_AGENT_PRESENTATION_EXTS.has(extension)) {
+    if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
     }
-    const allowedRoots = await getAllowedLocalPresentationRoots(projectPath);
+    const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
       reply.status(403);
       return { error: 'Only files inside the local agent directory or a registered workspace can be opened' };
@@ -913,11 +920,11 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
 
     const resolved = resolve(filePath);
     const extension = extname(resolved).toLowerCase();
-    if (!LOCAL_AGENT_PRESENTATION_EXTS.has(extension)) {
+    if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
     }
-    const allowedRoots = await getAllowedLocalPresentationRoots(projectPath);
+    const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
       reply.status(403);
       return { error: 'Only files inside the local agent directory or a registered workspace are supported' };

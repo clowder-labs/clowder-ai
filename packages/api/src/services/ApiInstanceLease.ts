@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { hostname as getHostname } from 'node:os';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 
 export const API_INSTANCE_LEASE_KEY = 'runtime:api-instance-lease:v1';
 
@@ -246,6 +246,13 @@ export class ApiInstanceLease {
     } catch (error) {
       // P1-B: Network flicker / transient Redis error — count consecutive failures.
       // Only invalidate after exceeding the grace window.
+      // Skip counting while ioredis is actively attempting to reconnect: it will
+      // recover on its own once the connection is re-established (e.g. after
+      // macOS sleep/wake or a brief network blip on the loopback interface).
+      const redisStatus = (this.redis as { status?: string }).status;
+      if (redisStatus === 'reconnecting' || redisStatus === 'connecting') {
+        return;
+      }
       this.consecutiveRenewFailures++;
       if (this.consecutiveRenewFailures >= this.maxRenewFailures) {
         await this.invalidateLease('renew_failed', error);

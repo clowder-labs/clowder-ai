@@ -25,7 +25,7 @@ export class ConnectorOwnerStore implements IConnectorOwnerStore {
   private readonly filePath: string;
 
   constructor(hostRoot: string) {
-    this.filePath = join(hostRoot, '.cat-cafe', OWNER_FILENAME);
+    this.filePath = join(hostRoot, '.office-claw', OWNER_FILENAME);
   }
 
   load(): PersistedConnectorOwner | null {

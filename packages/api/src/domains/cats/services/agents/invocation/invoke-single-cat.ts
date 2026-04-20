@@ -23,7 +23,7 @@ import {
   catRegistry,
   type MessageContent,
   resolveEmbeddedRuntimeKind,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
@@ -323,7 +323,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (ssCheck.unpushedFiles?.length) {
           const msg =
             `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-            'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+            'Please `git push` soon so other agents see the latest shared state (shared-rules §14).';
           log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight: unpushed files');
           yield {
             type: 'system_info' as const,
@@ -348,10 +348,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
   }
 
-  // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+  // === AGENT_INVOKED 审计 (fire-and-forget, review P2-3) ===
   auditLog
     .append({
-      type: AuditEventTypes.CAT_INVOKED,
+      type: AuditEventTypes.AGENT_INVOKED,
       threadId,
       data: {
         catId,
@@ -591,6 +591,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // fork playgrounds may be routed by this runtime, but they must not inherit
     // shared-state warnings from the repo that launched the API process.
     if (
+      process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
     ) {
@@ -605,7 +606,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (ssCheck.unpushedFiles?.length) {
             const msg =
               `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-              'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+              'Please `git push` soon so other agents see the latest shared state (shared-rules §14).';
             log.warn(
               { catId, preflightRoot, unpushedFiles: ssCheck.unpushedFiles },
               'Shared-state preflight: unpushed files',
@@ -678,7 +679,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
-    let capturedMissionPack: import('@cat-cafe/shared').DispatchMissionPack | undefined;
+    let capturedMissionPack: import('@office-claw/shared').DispatchMissionPack | undefined;
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
       try {
         const thread = await preflightRace(
@@ -1214,10 +1215,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (msg.type === 'done') {
-        // === CAT_RESPONDED / CAT_ERROR 审计 (fire-and-forget) ===
+        // === AGENT_RESPONDED / CAT_ERROR 审计 (fire-and-forget) ===
         // P1 fix: when error was yielded during stream, emit CAT_ERROR instead of CAT_RESPONDED
         const durationMs = Date.now() - startTime;
-        const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.CAT_RESPONDED;
+        const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.AGENT_RESPONDED;
         auditLog
           .append({
             type: auditType,
@@ -1424,7 +1425,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                               timestamp: Date.now(),
                             });
                             deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch((err: unknown) => {
-                              log.error({ err, sessionId: activeRecord.id }, 'session finalize failed — recall will 404');
+                              log.error(
+                                { err, sessionId: activeRecord.id },
+                                'session finalize failed — recall will 404',
+                              );
                             });
                           }
                         }

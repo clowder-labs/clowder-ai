@@ -20,9 +20,10 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource, MessageContent } from '@cat-cafe/shared';
-import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@office-claw/shared';
+import { catRegistry, getConnectorDefinition } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
+import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';
 import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
@@ -147,18 +148,25 @@ export class ConnectorRouter {
 
   constructor(private readonly opts: ConnectorRouterOptions) {}
 
+  private normalizeOwnerUserId(candidate?: string | null): string | null {
+    const trimmed = candidate?.trim();
+    if (!trimmed || trimmed === FRONTEND_DEFAULT_USER_ID) return null;
+    return trimmed;
+  }
+
   /**
    * Resolve the effective owner userId at call time.
    * Prefers bound userId from connector-thread binding when available.
-   * Checks process.env.DEFAULT_OWNER_USER_ID next, then falls back to static default.
+   * Refuses to treat the browser fallback identity ("default-user") as a real connector owner.
    */
-  private resolveOwnerUserId(preferredUserId?: string): string {
-    const boundUserId = preferredUserId?.trim();
+  private resolveOwnerUserId(preferredUserId?: string): string | null {
+    const boundUserId = this.normalizeOwnerUserId(preferredUserId);
     if (boundUserId) return boundUserId;
-    const resolvedOwnerUserId = this.opts.defaultUserIdResolver?.().trim();
+    const resolvedOwnerUserId = this.normalizeOwnerUserId(this.opts.defaultUserIdResolver?.());
     if (resolvedOwnerUserId) return resolvedOwnerUserId;
-    const dynamicOwnerUserId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-    return dynamicOwnerUserId || this.opts.defaultUserId;
+    const dynamicOwnerUserId = this.normalizeOwnerUserId(process.env.DEFAULT_OWNER_USER_ID);
+    if (dynamicOwnerUserId) return dynamicOwnerUserId;
+    return this.normalizeOwnerUserId(this.opts.defaultUserId);
   }
 
   /** Build @-mention patterns from catRegistry for parseMentions. */
@@ -208,6 +216,27 @@ export class ConnectorRouter {
 
     const trimmedText = text.trim();
 
+    // Resolve binding + owner early so invalid legacy bindings do not keep routing into "未登录/default-user".
+    let binding = await bindingStore.getByExternal(connectorId, externalChatId);
+    if (binding && !this.normalizeOwnerUserId(binding.userId)) {
+      log.warn(
+        { connectorId, externalChatId, threadId: binding.threadId, userId: binding.userId },
+        '[ConnectorRouter] Dropping invalid connector binding with unresolved owner',
+      );
+      await bindingStore.remove(connectorId, externalChatId);
+      binding = null;
+    }
+
+    const bindingUserId = this.normalizeOwnerUserId(binding?.userId);
+    const ownerUserId = bindingUserId ?? this.resolveOwnerUserId();
+    if (!binding && !ownerUserId) {
+      log.warn({ connectorId, externalChatId }, '[ConnectorRouter] Owner unresolved, skipping inbound connector message');
+      return { kind: 'skipped', reason: 'owner_unresolved' };
+    }
+
+    // F152: Resolve userId for permission checks
+    const permUserId = (bindingUserId || ownerUserId)!;
+
     // 1a. F134 Phase D: Group whitelist check
     if (chatType === 'group' && this.opts.permissionStore) {
       const commandName = trimmedText.split(/\s+/, 1)[0]?.toLowerCase();
@@ -215,7 +244,7 @@ export class ConnectorRouter {
         this.opts.commandLayer &&
         sender &&
         commandName === '/allow-group' &&
-        (await this.opts.permissionStore.isAdmin(connectorId, sender.id));
+        (await this.opts.permissionStore.isAdmin(permUserId, connectorId, sender.id));
 
       if (isAdminAllowGroupCommand) {
         log.info(
@@ -223,7 +252,7 @@ export class ConnectorRouter {
           '[ConnectorRouter] Admin /allow-group bypasses whitelist precheck',
         );
       } else {
-        const allowed = await this.opts.permissionStore.isGroupAllowed(connectorId, externalChatId);
+        const allowed = await this.opts.permissionStore.isGroupAllowed(permUserId, connectorId, externalChatId);
         if (!allowed) {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
@@ -239,12 +268,44 @@ export class ConnectorRouter {
       }
     }
 
+    // 1a-2. F152: Personal user whitelist check (P2P and group)
+    // Exception: /myid command is always allowed so users can discover their open_id
+    if (this.opts.permissionStore && sender?.id) {
+      const userWhitelistEnabled = await this.opts.permissionStore.isUserWhitelistEnabled(permUserId, connectorId);
+      const commandName = trimmedText.split(/\s+/, 1)[0]?.toLowerCase();
+      const isMyIdCommand = commandName === '/myid';
+
+      if (userWhitelistEnabled && !isMyIdCommand) {
+        // Check if sender is the QR scanner (owner) - exempt from whitelist
+        const ownerOpenId = await this.opts.permissionStore.getOwnerOpenId(permUserId, connectorId);
+        if (sender.id === ownerOpenId) {
+          log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] QR scanner bypasses user whitelist');
+        } else {
+          // Check if sender is in the whitelist
+          const allowedUsers = await this.opts.permissionStore.listAllowedUsers(permUserId, connectorId);
+          const inWhitelist = allowedUsers.some(u => u.openId === sender.id);
+
+          if (!inWhitelist) {
+            const adapter = this.opts.adapters?.get(connectorId);
+            if (adapter) {
+              await adapter.sendReply(externalChatId, '🔒 您不在授权白名单中，请发送您的 open_id 给管理员开通白名单。如需获取 open_id，请给我发送 /myid 命令。');
+              if (adapter.onDeliveryBatchDone) {
+                await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+              }
+            }
+            log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] User not in whitelist, skipped');
+            return { kind: 'skipped', reason: 'user_not_allowed' };
+          }
+        }
+      }
+    }
+
     // 1b. Command interception — handle /commands before agent routing
     if (this.opts.commandLayer && trimmedText.startsWith('/')) {
       // F134 Phase D: admin-only commands in group chats
       if (chatType === 'group' && sender && this.opts.permissionStore) {
-        const isAdmin = await this.opts.permissionStore.isAdmin(connectorId, sender.id);
-        const cmdAdminOnly = await this.opts.permissionStore.isCommandAdminOnly(connectorId);
+        const isAdmin = await this.opts.permissionStore.isAdmin(permUserId, connectorId, sender.id);
+        const cmdAdminOnly = await this.opts.permissionStore.isCommandAdminOnly(permUserId, connectorId);
         if (cmdAdminOnly && !isAdmin) {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
@@ -261,7 +322,7 @@ export class ConnectorRouter {
       const cmdResult = await this.opts.commandLayer.handle(
         connectorId,
         externalChatId,
-        this.resolveOwnerUserId(),
+        ownerUserId!,
         text,
         sender?.id,
       );
@@ -303,7 +364,7 @@ export class ConnectorRouter {
           const fwdTimestamp = Date.now();
           const fwdStored = await messageStore.append({
             threadId: fwdThreadId,
-            userId: this.resolveOwnerUserId(),
+            userId: ownerUserId!,
             catId: null,
             content: fwdText,
             source: fwdSource,
@@ -316,7 +377,7 @@ export class ConnectorRouter {
             source: fwdSource,
             timestamp: fwdTimestamp,
           });
-          invokeTrigger.trigger(fwdThreadId, targetCatId, this.resolveOwnerUserId(), fwdText, fwdStored.id);
+          invokeTrigger.trigger(fwdThreadId, targetCatId, ownerUserId!, fwdText, fwdStored.id);
           log.info({ connectorId, threadId: fwdThreadId }, '[ConnectorRouter] /thread message forwarded');
           return { kind: 'routed', threadId: fwdThreadId, messageId: fwdStored.id };
         }
@@ -338,17 +399,15 @@ export class ConnectorRouter {
     }
 
     // 2. Lookup or create binding
-    let binding = await bindingStore.getByExternal(connectorId, externalChatId);
-    const ownerUserId = this.resolveOwnerUserId(binding?.userId);
     if (!binding) {
       const def = getConnectorDefinition(connectorId);
       const title =
         chatType === 'group'
           ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
           : `${def?.displayName ?? connectorId} DM`;
-      const thread = await threadStore.create(ownerUserId, title);
-      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, ownerUserId);
-      socketManager?.emitToUser?.(ownerUserId, 'thread_created', {
+      const thread = await threadStore.create(ownerUserId!, title);
+      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, ownerUserId!);
+      socketManager?.emitToUser?.(ownerUserId!, 'thread_created', {
         threadId: thread.id,
         source: 'connector_auto',
       });
@@ -386,7 +445,7 @@ export class ConnectorRouter {
     const messageTimestamp = Date.now();
     const stored = await messageStore.append({
       threadId: binding.threadId,
-      userId: ownerUserId,
+      userId: ownerUserId!,
       catId: null,
       content: resolvedText,
       source,
@@ -406,7 +465,7 @@ export class ConnectorRouter {
     invokeTrigger.trigger(
       binding.threadId,
       targetCatId,
-      ownerUserId,
+      ownerUserId!,
       resolvedText,
       stored.id,
       contentBlocks,
@@ -487,6 +546,7 @@ export class ConnectorRouter {
     const binding = await this.opts.bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;
     const ownerUserId = this.resolveOwnerUserId(binding.userId);
+    if (!ownerUserId) return undefined;
     const reusableHubThreadId = await this.resolveReusableHubThreadId(binding, ownerUserId, connectorId, externalChatId);
     if (reusableHubThreadId) return reusableHubThreadId;
 
@@ -511,6 +571,7 @@ export class ConnectorRouter {
     const binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;
     const ownerUserId = this.resolveOwnerUserId(binding.userId);
+    if (!ownerUserId) return undefined;
     const reusableHubThreadId = await this.resolveReusableHubThreadId(binding, ownerUserId, connectorId, externalChatId);
     if (reusableHubThreadId) return reusableHubThreadId;
 
@@ -568,7 +629,7 @@ export class ConnectorRouter {
     // Store inbound command
     const cmdMsg = await messageStore.append({
       threadId,
-      userId: this.resolveOwnerUserId(),
+      userId: this.resolveOwnerUserId() ?? FRONTEND_DEFAULT_USER_ID,
       catId: null,
       content: commandText,
       source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
@@ -579,7 +640,7 @@ export class ConnectorRouter {
     // Store outbound system response
     const resMsg = await messageStore.append({
       threadId,
-      userId: this.resolveOwnerUserId(),
+      userId: this.resolveOwnerUserId() ?? FRONTEND_DEFAULT_USER_ID,
       catId: null,
       content: responseText,
       source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },

@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
-import { useToastStore } from '@/stores/toastStore';
-import { apiFetch } from '@/utils/api-client';
-import { getUserId } from '@/utils/userId';
 import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
+import { useChatStore, type ChatMessage } from '@/stores/chatStore';
+import { useFeedbackPopoverStore } from '@/stores/feedbackPopoverStore';
+import { useToastStore } from '@/stores/toastStore';
+import { getDomainId, getIsSkipAuth } from '@/utils/userId';
+
+let hasAttemptedFeedbackAutoOpenThisSession = false;
 
 function WindowSmileIcon() {
   return (
@@ -96,58 +99,101 @@ type IssueOption = {
 const SATISFACTION_SCORES = Array.from({ length: 11 }, (_, index) => index);
 const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   {
-    id: 'usability_flow',
-    label: '\u64cd\u4f5c\u4fbf\u5229\u6027',
-    hint: '\uff08\u5982\uff1a\u64cd\u4f5c\u6d41\u7a0b\u590d\u6742\u3001\u529f\u80fd\u5165\u53e3\u96be\u627e\u7b49\uff09',
+    id: 'feature_incomplete',
+    label: '产品功能不完善',
   },
   {
-    id: 'content_clarity',
-    label: '\u5185\u5bb9/\u5e2e\u52a9\u8bf4\u660e\u6e05\u6670\u5ea6',
-    hint: '\uff08\u5982\uff1a\u6587\u6863\u6307\u5f15\u4e0d\u660e\u786e\u3001\u95ee\u9898\u89e3\u7b54\u4e0d\u6e05\u6670\uff09',
+    id: 'docs_unclear',
+    label: '帮助文档难懂不完善',
   },
   {
-    id: 'response_speed',
-    label: '\u54cd\u5e94\u901f\u5ea6\u4e0e\u6548\u7387',
-    hint: '\uff08\u5982\uff1a\u5bf9\u8bdd\u5ef6\u8fdf\u9ad8\u3001\u4efb\u52a1\u5904\u7406\u6162\uff09',
+    id: 'guidance_missing',
+    label: '缺少操作指引',
   },
   {
-    id: 'feature_coverage',
-    label: '\u529f\u80fd\u8986\u76d6\u5168\u9762\u6027',
-    hint: '\uff08\u5982\uff1a\u7f3a\u5c11\u5173\u952e\u4e1a\u52a1\u573a\u666f\u652f\u6301\uff09',
+    id: 'slow_or_error_prone',
+    label: '响应速度慢/报错多',
   },
   {
-    id: 'ui_intuitive',
-    label: '\u754c\u9762\u76f4\u89c2\u4e0e\u6613\u7528\u6027',
-    hint: '\uff08\u5982\uff1a\u5e03\u5c40\u6df7\u4e71\u3001\u6309\u94ae\u8bbe\u8ba1\u4e0d\u5408\u7406\uff09',
+    id: 'info_hard_to_find',
+    label: '找不到我关注的信息',
   },
   {
-    id: 'system_stability',
-    label: '\u7cfb\u7edf\u7a33\u5b9a\u6027',
-    hint: '\uff08\u5982\uff1a\u9891\u7e41\u5361\u987f\u3001\u62a5\u9519\u6216\u5d29\u6e83\uff09',
+    id: 'ui_unattractive',
+    label: '界面不美观',
   },
   {
-    id: 'security_privacy',
-    label: '\u5b89\u5168\u4e0e\u9690\u79c1\u4fdd\u62a4',
-    hint: '\uff08\u5982\uff1a\u6570\u636e\u6743\u9650\u4e0d\u660e\u786e\u3001\u9690\u79c1\u62c5\u5fe7\uff09',
+    id: 'automation_weak',
+    label: '自动化能力不足',
+  },
+  {
+    id: 'privacy_concern',
+    label: '数据权限不明确/隐私担忧',
+  },
+  {
+    id: 'generation_unstable',
+    label: '生成效果不稳定不可靠',
   },
   {
     id: 'other_issue',
-    label: '\u5176\u4ed6\u95ee\u9898',
-    hint: '\uff08\u8bf7\u5177\u4f53\u586b\u5199\uff09',
+    label: '其他原因',
   },
 ];
-const FEEDBACK_DATE_ENDPOINT = '/v1/external/survey/feedback-date';
+const HIGH_SCORE_ISSUE_OPTIONS: IssueOption[] = [
+  {
+    id: 'feature_complete',
+    label: '产品功能完善',
+  },
+  {
+    id: 'docs_clear',
+    label: '帮助文档完善易懂',
+  },
+  {
+    id: 'guidance_clear',
+    label: '操作指引清晰',
+  },
+  {
+    id: 'fast_and_stable',
+    label: '响应速度快/无报错',
+  },
+  {
+    id: 'info_easy_to_find',
+    label: '我关注的信息易见',
+  },
+  {
+    id: 'ui_beautiful',
+    label: '界面美观',
+  },
+  {
+    id: 'automation_strong',
+    label: '自动化能力强',
+  },
+  {
+    id: 'privacy_reassuring',
+    label: '数据权限明确/隐私安全有保障',
+  },
+  {
+    id: 'generation_reliable',
+    label: '生成效果稳定可靠',
+  },
+  {
+    id: 'other_issue',
+    label: '其他原因',
+  },
+];
+const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
 const FEEDBACK_SAVE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/save';
-const FEEDBACK_DATE_CHECKED_KEY = 'cat-cafe:survey-feedback-date-checked';
-const DEFAULT_SURVEY_ID = 'agentarts_satisfaction';
-const DEFAULT_SERVICE_ID = 'officeclaw';
-const DEFAULT_CONTACT_ID = 'web_home';
+const FEEDBACK_CLOSE_TIME_KEY = 'feedbackCloseTime';
+const FEEDBACK_CLOSE_SUPPRESS_DAYS = 30;
+const FEEDBACK_RESURFACE_DAYS = 120;
+const FEEDBACK_AUTO_CLOSE_DELAY_MS = 60_000;
+const FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS = 120;
 const DEFAULT_FEEDBACK_SAVE_SURVEY_ID = 'hwcloudbusurvey_key_fbd25bdbdb87';
-const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'CCS2025081800123';
+const DEFAULT_FEEDBACK_SAVE_SERVICE_ID = 'OfficeClaw';
 const DEFAULT_FEEDBACK_SAVE_CONTACT_ID = 'global.cf';
-const DEFAULT_FEEDBACK_SAVE_W3ACCOUNT = 'pclclawclient';
 const SCORE_QUESTION_ID = 'question_0';
-const SCORE_REASON_QUESTION_ID = 'question_1';
+const LOW_SCORE_REASON_QUESTION_ID = 'question_1';
+const HIGH_SCORE_REASON_QUESTION_ID = 'question_2';
 const DETAIL_QUESTION_ID = 'question_99';
 const SCORE_REASON_DEFAULT_REASON = '0';
 const DETAIL_DEFAULT_SUB_REMARK = 'null';
@@ -159,6 +205,20 @@ const DETAIL_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u57281
 const DETAIL_PREFILL_TEMPLATE = '\u3010\u4f7f\u7528\u573a\u666f\u3011\uff1a\n\u3010\u4f18\u5316\u610f\u89c1\u3011\uff1a';
 const REQUIRED_SELECT_ERROR_MESSAGE = '\u9009\u62e9\u4e0d\u80fd\u4e3a\u7a7a';
 const REQUIRED_INPUT_ERROR_MESSAGE = '\u8f93\u5165\u4e0d\u80fd\u4e3a\u7a7a';
+const LOW_SCORE_PRIMARY_TITLE = '您在使用过程中遇到了哪些问题？';
+const HIGH_SCORE_PRIMARY_TITLE = '您感到满意的原因是？';
+const PRIMARY_SUBTITLE = '（选择您最关注的三项）';
+const LOW_SCORE_DETAIL_TITLE = '请您反馈遇到的具体问题，帮助我们准确评估并优化';
+const DETAIL_SUBMIT_TITLE = '您还有其它意见和建议吗？';
+const HIGH_SCORE_DETAIL_TITLE = DETAIL_SUBMIT_TITLE;
+const HIGH_SCORE_DETAIL_SUBTITLE = '(可选)';
+
+function hasMeaningfulDetail(value: string): boolean {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return false;
+
+  return normalizedValue !== DETAIL_PREFILL_TEMPLATE.trim();
+}
 
 function getSelectedScoreIconSrc(score: number): string | null {
   if (score <= 6) return '/icons/nss/1.svg';
@@ -167,11 +227,58 @@ function getSelectedScoreIconSrc(score: number): string | null {
   return null;
 }
 
+function parseFeedbackDate(value: string): number | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  const timestamp = new Date(normalized.replace(' ', 'T')).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function isWithinDays(timestamp: number, days: number): boolean {
+  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
+}
+
+function getThreadIdFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/thread\/([^/?#]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function hasCompletedOneDialogueRound(messages: ChatMessage[]): boolean {
+  let hasUserMessage = false;
+  let hasAssistantMessage = false;
+
+  for (const message of messages) {
+    if (message.type === 'user') hasUserMessage = true;
+    if (message.type === 'assistant') hasAssistantMessage = true;
+    if (hasUserMessage && hasAssistantMessage) return true;
+  }
+
+  return false;
+}
+
+function getFeedbackUserId(): string {
+  return process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || getDomainId();
+}
+
+function getFeedbackCloseStorageKey(): string {
+  const domainId = getDomainId()?.trim();
+  return domainId ? `${FEEDBACK_CLOSE_TIME_KEY}:${domainId}` : FEEDBACK_CLOSE_TIME_KEY;
+}
+
+export function __resetFeedbackAutoOpenSessionForTests() {
+  hasAttemptedFeedbackAutoOpenThisSession = false;
+}
+
+export function __resetFeedbackPopoverStateForTests() {
+  const state = useFeedbackPopoverStore.getState();
+  state.resetFeedbackPopoverState();
+  state.resetFeedbackFormState();
+}
+
 type FeedbackDateResponse = {
+  data?: string | { latest_feedback_date?: string };
   latest_feedback_date?: string;
-  data?: {
-    latest_feedback_date?: string;
-  };
 };
 
 type FeedbackSubmitAnswer = {
@@ -196,105 +303,189 @@ type FeedbackSubmitResponse = {
 };
 
 export function RightContentHeader() {
-  const { isMaximized, canMaximize, minimize, toggleMaximize, close } = useDesktopWindowControls();
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const isLoadingHistory = useChatStore((s) => s.isLoadingHistory);
+  const messages = useChatStore((s) => s.messages);
+  const isFeedbackOpen = useFeedbackPopoverStore((s) => s.isFeedbackOpen);
+  const isAutoOpenedFeedback = useFeedbackPopoverStore((s) => s.isAutoOpenedFeedback);
+  const selectedScore = useFeedbackPopoverStore((s) => s.selectedScore);
+  const lowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.lowScoreSelectedIssues);
+  const highScoreSelectedIssues = useFeedbackPopoverStore((s) => s.highScoreSelectedIssues);
+  const lowScoreDetail = useFeedbackPopoverStore((s) => s.lowScoreDetail);
+  const lowScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.lowScoreOtherIssueDetail);
+  const highScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.highScoreOtherIssueDetail);
+  const setFeedbackPopoverState = useFeedbackPopoverStore((s) => s.setFeedbackPopoverState);
+  const setSelectedScore = useFeedbackPopoverStore((s) => s.setSelectedScore);
+  const setLowScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setLowScoreSelectedIssues);
+  const setHighScoreSelectedIssues = useFeedbackPopoverStore((s) => s.setHighScoreSelectedIssues);
+  const setLowScoreDetail = useFeedbackPopoverStore((s) => s.setLowScoreDetail);
+  const setLowScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.setLowScoreOtherIssueDetail);
+  const setHighScoreOtherIssueDetail = useFeedbackPopoverStore((s) => s.setHighScoreOtherIssueDetail);
+  const resetFeedbackFormState = useFeedbackPopoverStore((s) => s.resetFeedbackFormState);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
-  const [selectedScore, setSelectedScore] = useState<number | null>(null);
-  const [lowScoreSelectedIssues, setLowScoreSelectedIssues] = useState<string[]>([]);
-  const [highScoreSelectedIssues, setHighScoreSelectedIssues] = useState<string[]>([]);
-  const [lowScoreDetail, setLowScoreDetail] = useState('');
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
   const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
-  const [otherIssueDetail, setOtherIssueDetail] = useState('');
+  const [isDetailRequiredError, setIsDetailRequiredError] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const headerRef = useRef<HTMLDivElement>(null);
   const smileActionRef = useRef<HTMLButtonElement>(null);
   const feedbackPopoverRef = useRef<HTMLDivElement | null>(null);
+  const autoCloseFeedbackTimerRef = useRef<number | null>(null);
+  const mouseLeaveCloseTimerRef = useRef<number | null>(null);
+  const selectedScoreRef = useRef<number | null>(null);
   const feedbackPopoverId = useId();
   const isScoreUnselected = selectedScore == null;
   const isVeryLowScoreDetailVisible = selectedScore != null && selectedScore <= 6;
   const isLowScoreDetailVisible = selectedScore != null && selectedScore <= 8;
   const isHighScoreDetailVisible = selectedScore != null && selectedScore >= 9;
-  const currentIssueOptions = LOW_SCORE_ISSUE_OPTIONS;
+  const currentIssueOptions = isHighScoreDetailVisible ? HIGH_SCORE_ISSUE_OPTIONS : LOW_SCORE_ISSUE_OPTIONS;
   const currentSelectedIssues = isHighScoreDetailVisible ? highScoreSelectedIssues : lowScoreSelectedIssues;
+  const currentOtherIssueDetail = isHighScoreDetailVisible ? highScoreOtherIssueDetail : lowScoreOtherIssueDetail;
   const isOtherIssueSelected = currentSelectedIssues.includes('other_issue');
-  const isOtherIssueTooLong = isOtherIssueSelected && otherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH;
+  const isOtherIssueTooLong = isOtherIssueSelected && currentOtherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH;
   const currentSurveyTitle = '\u60a8\u7684\u4f7f\u7528\u4f53\u9a8c\u5982\u4f55\uff1f\u6211\u4eec\u671f\u5f85\u503e\u542c';
-  const currentPrimaryTitle = isHighScoreDetailVisible
-    ? '\u60a8\u6700\u6ee1\u610f\u6211\u4eec\u7684\u54ea\u4e09\u4e2a\u529f\u80fd\uff1f'
-    : '\u60a8\u6700\u5e0c\u671b\u6211\u4eec\u4f18\u5148\u5904\u7406\u54ea\u4e09\u4e2a\u95ee\u9898\uff1f';
-  const currentPrimarySubtitle = isLowScoreDetailVisible
-    ? '\uff08\u6700\u591a\u9009\u4e09\u9879\uff09'
-    : '';
-  const currentDetailTitle = '\u8bda\u9080\u60a8\u8be6\u7ec6\u63cf\u8ff0\u95ee\u9898\uff0c\u5e2e\u52a9\u6211\u4eec\u51c6\u786e\u8bc4\u4f30\u4e0e\u6539\u8fdb';
-  const currentDetailSubtitle = null;
+  const currentPrimaryTitle = isHighScoreDetailVisible ? HIGH_SCORE_PRIMARY_TITLE : LOW_SCORE_PRIMARY_TITLE;
+  const currentPrimarySubtitle = PRIMARY_SUBTITLE;
+  const currentDetailTitle = isHighScoreDetailVisible ? HIGH_SCORE_DETAIL_TITLE : LOW_SCORE_DETAIL_TITLE;
+  const currentDetailSubtitle = isHighScoreDetailVisible ? HIGH_SCORE_DETAIL_SUBTITLE : null;
   const currentDetailMaxLength = DETAIL_MAX_LENGTH;
-  const currentDetailPlaceholder =
-    '\u8bf7\u63cf\u8ff0\u60a8\u7684\u4f7f\u7528\u573a\u666f\uff1a\n\u8bf7\u63d0\u51fa\u60a8\u7684\u4f18\u5316\u5efa\u8bae\uff1a';
+  const currentDetailPlaceholder = DETAIL_PREFILL_TEMPLATE;
+  const isDetailRequired = isLowScoreDetailVisible;
   const resetFeedbackState = useCallback(() => {
-    setSelectedScore(null);
-    setLowScoreSelectedIssues([]);
-    setHighScoreSelectedIssues([]);
-    setLowScoreDetail('');
+    resetFeedbackFormState();
     setIsDetailTooLong(false);
     setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
-    setOtherIssueDetail('');
+    setIsDetailRequiredError(false);
     setIsSubmittingFeedback(false);
-  }, []);
+  }, [resetFeedbackFormState]);
   const closeFeedbackPopover = useCallback(() => {
-    setIsFeedbackOpen(false);
+    if (autoCloseFeedbackTimerRef.current != null) {
+      window.clearTimeout(autoCloseFeedbackTimerRef.current);
+      autoCloseFeedbackTimerRef.current = null;
+    }
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+    setFeedbackPopoverState({ isFeedbackOpen: false, isAutoOpenedFeedback: false });
     setFeedbackPopoverMaxHeight(null);
     resetFeedbackState();
-  }, [resetFeedbackState]);
+  }, [resetFeedbackState, setFeedbackPopoverState]);
+  const dismissFeedbackPopover = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(getFeedbackCloseStorageKey(), String(Date.now()));
+    }
+    closeFeedbackPopover();
+  }, [closeFeedbackPopover]);
+  const openFeedbackPopoverManually = useCallback(() => {
+    if (autoCloseFeedbackTimerRef.current != null) {
+      window.clearTimeout(autoCloseFeedbackTimerRef.current);
+      autoCloseFeedbackTimerRef.current = null;
+    }
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+    setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: false });
+  }, [setFeedbackPopoverState]);
+  const cancelMouseLeaveClose = useCallback(() => {
+    if (mouseLeaveCloseTimerRef.current != null) {
+      window.clearTimeout(mouseLeaveCloseTimerRef.current);
+      mouseLeaveCloseTimerRef.current = null;
+    }
+  }, []);
+  const scheduleMouseLeaveClose = useCallback(() => {
+    if (selectedScoreRef.current != null) return;
+    cancelMouseLeaveClose();
+    mouseLeaveCloseTimerRef.current = window.setTimeout(() => {
+      mouseLeaveCloseTimerRef.current = null;
+      if (selectedScoreRef.current == null) {
+        closeFeedbackPopover();
+      }
+    }, FEEDBACK_MOUSE_LEAVE_CLOSE_DELAY_MS);
+  }, [cancelMouseLeaveClose, closeFeedbackPopover]);
+
+  useEffect(() => {
+    selectedScoreRef.current = selectedScore;
+  }, [selectedScore]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.sessionStorage.getItem(FEEDBACK_DATE_CHECKED_KEY) === '1') return;
-    window.sessionStorage.setItem(FEEDBACK_DATE_CHECKED_KEY, '1');
+    if (getIsSkipAuth()) return;
+    if (hasAttemptedFeedbackAutoOpenThisSession) return;
 
-    const surveyId = process.env.NEXT_PUBLIC_SURVEY_ID?.trim() || DEFAULT_SURVEY_ID;
-    const serviceId = process.env.NEXT_PUBLIC_SURVEY_SERVICE_ID?.trim() || DEFAULT_SERVICE_ID;
-    const contactId = process.env.NEXT_PUBLIC_SURVEY_CONTACT_ID?.trim() || DEFAULT_CONTACT_ID;
-    const userId = getUserId();
+    const routeThreadId = getThreadIdFromPathname(window.location.pathname);
+    if (!routeThreadId || routeThreadId !== currentThreadId) return;
+    if (isLoadingHistory) return;
+    if (!hasCompletedOneDialogueRound(messages)) return;
+
+    hasAttemptedFeedbackAutoOpenThisSession = true;
+
+    const dismissedAtRaw = window.localStorage.getItem(getFeedbackCloseStorageKey());
+    const dismissedAt = dismissedAtRaw ? Number(dismissedAtRaw) : Number.NaN;
+    if (Number.isFinite(dismissedAt) && isWithinDays(dismissedAt, FEEDBACK_CLOSE_SUPPRESS_DAYS)) {
+      return;
+    }
+
+    const surveyId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SURVEY_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SURVEY_ID;
+    const serviceId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SERVICE_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SERVICE_ID;
+    const contactId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || DEFAULT_FEEDBACK_SAVE_CONTACT_ID;
+    const userId = getFeedbackUserId();
     const query = new URLSearchParams({
-      user_id: userId,
-      survey_id: surveyId,
-      service_id: serviceId,
-      contact_id: contactId,
+      userId,
+      surveyId,
+      serviceId,
+      contactId,
     });
-    const controller = new AbortController();
+    let cancelled = false;
 
     const fetchLatestFeedbackDate = async () => {
       try {
-        const response = await apiFetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
+        const response = await fetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
           method: 'GET',
-          signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (cancelled) return;
+        if (!response.ok) {
+          resetFeedbackState();
+          setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
+          return;
+        }
 
         const payload = (await response.json()) as FeedbackDateResponse;
+        if (cancelled) return;
         const latestFeedbackDate =
           typeof payload?.latest_feedback_date === 'string'
             ? payload.latest_feedback_date
-            : typeof payload?.data?.latest_feedback_date === 'string'
-              ? payload.data.latest_feedback_date
-              : '';
+            : typeof payload?.data === 'string'
+              ? payload.data
+              : typeof payload?.data?.latest_feedback_date === 'string'
+                ? payload.data.latest_feedback_date
+                : '';
+        const latestFeedbackTimestamp = latestFeedbackDate ? parseFeedbackDate(latestFeedbackDate) : null;
 
-        if (!latestFeedbackDate) return;
+        if (!latestFeedbackTimestamp || !isWithinDays(latestFeedbackTimestamp, FEEDBACK_RESURFACE_DAYS)) {
+          resetFeedbackState();
+          setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
         resetFeedbackState();
-        setIsFeedbackOpen(true);
-      } catch {
-        // Ignore survey check errors to avoid blocking page render.
+        setFeedbackPopoverState({ isFeedbackOpen: true, isAutoOpenedFeedback: true });
       }
     };
 
     void fetchLatestFeedbackDate();
 
-    return () => controller.abort();
-  }, [resetFeedbackState]);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentThreadId, isLoadingHistory, messages, resetFeedbackState, setFeedbackPopoverState]);
 
   useEffect(() => {
     if (isLowScoreDetailVisible) return;
@@ -303,16 +494,27 @@ export function RightContentHeader() {
   }, [isLowScoreDetailVisible]);
 
   useEffect(() => {
+    if ((isLowScoreDetailVisible || isHighScoreDetailVisible) && !lowScoreDetail.trim()) {
+      setLowScoreDetail(DETAIL_PREFILL_TEMPLATE);
+      setIsDetailTooLong(false);
+      setIsDetailRequiredError(false);
+      return;
+    }
+
+    if (!isLowScoreDetailVisible) {
+      setIsDetailRequiredError(false);
+    }
+  }, [isHighScoreDetailVisible, isLowScoreDetailVisible, lowScoreDetail, setLowScoreDetail]);
+
+  useEffect(() => {
     if (!isFeedbackOpen) return;
 
     const updatePopoverMaxHeight = () => {
       const buttonRect = smileActionRef.current?.getBoundingClientRect();
       if (!buttonRect) return;
 
-      const contentFrameRect = headerRef.current?.parentElement?.getBoundingClientRect();
-      const contentBottom = contentFrameRect?.bottom ?? window.innerHeight;
+      const contentBottom = window.innerHeight;
       const nextMaxHeight = Math.max(0, Math.floor(contentBottom - (buttonRect.bottom + 12) - 32));
-
       setFeedbackPopoverMaxHeight(nextMaxHeight);
     };
 
@@ -325,23 +527,22 @@ export function RightContentHeader() {
   }, [isFeedbackOpen]);
 
   useEffect(() => {
-    if (!isFeedbackOpen) return;
+    if (!isFeedbackOpen || !isAutoOpenedFeedback) return;
 
-    const handlePointerDownOutside = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (feedbackPopoverRef.current?.contains(target)) return;
-      if (smileActionRef.current?.contains(target)) return;
-
-      closeFeedbackPopover();
-    };
-
-    document.addEventListener('mousedown', handlePointerDownOutside, true);
+    autoCloseFeedbackTimerRef.current = window.setTimeout(() => {
+      autoCloseFeedbackTimerRef.current = null;
+      if (selectedScoreRef.current == null) {
+        closeFeedbackPopover();
+      }
+    }, FEEDBACK_AUTO_CLOSE_DELAY_MS);
 
     return () => {
-      document.removeEventListener('mousedown', handlePointerDownOutside, true);
+      if (autoCloseFeedbackTimerRef.current != null) {
+        window.clearTimeout(autoCloseFeedbackTimerRef.current);
+        autoCloseFeedbackTimerRef.current = null;
+      }
     };
-  }, [closeFeedbackPopover, isFeedbackOpen]);
+  }, [closeFeedbackPopover, isAutoOpenedFeedback, isFeedbackOpen]);
 
   const handleToggleIssue = (issue: string) => {
     const setCurrentIssues = isHighScoreDetailVisible ? setHighScoreSelectedIssues : setLowScoreSelectedIssues;
@@ -371,23 +572,32 @@ export function RightContentHeader() {
         return;
       }
       setIsDetailTooLong(false);
+      if (hasMeaningfulDetail(value)) {
+        setIsDetailRequiredError(false);
+      }
       setLowScoreDetail(value);
     },
-    [currentDetailMaxLength],
+    [currentDetailMaxLength, setLowScoreDetail],
   );
 
   const handleDetailFocus = useCallback(() => {
+    if (!isLowScoreDetailVisible && !isHighScoreDetailVisible) return;
     if (lowScoreDetail.trim().length > 0) return;
     setLowScoreDetail(DETAIL_PREFILL_TEMPLATE);
     setIsDetailTooLong(false);
-  }, [lowScoreDetail]);
+    setIsDetailRequiredError(false);
+  }, [isHighScoreDetailVisible, isLowScoreDetailVisible, lowScoreDetail, setLowScoreDetail]);
 
   const handleOtherIssueDetailChange = useCallback((value: string) => {
-    setOtherIssueDetail(value);
+    if (isHighScoreDetailVisible) {
+      setHighScoreOtherIssueDetail(value);
+    } else {
+      setLowScoreOtherIssueDetail(value);
+    }
     if (value.trim().length > 0) {
       setIsOtherIssueRequiredError(false);
     }
-  }, []);
+  }, [isHighScoreDetailVisible, setHighScoreOtherIssueDetail, setLowScoreOtherIssueDetail]);
 
   const handleSubmitFeedback = useCallback(async () => {
     if (!isLowScoreDetailVisible) {
@@ -409,19 +619,21 @@ export function RightContentHeader() {
     if (isLowScoreDetailVisible || isHighScoreDetailVisible) {
       const hasIssueSelection = currentSelectedIssues.length > 0;
       const needOtherIssueInput = currentSelectedIssues.includes('other_issue');
-      const hasOtherIssueInput = otherIssueDetail.trim().length > 0;
+      const hasOtherIssueInput = currentOtherIssueDetail.trim().length > 0;
+      const isDetailMissing = isDetailRequired && !hasMeaningfulDetail(lowScoreDetail);
 
       setIsIssueRequiredError(!hasIssueSelection);
       setIsOtherIssueRequiredError(needOtherIssueInput && !hasOtherIssueInput);
+      setIsDetailRequiredError(isDetailMissing);
 
       if (!hasIssueSelection) {
         return;
       }
-      if (needOtherIssueInput && !hasOtherIssueInput) {
+      if ((needOtherIssueInput && !hasOtherIssueInput) || isDetailMissing) {
         return;
       }
     }
-    if (currentSelectedIssues.includes('other_issue') && otherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH) {
+    if (currentSelectedIssues.includes('other_issue') && currentOtherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH) {
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -443,21 +655,21 @@ export function RightContentHeader() {
     const surveyId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SURVEY_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SURVEY_ID;
     const serviceId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SERVICE_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SERVICE_ID;
     const contactId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || DEFAULT_FEEDBACK_SAVE_CONTACT_ID;
-    const w3account =
-      process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || DEFAULT_FEEDBACK_SAVE_W3ACCOUNT;
+    const w3account = getFeedbackUserId();
     const scoreValue = String(selectedScore);
     const selectedIssueCodes = currentIssueOptions
-      .map((issue, index) => (currentSelectedIssues.includes(issue.id) ? String(index + 1) : ''))
+      .map((issue, index) => (currentSelectedIssues.includes(issue.id) ? String(index) : ''))
       .filter(Boolean)
       .join(',');
     const selectedIssueLabels = currentIssueOptions
       .filter((issue) => currentSelectedIssues.includes(issue.id))
       .map((issue) => issue.label)
       .join(',');
-    const detailText = lowScoreDetail.trim();
+    const detailText = hasMeaningfulDetail(lowScoreDetail) ? lowScoreDetail.trim() : '';
     const otherIssueReason = currentSelectedIssues.includes('other_issue')
-      ? otherIssueDetail.trim()
+      ? currentOtherIssueDetail.trim()
       : SCORE_REASON_DEFAULT_REASON;
+    const scoreReasonQuestionId = selectedScore >= 9 ? HIGH_SCORE_REASON_QUESTION_ID : LOW_SCORE_REASON_QUESTION_ID;
     const answers: FeedbackSubmitAnswer[] = [
       {
         questionId: SCORE_QUESTION_ID,
@@ -468,11 +680,9 @@ export function RightContentHeader() {
         reason: SCORE_REASON_DEFAULT_REASON,
       },
       {
-        questionId: SCORE_REASON_QUESTION_ID,
+        questionId: scoreReasonQuestionId,
         subQuestionId: null,
-        subName: isLowScoreDetailVisible
-          ? '\u60a8\u5728\u4f7f\u7528\u8fc7\u7a0b\u4e2d\u9047\u5230\u4e86\u54ea\u4e9b\u95ee\u9898\uff1f'
-          : '\u60a8\u611f\u5230\u6ee1\u610f\u7684\u539f\u56e0\u662f\uff1f',
+        subName: currentPrimaryTitle,
         answer: selectedIssueCodes,
         subRemark: selectedIssueLabels,
         reason: otherIssueReason || SCORE_REASON_DEFAULT_REASON,
@@ -480,9 +690,9 @@ export function RightContentHeader() {
       {
         questionId: DETAIL_QUESTION_ID,
         subQuestionId: null,
-        subName: currentDetailTitle,
+        subName: DETAIL_SUBMIT_TITLE,
         answer: detailText,
-        subRemark: DETAIL_DEFAULT_SUB_REMARK,
+        subRemark: detailText ? DETAIL_DEFAULT_SUB_REMARK : '',
         reason: DETAIL_DEFAULT_REASON,
       },
     ];
@@ -567,27 +777,137 @@ export function RightContentHeader() {
     currentDetailMaxLength,
     currentIssueOptions,
     currentSelectedIssues,
+    currentPrimaryTitle,
     closeFeedbackPopover,
+    isDetailRequired,
     isHighScoreDetailVisible,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
-    otherIssueDetail,
+    currentOtherIssueDetail,
     selectedScore,
   ]);
 
+  const dragStateRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+  });
+
+  const handleHeaderMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 只响应左键
+      if (e.button !== 0) {
+        return;
+      }
+
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域（笑脸按钮的容器）
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 记录鼠标按下的位置，等待 mousemove
+      dragStateRef.current = {
+        isDragging: false,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+    },
+    [],
+  );
+
+  const handleHeaderDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 双击时切换最大化
+      toggleMaximize();
+    },
+    [toggleMaximize],
+  );
+
+  // 监听全局 mousemove 和 mouseup
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const state = dragStateRef.current;
+      // 如果鼠标按下了，但还没开始拖动
+      if (state.startX !== 0 && !state.isDragging) {
+        // 计算鼠标移动距离
+        const deltaX = Math.abs(e.clientX - state.startX);
+        const deltaY = Math.abs(e.clientY - state.startY);
+        // 如果移动超过 5px，认为是拖动意图
+        if (deltaX > 5 || deltaY > 5) {
+          state.isDragging = true;
+          // 触发拖动
+          startDrag();
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      // 重置状态
+      dragStateRef.current = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+      };
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [startDrag]);
+
   return (
-    <div ref={headerRef} className="ui-content-header" data-testid="right-content-header">
+    <div
+      ref={headerRef}
+      className="ui-content-header"
+      data-testid="right-content-header"
+      onMouseDown={handleHeaderMouseDown}
+      onDoubleClick={handleHeaderDoubleClick}
+    >
       <div aria-hidden="true" />
       <div className="ui-content-header-actions">
-        <div className="ui-content-header-feedback-anchor">
+        <div
+          className="ui-content-header-feedback-anchor"
+          onMouseEnter={cancelMouseLeaveClose}
+          onMouseLeave={scheduleMouseLeaveClose}
+        >
           <HeaderAction
             title={'\u7b11\u8138'}
             buttonRef={smileActionRef}
             aria-expanded={isFeedbackOpen}
             aria-controls={feedbackPopoverId}
             aria-haspopup="dialog"
-            onClick={() => setIsFeedbackOpen(true)}
+            onClick={openFeedbackPopoverManually}
+            onMouseEnter={openFeedbackPopoverManually}
           >
             <WindowSmileIcon />
           </HeaderAction>
@@ -617,7 +937,7 @@ export function RightContentHeader() {
                     type="button"
                     aria-label={'\u5173\u95ed\u6ee1\u610f\u5ea6\u8bc4\u4ef7\u5f39\u7a97'}
                     className="ui-content-header-feedback-popover-close"
-                    onClick={closeFeedbackPopover}
+                    onClick={dismissFeedbackPopover}
                   >
                     <PopoverCloseIcon />
                   </button>
@@ -698,10 +1018,10 @@ export function RightContentHeader() {
                               type="text"
                               className="ui-input"
                               placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
-                              value={otherIssueDetail}
+                              value={currentOtherIssueDetail}
                               onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
                             />
-                            {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
+                            {isOtherIssueRequiredError ? (
                               <p className="ui-content-header-feedback-other-error">
                                 {REQUIRED_INPUT_ERROR_MESSAGE}
                               </p>
@@ -737,7 +1057,11 @@ export function RightContentHeader() {
                             {lowScoreDetail.length}/{currentDetailMaxLength}
                           </span>
                         </div>
-                        {isDetailTooLong ? (
+                        {isDetailRequiredError ? (
+                          <p className="ui-content-header-feedback-detail-error">
+                            {REQUIRED_INPUT_ERROR_MESSAGE}
+                          </p>
+                        ) : isDetailTooLong ? (
                           <p className="ui-content-header-feedback-detail-error">
                             {DETAIL_LENGTH_ERROR_MESSAGE}
                           </p>
@@ -750,14 +1074,14 @@ export function RightContentHeader() {
                   <div className="ui-content-header-feedback-low-score-actions">
                     <button
                       type="button"
-                      className="ui-button-default ui-modal-action-button"
+                      className="ui-button-default"
                       onClick={closeFeedbackPopover}
                     >
                       {'\u53d6\u6d88'}
                     </button>
                     <button
                       type="button"
-                      className="ui-button-primary ui-modal-action-button"
+                      className="ui-button-primary"
                       onClick={() => void handleSubmitFeedback()}
                       disabled={isSubmittingFeedback}
                     >

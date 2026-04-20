@@ -9,7 +9,7 @@
  * Uses Redis Hash for efficient per-thread storage.
  */
 
-import type { MemoryEntry, MemoryInput } from '@cat-cafe/shared';
+import type { MemoryEntry, MemoryInput } from '@office-claw/shared';
 import type { Redis } from 'ioredis';
 import type { IMemoryStore } from '../ports/MemoryStore.js';
 import { MAX_KEYS_PER_THREAD } from '../ports/MemoryStore.js';
@@ -17,7 +17,7 @@ import { MEMORY_TTL_SECONDS, memoryKey } from '../redis-keys/memory-keys.js';
 
 /**
  * Redis implementation of IMemoryStore.
- * Uses Hash per thread: HSET cat-cafe:memory:{threadId} {key} {JSON}
+ * Uses Hash per thread: HSET office-claw:memory:{threadId} {key} {JSON}
  */
 export class RedisMemoryStore implements IMemoryStore {
   constructor(private redis: Redis) {}

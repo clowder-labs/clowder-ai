@@ -126,6 +126,16 @@ function Add-ProcessPathPrefix {
     }
 }
 
+function Test-CommandLineContainsLiteral {
+    param([string]$CommandLine, [string]$Needle)
+
+    if (-not $CommandLine -or -not $Needle) {
+        return $false
+    }
+
+    return $CommandLine.IndexOf($Needle, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+}
+
 function Resolve-PortableRedisLayout {
     param([string]$ProjectRoot)
     $root = Join-Path $ProjectRoot ".office-claw\redis\windows"
@@ -325,6 +335,89 @@ function Get-RedisServerAuthArgs {
     return @()
 }
 
+# -- Windows Credential Manager helpers -------------------------
+
+function Initialize-WinCredNative {
+    if (-not ('WinCredNative' -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinCredNative {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct CREDENTIAL {
+        public UInt32 Flags;
+        public UInt32 Type;
+        public string TargetName;
+        public string Comment;
+        public long LastWritten;
+        public UInt32 CredentialBlobSize;
+        public IntPtr CredentialBlob;
+        public UInt32 Persist;
+        public UInt32 AttributeCount;
+        public IntPtr Attributes;
+        public string TargetAlias;
+        public string UserName;
+    }
+    [DllImport("Advapi32.dll", EntryPoint = "CredReadW", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool CredRead(string target, UInt32 type, UInt32 reservedFlag, out IntPtr credentialPtr);
+    [DllImport("Advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool CredWrite(ref CREDENTIAL credential, UInt32 flags);
+    [DllImport("Advapi32.dll", SetLastError = true)]
+    public static extern void CredFree(IntPtr credentialPtr);
+}
+"@
+    }
+}
+
+function Read-ClowderCredential {
+    param([Parameter(Mandatory)][string]$Path)
+    Initialize-WinCredNative
+    $target = "Clowder/$Path"
+    $credPtr = [IntPtr]::Zero
+    $ok = [WinCredNative]::CredRead($target, 1, 0, [ref]$credPtr)
+    if (-not $ok) {
+        $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        if ($err -eq 1168) { return $null }
+        throw "CredRead failed for '$target': Win32 error $err"
+    }
+    try {
+        $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($credPtr, [type][WinCredNative+CREDENTIAL])
+        if ($cred.CredentialBlobSize -le 0 -or $cred.CredentialBlob -eq [IntPtr]::Zero) { return "" }
+        $bytes = New-Object byte[] $cred.CredentialBlobSize
+        [Runtime.InteropServices.Marshal]::Copy($cred.CredentialBlob, $bytes, 0, $cred.CredentialBlobSize)
+        return [System.Text.Encoding]::Unicode.GetString($bytes).TrimEnd([char]0)
+    } finally {
+        if ($credPtr -ne [IntPtr]::Zero) { [WinCredNative]::CredFree($credPtr) }
+    }
+}
+
+function Write-ClowderCredential {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Secret
+    )
+    Initialize-WinCredNative
+    $target = "Clowder/$Path"
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($Secret)
+    $blob = [Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    try {
+        [Runtime.InteropServices.Marshal]::Copy($bytes, 0, $blob, $bytes.Length)
+        $cred = New-Object WinCredNative+CREDENTIAL
+        $cred.Type = 1
+        $cred.TargetName = $target
+        $cred.CredentialBlobSize = $bytes.Length
+        $cred.CredentialBlob = $blob
+        $cred.Persist = 2
+        $cred.UserName = $target
+        if (-not [WinCredNative]::CredWrite([ref]$cred, 0)) {
+            $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            throw "CredWrite failed for '$target': Win32 error $err"
+        }
+    } finally {
+        if ($blob -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($blob) }
+    }
+}
+
 function Test-TruthyEnvFlag {
     param([string]$Value, [bool]$Default = $false)
 
@@ -472,6 +565,49 @@ function Write-InstallerExceptionDetails {
     }
 }
 
+function Resolve-InstallerNodeCommand {
+    param([string]$ProjectRoot)
+
+    $bundledNode = Resolve-BundledNodeCommand -ProjectRoot $ProjectRoot
+    if ($bundledNode) {
+        return $bundledNode
+    }
+
+    return Resolve-ToolCommandWithRetry -Name "node" -Attempts 2
+}
+
+function Ensure-OfficeSkillNodeDependencies {
+    param([string]$ProjectRoot)
+
+    if (-not $ProjectRoot) {
+        throw "ProjectRoot is required"
+    }
+
+    $skillsRoot = Join-Path $ProjectRoot "office-claw-skills"
+    if (-not (Test-Path $skillsRoot)) {
+        Write-Warn "office-claw-skills/ not found - skill dependency install skipped"
+        return $false
+    }
+
+    $nodeCommand = Resolve-InstallerNodeCommand -ProjectRoot $ProjectRoot
+    if (-not $nodeCommand) {
+        throw "Node.js not found for skill dependency installation"
+    }
+
+    $helperScript = Join-Path $ProjectRoot "scripts\ensure-office-skill-node-deps.mjs"
+    if (-not (Test-Path $helperScript)) {
+        throw "Missing helper script: $helperScript"
+    }
+
+    $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $skillsRoot ".playwright-browsers"
+    & $nodeCommand $helperScript --skills-root $skillsRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Office skill dependency installation failed"
+    }
+
+    return $true
+}
+
 function Ensure-WindowsRedis {
     param([string]$ProjectRoot, [switch]$Memory)
     if ($Memory) {
@@ -572,8 +708,9 @@ function Ensure-WindowsJiuwenClawRuntime {
     }
 
     $appDir = Join-Path $ProjectRoot "vendor\jiuwenclaw"
-    $appEntry = Join-Path $appDir "jiuwenclaw\app.py"
-    if (-not (Test-Path $appEntry)) {
+    $appEntryPy = Join-Path $appDir "jiuwenclaw\app.py"
+    $appEntryPyc = Join-Path $appDir "jiuwenclaw\app.pyc"
+    if (-not (Test-Path $appEntryPy) -and -not (Test-Path $appEntryPyc)) {
         return $false
     }
 
@@ -660,8 +797,9 @@ function Ensure-WindowsDareRuntime {
     }
 
     $appDir = Join-Path $ProjectRoot "vendor\dare-cli"
-    $appEntry = Join-Path $appDir "client\__main__.py"
-    if (-not (Test-Path $appEntry)) {
+    $appEntryPy = Join-Path $appDir "client\__main__.py"
+    $appEntryPyc = Join-Path $appDir "client\__main__.pyc"
+    if (-not (Test-Path $appEntryPy) -and -not (Test-Path $appEntryPyc)) {
         return $false
     }
 

@@ -7,39 +7,61 @@
 'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
+import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
+import { AgentManagementIcon } from './AgentManagementIcon';
+import { AppModal } from './AppModal';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
-import { AgentManagementIcon } from './AgentManagementIcon';
 import { NameInitialIcon } from './NameInitialIcon';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
-import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
+import { PasswordField } from './shared/PasswordField';
+import { SearchInput } from './shared/SearchInput';
+import { Textarea } from './shared/Textarea';
 import { useConfirm } from './useConfirm';
-import { getIsSkipAuth } from '@/utils/userId';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
-const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SEARCH_PLACEHOLDER = '搜索模型';
 const EMPTY_STATE_TITLE = '暂无模型';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
+const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云 MaaS';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
+const CREATE_MODEL_RISK_ACK_KEY = 'create-model-risk-ack:v1';
+const CREATE_MODEL_RISK_TITLE = '风险提示';
+const CREATE_MODEL_RISK_MESSAGE =
+  '请注意，当您使用第三方模型时，您承诺将严格遵守第三方的相关条款（包括但不限于 license 协议）。华为云不对第三方产品的合规性和安全性作保证，请您使用前慎重考虑并评估风险。';
+const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云Maas模型';
+const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
-const TEST_MODEL_CONNECTION_LABEL = '测试连通';
+const TEST_CONNECTION_LABEL = '测试连接';
 const SAVE_MODEL_LABEL = '保存';
-const MODEL_CONNECTION_SUCCESS_LABEL = '连通测试通过，可以继续保存模型配置';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const DEFAULT_MODEL_ICON_SRC = '/images/mode-default-icon.svg';
+const MODEL_NAME_VALIDATION_MESSAGE = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
+const MODEL_NAME_EDGE_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF]';
+const MODEL_NAME_BODY_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF:._/|\\\\-]';
+const MODEL_NAME_PATTERN = new RegExp(
+  `^${MODEL_NAME_EDGE_PATTERN}(?:${MODEL_NAME_BODY_PATTERN}{0,62}${MODEL_NAME_EDGE_PATTERN})$`,
+);
+
+function isValidModelName(value: string) {
+  return MODEL_NAME_PATTERN.test(value);
+}
 
 function SparklesIcon() {
   return (
@@ -68,6 +90,19 @@ function SparklesIcon() {
   );
 }
 
+function CloseIcon() {
+  return <AgentManagementIcon name="close" className="h-4 w-4" />;
+}
+
+function ClockIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12L15 13.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 interface MassModelResponseItem {
   id?: string | number;
   object?: string;
@@ -77,6 +112,8 @@ interface MassModelResponseItem {
   labels?: string[];
   developer?: string;
   icon?: string;
+  baseUrl?: string;
+  accessMode?: string;
   [key: string]: unknown;
 }
 
@@ -89,6 +126,9 @@ interface ModelCardData {
   developer: string;
   icon?: string;
   protocol: string;
+  baseUrl?: string;
+  accessMode?: 'huawei_maas_access';
+  createdAt?: string | number;
   [key: string]: unknown;
 }
 
@@ -107,6 +147,7 @@ interface ModelConfigProviderItem {
   apiKey?: string;
   headers?: Record<string, string>;
   models?: string[];
+  createdAt?: string;
 }
 
 interface HeaderInputRow {
@@ -114,6 +155,8 @@ interface HeaderInputRow {
   key: string;
   value: string;
 }
+
+type CreateModelModalMode = 'default' | 'huawei-maas-access';
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
   for (const key of candidates) {
@@ -143,6 +186,38 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function normalizeCreatedAt(value: unknown): string | number | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
+}
+
+function formatCustomModelCreatedAt(value: unknown): string | null {
+  const normalized = normalizeCreatedAt(value);
+  if (normalized === undefined) return null;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}:${ss}`;
+}
+
+function resolveModelConfigSourceId(cardId: string): string | null {
+  if (!cardId.startsWith('model_config:')) return null;
+  const parts = cardId.split(':');
+  if (parts.length < 3) return null;
+  const sourceId = parts[1]?.trim();
+  return sourceId ? sourceId : null;
+}
+
+function isHuaweiMaasAccessBaseUrl(baseUrl: string | undefined): boolean {
+  return normalizeBaseUrlForComparison(baseUrl) === normalizeBaseUrlForComparison(HUAWEI_MAAS_ACCESS_URL);
+}
+
 function normalizeModel(item: MassModelResponseItem, index: number): ModelCardData {
   const nameFromKnownFields = pickStringField(item, [
     'name',
@@ -160,10 +235,9 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const inferredName =
     nameFromKnownFields ?? genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
 
-  const inferredDescription =
-    pickStringField(item, ['description', 'desc', '描述']) ??
-    genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
-    DEFAULT_DESC;
+  // Only use explicit description fields. If none present, leave description empty so
+  // the UI doesn't display fallback values like id or DEFAULT_DESC.
+  const inferredDescription = pickStringField(item, ['description', 'desc', '描述']) ?? '';
 
   const id = String(item.id ?? `${inferredName || 'model'}-${index}`);
   const object = String(item.object ?? 'model');
@@ -172,6 +246,10 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     pickStringField(item, ['developer', 'provider', 'vendor', 'publisher', 'company']) ?? DEFAULT_DEVELOPER;
   const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']);
   const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
+  const baseUrl = typeof item.baseUrl === 'string' && item.baseUrl.trim() ? item.baseUrl.trim() : undefined;
+  const accessMode = item.accessMode === 'huawei_maas_access' ? 'huawei_maas_access' : undefined;
+  const createdAt = normalizeCreatedAt(item.createdAt ?? item.created_at ?? item.createTime ?? item.create_time);
+  const resolvedDeveloper = isHuaweiMaasAccessBaseUrl(baseUrl) ? '其他' : developer;
 
   return {
     id,
@@ -179,20 +257,33 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     name: inferredName,
     description: inferredDescription,
     labels,
-    developer,
+    developer: resolvedDeveloper,
     icon,
     protocol,
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(accessMode ? { accessMode } : {}),
+    ...(createdAt !== undefined ? { createdAt } : {}),
   };
 }
 
-function protocolGroupLabel(protocol: string): string {
-  const trimmed = protocol.trim();
+function normalizeBaseUrlForComparison(baseUrl: string | undefined): string {
+  return baseUrl?.trim().replace(/\/+$/, '').toLowerCase() ?? '';
+}
+
+function isSelfHuaweiMaaSAccessCard(card: Pick<ModelCardData, 'accessMode' | 'baseUrl'>): boolean {
+  return isHuaweiMaasAccessBaseUrl(card.baseUrl);
+}
+
+function protocolGroupLabel(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
+  if (isSelfHuaweiMaaSAccessCard(card)) return SELF_HUAWEI_MAAS_GROUP_LABEL;
+  const trimmed = card.protocol.trim();
   if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
   return CUSTOM_MODEL_GROUP_LABEL;
 }
 
-function protocolGroupKey(protocol: string): string {
-  const trimmed = protocol.trim().toLowerCase();
+function protocolGroupKey(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
+  if (isSelfHuaweiMaaSAccessCard(card)) return 'self_huawei_maas_access';
+  const trimmed = card.protocol.trim().toLowerCase();
   if (trimmed === 'huawei_maas') return 'huawei_maas';
   return 'custom_models';
 }
@@ -205,7 +296,7 @@ function buildModelSearchText(card: ModelCardData): string {
     card.object,
     card.developer,
     card.protocol,
-    protocolGroupLabel(card.protocol),
+    protocolGroupLabel(card),
     ...card.labels,
   ]
     .join(' ')
@@ -214,13 +305,13 @@ function buildModelSearchText(card: ModelCardData): string {
 
 function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
   return cards.reduce<ModelCardGroup[]>((acc, item) => {
-    const key = protocolGroupKey(item.protocol || UNKNOWN_PROTOCOL_LABEL);
+    const key = protocolGroupKey(item);
     const existing = acc.find((group) => group.key === key);
     if (existing) {
       existing.items.push(item);
       return acc;
     }
-    acc.push({ key, label: protocolGroupLabel(key), items: [item] });
+    acc.push({ key, label: protocolGroupLabel(item), items: [item] });
     return acc;
   }, []);
 }
@@ -231,79 +322,45 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
   return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
 }
 
-function normalizeModelConnectionError(raw: string | null | undefined): string {
-  const message = raw?.trim();
-  if (!message) return '测试失败，请稍后重试';
-
-  const lower = message.toLowerCase();
-  if (lower.includes('invalid body')) return '模型配置填写不完整，请检查地址、API Key 和模型名';
-  if (lower.includes('invalid project path')) return '当前项目路径无效，无法测试该模型配置';
-  if (lower.includes('identity required')) return '身份校验失败，请刷新页面后重试';
-  if (lower.includes('provider test did not execute')) return '测试请求未成功发出，请检查 Base URL 是否正确';
-  if (lower.includes('fetch failed') || lower.includes('network') || lower.includes('econn') || lower.includes('enotfound')) {
-    return '无法连接到模型服务，请检查 Base URL、网络或代理配置';
-  }
-  if (
-    lower.includes('401') ||
-    lower.includes('unauthorized') ||
-    lower.includes('invalid api key') ||
-    lower.includes('incorrect api key')
-  ) {
-    return 'API Key 无效或已失效，请检查后重试';
-  }
-  if (lower.includes('403') || lower.includes('forbidden')) {
-    return '模型服务拒绝了本次请求，请检查 API Key 权限或网关策略';
-  }
-  if (lower.includes('404')) return '没有找到对应的模型服务接口，请检查 Base URL 是否填写正确';
-  if (lower.includes('429') || lower.includes('rate limit')) return '模型服务当前限流，稍后再试';
-  if (lower.includes('500') || lower.includes('502') || lower.includes('503') || lower.includes('504')) {
-    return '模型服务暂时不可用，请稍后再试';
-  }
-  if (lower.includes('gateway rejected the probe model identifier')) {
-    return '连接已通，但默认探测模型未被网关接受。通常说明地址和 API Key 是有效的，可以继续保存';
-  }
-
-  return `测试失败：${message}`;
+function isEnvFlagEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
 }
 
-async function runDraftModelConfigProbe(input: {
-  projectPath?: string;
-  baseUrl: string;
-  apiKey: string;
-  models: string[];
-  displayName?: string;
-}): Promise<string | null> {
-  const res = await apiFetch('/api/provider-profiles/test-draft', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-      protocol: 'openai',
-      baseUrl: input.baseUrl,
-      apiKey: input.apiKey,
-      models: input.models,
-      ...(input.displayName ? { displayName: input.displayName } : {}),
-    }),
-  });
-  const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-  if (!res.ok) {
-    throw new Error(normalizeModelConnectionError(body.error ?? `请求失败 (${res.status})`));
+function hasCreateModelRiskAgreed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const value = window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY);
+    return value === 'true' || value === '1';
+  } catch {
+    return false;
   }
-  return body.message?.trim() || null;
+}
+
+function markCreateModelRiskAgreed(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CREATE_MODEL_RISK_ACK_KEY, 'true');
+  } catch {
+    // ignore storage failure
+  }
 }
 
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
+  const [canCreateModel, setCanCreateModel] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const [showCreateModelRiskModal, setShowCreateModelRiskModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
+  const [createModelModalMode, setCreateModelModalMode] = useState<CreateModelModalMode>('default');
   const [createError, setCreateError] = useState<string | null>(null);
   const [createModelError, setCreateModelError] = useState<string | null>(null);
   const [createModelSuccess, setCreateModelSuccess] = useState<string | null>(null);
-  const [testModelBusy, setTestModelBusy] = useState(false);
   const [saveModelBusy, setSaveModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
@@ -313,6 +370,11 @@ export function ModelsPanel() {
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeaderRows, setModelHeaderRows] = useState<HeaderInputRow[]>([]);
+  const [headerRowErrors, setHeaderRowErrors] = useState<Map<string, { keyError?: string; valueError?: string }>>(
+    new Map(),
+  );
+  const [headerErrorRowIndex, setHeaderErrorRowIndex] = useState<number | null>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingOriginalModelName, setEditingOriginalModelName] = useState<string | null>(null);
@@ -324,12 +386,15 @@ export function ModelsPanel() {
   const confirm = useConfirm();
 
   const isEditMode = Boolean(editingSourceId);
+  const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
+  const trimmedModelName = modelNameInput.trim();
+  const isModelNameValid =
+    trimmedModelName.length >= 2 && trimmedModelName.length <= 64 && isValidModelName(trimmedModelName);
+  const showModelNameValidationError = trimmedModelName.length > 0 && !isModelNameValid;
   const canConfirmCreateModel = isEditMode
-    ? modelNameInput?.trim().length > 0
-    : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
-  const canTestModelConnection =
-    modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
+    ? isModelNameValid
+    : isModelNameValid && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -340,28 +405,55 @@ export function ModelsPanel() {
     return queryText ? `/api/maas-models?${queryText}` : '/api/maas-models';
   }, [currentProjectPath]);
 
+  const buildModelConfigProfilesUrl = useCallback(() => {
+    const query = new URLSearchParams();
+    if (currentProjectPath && currentProjectPath !== 'default') {
+      query.set('projectPath', currentProjectPath);
+    }
+    const queryText = query.toString();
+    return queryText ? `/api/model-config-profiles?${queryText}` : '/api/model-config-profiles';
+  }, [currentProjectPath]);
+
   const fetchModels = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(buildModelsUrl());
-      if (!res.ok) {
+      const [modelsRes, providersRes] = await Promise.all([
+        apiFetch(buildModelsUrl()),
+        apiFetch(buildModelConfigProfilesUrl()),
+      ]);
+      if (!modelsRes.ok) {
         setCards([]);
         return;
       }
-      const json = (await res.json()) as {
+      const json = (await modelsRes.json()) as {
         projectPath?: string;
         list?: MassModelResponseItem[];
         models?: MassModelResponseItem[];
       };
+      const providersJson = providersRes.ok
+        ? ((await providersRes.json()) as { providers?: ModelConfigProviderItem[] })
+        : { providers: [] };
+      const providerCreatedAtById = new Map(
+        (providersJson.providers ?? [])
+          .filter((provider) => normalizeCreatedAt(provider.createdAt) !== undefined)
+          .map((provider) => [provider.id, provider.createdAt as string]),
+      );
       const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
-      setCards(source.map(normalizeModel));
+      setCards(
+        source.map(normalizeModel).map((card) => {
+          const sourceId = resolveModelConfigSourceId(card.id);
+          if (!sourceId || card.createdAt !== undefined) return card;
+          const createdAt = providerCreatedAtById.get(sourceId);
+          return createdAt ? { ...card, createdAt } : card;
+        }),
+      );
       setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
     } catch {
       setCards([]);
     } finally {
       setLoading(false);
     }
-  }, [buildModelsUrl]);
+  }, [buildModelConfigProfilesUrl, buildModelsUrl]);
 
   const handleDeleteModel = useCallback(
     async (cardId: string, cardName: string) => {
@@ -408,6 +500,7 @@ export function ModelsPanel() {
 
   useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
+    setCanCreateModel(getCanCreateModel() || isEnvFlagEnabled(process.env.CAN_CREATE_MODEL));
   }, []);
 
   useEffect(() => {
@@ -427,54 +520,84 @@ export function ModelsPanel() {
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
 
-  const resolveModelConfigSourceId = (cardId: string): string | null => {
-    if (!cardId.startsWith('model_config:')) return null;
-    const parts = cardId.split(':');
-    if (parts.length < 3) return null;
-    const sourceId = parts[1]?.trim();
-    return sourceId ? sourceId : null;
-  };
-
   const resolveProjectPathForPayload = () =>
     resolvedProjectPath || (currentProjectPath && currentProjectPath !== 'default' ? currentProjectPath : undefined);
 
-  const closeCreateModelModal = () => {
+  const closeCreateModelModal = useCallback(() => {
     setShowCreateModelModal(false);
+    setCreateModelModalMode('default');
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditingSourceId(null);
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
-  };
+    setHeaderRowErrors(new Map());
+  }, []);
 
-  const resetCreateModelForm = () => {
+  const closeCreateModelRiskModal = useCallback(() => {
+    setShowCreateModelRiskModal(false);
+  }, []);
+
+  useEscapeKey({
+    enabled: showCreateModelModal || showCreateModelRiskModal,
+    onEscape: () => {
+      if (showCreateModelRiskModal) {
+        closeCreateModelRiskModal();
+        return;
+      }
+      closeCreateModelModal();
+    },
+  });
+
+  const resetCreateModelForm = (mode: CreateModelModalMode = 'default') => {
     setModelNameInput('');
     setModelDescriptionInput('');
     setModelIconInput(DEFAULT_MODEL_ICON_SRC);
     setModelDisplayNameInput('');
-    setModelUrlInput('');
+    setModelUrlInput(mode === 'huawei-maas-access' ? HUAWEI_MAAS_ACCESS_URL : '');
     setModelApiKeyInput('');
     setModelHeaderRows([]);
+    setHeaderRowErrors(new Map());
   };
 
-  const handleOpenCreateModelModal = () => {
-    resetCreateModelForm();
+  const handleOpenCreateModelModal = (mode: CreateModelModalMode = 'default') => {
+    resetCreateModelForm(mode);
+    setCreateModelModalMode(mode);
     setEditingSourceId(null);
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
     setCreateModelError(null);
+    setHeaderRowErrors(new Map());
     setCreateModelSuccess(null);
     setShowCreateModelModal(true);
+    setHeaderErrorRowIndex(null);
+  };
+
+  const handleOpenCreateModelRiskGuard = () => {
+    if (hasCreateModelRiskAgreed()) {
+      handleOpenCreateModelModal('default');
+      return;
+    }
+    setShowCreateModelRiskModal(true);
+  };
+
+  const handleAgreeCreateModelRisk = () => {
+    markCreateModelRiskAgreed();
+    setShowCreateModelRiskModal(false);
+    handleOpenCreateModelModal('default');
   };
 
   const handleOpenEditModelModal = async (card: ModelCardData) => {
     const sourceId = resolveModelConfigSourceId(card.id);
     if (!sourceId || editModelBusy) return;
 
-    resetCreateModelForm();
+    resetCreateModelForm('default');
+    setCreateModelModalMode(isSelfHuaweiMaaSAccessCard(card) ? 'huawei-maas-access' : 'default');
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditModelBusy(true);
+    setHeaderErrorRowIndex(null);
+    setHeaderRowErrors(new Map());
     try {
       const projectPath = resolveProjectPathForPayload();
       const query = new URLSearchParams();
@@ -495,7 +618,7 @@ export function ModelsPanel() {
       setModelDescriptionInput(provider?.description ?? card.description ?? '');
       setModelDisplayNameInput(provider?.displayName ?? '');
       setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || '');
-      setModelUrlInput(provider?.baseUrl ?? '');
+      setModelUrlInput(provider?.baseUrl ?? card.baseUrl ?? '');
       setModelApiKeyInput(provider?.apiKey ?? '');
       setModelHeaderRows(headersObjectToRows(provider?.headers));
       setShowCreateModelModal(true);
@@ -510,41 +633,32 @@ export function ModelsPanel() {
     if (!editingSourceId) return [modelNameInput.trim()].filter(Boolean);
     const nextModel = modelNameInput.trim();
     const previousModel = editingOriginalModelName?.trim() || '';
-    const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+    const sourceModels =
+      editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
     const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
-    return Array.from(new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)));
-  };
-
-  const handleTestModelConnection = async () => {
-    if (!canTestModelConnection || testModelBusy || saveModelBusy) return;
-    setCreateModelError(null);
-    setCreateModelSuccess(null);
-    setTestModelBusy(true);
-    try {
-      const projectPath = resolveProjectPathForPayload();
-      const displayName = modelDisplayNameInput.trim();
-      const probeMessage = await runDraftModelConfigProbe({
-        ...(projectPath ? { projectPath } : {}),
-        baseUrl: modelUrlInput.trim(),
-        apiKey: modelApiKeyInput.trim(),
-        models: resolveDraftModelNames(),
-        displayName: displayName || modelNameInput.trim(),
-      });
-      setCreateModelSuccess(probeMessage || MODEL_CONNECTION_SUCCESS_LABEL);
-    } catch (error) {
-      setCreateModelError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setTestModelBusy(false);
-    }
+    return Array.from(
+      new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)),
+    );
   };
 
   const handleCreateModel = async () => {
-    if (!canConfirmCreateModel || saveModelBusy || testModelBusy) return;
+    if (!canConfirmCreateModel || saveModelBusy) return;
+    // validate header rows and build headers object
+    const buildResult = buildHeadersObject(modelHeaderRows);
+    if (buildResult.errorIndex !== null || buildResult.errorMessage) {
+      setHeaderErrorRowIndex(buildResult.errorIndex);
+      // trigger validateHeaderRows to populate headerRowErrors map
+      validateHeaderRows(modelHeaderRows);
+      const firstErrorRow = document.querySelector('[data-error-row="true"]');
+      firstErrorRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setHeaderErrorRowIndex(null);
+
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setSaveModelBusy(true);
     try {
-      const headers = buildHeadersObject(modelHeaderRows);
       const description = modelDescriptionInput.trim();
       const displayName = modelDisplayNameInput.trim();
       const icon = modelIconInput.trim();
@@ -563,7 +677,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
-          ...(headers ? { headers } : {}),
+          ...(buildResult.headers ? { headers: buildResult.headers } : {}),
           models: mergedModels,
           ...(projectPath ? { projectPath } : {}),
         };
@@ -573,9 +687,10 @@ export function ModelsPanel() {
           ...(displayName ? { displayName } : {}),
           ...(description ? { description } : {}),
           ...(icon ? { icon } : {}),
+          ...(isHuaweiMaasAccessMode ? { accessMode: 'huawei_maas_access' as const } : {}),
           baseUrl: modelUrlInput.trim(),
           apiKey: modelApiKeyInput.trim(),
-          ...(headers ? { headers } : {}),
+          ...(buildResult.headers ? { headers: buildResult.headers } : {}),
           models: [modelNameInput.trim()],
           ...(projectPath ? { projectPath } : {}),
         };
@@ -600,24 +715,89 @@ export function ModelsPanel() {
     }
   };
 
+  const handleTestConnection = async () => {
+    const url = modelUrlInput.trim();
+    const apiKey = modelApiKeyInput.trim();
+    const modelName = modelNameInput.trim();
+    if (!url || !apiKey) return;
+    if (testingConnection) return;
+
+    setTestingConnection(true);
+    setCreateModelError(null);
+    setCreateModelSuccess(null);
+
+    const showToast = useToastStore.getState().addToast;
+
+    try {
+      const res = await apiFetch('/api/maas-test-connection', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: url,
+          apiKey: apiKey,
+          model: modelName || 'default',
+        }),
+      });
+
+      const body = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      if (!res.ok || body.error) {
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+
+      showToast({ type: 'success', title: '测试连接成功', message: '连接测试成功', duration: 3000 });
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: '测试连接失败',
+        message: '请检查模型调用名称或者API Key填写是否正确',
+        duration: 5000,
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleModelIconUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > MODEL_ICON_MAX_BYTES) {
-      setCreateModelError('图标文件大小不能超过 200KB');
-      setCreateModelSuccess(null);
+
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标格式不支持',
+        message: '仅支持 png、jpeg、jpg 格式图片',
+        duration: 3000,
+      });
       event.target.value = '';
       return;
     }
 
-    setCreateModelError(null);
-    setCreateModelSuccess(null);
+    if (file.size > MODEL_ICON_MAX_BYTES) {
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标文件过大',
+        message: '图片大小不能超过 200KB',
+        duration: 3000,
+      });
+      event.target.value = '';
+      return;
+    }
+
     setModelIconUploading(true);
     try {
       const uploaded = await uploadAvatarAsset(file);
       setModelIconInput(uploaded);
     } catch (error) {
-      setCreateModelError(error instanceof Error ? error.message : '图标上传失败');
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标上传失败',
+        message: error instanceof Error ? error.message : '图标上传失败',
+        duration: 3000,
+      });
     } finally {
       setModelIconUploading(false);
       event.target.value = '';
@@ -625,15 +805,79 @@ export function ModelsPanel() {
   };
 
   const handleAddHeaderRow = () => {
-    setModelHeaderRows((rows) => [...rows, createEmptyHeaderRow()]);
+    // Before adding a new empty header row, validate existing rows.
+    // If there are validation errors (empty key/value or duplicate keys),
+    // show the first error and do not add a new row.
+    const errors = validateHeaderRows(modelHeaderRows);
+    const hasError = Array.from(errors.values()).some((err) => !!(err && (err.keyError || err.valueError)));
+    if (hasError) {
+      const firstErrorRow = document.querySelector('[data-error-row="true"]');
+      firstErrorRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const nextRow = createEmptyHeaderRow();
+    setModelHeaderRows((rows) => [...rows, nextRow]);
+    validateHeaderRows([...modelHeaderRows, nextRow]);
   };
 
   const handleHeaderRowChange = (rowId: string, field: 'key' | 'value', value: string) => {
-    setModelHeaderRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)));
+    const updatedRows = modelHeaderRows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row));
+    setModelHeaderRows(updatedRows);
+    validateHeaderRows(updatedRows);
+  };
+
+  const validateHeaderRows = (rows: HeaderInputRow[]) => {
+    const newErrors = new Map<string, { keyError?: string; valueError?: string }>();
+    const keyCountMap = new Map<string, number[]>();
+
+    rows.forEach((row, index) => {
+      const key = row.key.trim();
+      const value = row.value.trim();
+      const rowErrors: { keyError?: string; valueError?: string } = {};
+
+      if (!key && !value) {
+        newErrors.set(row.id, {});
+        return;
+      }
+
+      if (!key && value) {
+        rowErrors.keyError = '请填写键名';
+      }
+
+      if (key && !value) {
+        rowErrors.valueError = '请填写值';
+      }
+
+      if (key) {
+        const existing = keyCountMap.get(key) || [];
+        existing.push(index);
+        keyCountMap.set(key, existing);
+      }
+
+      if (Object.keys(rowErrors).length > 0) {
+        newErrors.set(row.id, rowErrors);
+      }
+    });
+
+    keyCountMap.forEach((indices, key) => {
+      if (indices.length > 1) {
+        indices.forEach((index) => {
+          const rowId = rows[index].id;
+          const existing = newErrors.get(rowId) || {};
+          newErrors.set(rowId, { ...existing, keyError: `键名"${key}"重复` });
+        });
+      }
+    });
+
+    setHeaderRowErrors(newErrors);
+    return newErrors;
   };
 
   const handleRemoveHeaderRow = (rowId: string) => {
-    setModelHeaderRows((rows) => rows.filter((row) => row.id !== rowId));
+    const updatedRows = modelHeaderRows.filter((row) => row.id !== rowId);
+    setModelHeaderRows(updatedRows);
+    validateHeaderRows(updatedRows);
   };
 
   return (
@@ -644,14 +888,24 @@ export function ModelsPanel() {
           <button
             type="button"
             onClick={() => openHub('provider-profiles')}
-            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="hidden rounded-[16px] border border-[var(--button-default-border)] bg-[var(--button-default-bg)] px-3 py-1.5 text-[12px] font-medium text-[var(--button-default-text)] transition-colors hover:border-[var(--button-default-border-hover)] hover:bg-[var(--button-default-bg-hover)] hover:text-[var(--button-default-text-hover)]"
           >
             ACP / 账号配置
           </button>
-          {true ? (
+          {!isSkipAuth ? (
             <button
               type="button"
-              onClick={handleOpenCreateModelModal}
+              onClick={() => handleOpenCreateModelModal('huawei-maas-access')}
+              data-testid="models-open-huawei-maas-model-modal"
+              className="ui-button-primary"
+            >
+              {HUAWEI_MAAS_ACCESS_LABEL}
+            </button>
+          ) : null}
+          {canCreateModel ? (
+            <button
+              type="button"
+              onClick={handleOpenCreateModelRiskGuard}
               data-testid="models-open-create-model-modal"
               className="ui-button-primary"
             >
@@ -663,16 +917,15 @@ export function ModelsPanel() {
 
       <section className="shrink-0 pb-6" data-testid="models-toolbar">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="search"
-              aria-label="搜索模型"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-            />
-          </div>
+          <SearchInput
+            wrapperClassName="flex-1"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(value) => setSearchQuery(value)}
+            onClear={() => setSearchQuery('')}
+            placeholder={SEARCH_PLACEHOLDER}
+            clearAriaLabel="清除搜索"
+          />
           <button
             type="button"
             aria-label="刷新"
@@ -687,8 +940,8 @@ export function ModelsPanel() {
         </div>
       </section>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
-        <div className="flex min-h-full flex-col gap-4 pb-2">
+      <div className="pb-2" data-testid="models-scroll-region">
+        <div className="flex flex-col gap-4">
           {loading && (
             <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
               <CenteredLoadingState />
@@ -720,68 +973,129 @@ export function ModelsPanel() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => {
                     const cardIconSrc = resolveUploadedIconUrl(card.icon);
+                    const customModelCreatedAt =
+                      card.protocol !== 'huawei_maas' ? formatCustomModelCreatedAt(card.createdAt) : null;
                     return (
-                    <article
-                      key={card.id}
-                      className={['ui-card', group.key === 'huawei_maas' ? null : 'ui-card-hover', 'group flex min-h-[194px] flex-col gap-4']
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <div>
-                        <div className="flex items-start gap-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {cardIconSrc ? (
-                            <img
-                              src={cardIconSrc}
-                              alt={`${card.name} icon`}
-                              width={48}
-                              height={48}
-                              className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
-                              data-testid={`model-card-icon-${card.id}`}
-                            />
-                          ) : (
-                            <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
-                              <NameInitialIcon
-                                name={card.name}
-                                dataTestId={`model-card-icon-${card.id}`}
-                                className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                      <article
+                        key={card.id}
+                        className={[
+                          'ui-card',
+                          group.key === 'huawei_maas' ? null : 'ui-card-hover',
+                          'group flex min-h-[194px] flex-col gap-4',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <div>
+                          <div className="flex items-start gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {cardIconSrc ? (
+                              <img
+                                src={cardIconSrc}
+                                alt={`${card.name} icon`}
+                                width={48}
+                                height={48}
+                                className="h-12 w-12 shrink-0 rounded-[var(radius-xs)] object-cover"
+                                data-testid={`model-card-icon-${card.id}`}
                               />
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <OverflowTooltip
-                                content={card.name}
-                                className="min-w-0 flex-1"
-                                as="h4"
-                                textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
-                              />
-                            </div>
-                            {card.labels.length > 0 ? (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                {card.labels.map((label, index) => (
-                                  <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
-                                    {label}
-                                  </span>
-                                ))}
+                            ) : (
+                              <div className="h-12 w-12 shrink-0 rounded-[var(radius-xs)]">
+                                <NameInitialIcon
+                                  name={card.name}
+                                  dataTestId={`model-card-icon-${card.id}`}
+                                  className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                                />
                               </div>
-                            ) : null}
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <OverflowTooltip
+                                  content={card.name}
+                                  className="min-w-0 flex-1"
+                                  as="h4"
+                                  textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
+                                />
+                              </div>
+                              {card.labels.length > 0 ? (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  {card.labels.map((label, index) => (
+                                    <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <OverflowTooltip content={card.description} className="w-full">
-                        <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
-                          {card.description}
-                        </p>
-                      </OverflowTooltip>
+                        <OverflowTooltip content={card.description} className="w-full">
+                          <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
+                            {card.description}
+                          </p>
+                        </OverflowTooltip>
 
-                      <div className="mt-auto flex items-end justify-between gap-3">
-                        <div className="min-h-5 text-xs leading-5">
-                          {card.protocol !== 'huawei_maas' ? (
-                            <div className="relative">
-                              <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
+                        <div className="flex items-end justify-between gap-3">
+                          <div className="min-h-5 text-xs leading-5">
+                            {card.protocol !== 'huawei_maas' ? (
+                              <div className="relative">
+                                <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
+                                  {customModelCreatedAt ? (
+                                    <>
+                                      <span
+                                        className="inline-flex h-4 w-4 items-center justify-center"
+                                        data-testid={`model-card-created-at-icon-${card.id}`}
+                                      >
+                                        <ClockIcon />
+                                      </span>
+                                      <span data-testid={`model-card-created-at-${card.id}`}>
+                                        {customModelCreatedAt}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={VENDOR_ICON}
+                                        alt={`${card.developer} icon`}
+                                        width={16}
+                                        height={16}
+                                        className="h-4 w-4 rounded-sm object-cover"
+                                      />
+                                      <span>{card.developer}</span>
+                                    </>
+                                  )}
+                                </span>
+                                <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    data-testid={`model-card-edit-${card.id}`}
+                                    disabled={editModelBusy}
+                                    onClick={() => {
+                                      void handleOpenEditModelModal(card);
+                                    }}
+                                    className="whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] hover:underline hover:underline-offset-2 disabled:opacity-50"
+                                    style={{ textUnderlineOffset: '4px' }}
+                                  >
+                                    编辑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingModelId === card.id}
+                                    onClick={() => {
+                                      void handleDeleteModel(card.id, card.name);
+                                    }}
+                                    data-testid={`model-card-delete-${card.id}`}
+                                    className="ml-[24px] whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] hover:underline hover:underline-offset-2 disabled:opacity-50"
+                                    style={{ textUnderlineOffset: '4px' }}
+                                  >
+                                    {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={VENDOR_ICON}
@@ -792,47 +1106,10 @@ export function ModelsPanel() {
                                 />
                                 <span>{card.developer}</span>
                               </span>
-                              <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                <button
-                                  type="button"
-                                  data-testid={`model-card-edit-${card.id}`}
-                                  disabled={editModelBusy}
-                                  onClick={() => {
-                                    void handleOpenEditModelModal(card);
-                                  }}
-                                  className="whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline"
-                                >
-                                  编辑
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={deletingModelId === card.id}
-                                  onClick={() => {
-                                    void handleDeleteModel(card.id, card.name);
-                                  }}
-                                  data-testid={`model-card-delete-${card.id}`}
-                                  className="ml-[24px] whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
-                                >
-                                  {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={VENDOR_ICON}
-                                alt={`${card.developer} icon`}
-                                width={16}
-                                height={16}
-                                className="h-4 w-4 rounded-sm object-cover"
-                              />
-                              <span>{card.developer}</span>
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </article>
+                      </article>
                     );
                   })}
                 </div>
@@ -841,63 +1118,107 @@ export function ModelsPanel() {
         </div>
       </div>
 
+      <AppModal
+        open={showCreateModelRiskModal}
+        onClose={closeCreateModelRiskModal}
+        title={CREATE_MODEL_RISK_TITLE}
+        panelClassName="w-[550px]"
+        disableBackdropClose
+        showCloseButton={true}
+        backdropTestId="models-create-model-risk-modal"
+        panelTestId="models-create-model-risk-modal-panel"
+      >
+        <div className="space-y-4 pt-[18px]">
+          <p className="text-[12px] leading-[18px] text-[var(--text-secondary)]">{CREATE_MODEL_RISK_MESSAGE}</p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="ui-button-default text-sm px-[24px] py-[6px]"
+              data-testid="models-create-model-risk-cancel"
+              onClick={closeCreateModelRiskModal}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="ui-button-primary text-sm px-[24px] py-[6px]"
+              data-testid="models-create-model-risk-confirm"
+              onClick={handleAgreeCreateModelRisk}
+            >
+              我已同意
+            </button>
+          </div>
+        </div>
+      </AppModal>
+
       {showCreateModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4"
           data-testid="models-create-model-modal"
         >
-          <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-bold">{isEditMode ? '编辑模型' : CREATE_MODEL_LABEL}</h3>
-              <button
-                type="button"
-                onClick={closeCreateModelModal}
-                aria-label="close"
-                className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
+          <div className="relative flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]">
+            <button
+              type="button"
+              onClick={closeCreateModelModal}
+              aria-label="close"
+              className="absolute right-5 top-5 flex h-6 w-6 items-center justify-center rounded text-[var(--modal-close-icon)] transition-colors hover:bg-[var(--modal-close-hover-bg)] hover:text-[var(--modal-close-icon-hover)]"
+            >
+              <CloseIcon />
+            </button>
+            <div className="pr-10">
+              <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">
+                {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? HUAWEI_MAAS_ACCESS_LABEL : CREATE_MODEL_LABEL}
+              </h3>
             </div>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型名称'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">
+                  {isHuaweiMaasAccessMode ? '模型调用名称' : '模型名称'}
+                </p>
                 <input
                   data-testid="models-create-model-name-input"
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
-                  placeholder={'请输入模型名称'}
-                  className="ui-input ui-form-focus w-full"
+                  placeholder={isHuaweiMaasAccessMode ? '请输入模型调用名称' : '请输入模型名称'}
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
                 />
+                {showModelNameValidationError ? (
+                  <p
+                    data-testid="models-create-model-name-error"
+                    className="mt-1 text-xs text-[var(--state-error-text)]"
+                  >
+                    {MODEL_NAME_VALIDATION_MESSAGE}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>
-                <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
-                  <textarea
-                    data-testid="models-create-model-description-textarea"
-                    value={modelDescriptionInput}
-                    onChange={(event) => setModelDescriptionInput(event.target.value)}
-                    placeholder="请输入描述"
-                    maxLength={500}
-                    className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
-                  />
-                  <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
-                    {modelDescriptionInput.length}/500
-                  </div>
-                </div>
+                <Textarea
+                  data-testid="models-create-model-description-textarea"
+                  value={modelDescriptionInput}
+                  onChange={(event) => setModelDescriptionInput(event.target.value)}
+                  placeholder="请输入描述"
+                  maxLength={500}
+                  showCount
+                  formatCount={(current, max) => `${current}/${max ?? 0}`}
+                  useDefaultContainerStyles={false}
+                  useDefaultTextareaStyles={false}
+                  containerClassName="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1"
+                  counterClassName="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]"
+                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
+                />
               </div>
               <div className="hidden space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型展示名称'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'模型展示名称'}</p>
                 <input
                   data-testid="models-create-model-display-name-input"
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-input ui-form-focus w-full"
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -909,22 +1230,18 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-xs)] transition overflow-hidden"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={modelIconPreviewSrc}
-                      alt="Model icon preview"
-                      className="h-full w-full object-cover"
-                    />
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
-                      上传
+                    <img src={modelIconPreviewSrc} alt="Model icon preview" className="h-full w-full object-cover" />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--modal-loading-overlay)] opacity-0 transition group-hover:opacity-100">
+                      <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                     </span>
                   </button>
                   <input
                     ref={modelIconFileInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/gif,image/jpg"
+                    accept="image/png,image/jpeg,image/jpg"
                     onChange={handleModelIconUpload}
                     className="hidden"
                     data-testid="models-create-model-icon-file-input"
@@ -947,11 +1264,11 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'访问URL'}</p>
                 <input
                   data-testid="models-create-model-url-input"
                   name="cc_model_base_url"
@@ -962,17 +1279,21 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full"
+                  disabled={isHuaweiMaasAccessMode}
+                  className={`ui-input w-full ${
+                    isHuaweiMaasAccessMode
+                      ? 'cursor-not-allowed border-[var(--overlay-disabled-border)] bg-[var(--overlay-disabled-bg)] text-[var(--overlay-disabled-text)]'
+                      : ''
+                  }`}
                   style={{ height: '28px' }}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
-                <input
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'API Key'}</p>
+                <PasswordField
                   data-testid="models-create-model-api-key-input"
                   name="cc_model_api_key"
-                  type="password"
                   value={modelApiKeyInput}
                   onChange={(event) => setModelApiKeyInput(event.target.value)}
                   placeholder={'请输入API Key'}
@@ -980,81 +1301,104 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full"
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
+                  toggleTestId="models-create-model-api-key-toggle"
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
+                <p className="text-[12px] leading-[18px] text-[var(--modal-text)]">{'请求头（可选）'}</p>
                 <div className="space-y-2">
-                  {modelHeaderRows.map((row, index) => (
-                    <div key={row.id} className="flex items-center gap-[4px]" data-testid={`models-create-model-header-row-${index}`}>
-                      <input
-                        type="text"
-                        value={row.key}
-                        onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
-                        placeholder="请求头的键名"
-                        className="ui-input ui-form-focus h-[28px] flex-1"
-                        data-testid={`models-create-model-header-key-${index}`}
-                      />
-                      <input
-                        type="text"
-                        value={row.value}
-                        onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
-                        placeholder="请求头的值"
-                        className="ui-input ui-form-focus h-[28px] flex-1"
-                        data-testid={`models-create-model-header-value-${index}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveHeaderRow(row.id)}
-                        aria-label={`请求头 ${index + 1}`}
-                        className="h-[16px] w-[16px] min-h-[16px] min-w-[16px] p-0"
-                        data-testid={`models-create-model-header-remove-${index}`}
+                  {modelHeaderRows.map((row, index) => {
+                    const rowErrors = headerRowErrors.get(row.id) || {};
+                    return (
+                      <div
+                        key={row.id}
+                        className={`flex flex-col gap-1`}
+                        data-testid={`models-create-model-header-row-${index}`}
+                        data-error-row={rowErrors.keyError || rowErrors.valueError ? 'true' : 'false'}
                       >
-                        <AgentManagementIcon name="delete" className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-[4px]">
+                          <input
+                            type="text"
+                            value={row.key}
+                            onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
+                            placeholder="请求头的键名"
+                            className={`ui-input h-[28px] flex-1 ${
+                              rowErrors.keyError
+                                ? 'border-[var(--state-error-text)] bg-[var(--state-error-surface)]'
+                                : ''
+                            }`}
+                            data-testid={`models-create-model-header-key-${index}`}
+                          />
+                          <input
+                            type="text"
+                            value={row.value}
+                            onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
+                            placeholder="请求头的值"
+                            className={`ui-input h-[28px] flex-1 ${
+                              rowErrors.valueError
+                                ? 'border-[var(--state-error-text)] bg-[var(--state-error-surface)]'
+                                : ''
+                            }`}
+                            data-testid={`models-create-model-header-value-${index}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHeaderRow(row.id)}
+                            aria-label={`请求头 ${index + 1}`}
+                            className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[var(--modal-muted-surface-hover)]"
+                            data-testid={`models-create-model-header-remove-${index}`}
+                          >
+                            <AgentManagementIcon name="delete" className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {(rowErrors.keyError || rowErrors.valueError) && (
+                          <div className="break-all px-1 text-xs text-[var(--state-error-text)]">
+                            {rowErrors.keyError || rowErrors.valueError}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
-                    <span>添加</span>
+                    <span className="inline-flex h-[18px] items-center border-b border-transparent transition-colors group-hover:border-current">
+                      添加
+                    </span>
                   </button>
                 </div>
+                {createModelError && createModelError.includes('请求头键名重复') ? (
+                  <p className="mt-1 text-xs text-[var(--state-error-text)]">{createModelError}</p>
+                ) : null}
               </div>
-              {createModelError ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
-              ) : null}
-              {createModelSuccess ? (
-                <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{createModelSuccess}</p>
-              ) : null}
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={closeCreateModelModal} className="ui-button-default ui-modal-action-button">
+              <button type="button" onClick={closeCreateModelModal} className="ui-button-default">
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
                 type="button"
-                disabled={!canTestModelConnection || testModelBusy || saveModelBusy || modelIconUploading || editModelBusy}
-                onClick={handleTestModelConnection}
-                data-testid="models-create-model-test"
-                className="ui-button-default ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canConfirmCreateModel || testingConnection || modelIconUploading || editModelBusy}
+                onClick={handleTestConnection}
+                data-testid="models-test-connection"
+                className="ui-button-default disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {testModelBusy ? '测试中...' : TEST_MODEL_CONNECTION_LABEL}
+                {testingConnection ? '测试中...' : TEST_CONNECTION_LABEL}
               </button>
               <button
                 type="button"
-                disabled={!canConfirmCreateModel || saveModelBusy || testModelBusy || modelIconUploading || editModelBusy}
+                disabled={!canConfirmCreateModel || saveModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
-                className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saveModelBusy ? '保存中...' : SAVE_MODEL_LABEL}
               </button>
@@ -1065,19 +1409,19 @@ export function ModelsPanel() {
 
       {showAddModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-strong)] p-4"
           data-testid="models-add-model-modal"
         >
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--modal-border)] bg-[var(--modal-surface)] p-5 shadow-[var(--modal-shadow)]">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <h3 className="text-base font-semibold text-[var(--modal-title-text)]">{ADD_MODEL}</h3>
               <button
                 type="button"
                 onClick={() => {
                   setCreateError(null);
                   setShowAddModelModal(false);
                 }}
-                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                className="rounded-lg border border-[var(--button-default-border)] bg-[var(--button-default-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-default-text)] transition-colors hover:border-[var(--button-default-border-hover)] hover:bg-[var(--button-default-bg-hover)] hover:text-[var(--button-default-text-hover)]"
               >
                 关闭
               </button>
@@ -1138,29 +1482,46 @@ function headersObjectToRows(headers?: Record<string, string> | null): HeaderInp
   }));
 }
 
-function buildHeadersObject(rows: HeaderInputRow[]): Record<string, string> | null {
-  const normalizedEntries: Array<readonly [string, string]> = [];
+type BuildHeadersResult = {
+  headers: Record<string, string> | null;
+  errorIndex: number | null;
+  errorMessage: string | null;
+};
 
-  for (const row of rows) {
+function buildHeadersObject(rows: HeaderInputRow[]): BuildHeadersResult {
+  const normalizedEntries: Array<readonly [string, string]> = [];
+  const rowIndexMap: number[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const key = row.key.trim();
     const value = row.value.trim();
     if (!key && !value) continue;
     if (!key || !value) {
-      throw new Error('请求头的键名和值都必须填写');
+      return {
+        headers: null,
+        errorIndex: i,
+        errorMessage: `请求头的键名和值都必须填写`,
+      };
     }
     normalizedEntries.push([key, value] as const);
+    rowIndexMap.push(i);
   }
 
-  if (normalizedEntries.length === 0) return null;
+  if (normalizedEntries.length === 0) return { headers: null, errorIndex: null, errorMessage: null };
 
-  const duplicatedKey = normalizedEntries.find(([key], index) =>
-    normalizedEntries.findIndex(([existingKey]) => existingKey === key) !== index,
+  const duplicatedIndex = normalizedEntries.findIndex(
+    ([key], idx) => normalizedEntries.findIndex(([k]) => k === key) !== idx,
   );
-  if (duplicatedKey) {
-    throw new Error(`请求头键名重复：${duplicatedKey[0]}`);
+  if (duplicatedIndex !== -1) {
+    return {
+      headers: null,
+      errorIndex: rowIndexMap[duplicatedIndex],
+      errorMessage: `请求头键名重复：${normalizedEntries[duplicatedIndex][0]}`,
+    };
   }
 
-  return Object.fromEntries(normalizedEntries);
+  return { headers: Object.fromEntries(normalizedEntries), errorIndex: null, errorMessage: null };
 }
 
 function generateModelConfigSourceId(): string {
@@ -1206,12 +1567,12 @@ function ModelsCreateModelConfigSource({
 
   return (
     <div className="space-y-3">
-      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p> : null}
+      {error ? <p className="ui-status-error rounded-lg px-3 py-2 text-sm">{error}</p> : null}
       <select
         value="openai"
         disabled
         aria-label="协议"
-        className="w-full rounded border border-[#DCE2EB] bg-[#F7F8FA] px-3 py-2 text-sm text-[#5F6775]"
+        className="w-full rounded border border-[var(--overlay-disabled-border)] bg-[var(--overlay-disabled-bg)] px-3 py-2 text-sm text-[var(--overlay-disabled-text)]"
       >
         <option value="openai">OpenAI</option>
       </select>
@@ -1229,64 +1590,42 @@ function ModelsCreateModelConfigSource({
         autoComplete="off"
         className="ui-input w-full"
       />
-      <input
-        type="password"
+      <PasswordField
         autoComplete="off"
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="API Key"
         className="ui-input w-full rounded px-3 py-2 text-sm"
+        toggleTestId="models-create-source-api-key-toggle"
       />
-      <textarea
+      <Textarea
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
         placeholder={'可选请求头(JSON)，如 {"X-App-Id":"my-app"}'}
+        useDefaultContainerStyles={false}
+        useDefaultTextareaStyles={false}
         className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>
+        <p className="text-xs font-semibold text-[var(--modal-text-muted)]">可用模型 *</p>
         <TagEditor
           tags={models}
           tone="purple"
           addLabel="+ 添加模型"
           placeholder="输入模型名，如 gpt-4o-mini"
           emptyLabel="(至少添加 1 个模型)"
-      onChange={setModels}
-      minCount={0}
-    />
+          onChange={setModels}
+          minCount={0}
+        />
       </div>
-      {successMessage ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p> : null}
+      {successMessage ? (
+        <p className="ui-status-success rounded-lg px-3 py-2 text-sm">{successMessage}</p>
+      ) : null}
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
-          disabled={probeBusy || saveBusy || !canCreate}
-          onClick={async () => {
-            onError(null);
-            setSuccessMessage(null);
-            setProbeBusy(true);
-            try {
-              const probeMessage = await runDraftModelConfigProbe({
-                ...(projectPath ? { projectPath } : {}),
-                baseUrl: baseUrl.trim(),
-                apiKey: apiKey.trim(),
-                models,
-                displayName: displayName.trim(),
-              });
-              setSuccessMessage(probeMessage || MODEL_CONNECTION_SUCCESS_LABEL);
-            } catch (createError) {
-              onError(createError instanceof Error ? createError.message : String(createError));
-            } finally {
-              setProbeBusy(false);
-            }
-          }}
-          className="ui-button-default disabled:opacity-50"
-        >
-          {probeBusy ? '测试中...' : TEST_MODEL_CONNECTION_LABEL}
-        </button>
-        <button
-          type="button"
-          disabled={probeBusy || saveBusy || !canCreate}
+          disabled={saveBusy || !canCreate}
           onClick={async () => {
             onError(null);
             setSuccessMessage(null);
@@ -1318,7 +1657,7 @@ function ModelsCreateModelConfigSource({
               setSaveBusy(false);
             }
           }}
-          className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
+          className="rounded bg-[var(--button-primary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] hover:text-[var(--button-primary-text-hover)] disabled:bg-[var(--button-disabled-bg)] disabled:text-[var(--button-disabled-text)] disabled:opacity-50"
         >
           {saveBusy ? '保存中...' : SAVE_MODEL_LABEL}
         </button>

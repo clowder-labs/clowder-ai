@@ -13,6 +13,7 @@ import mimetypes
 import os
 import shlex
 import shutil
+import socket
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -220,6 +221,59 @@ class BrowserService:
             return Path(raw).expanduser()
         return Path(resolve_playwright_mcp_cwd()).expanduser()
 
+    def _is_port_available(self, host: str, port: int) -> bool:
+        """检查 TCP 端口是否可用。
+
+        Args:
+            host: 监听地址
+            port: 端口号
+
+        Returns:
+            True 如果端口可用，False 如果端口被占用
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+    def _update_env_port(self, new_port: int) -> None:
+        """更新 .env 文件中的 BROWSER_MANAGED_PORT 配置。
+
+        Args:
+            new_port: 新的端口号
+        """
+        try:
+            # 尝试从用户目录获取 .env 文件路径
+            from jiuwenclaw.utils import get_env_file
+
+            env_file = get_env_file()
+            if not env_file.exists():
+                return
+
+            # 读取文件内容
+            content = env_file.read_text(encoding="utf-8")
+            lines = content.splitlines(keepends=True)
+
+            # 查找并替换 BROWSER_MANAGED_PORT 行
+            updated = False
+            for i, line in enumerate(lines):
+                if line.strip().startswith("BROWSER_MANAGED_PORT="):
+                    lines[i] = f"BROWSER_MANAGED_PORT={new_port}\n"
+                    updated = True
+                    break
+
+            if updated:
+                env_file.write_text("".join(lines), encoding="utf-8")
+        except Exception as e:
+            # 写回失败不影响正常启动，只记录日志
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Failed to update BROWSER_MANAGED_PORT in .env file: {e}"
+            )
+
     def _build_managed_profile(self) -> BrowserProfile:
         host = (os.getenv("BROWSER_MANAGED_HOST") or "127.0.0.1").strip() or "127.0.0.1"
         port_raw = (os.getenv("BROWSER_MANAGED_PORT") or "9333").strip()
@@ -229,6 +283,26 @@ class BrowserService:
                 raise ValueError
         except ValueError as exc:
             raise ValueError(f"Invalid BROWSER_MANAGED_PORT: {port_raw}") from exc
+
+        # 端口可用性检测：如果默认端口被占用，自动选择可用端口
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if not self._is_port_available(host, port):
+            logger.warning(f"Browser CDP port {port} is occupied, searching for available port...")
+            port_found = False
+            for attempt_port in range(port + 1, port + 26):
+                if self._is_port_available(host, attempt_port):
+                    logger.info(f"Browser CDP using available port: {attempt_port} (default {port} was occupied)")
+                    port = attempt_port
+                    port_found = True
+                    # 更新 .env 文件
+                    self._update_env_port(port)
+                    break
+            if not port_found:
+                raise RuntimeError(f"No available port found in range {port}-{port + 25}")
+        else:
+            logger.info(f"Browser CDP using port: {port}")
 
         kill_existing_raw = (os.getenv("BROWSER_MANAGED_KILL_EXISTING") or "").strip().lower()
         kill_existing = kill_existing_raw in {"1", "true", "yes", "on"}

@@ -129,7 +129,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('loads the first file preview and renders the five-field basic info layout', async () => {
+  it('loads the first file preview and renders title badges plus basic info layout', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -150,6 +150,8 @@ describe('SkillDetailView', () => {
     expect(container.querySelector('[data-testid="skill-detail-avatar"]')).not.toBeNull();
     expect(container.querySelector('img[alt="demo-skill avatar"]')?.getAttribute('src')).toBe('/avatars/demo-skill.png');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Automation');
+    expect(container.querySelector('[data-testid="skill-detail-source-badge"]')?.textContent).toBe('内置技能');
+    expect(container.querySelector('[data-testid="skill-detail-status-badge"]')?.textContent).toBe('已启用');
     expect(container.querySelector('[data-testid="skill-detail-description-card"]')).toBeNull();
 
     const basicInfo = container.querySelector('[data-testid="skill-detail-basic-info"]');
@@ -158,17 +160,16 @@ describe('SkillDetailView', () => {
     const basicInfoFields = basicInfo?.querySelectorAll('.space-y-2') ?? [];
 
     expect(basicInfoText).toContain('Skill detail description');
-    expect(basicInfoGrids).toHaveLength(2);
+    expect(basicInfoGrids).toHaveLength(1);
     expect(basicInfoGrids[0]?.className).toContain('md:grid-cols-3');
-    expect(basicInfoGrids[1]?.className).toContain('md:grid-cols-3');
-    expect(basicInfoFields).toHaveLength(5);
+    expect(basicInfoFields).toHaveLength(3);
     expect(basicInfoFields[0]?.querySelector('p')?.className).toContain('text-[var(--text-label-secondary)]');
 
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
       'Skill file preview content',
     );
-    expect(container.querySelector('[data-testid="skill-detail-file-preview"] pre')?.className).toContain('font-sans');
+    expect(container.querySelector('[data-testid="skill-detail-md-preview-shell"]')).not.toBeNull();
     const fileIcons = Array.from(container.querySelectorAll('[data-testid="skill-detail-file-tree-icon"]'));
     expect(fileIcons.find((icon) => icon.getAttribute('data-path') === 'SKILL.md')?.getAttribute('src')).toBe(
       '/icons/file-md.svg',
@@ -429,7 +430,7 @@ describe('SkillDetailView', () => {
 
     const titleNode = container.querySelector('[data-testid="skill-detail-title"]') as HTMLElement | null;
     expect(titleNode).not.toBeNull();
-    expect(titleNode?.className).toContain('text-[28px]');
+    expect(titleNode?.className).toContain('text-[20px]');
     expect(titleNode?.className).toContain('whitespace-nowrap');
     expect(titleNode?.className).toContain('text-ellipsis');
     expect(container.querySelector('[data-testid="skill-detail-breadcrumb-title"]')?.textContent).toBe(longTitle);
@@ -482,10 +483,10 @@ describe('SkillDetailView', () => {
 
     const workspace = container.querySelector('[data-testid="skill-detail-file-workspace"]');
     expect(workspace?.className).toContain('flex-1');
-    expect(workspace?.className).toContain('min-h-0');
+    expect(workspace?.className).toContain('flex');
 
     const workspaceFrame = workspace?.querySelector('.rounded-\\[20px\\]');
-    expect(workspaceFrame?.className).toContain('min-h-[360px]');
+    expect(workspaceFrame?.className).toContain('min-h-[626px]');
 
     const panes = workspace?.querySelectorAll('.overflow-y-auto');
     expect(panes?.length).toBeGreaterThanOrEqual(2);
@@ -523,6 +524,36 @@ describe('SkillDetailView', () => {
     expect(container.querySelector('[data-testid="skill-detail-preview-header-icon"]')?.getAttribute('src')).toBe(
       '/icons/file-md.svg',
     );
+  });
+
+  it('supports markdown source/preview toggle for md files', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const sourceBtn = container.querySelector('[data-testid="skill-detail-md-source"]') as HTMLButtonElement | null;
+    const previewBtn = container.querySelector('[data-testid="skill-detail-md-preview"]') as HTMLButtonElement | null;
+    expect(sourceBtn).not.toBeNull();
+    expect(previewBtn).toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-md-preview-shell"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-md-preview-shell"]')?.textContent).toContain('Skill File');
+
+    await act(async () => {
+      sourceBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="skill-detail-md-source"]')).toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-md-preview"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-md-preview-shell"]')).toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-file-preview"] pre')?.textContent).toContain('# Skill File');
   });
 
   it('shows unsupported image preview message for image files', async () => {
@@ -700,7 +731,7 @@ describe('SkillDetailView', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('renders imported skill as third-party source from detail response', async () => {
+  it('renders imported skill as user-added source from detail response', async () => {
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/skills/detail?name=demo-skill') {
@@ -750,7 +781,82 @@ describe('SkillDetailView', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('三方');
+    expect(container.textContent).toContain('用户添加技能');
+    const workspace = container.querySelector('[data-testid="skill-detail-file-workspace"]');
+    const workspaceFrame = workspace?.querySelector('.rounded-\\[20px\\]');
+    expect(workspaceFrame?.className).toContain('min-h-[486px]');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Productivity');
+    expect(container.querySelector('[data-testid="skill-detail-uninstall-button"]')?.textContent).toContain('卸载');
+  });
+
+  it('uninstalls external skill from detail header and returns to skill list', async () => {
+    const onBack = vi.fn();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: 'demo-skill',
+            description: 'Skill detail description',
+            category: 'Productivity',
+            source: 'external',
+            enabled: true,
+            triggers: ['demo', 'detail'],
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/uninstall' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ ok: true }));
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          onBack,
+        }),
+      );
+    });
+    await flushEffects();
+
+    const uninstallButton = container.querySelector('[data-testid="skill-detail-uninstall-button"]') as HTMLButtonElement | null;
+    expect(uninstallButton).not.toBeNull();
+
+    await act(async () => {
+      uninstallButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'demo-skill' }),
+    });
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

@@ -27,7 +27,7 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisInvocationRecordStore.js');
     RedisInvocationRecordStore = storeModule.RedisInvocationRecordStore;
-    const redisModule = await import('@cat-cafe/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

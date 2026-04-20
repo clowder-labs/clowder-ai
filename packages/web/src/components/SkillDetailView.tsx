@@ -8,6 +8,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/utils/api-client";
+import { skillSourceToLabel } from "@/utils/skill-source-label";
 import { CenteredLoadingState } from "./shared/CenteredLoadingState";
 import { OverflowTooltip } from "./shared/OverflowTooltip";
 import { SkillAvatar } from "./SkillAvatar";
@@ -59,6 +60,9 @@ const FILE_EXTENSION_ICON_MAP: Record<string, string> = {
 
 const DIRECTORY_ICON_SRC = "/icons/chart/folder.svg";
 const DEFAULT_FILE_ICON_SRC = "/icons/file-html.svg";
+const DISCLAIMER_TITLE = "免责声明";
+const THIRD_PARTY_DISCLAIMER_TEXT =
+  "请注意：该外部技能来源于第三方，使用外部技能时，您承诺将严格遵守第三方的相关条款。华为云不对第三方产品的合规性和安全性保证，请您在使用前慎重考虑并评估风险。";
 const IMAGE_FILE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -71,7 +75,7 @@ const IMAGE_FILE_EXTENSIONS = new Set([
 ]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
-  return source === "builtin" ? "官方" : "三方";
+  return skillSourceToLabel(source);
 }
 
 function statusLabel(value: boolean): string {
@@ -289,6 +293,7 @@ export function SkillDetailView({
   const categoryLabel = detail?.category?.trim() || "其他";
   const resolvedTitle = detail?.name ?? skillName;
   const resolvedDescription = detail?.description?.trim() || "--";
+  const hasDisclaimer = detail?.source === "external";
   const selectedFileLabel = useMemo(() => {
     if (!selectedPath)
       return detail?.fileTree?.length ? "请选择文件" : "暂无文件";
@@ -398,7 +403,7 @@ export function SkillDetailView({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 flex-col"
       data-testid="skill-detail-panel"
     >
       <div className="shrink-0 pb-6">
@@ -431,7 +436,7 @@ export function SkillDetailView({
         ) : null}
 
         {detail ? (
-          <div className="flex h-full min-h-0 flex-col gap-8">
+          <div className="flex min-h-0 flex-col gap-8 pb-2">
             <section className="shrink-0 space-y-5">
               <div className="flex items-start gap-4">
                 <SkillAvatar
@@ -443,7 +448,7 @@ export function SkillDetailView({
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <OverflowTooltip content={resolvedTitle} className="w-full">
                     <h2
-                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]"
+                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[20px] font-semibold leading-[30px] text-[var(--text-primary)]"
                       data-testid="skill-detail-title"
                     >
                       {resolvedTitle}
@@ -455,6 +460,18 @@ export function SkillDetailView({
                       data-testid="skill-detail-category-badge"
                     >
                       {categoryLabel}
+                    </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-source-badge"
+                    >
+                      {sourceLabel(detail.source)}
+                    </span>
+                    <span
+                      className="ui-badge-muted"
+                      data-testid="skill-detail-status-badge"
+                    >
+                      {statusLabel(detail.enabled)}
                     </span>
                   </div>
                 </div>
@@ -469,16 +486,6 @@ export function SkillDetailView({
               </h3>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
-                <BasicInfoField
-                  label="来源"
-                  value={sourceLabel(detail.source)}
-                />
-                <BasicInfoField
-                  label="状态"
-                  value={statusLabel(detail.enabled)}
-                />
-              </div>
-              <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField
                   label="触发词"
                   value={
@@ -504,15 +511,16 @@ export function SkillDetailView({
                 />
               </div>
             </section>
-
             <section
-              className="flex min-h-0 flex-1 flex-col space-y-3"
+              className="shrink-0 space-y-3"
               data-testid="skill-detail-file-workspace"
             >
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
-              <div className="flex min-h-[360px] flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+              <div
+                className={`flex h-[440px] overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]`}
+              >
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">
@@ -534,8 +542,8 @@ export function SkillDetailView({
                   </aside>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_fit-content(200px)] items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                           <img
                             src={
                               selectedFileNode
@@ -547,12 +555,19 @@ export function SkillDetailView({
                             data-testid="skill-detail-preview-header-icon"
                             className="h-4 w-4 shrink-0 object-contain"
                           />
-                          <span className="truncate">{selectedFileLabel}</span>
+                          <OverflowTooltip content={selectedFileLabel} className="min-w-0 overflow-hidden">
+                            <div className="w-full min-w-0 truncate">{selectedFileLabel}</div>
+                          </OverflowTooltip>
                         </div>
                         {filePreview ? (
-                          <span className="text-xs text-[var(--text-muted)]">
-                            {filePreview.mime} · {filePreview.size} B
-                          </span>
+                          <OverflowTooltip
+                            content={`${filePreview.mime} · ${filePreview.size} B`}
+                            className="min-w-0 overflow-hidden"
+                          >
+                            <div className="w-full min-w-0 truncate text-right text-xs text-[var(--text-muted)]">
+                              {`${filePreview.mime} · ${filePreview.size} B`}
+                            </div>
+                          </OverflowTooltip>
                         ) : null}
                       </div>
                     </div>
@@ -582,7 +597,10 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6">
+                          <pre
+                            className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6"
+                            style={{ overflowWrap: "anywhere" }}
+                          >
                             {filePreview.content}
                           </pre>
                         </div>
@@ -599,6 +617,21 @@ export function SkillDetailView({
                 </div>
               </div>
             </section>
+            {hasDisclaimer ? (
+              <section
+                className="shrink-0 space-y-3"
+                data-testid="skill-detail-disclaimer"
+              >
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                  {DISCLAIMER_TITLE}
+                </h3>
+                <div className="rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-6">
+                  <p className="text-xs leading-6 text-[var(--text-secondary)]">
+                    {THIRD_PARTY_DISCLAIMER_TEXT}
+                  </p>
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -6,7 +6,7 @@
 
 /**
  * Redis key patterns for streaming draft storage.
- * All keys share the cat-cafe: prefix set by the Redis client.
+ * All keys share the office-claw: prefix set by the Redis client.
  *
  * Draft keys are scoped by userId for isolation (R1 P1-1).
  */

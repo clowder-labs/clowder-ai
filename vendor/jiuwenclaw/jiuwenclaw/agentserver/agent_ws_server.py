@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
-from jiuwenclaw.utils import get_agent_sessions_dir, logger
+from jiuwenclaw.agentserver.session_history import read_history_records
+from jiuwenclaw.utils import get_agent_sessions_dir
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
 
 _ALLOWED_WS_ORIGIN_HOSTS = {"127.0.0.1", "localhost"}
@@ -559,12 +561,7 @@ class AgentWebSocketServer:
         history_path: Path = get_agent_sessions_dir() / session_id.strip() / "history.json"
         if not history_path.exists():
             return None
-        try:
-            raw = json.loads(history_path.read_text(encoding="utf-8"))
-        except Exception:
-            return None
-        if not isinstance(raw, list):
-            return None
+        raw = read_history_records(history_path)
 
         page_size = 50
         total = len(raw)

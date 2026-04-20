@@ -14,7 +14,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { SkillHubInstallRequest, SkillHubInstallResult } from '@cat-cafe/shared';
+import type { SkillHubInstallRequest, SkillHubInstallResult } from '@office-claw/shared';
 import { parseSkillFrontmatter } from './frontmatter-parser.js';
 import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from './InstalledSkillRegistry.js';
 import { resolveOfficialSkillPath, resolveUserSkillsRoot } from './SkillPaths.js';
@@ -127,7 +127,7 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
   return {
     success: true,
     name: localName,
-    localPath: `.cat-cafe/skills/${localName}`,
+    localPath: `.office-claw/skills/${localName}`,
     mounts,
   };
 }

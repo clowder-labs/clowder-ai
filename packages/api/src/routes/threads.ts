@@ -13,8 +13,8 @@
  * DELETE /api/threads/:id  - 删除对话
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import { catIdSchema } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
+import { catIdSchema } from '@office-claw/shared';
 import { mkdir, realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
@@ -163,7 +163,7 @@ async function resolveThreadProjectPath(projectPath?: string): Promise<ResolvedT
   }
 
   const monorepoRoot = findMonorepoRoot(process.cwd());
-  const workspacePath = resolve(monorepoRoot, 'workspace');
+  const workspacePath = resolve(monorepoRoot, 'workspace', Date.now().toString());
   await mkdir(workspacePath, { recursive: true });
 
   const [resolvedWorkspacePath, resolvedMonorepoRoot] = await Promise.all([realpath(workspacePath), realpath(monorepoRoot)]);

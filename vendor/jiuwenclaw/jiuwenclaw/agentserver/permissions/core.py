@@ -70,12 +70,13 @@ class PermissionEngine:
             )
 
         # 1. 先检查工具是否允许
-        permission, matched_rule = self._tool_checker.check_tool(
+        permission, matched_rule, extra = self._tool_checker.check_tool(
             tool_name, tool_args, channel_id
         )
         if permission is None:
             permission = PermissionLevel.ASK
             matched_rule = "default"
+            extra = None
 
         # 2. 工具允许时，再检查外部路径（仅当工具通过后才检查路径）
         if permission == PermissionLevel.ALLOW:
@@ -88,6 +89,9 @@ class PermissionEngine:
             permission=permission,
             matched_rule=matched_rule,
             reason=self._get_reason(permission, tool_name, matched_rule),
+            matched_rules=(extra or {}).get("matched_rules"),
+            matched_patterns=(extra or {}).get("matched_patterns"),
+            matched_subcommands=(extra or {}).get("matched_subcommands"),
         )
 
         logger.info(
@@ -135,4 +139,3 @@ def set_permission_engine(engine: PermissionEngine):
     """替换全局权限引擎 (测试用)."""
     global _permission_engine
     _permission_engine = engine
-

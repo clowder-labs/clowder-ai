@@ -7,6 +7,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { skillSourceToLabel } from '@/utils/skill-source-label';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
@@ -107,9 +108,7 @@ export function ExtensionIcon({ className }: { className?: string }) {
 }
 
 function getSourceLabel(source: CapabilityBoardItem['source']): string {
-  if (source === 'builtin') return '内置技能';
-  if (source === 'external') return '用户添加技能';
-  return '其他';
+  return skillSourceToLabel(source);
 }
 
 export function CapabilitySection({
@@ -194,12 +193,13 @@ export function CapabilityCard({
   const isToggling = toggling === `${item.type}:${item.id}`;
   const sourceLabel = getSourceLabel(item.source);
   const resolvedDescription = item.description?.trim() || '暂未提供技能描述。';
+  const resolvedCategory = item.category?.trim() || '其他';
   const showDeleteAction = item.source === 'external' && typeof onUninstall === 'function';
   const isClickable = typeof onClick === 'function';
 
   return (
     <div
-      className={`ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5 ${isClickable ? 'cursor-pointer' : ''}`}
+      className={`ui-card ui-card-hover group flex flex-col gap-4 ${isClickable ? 'cursor-pointer' : ''}`}
       data-testid={`capability-card-${item.type}-${item.id}`}
       onClick={onClick}
       onKeyDown={
@@ -228,7 +228,12 @@ export function CapabilityCard({
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <span className="ui-badge-muted">{item.category?.trim() || '其他'}</span>
+            <OverflowTooltip
+              content={resolvedCategory}
+              className="inline-flex max-w-full min-w-0"
+              as="span"
+              textClassName="ui-badge-muted inline-block max-w-full truncate align-middle leading-[18px]"
+            />
           </div>
         </div>
       </div>
@@ -237,7 +242,7 @@ export function CapabilityCard({
         <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
       </OverflowTooltip>
 
-      <div className="mt-auto flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">
           {showDeleteAction ? (
             <div className="relative">

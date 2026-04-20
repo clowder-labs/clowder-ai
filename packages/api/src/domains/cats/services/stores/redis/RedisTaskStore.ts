@@ -9,14 +9,14 @@
  * Redis-backed task storage with same interface as in-memory TaskStore.
  *
  * Redis 数据结构:
- *   cat-cafe:task:{taskId}              → Hash (任务详情)
- *   cat-cafe:tasks:thread:{threadId}    → Sorted Set (每线程任务列表, score=createdAt)
+ *   office-claw:task:{taskId}              → Hash (任务详情)
+ *   office-claw:tasks:thread:{threadId}    → Sorted Set (每线程任务列表, score=createdAt)
  *
  * TTL 默认 30 天。
  */
 
-import type { CatId, CreateTaskInput, TaskItem, UpdateTaskInput } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId, CreateTaskInput, TaskItem, UpdateTaskInput } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { ITaskStore } from '../ports/TaskStore.js';
 import { TaskKeys } from '../redis-keys/task-keys.js';

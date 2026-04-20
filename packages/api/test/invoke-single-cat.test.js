@@ -15,8 +15,31 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { before, describe, it, mock } from 'node:test';
-import { catRegistry } from '@cat-cafe/shared';
+import { before, describe, it, mock, afterEach } from 'node:test';
+
+import { catRegistry } from '@office-claw/shared';
+
+const { resetLocalSecretBackendForTests, setLocalSecretBackendForTests } = await import(
+  '../dist/config/local-secret-store.js'
+);
+
+function createMemoryBackend() {
+  const store = new Map();
+  return {
+    store,
+    backend: {
+      get(key) {
+        return store.has(key) ? store.get(key) : null;
+      },
+      set(key, value) {
+        store.set(key, value);
+      },
+      delete(key) {
+        store.delete(key);
+      },
+    },
+  };
+}
 
 async function collect(iterable) {
   const msgs = [];
@@ -29,6 +52,9 @@ let tempDir;
 let invokeSingleCat;
 
 describe('invokeSingleCat audit events (P1 fix)', () => {
+  afterEach(() => {
+    resetLocalSecretBackendForTests();
+  });
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'cat-audit-'));
     process.env.AUDIT_LOG_DIR = tempDir;
@@ -55,6 +81,34 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       apiUrl: 'http://127.0.0.1:3004',
     };
   }
+
+  it('passes callback credentials and cat identity into callbackEnv', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service,
+        prompt: 'test',
+        userId: 'user-callback-env',
+        threadId: 'thread-callback-env',
+        isLastCat: true,
+      }),
+    );
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.OFFICE_CLAW_API_URL, 'http://127.0.0.1:3004');
+    assert.equal(callbackEnv.OFFICE_CLAW_INVOCATION_ID, 'inv-1');
+    assert.equal(callbackEnv.OFFICE_CLAW_CALLBACK_TOKEN, 'tok-1');
+    assert.equal(callbackEnv.OFFICE_CLAW_USER_ID, 'user-callback-env');
+    assert.equal(callbackEnv.OFFICE_CLAW_CAT_ID, 'codex');
+  });
 
   it('emits CAT_ERROR audit when service yields error before done', async () => {
     const errorService = {
@@ -95,10 +149,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       .map((l) => JSON.parse(l));
     const threadEvents = events.filter((e) => e.threadId === 'thread-error');
 
-    const responded = threadEvents.filter((e) => e.type === 'cat_responded');
+    const responded = threadEvents.filter((e) => e.type === 'agent_responded');
     const catError = threadEvents.filter((e) => e.type === 'cat_error');
 
-    assert.equal(responded.length, 0, 'should NOT have cat_responded when errors occurred');
+    assert.equal(responded.length, 0, 'should NOT have agent_responded when errors occurred');
     assert.ok(catError.length > 0, 'should have cat_error event');
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
@@ -554,10 +608,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       .map((l) => JSON.parse(l));
     const threadEvents = events.filter((e) => e.threadId === 'thread-normal');
 
-    const responded = threadEvents.filter((e) => e.type === 'cat_responded');
+    const responded = threadEvents.filter((e) => e.type === 'agent_responded');
     const catError = threadEvents.filter((e) => e.type === 'cat_error');
 
-    assert.ok(responded.length > 0, 'should have cat_responded for normal path');
+    assert.ok(responded.length > 0, 'should have agent_responded for normal path');
     assert.equal(catError.length, 0, 'should NOT have cat_error for normal path');
   });
 
@@ -1354,7 +1408,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   async function withSanitizedOpencodeConfig(run) {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const registrySnapshot = catRegistry.getAllConfigs();
-    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')));
+    const baselineConfigs = toAllCatConfigs(
+      loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')),
+    );
     const baselineOpencodeConfig = baselineConfigs.opencode;
     assert.ok(baselineOpencodeConfig, 'opencode config should exist in baseline catalog');
 
@@ -2471,8 +2527,14 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('office_claw_list_skills before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
-    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
-    assert.ok(promptsSeen[0].includes('office_claw_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(
+      promptsSeen[0].includes('retry once with a likely exact skill name'),
+      'ACP hint should mention retry guidance',
+    );
+    assert.ok(
+      promptsSeen[0].includes('office_claw_load_skill immediately'),
+      'ACP hint should mention immediate skill loading',
+    );
     assert.ok(
       promptsSeen[0].includes('before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
@@ -2499,7 +2561,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKey: 'sk-custom-proxy',
+            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
             headers: {
               'X-App-Id': 'cat-cafe',
               'X-Workspace': 'sandbox',
@@ -2515,6 +2577,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
@@ -2618,6 +2683,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
@@ -3230,6 +3298,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'utf-8',
     );
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
@@ -3321,7 +3392,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKey: 'sk-custom-proxy',
+            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
             headers: {
               'X-App-Id': 'cat-cafe',
               'X-Workspace': 'sandbox',
@@ -3335,6 +3406,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'utf-8',
     );
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
@@ -3393,10 +3467,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         callbackEnv.OPENAI_DEFAULT_HEADERS,
         JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
       );
-      assert.equal(
-        callbackEnv.default_headers,
-        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
-      );
+      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }));
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;

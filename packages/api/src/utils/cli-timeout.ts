@@ -4,8 +4,8 @@
  *
  */
 
-export const DEFAULT_CLI_TIMEOUT_MS = 30 * 60 * 1000;
-export const DEFAULT_CLI_TIMEOUT_LABEL = `${DEFAULT_CLI_TIMEOUT_MS} (30分钟)`;
+export const DEFAULT_CLI_TIMEOUT_MS = 60 * 24 * 7 * 60 * 1000;
+export const DEFAULT_CLI_TIMEOUT_LABEL = `${DEFAULT_CLI_TIMEOUT_MS} (60分钟)`;
 
 export function parseCliTimeoutMs(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;

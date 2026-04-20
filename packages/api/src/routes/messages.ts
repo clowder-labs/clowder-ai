@@ -20,8 +20,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@cat-cafe/shared';
-import type { SessionStore } from '@cat-cafe/shared/utils';
+import type { CatId, MessageContent } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -46,6 +46,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import { resolveThreadProjectPath, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { isScheduledTriggerPlaceholder, isSystemUserMessage } from '../domains/cats/services/stores/visibility.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import { ensureRegisteredWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
@@ -61,7 +62,14 @@ interface OutboundDeliveryHookLike {
     threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
     origin?: string,
     triggerMessageId?: string,
+    presentation?: {
+      headerTitle?: string;
+      suppressCatPrefix?: boolean;
+      suppressOriginDecoration?: boolean;
+      stripLeadingHeaderFromFormattedBody?: boolean;
+    },
   ): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 /** F088 ISSUE-15: Minimal streaming hook interface. */
@@ -126,6 +134,15 @@ const getMessagesSchema = z.object({
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
 const DECISION_NOTIFICATION_RE = /\b(review|lgtm|merge|pr)\b/i;
+
+function compareStoredMessages(
+  left: { timestamp: number; id: string; deliveredAt?: number },
+  right: { timestamp: number; id: string; deliveredAt?: number },
+): number {
+  const leftTs = typeof left.deliveredAt === 'number' ? left.deliveredAt : left.timestamp;
+  const rightTs = typeof right.deliveredAt === 'number' ? right.deliveredAt : right.timestamp;
+  return leftTs - rightTs || left.id.localeCompare(right.id);
+}
 
 async function resolveMultipartWorkspaceTarget(
   threadId: string | undefined,
@@ -1142,14 +1159,42 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // Always thread-scoped — default to 'default' thread for lobby
     const resolvedThreadId = threadId ?? 'default';
-    const messages =
-      beforeTs != null
-        ? await opts.messageStore.getByThreadBefore(resolvedThreadId, beforeTs, limit + 1, beforeId, userId)
-        : await opts.messageStore.getByThread(resolvedThreadId, limit + 1, userId);
+    const filteredMessages: Awaited<ReturnType<typeof opts.messageStore.getByThread>> = [];
+    const pageSize = Math.max(limit * 2, 50);
+    let cursorTimestamp = beforeTs;
+    let cursorId = beforeId;
+    let firstPage = true;
+
+    while (filteredMessages.length < limit + 1) {
+      const batch =
+        firstPage && cursorTimestamp == null
+          ? await opts.messageStore.getByThread(resolvedThreadId, pageSize, userId)
+          : await opts.messageStore.getByThreadBefore(
+              resolvedThreadId,
+              cursorTimestamp ?? Number.MAX_SAFE_INTEGER,
+              pageSize,
+              cursorId,
+              userId,
+            );
+
+      firstPage = false;
+      if (batch.length === 0) break;
+
+      for (const message of batch) {
+        if (isScheduledTriggerPlaceholder(message)) continue;
+        filteredMessages.push(message);
+      }
+
+      const oldest = batch[0]!;
+      cursorTimestamp = oldest.timestamp;
+      cursorId = oldest.id;
+    }
+
+    filteredMessages.sort(compareStoredMessages);
 
     // Fetch limit+1 to determine hasMore; drop oldest (first) probe item
-    const hasMore = messages.length > limit;
-    const page = hasMore ? messages.slice(1) : messages;
+    const hasMore = filteredMessages.length > limit;
+    const page = hasMore ? filteredMessages.slice(-limit) : filteredMessages;
 
     // Map chat messages (union type allows summary items to be pushed later)
     type TimelineItem = {
@@ -1163,12 +1208,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
     const chatItems: TimelineItem[] = page.map((m) => ({
       id: m.id,
-      type: (m.catId
-        ? 'assistant'
-        : m.source
-          ? 'connector'
-          : m.userId === 'system'
-            ? 'system'
+      type: (m.source
+        ? 'connector'
+        : isSystemUserMessage(m)
+          ? 'system'
+          : m.catId
+            ? 'assistant'
             : 'user') as TimelineItem['type'],
       catId: m.catId,
       content: m.content,
@@ -1297,11 +1342,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           },
         });
       }
-      chatItems.sort((a, b) => {
-        const ta = typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp;
-        const tb = typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp;
-        return ta - tb;
-      });
+      chatItems.sort(compareStoredMessages);
     }
 
     return {
@@ -1457,8 +1498,15 @@ export async function deliverOutboundFromWeb(
     });
   }
 
-  // F151: Notify adapters (e.g. XiaoYi) that delivery batch is complete
-  if (opts.streamingHook?.notifyDeliveryBatchDone) {
+  // F151: Notify adapters (e.g. Weixin/XiaoYi) that delivery batch is complete.
+  // Prefer outboundHook because single-token outbound adapters flush on this signal.
+  if (opts.outboundHook?.notifyDeliveryBatchDone) {
+    const threadStillBusy =
+      (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+    await opts.outboundHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] notifyDeliveryBatchDone failed');
+    });
+  } else if (opts.streamingHook?.notifyDeliveryBatchDone) {
     const threadStillBusy =
       (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
     await opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {

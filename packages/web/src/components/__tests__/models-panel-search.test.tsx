@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth } from '@/utils/userId';
+import { getCanCreateModel, getIsSkipAuth } from '@/utils/userId';
 
 vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3004',
@@ -17,12 +17,16 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  getCanCreateModel: vi.fn(() => true),
   getIsSkipAuth: vi.fn(() => false),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockGetCanCreateModel = vi.mocked(getCanCreateModel);
 const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
-const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
+const SEARCH_INPUT_SELECTOR = 'input[aria-label="搜索模型"]';
+
+const CREATE_MODEL_RISK_ACK_KEY = 'create-model-risk-ack:v1';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -75,7 +79,13 @@ async function clickButton(button: HTMLElement) {
   });
 }
 
-function mockOverflow(node: Element, clientWidth: number, scrollWidth: number, clientHeight: number, scrollHeight: number) {
+function mockOverflow(
+  node: Element,
+  clientWidth: number,
+  scrollWidth: number,
+  clientHeight: number,
+  scrollHeight: number,
+) {
   Object.defineProperty(node, 'clientWidth', {
     configurable: true,
     value: clientWidth,
@@ -104,9 +114,13 @@ describe('ModelsPanel search', () => {
   });
 
   beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(CREATE_MODEL_RISK_ACK_KEY, 'true');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockGetCanCreateModel.mockReset();
+    mockGetCanCreateModel.mockReturnValue(true);
     mockGetIsSkipAuth.mockReset();
     mockGetIsSkipAuth.mockReturnValue(false);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
@@ -144,6 +158,17 @@ describe('ModelsPanel search', () => {
                 labels: ['proxy'],
                 developer: 'OpenAI',
               },
+              {
+                id: 'model_config:huawei-access:glm-4.5',
+                object: 'model',
+                name: 'glm-4.5',
+                description: 'self connected huawei maas model',
+                protocol: 'openai',
+                labels: ['proxy'],
+                developer: '华为云 MaaS',
+                baseUrl: 'https://api.modelarts-maas.com/openai/v1',
+                accessMode: 'huawei_maas_access',
+              },
             ],
           }),
         );
@@ -160,13 +185,19 @@ describe('ModelsPanel search', () => {
                 baseUrl: 'https://proxy.example.com/v1',
                 apiKey: 'sk-test',
                 models: ['gpt-5'],
+                createdAt: '2026-04-13T08:09:10',
+              },
+              {
+                id: 'huawei-access',
+                displayName: 'Huawei Access',
+                description: 'self connected huawei maas model',
+                baseUrl: 'https://api.modelarts-maas.com/openai/v1',
+                models: ['glm-4.5'],
+                createdAt: '2026-04-14T09:10:11',
               },
             ],
           }),
         );
-      }
-      if (url === '/api/provider-profiles/test-draft') {
-        return Promise.resolve(jsonResponse({ ok: true, mode: 'api_key', status: 200 }));
       }
       return Promise.resolve(jsonResponse({}));
     });
@@ -192,7 +223,7 @@ describe('ModelsPanel search', () => {
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
   });
 
-  it('keeps the search toolbar outside the scroll region', async () => {
+  it('keeps the search toolbar outside the card content region', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -203,7 +234,7 @@ describe('ModelsPanel search', () => {
 
     expect(searchInput).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput!)).toBe(false);
     expect(scrollRegion?.textContent).toContain('gpt-5');
   });
@@ -255,13 +286,77 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('deepseek-r1');
   });
 
-  it('shows the create-model button only when skip auth is enabled', async () => {
+  it('shows the create-model entry button only when CAN_CREATE_MODEL is enabled', async () => {
+    mockGetCanCreateModel.mockReturnValue(false);
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
     await flushEffects();
 
     expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).not.toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockGetCanCreateModel.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).not.toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockGetIsSkipAuth.mockReturnValue(true);
+    mockGetCanCreateModel.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).toBeNull();
+  });
+
+  it('opens the Huawei MaaS access modal with a fixed disabled URL in non-skip-auth flow', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('接入华为云Maas模型');
+    expect(container.textContent).toContain('模型调用名称');
+    const huaweiNameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    expect(huaweiNameInput).not.toBeNull();
+    expect(huaweiNameInput?.placeholder).toBe('请输入模型调用名称');
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    expect(urlInput).not.toBeNull();
+    expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
+    expect(urlInput?.disabled).toBe(true);
 
     act(() => root.unmount());
     container.remove();
@@ -276,7 +371,226 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型名称');
+  });
+
+  it('keeps the default create modal placeholder unchanged', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    const defaultNameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    expect(defaultNameInput).not.toBeNull();
+    expect(defaultNameInput?.placeholder).toBe('请输入模型名称');
+  });
+
+  it('shows a risk modal before opening the create-model form when the user has not agreed', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
+  });
+
+  it('stores the create-model risk agreement and opens the form after the user agrees', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    const confirmButton = container.querySelector(
+      '[data-testid="models-create-model-risk-confirm"]',
+    ) as HTMLButtonElement | null;
+    expect(confirmButton).not.toBeNull();
+    await clickButton(confirmButton!);
+    await flushEffects();
+
+    expect(window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY)).toBe('true');
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
+  });
+
+  it('closes the create-model risk modal when the user cancels', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+    window.localStorage.removeItem(CREATE_MODEL_RISK_ACK_KEY);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    const cancelButton = container.querySelector(
+      '[data-testid="models-create-model-risk-cancel"]',
+    ) as HTMLButtonElement | null;
+    expect(cancelButton).not.toBeNull();
+    await clickButton(cancelButton!);
+    await flushEffects();
+
+    expect(window.localStorage.getItem(CREATE_MODEL_RISK_ACK_KEY)).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-risk-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
+  });
+
+  it('shows a red inline validation message for an invalid Huawei MaaS model name', async () => {
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const confirmButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(confirmButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, '-bad-');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+
+    expect(container.textContent).toContain(validationMessage);
+    expect(confirmButton?.disabled).toBe(true);
+  });
+
+  it('shows a red inline validation message for an invalid custom model name', async () => {
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const confirmButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(urlInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(confirmButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, '-bad-');
+    await changeInputValue(urlInput!, 'https://proxy.example.com/v1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+
+    expect(container.textContent).toContain(validationMessage);
+    expect(confirmButton?.disabled).toBe(true);
+  });
+
+  it('does not show the validation message for a valid model name', async () => {
+    const validationMessage = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const confirmButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(confirmButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, '模型A_1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+
+    expect(container.textContent).not.toContain(validationMessage);
+    expect(confirmButton?.disabled).toBe(false);
   });
 
   it('renders grouped cards and model labels/developer', async () => {
@@ -287,8 +601,35 @@ describe('ModelsPanel search', () => {
 
     expect(container.textContent).toContain('MaaS (1)');
     expect(container.textContent).not.toContain('MaaS (2)');
+    expect(container.textContent).toContain('自接入华为云 MaaS (1)');
     expect(container.textContent).toContain('text-gen');
     expect(container.textContent).toContain('DeepSeek');
+    expect(container.textContent).toContain('2026/04/14 09:10:11');
+  });
+
+  it('keeps Huawei MaaS access edit modal title and URL locked', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:huawei-access:glm-4.5"]',
+    ) as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+
+    await clickButton(editButton!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('接入华为云Maas模型');
+    expect(container.textContent).toContain('编辑');
+    expect(container.textContent).toContain('模型调用名称');
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    expect(urlInput).not.toBeNull();
+    expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
+    expect(urlInput?.disabled).toBe(true);
   });
 
   it('filters cards by model name', async () => {
@@ -356,12 +697,15 @@ describe('ModelsPanel search', () => {
 
     const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/maas-models');
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mockApiFetch.mock.calls.map((call) => String(call[0]))).toEqual([
+      '/api/maas-models',
+      '/api/model-config-profiles',
+    ]);
 
     await changeInputValue(input!, 'deepseek');
 
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
   });
@@ -422,7 +766,7 @@ describe('ModelsPanel search', () => {
     await clickButton(refreshButton!);
     await flushEffects();
 
-    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mockApiFetch).toHaveBeenCalledTimes(4);
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
   });
@@ -435,7 +779,9 @@ describe('ModelsPanel search', () => {
 
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
     const customModelCard = fallbackIcon?.closest('article');
-    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) => node.textContent?.includes('deepseek-r1'));
+    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) =>
+      node.textContent?.includes('deepseek-r1'),
+    );
     const huaweiModelCard = huaweiTitle?.closest('article');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
@@ -451,9 +797,29 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const icon = container.querySelector('[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]') as HTMLImageElement | null;
+    const icon = container.querySelector(
+      '[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]',
+    ) as HTMLImageElement | null;
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute('src')).toBe('http://localhost:3004/uploads/gpt-5.png');
+  });
+
+  it('shows clock metadata with formatted created time for custom models', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const createdAt = container.querySelector(
+      '[data-testid="model-card-created-at-model_config:gpt-source:gpt-5"]',
+    ) as HTMLSpanElement | null;
+    const createdAtIcon = container.querySelector(
+      '[data-testid="model-card-created-at-icon-model_config:gpt-source:gpt-5"] svg',
+    ) as SVGElement | null;
+
+    expect(createdAt).not.toBeNull();
+    expect(createdAt?.textContent).toBe('2026/04/13 08:09:10');
+    expect(createdAtIcon).not.toBeNull();
   });
 
   it('prefixes uploaded model icons with API_URL in edit modal preview', async () => {
@@ -462,7 +828,9 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const editButton = container.querySelector('[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]') as HTMLButtonElement | null;
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]',
+    ) as HTMLButtonElement | null;
     expect(editButton).not.toBeNull();
     await clickButton(editButton!);
     await flushEffects();
@@ -472,7 +840,7 @@ describe('ModelsPanel search', () => {
     expect(preview?.getAttribute('src')).toBe('http://localhost:3004/uploads/provider-gpt-5.png');
   });
 
-  it('submits create-model description without icon when icon is not provided', async () => {
+  it('submits create-model description with the current default icon payload', async () => {
     mockGetIsSkipAuth.mockReturnValue(true);
 
     await act(async () => {
@@ -480,20 +848,30 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
     const descriptionInput = container.querySelector(
       '[data-testid="models-create-model-description-textarea"]',
     ) as HTMLTextAreaElement | null;
     const displayNameInput = container.querySelector(
       '[data-testid="models-create-model-display-name-input"]',
     ) as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(descriptionInput).not.toBeNull();
@@ -520,18 +898,42 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const probeCall = mockApiFetch.mock.calls.find(
-      ([input, init]) =>
-        String(input) === '/api/provider-profiles/test-draft' &&
-        typeof init === 'object' &&
-        init !== null &&
-        (init as RequestInit).method === 'POST',
-    );
-    expect(probeCall).toBeTruthy();
-    expect(mockApiFetch.mock.calls.indexOf(probeCall!)).toBeLessThan(mockApiFetch.mock.calls.indexOf(postCall!));
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(payload.description).toBe('custom description for test');
-    expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
+    expect(payload.icon).toBe('/images/mode-default-icon.svg');
+  });
+
+  it('shows an API key visibility toggle in the create-model modal after typing', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    expect(apiKeyInput).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-api-key-toggle"]')).toBeNull();
+
+    await changeInputValue(apiKeyInput!, 'sk-test');
+
+    const toggle = container.querySelector(
+      '[data-testid="models-create-model-api-key-toggle"]',
+    ) as HTMLButtonElement | null;
+    expect(toggle).not.toBeNull();
+    expect(apiKeyInput?.type).toBe('password');
+
+    await clickButton(toggle!);
+
+    expect(apiKeyInput?.type).toBe('text');
   });
 
   it('serializes header rows into a headers object on create-model submit', async () => {
@@ -542,15 +944,27 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
-    const addHeaderButton = container.querySelector('[data-testid="models-create-model-header-add"]') as HTMLButtonElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const addHeaderButton = container.querySelector(
+      '[data-testid="models-create-model-header-add"]',
+    ) as HTMLButtonElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(urlInput).not.toBeNull();
@@ -563,8 +977,12 @@ describe('ModelsPanel search', () => {
     await changeInputValue(apiKeyInput!, 'sk-test');
     await clickButton(addHeaderButton!);
 
-    const headerKeyInput = container.querySelector('[data-testid="models-create-model-header-key-0"]') as HTMLInputElement | null;
-    const headerValueInput = container.querySelector('[data-testid="models-create-model-header-value-0"]') as HTMLInputElement | null;
+    const headerKeyInput = container.querySelector(
+      '[data-testid="models-create-model-header-key-0"]',
+    ) as HTMLInputElement | null;
+    const headerValueInput = container.querySelector(
+      '[data-testid="models-create-model-header-value-0"]',
+    ) as HTMLInputElement | null;
     expect(headerKeyInput).not.toBeNull();
     expect(headerValueInput).not.toBeNull();
 
@@ -581,7 +999,7 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(payload.headers).toEqual({ 'X-App-Id': 'cat-cafe' });
   });
 
@@ -593,15 +1011,25 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
     const randomIconButton = container.querySelector('[aria-label="Random model icon"]') as HTMLButtonElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(urlInput).not.toBeNull();
@@ -624,8 +1052,98 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(typeof payload.icon).toBe('string');
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
+  });
+
+  it('shows the model icon upload size hint with uppercase KB', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('200KB');
+    expect(container.textContent).not.toContain('200kb');
+  });
+
+  it('closes the create-model modal when Escape key is pressed', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
+  });
+
+  it('closes the Huawei MaaS access modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
+  });
+
+  it('closes the edit-model modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]',
+    ) as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    await clickButton(editButton!);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-create-model-modal"]')).toBeNull();
   });
 });

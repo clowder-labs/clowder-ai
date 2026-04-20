@@ -18,15 +18,18 @@ const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await impo
   '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
 );
 const {
-  buildRelayClawLaunchCommand,
-  DefaultRelayClawSidecarController,
-  isRelayClawRuntimeReady,
-} = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
-const {
-  jiuwenClawBundleAvailable,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} = await import('../dist/utils/jiuwenclaw-paths.js');
+  JiuwenPermissionBridge,
+} = await import('../dist/domains/cats/services/auth/JiuwenPermissionBridge.js');
+const { AuthorizationManager } = await import('../dist/domains/cats/services/auth/AuthorizationManager.js');
+const { AuthorizationRuleStore } = await import('../dist/domains/cats/services/stores/ports/AuthorizationRuleStore.js');
+const { PendingRequestStore } = await import('../dist/domains/cats/services/stores/ports/PendingRequestStore.js');
+const { AuthorizationAuditStore } = await import('../dist/domains/cats/services/stores/ports/AuthorizationAuditStore.js');
+const { buildRelayClawLaunchCommand, DefaultRelayClawSidecarController, isRelayClawRuntimeReady } = await import(
+  '../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js'
+);
+const { jiuwenClawBundleAvailable, resolveJiuwenClawExecutable, resolveJiuwenClawPythonBin } = await import(
+  '../dist/utils/jiuwenclaw-paths.js'
+);
 const { WebSocket: NodeWebSocket } = await import('ws');
 
 async function collect(iterable) {
@@ -206,7 +209,7 @@ describe('RelayClawAgentService', () => {
     });
 
     assert.equal(launch.command, 'C:\\vendor\\jiuwenclaw.exe');
-    assert.deepEqual(launch.args, ['--desktop-run-app']);
+    assert.deepEqual(launch.args, ['--desktop-run-agentserver']);
     assert.equal(launch.cwd, process.platform === 'win32' ? 'C:\\vendor' : '.');
   });
 
@@ -274,8 +277,61 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'OK');
+  });
+
+  it('sends chat.interrupt on abort for jiuwenclaw requests', async () => {
+    const sent = [];
+    const controller = new AbortController();
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          sent.push(request);
+          if (request.req_method === 'chat.send') {
+            queueMicrotask(() => controller.abort());
+            return;
+          }
+          if (request.req_method === 'chat.interrupt') {
+            const queue = requestQueues.get(request.request_id);
+            assert.ok(queue, 'interrupt queue should exist before send');
+            queue.put({
+              request_id: request.request_id,
+              channel_id: request.channel_id,
+              ok: true,
+              payload: {
+                event_type: 'chat.interrupt_result',
+                intent: 'cancel',
+                success: true,
+                message: '任务已取消',
+              },
+            });
+          }
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('Write forever', { signal: controller.signal }));
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    assert.equal(sent[0].req_method, 'chat.send');
+    assert.equal(sent[1].req_method, 'chat.interrupt');
+    assert.equal(sent[1].session_id, sent[0].session_id);
+    assert.equal(sent[1].params.intent, 'cancel');
+    assert.equal(sent[1].params.request_id, sent[0].request_id);
   });
 
   it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
@@ -325,11 +381,15 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'system_info', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'system_info', 'text', 'done'],
+    );
     assert.deepEqual(JSON.parse(messages[1].content), {
       type: 'thinking',
       catId: 'relayclaw-debug',
       text: 'thinking step',
+      mergeStrategy: 'append',
     });
     assert.equal(messages[2].content, 'Final answer');
   });
@@ -380,7 +440,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, '我来帮你总结一下。');
     assert.equal(messages[2].content, '\n\n这里是最终总结。');
   });
@@ -431,7 +494,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Hello');
     assert.equal(messages[2].content, ' world');
   });
@@ -473,7 +539,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Normalized final text');
   });
 
@@ -598,7 +667,9 @@ describe('RelayClawAgentService', () => {
     assert.ok(capturedRequest);
     assert.equal(capturedRequest.params.project_dir, '/usr/code/cat-cafe-runtime');
     const expectedUploadPath =
-      process.platform === 'win32' ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png' : '/tmp/cat-cafe-uploads/test-image.png';
+      process.platform === 'win32'
+        ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png'
+        : '/tmp/cat-cafe-uploads/test-image.png';
     assert.deepEqual(capturedRequest.params.files, {
       uploaded: [
         {
@@ -617,8 +688,110 @@ describe('RelayClawAgentService', () => {
       'cat-cafe MCP should point at the local MCP server bundle',
     );
     assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
+    assert.equal(
+      capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
+      [
+        'limb_list_available',
+        'limb_invoke',
+        'limb_pair_list',
+        'limb_pair_approve',
+        'office_claw_list_tasks',
+        'office_claw_update_task',
+        'office_claw_load_skill',
+        'office_claw_create_rich_block',
+        'office_claw_get_rich_block_rules',
+        'office_claw_request_permission',
+        'office_claw_check_permission_status',
+        'office_claw_update_workflow',
+        'office_claw_feat_index',
+      ].join(','),
+    );
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
-    assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
+    assert.match(
+      normalizedQuery,
+      /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/,
+    );
+  });
+
+  it('passes the relayclaw MCP denylist to the sidecar process env', async () => {
+    const appDir = mkdtempSync(join(tmpdir(), 'relayclaw-sidecar-env-'));
+    const appPy = join(appDir, 'jiuwenclaw', 'app.py');
+    const pythonBin =
+      process.platform === 'win32'
+        ? join(appDir, '.venv', 'Scripts', 'python.exe')
+        : join(appDir, '.venv', 'bin', 'python');
+    mkdirSync(dirname(appPy), { recursive: true });
+    mkdirSync(dirname(pythonBin), { recursive: true });
+    writeFileSync(appPy, '');
+    writeFileSync(pythonBin, '');
+
+    let capturedSpawnOptions = null;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+    const previousPython = process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
+
+    try {
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = pythonBin;
+
+      const controller = new DefaultRelayClawSidecarController(
+        'office',
+        {
+          autoStart: true,
+          startupTimeoutMs: 1000,
+        },
+        {
+          spawnFn: (_command, _args, options) => {
+            capturedSpawnOptions = options;
+            const child = new FakeChildProcess('relayclaw-env');
+            queueMicrotask(() => {
+              child.stderr.emit('data', Buffer.from('[JiuWenClaw] 初始化完成: agent_name=main_agent\n', 'utf-8'));
+            });
+            return child;
+          },
+          allocatePort: async () => 19100,
+          tcpProbeFn: async () => true,
+        },
+      );
+
+      await controller.ensureStarted({
+        callbackEnv: {
+          OPENAI_API_KEY: 'test-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+        workingDirectory: '/tmp/project-sidecar-env',
+      });
+
+      assert.ok(capturedSpawnOptions?.env, 'spawn env should be captured');
+      assert.equal(
+        capturedSpawnOptions.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
+        [
+          'limb_list_available',
+          'limb_invoke',
+          'limb_pair_list',
+          'limb_pair_approve',
+          'office_claw_list_tasks',
+          'office_claw_update_task',
+          'office_claw_load_skill',
+          'office_claw_create_rich_block',
+          'office_claw_get_rich_block_rules',
+          'office_claw_request_permission',
+          'office_claw_check_permission_status',
+          'office_claw_update_workflow',
+          'office_claw_feat_index',
+        ].join(','),
+      );
+    } finally {
+      if (previousAppDir === undefined) {
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+      } else {
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
+      }
+      if (previousPython === undefined) {
+        delete process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
+      } else {
+        process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = previousPython;
+      }
+    }
   });
 
   it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
@@ -801,6 +974,68 @@ describe('RelayClawAgentService', () => {
     assert.notEqual(createdHomeDirs[0], createdHomeDirs[1]);
   });
 
+  it('exposes all live relayclaw runtime handles across scopes', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => ({
+          async ensureStarted() {
+            const scopeId = String(config.homeDir).split(/[/\\]/).at(-1) ?? 'scope-unknown';
+            return `ws://127.0.0.1:${scopeId.includes('scope-') ? '19094' : '19095'}`;
+          },
+          stop() {},
+          getRecentLogs() {
+            return '';
+          },
+        }),
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-a',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-b',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    const runtimeHandles = service.listRelayClawRuntimeHandles();
+    assert.equal(runtimeHandles.length, 2);
+    assert.equal(new Set(runtimeHandles.map((handle) => handle.scopeKey)).size, 2);
+    assert.equal(new Set(runtimeHandles.map((handle) => handle.homeDir)).size, 2);
+    for (const handle of runtimeHandles) {
+      assert.match(handle.scopeKey, /^auto:/);
+      assert.match(String(handle.homeDir).replaceAll('\\', '/'), /\/tmp\/relayclaw-home\/scope-/);
+    }
+  });
+
   it('yields error before done when the provider times out', async () => {
     const service = new RelayClawAgentService(
       {
@@ -823,7 +1058,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /timed out/i);
   });
 
@@ -859,7 +1097,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /connection closed unexpectedly/i);
   });
 
@@ -904,13 +1145,25 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
-    assert.equal(messages.some((msg) => msg.type === 'text'), false);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'text'),
+      false,
+    );
   });
 
   it('detects raw transport error text variants for suppression', () => {
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'), true);
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'), true);
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
     assert.equal(__relayClawInternals.isRelayClawTransportErrorText('normal model output'), false);
   });
 
@@ -941,13 +1194,13 @@ describe('RelayClawAgentService', () => {
     );
 
     const messages = [];
-    for await (const msg of service.invoke('resume this session', { cliSessionId: 'catcafe_existing_session' })) {
+    for await (const msg of service.invoke('resume this session', { cliSessionId: 'officeclaw_existing_session' })) {
       messages.push(msg);
     }
 
     assert.equal(messages[0].type, 'session_init');
-    assert.equal(messages[0].sessionId, 'catcafe_existing_session');
-    assert.equal(capturedRequest.session_id, 'catcafe_existing_session');
+    assert.equal(messages[0].sessionId, 'officeclaw_existing_session');
+    assert.equal(capturedRequest.session_id, 'officeclaw_existing_session');
   });
 
   it('derives a stable relayclaw sessionId from audit context when none is persisted yet', async () => {
@@ -958,7 +1211,7 @@ describe('RelayClawAgentService', () => {
         config: {
           url: 'ws://127.0.0.1:65535',
           autoStart: false,
-          channelId: 'catcafe',
+          channelId: 'officeclaw',
         },
       },
       {
@@ -1005,9 +1258,85 @@ describe('RelayClawAgentService', () => {
     assert.equal(firstMessages[0].type, 'session_init');
     assert.equal(secondMessages[0].type, 'session_init');
     assert.equal(firstMessages[0].sessionId, secondMessages[0].sessionId);
-    assert.match(firstMessages[0].sessionId, /^catcafe_[0-9a-f]{24}$/);
+    assert.match(firstMessages[0].sessionId, /^officeclaw_[0-9a-f]{24}$/);
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
+  });
+
+  it('bridges Jiuwen permission approvals into local authorization pending requests', async () => {
+    const pendingStore = new PendingRequestStore();
+    const permissionBridge = new JiuwenPermissionBridge();
+    permissionBridge.bindAuthorizationManager(
+      new AuthorizationManager({
+        ruleStore: new AuthorizationRuleStore(),
+        pendingStore,
+        auditStore: new AuthorizationAuditStore(),
+        timeoutMs: 5000,
+      }),
+    );
+
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        permissionBridge,
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.ask_user_question',
+              request_id: 'perm_approve_relay_test',
+              questions: [
+                {
+                  header: '权限审批',
+                  question: '**工具 `shell_command` 需要授权才能执行**',
+                  options: [
+                    { label: '本次允许', description: '仅本次授权执行' },
+                    { label: '总是允许', description: '记住规则' },
+                    { label: '拒绝', description: '拒绝执行' },
+                  ],
+                  multi_select: false,
+                },
+              ],
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(
+      service.invoke('Run a privileged tool', {
+        auditContext: {
+          invocationId: 'inv-permission-bridge',
+          threadId: 'thread-permission-bridge',
+          userId: 'user-permission-bridge',
+          catId: 'relayclaw-debug',
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    const pending = pendingStore.listWaiting('thread-permission-bridge');
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].action, 'shell_command');
   });
 
   it('extracts token usage from frame.metadata and attaches to done message', async () => {

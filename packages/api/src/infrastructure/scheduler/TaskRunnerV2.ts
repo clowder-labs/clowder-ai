@@ -5,9 +5,10 @@
  */
 
 import { getNextCronMs } from './cron-utils.js';
-import type { DynamicTaskStore } from './DynamicTaskStore.js';
+import type { DynamicTaskDef, DynamicTaskStore } from './DynamicTaskStore.js';
 import { executeTaskPipeline } from './execute-pipeline.js';
 import type { RunLedger } from './RunLedger.js';
+import { notifyTaskFailed, notifyTaskSucceeded } from './schedule-notify.js';
 import type { TaskTemplate } from './templates/types.js';
 import type {
   ActorRole,
@@ -37,6 +38,8 @@ export interface TaskRunnerV2Options {
   fetchContent?: (url: string) => Promise<FetchResult>;
   /** Phase 4b: invoke a cat to handle a scheduled task (fire-and-forget) */
   invokeTrigger?: ScheduleInvokeTrigger;
+  /** #415: dynamic task store — needed for once-trigger auto-retirement */
+  dynamicTaskStore?: DynamicTaskStore;
 }
 
 /** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
@@ -79,6 +82,7 @@ function formatThreadPreview(id: string): string {
 type AnyTaskSpec = TaskSpec_P1<any>;
 
 export class TaskRunnerV2 {
+  private static readonly MIN_INTERVAL_MS = 10_000;
   private tasks: AnyTaskSpec[] = [];
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private running = new Map<string, boolean>();
@@ -98,6 +102,7 @@ export class TaskRunnerV2 {
   private deliver: TaskRunnerV2Options['deliver'];
   private fetchContent: TaskRunnerV2Options['fetchContent'];
   private invokeTrigger: TaskRunnerV2Options['invokeTrigger'];
+  private dynamicTaskStore: TaskRunnerV2Options['dynamicTaskStore'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
@@ -108,11 +113,17 @@ export class TaskRunnerV2 {
     this.deliver = opts.deliver;
     this.fetchContent = opts.fetchContent;
     this.invokeTrigger = opts.invokeTrigger;
+    this.dynamicTaskStore = opts.dynamicTaskStore;
   }
 
   /** Late-bind invokeTrigger (constructed after TaskRunnerV2 in boot sequence) */
   setInvokeTrigger(trigger: ScheduleInvokeTrigger): void {
     this.invokeTrigger = trigger;
+  }
+
+  /** #415: Late-bind dynamicTaskStore (constructed after TaskRunnerV2 in boot sequence) */
+  setDynamicTaskStore(store: DynamicTaskStore): void {
+    this.dynamicTaskStore = store;
   }
 
   register(task: AnyTaskSpec): void {
@@ -186,6 +197,12 @@ export class TaskRunnerV2 {
     const defs = store.getAll();
     let loaded = 0;
     for (const def of defs) {
+      // #415: once tasks with past fireAt → missed window, cancel + notify + retire
+      if (def.trigger.type === 'once' && def.trigger.fireAt < Date.now()) {
+        this.handleMissedOnceTask(def, store);
+        continue;
+      }
+
       const template = templateGetter.get(def.templateId);
       if (!template) {
         this.logger.error(`[scheduler] hydrate: unknown template "${def.templateId}" for def ${def.id}`);
@@ -211,7 +228,11 @@ export class TaskRunnerV2 {
   start(): void {
     this.started = true;
     for (const task of this.tasks) {
-      this.scheduleTask(task);
+      // Dynamic tasks (hydrated from SQLite) defer first tick — they're user reminders,
+      // not pollers. Firing at t=0 creates bare trigger messages because invokeTrigger
+      // isn't bound yet (race: scheduler starts before connector wiring completes).
+      const isDynamic = this.dynamicTaskIds.has(task.id);
+      this.scheduleTask(task, isDynamic);
     }
   }
 
@@ -227,7 +248,10 @@ export class TaskRunnerV2 {
 
     if (task.trigger.type === 'cron') {
       this.scheduleCronTick(task);
-    } else {
+    } else if (task.trigger.type === 'once') {
+      this.scheduleOnceTick(task);
+    } else if (task.trigger.type === 'interval') {
+      const intervalMs = this.getValidatedIntervalMs(task);
       const runTick = () => {
         // Guard: skip if task was unregistered before tick fires (防幽灵执行)
         if (!this.timers.has(task.id)) return;
@@ -239,11 +263,24 @@ export class TaskRunnerV2 {
         // Boot: fire first tick immediately for pollers that need to check pending work
         setTimeout(runTick, 0);
       }
-      const timer = setInterval(runTick, task.trigger.ms);
+      const timer = setInterval(runTick, intervalMs);
       if (typeof timer === 'object' && 'unref' in timer) timer.unref();
       this.timers.set(task.id, timer);
-      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
+      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${intervalMs}ms)`);
+    } else {
+      throw new Error(`[scheduler] ${task.id}: unsupported trigger type ${(task.trigger as { type?: unknown }).type ?? 'unknown'}`);
     }
+  }
+
+  private getValidatedIntervalMs(task: AnyTaskSpec): number {
+    if (task.trigger.type !== 'interval') {
+      throw new Error(`[scheduler] ${task.id}: expected interval trigger`);
+    }
+    const { ms } = task.trigger;
+    if (!Number.isFinite(ms) || ms < TaskRunnerV2.MIN_INTERVAL_MS) {
+      throw new Error(`interval trigger ms must be a finite number >= ${TaskRunnerV2.MIN_INTERVAL_MS}`);
+    }
+    return ms;
   }
 
   /** Schedule next cron tick via setTimeout chain */
@@ -267,6 +304,99 @@ export class TaskRunnerV2 {
     this.logger.info(
       `[scheduler] ${task.id}: registered (profile=${task.profile}, cron="${task.trigger.expression}", next in ${ms}ms)`,
     );
+  }
+
+  /** Max safe setTimeout delay — Node clamps values above 2^31-1 ms to ~1ms */
+  private static MAX_TIMER_DELAY = 2_147_483_647;
+
+  /** #415: Schedule a one-shot task — fires once at fireAt, then auto-retires */
+  private scheduleOnceTick(task: AnyTaskSpec): void {
+    if (task.trigger.type !== 'once') return;
+    const remaining = Math.max(0, task.trigger.fireAt - Date.now());
+    // Node setTimeout overflows at 2^31-1 ms — chunk long delays into safe steps
+    if (remaining > TaskRunnerV2.MAX_TIMER_DELAY) {
+      const timer = setTimeout(() => this.scheduleOnceTick(task), TaskRunnerV2.MAX_TIMER_DELAY);
+      if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+      this.timers.set(task.id, timer);
+      return;
+    }
+    const timer = setTimeout(() => {
+      // Guard: skip if task was unregistered before timeout fires
+      if (!this.timers.has(task.id)) return;
+      this.executePipeline(task)
+        .catch((err) => {
+          this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
+        })
+        .finally(() => {
+          // Check ledger to distinguish governance skip from actual execution/other skips
+          const entries = this.ledger.query(task.id, 1);
+          const lastOutcome = entries[0]?.outcome;
+          const isGovernanceSkip = lastOutcome === 'SKIP_GLOBAL_PAUSE' || lastOutcome === 'SKIP_TASK_OVERRIDE';
+          if (isGovernanceSkip) {
+            this.logger.info(`[scheduler] ${task.id}: once task governance-skipped, retrying in 30s`);
+            const retryTimer = setTimeout(() => {
+              if (!this.started || !this.tasks.some((t) => t.id === task.id)) return;
+              this.scheduleOnceTick(task);
+            }, 30_000);
+            if (typeof retryTimer === 'object' && 'unref' in retryTimer) retryTimer.unref();
+            this.timers.set(task.id, retryTimer);
+          } else {
+            this.retireOnceTask(task.id);
+          }
+        });
+    }, remaining);
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    this.timers.set(task.id, timer);
+    this.logger.info(
+      `[scheduler] ${task.id}: registered (profile=${task.profile}, once, fireAt=${new Date(task.trigger.fireAt).toISOString()}, delay=${remaining}ms)`,
+    );
+  }
+
+  /** #415: Remove a once-task from runtime + persistent store after execution */
+  private retireOnceTask(taskId: string): void {
+    // Use taskId directly — for dynamic tasks, taskId === dynDefId
+    if (this.dynamicTaskStore) {
+      this.dynamicTaskStore.remove(taskId);
+    }
+    this.unregister(taskId);
+    this.logger.info(`[scheduler] ${taskId}: retired (once task completed)`);
+  }
+
+  /** #415: Handle once-task that missed its execution window (hydrated after restart) */
+  private handleMissedOnceTask(def: DynamicTaskDef, store: DynamicTaskStore): void {
+    const fireAt = def.trigger.type === 'once' ? def.trigger.fireAt : 0;
+    const fireAtIso = new Date(fireAt).toISOString();
+    this.logger.info(`[scheduler] ${def.id}: once task missed window (fireAt=${fireAtIso}), retiring`);
+
+    // Record in ledger for audit trail
+    this.ledger.record({
+      task_id: def.id,
+      subject_key: def.id,
+      outcome: 'SKIP_MISSED_WINDOW',
+      signal_summary: `Execution window missed: fireAt=${fireAtIso}`,
+      duration_ms: 0,
+      started_at: new Date().toISOString(),
+      assigned_cat_id: null,
+      error_summary: null,
+    });
+
+    // Notify user via delivery thread (fire-and-forget)
+    if (def.deliveryThreadId && this.deliver) {
+      const label = def.display?.label ?? def.templateId;
+      const content =
+        `⏰ 定时任务「${label}」的执行时间窗已错过（原定 ${fireAtIso}），` + '服务在该时间段未运行。任务已自动取消。';
+      this.deliver({
+        threadId: def.deliveryThreadId,
+        content,
+        catId: 'system',
+        userId: ((def.params as Record<string, unknown>).triggerUserId as string) ?? 'system',
+      }).catch((err) => {
+        this.logger.error(`[scheduler] ${def.id}: failed to send missed-window notification`, err);
+      });
+    }
+
+    // Remove from persistent store
+    store.remove(def.id);
   }
 
   stop(): void {
@@ -342,6 +472,14 @@ export class TaskRunnerV2 {
       deliver: this.deliver,
       fetchContent: this.fetchContent,
       invokeTrigger: this.invokeTrigger,
+      onItemOutcome: (taskId, _subjectKey, outcome, errorSummary) => {
+        const dynDefId = this.dynamicTaskIds.get(taskId);
+        if (!dynDefId || !this.dynamicTaskStore) return;
+        const def = this.dynamicTaskStore.getById(dynDefId);
+        if (!def) return;
+        if (outcome === 'RUN_FAILED') notifyTaskFailed(this.deliver, def, errorSummary);
+        if (outcome === 'RUN_DELIVERED') notifyTaskSucceeded(this.deliver, def);
+      },
     });
   }
 }

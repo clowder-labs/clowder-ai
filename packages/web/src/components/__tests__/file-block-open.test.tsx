@@ -6,6 +6,7 @@
 
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '@/utils/api-client';
 import { FileBlock } from '../rich/FileBlock';
@@ -14,7 +15,7 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(async () => ({ ok: true })),
 }));
 
-describe('FileBlock PPT open action', () => {
+describe('FileBlock open action', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -40,7 +41,7 @@ describe('FileBlock PPT open action', () => {
     container.remove();
   });
 
-  it('renders 打开 for workspace pptx and calls workspace open API', async () => {
+  it('renders workspace action and calls workspace open API', async () => {
     act(() => {
       root.render(
         <FileBlock
@@ -58,7 +59,8 @@ describe('FileBlock PPT open action', () => {
     });
 
     const button = container.querySelector('button');
-    expect(button?.textContent).toContain('打开');
+    expect(button).not.toBeNull();
+    expect(container.textContent).toContain('位置: output/demo.pptx');
 
     await act(async () => {
       button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -70,5 +72,24 @@ describe('FileBlock PPT open action', () => {
       worktreeId: 'wt-1',
       path: 'output/demo.pptx',
     });
+  });
+
+  it('renders download link for uploaded attachments', () => {
+    const html = renderToStaticMarkup(
+      <FileBlock
+        block={{
+          id: 'file-2',
+          kind: 'file',
+          v: 1,
+          url: '/uploads/demo.xlsx',
+          fileName: 'demo.xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }}
+      />,
+    );
+
+    expect(html).toContain('demo.xlsx');
+    expect(html).toContain('<a');
+    expect(html).not.toContain('<button');
   });
 });

@@ -300,7 +300,14 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         reconciler: opts.connectorRuntimeManager,
       });
       await opts.connectorRuntimeManager?.setOwnerUserId?.(userId);
-      return { status: 'confirmed', ...(result.runtime ? { runtime: result.runtime } : {}) };
+
+      // F152: Store QR scanner's open_id as whitelist exempt user
+      if (status.ownerOpenId && opts.permissionStore) {
+        await opts.permissionStore.setOwnerOpenId(userId, 'feishu', status.ownerOpenId);
+        app.log.info({ userId, ownerOpenId: status.ownerOpenId }, '[Feishu QR] Stored owner open_id for whitelist exemption');
+      }
+
+      return { status: 'confirmed', ...(result.runtime ? { runtime: result.runtime } : {}), ownerOpenId: status.ownerOpenId };
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
       reply.status(502);
@@ -426,7 +433,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const signature = generateXiaoyiSignature(sk, timestamp);
 
       const wsUrl =
-        (readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? process.env.XIAOYI_WS_URL1!) +
+        (process.env.XIAOYI_WS_PRIMARY_URL ?? 'wss://hag.cloud.huawei.com') +
         '/openclaw/v1/ws/link';
 
       const { WebSocket } = await import('ws');
@@ -602,8 +609,6 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         { name: 'XIAOYI_AK', value: null },
         { name: 'XIAOYI_SK', value: null },
         { name: 'XIAOYI_AGENT_ID', value: null },
-        { name: 'XIAOYI_WS_URL1', value: null },
-        { name: 'XIAOYI_WS_URL2', value: null },
       ],
       { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
     );
@@ -625,6 +630,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   // ── F134 Phase D: Connector Permission API ──
+  // F152: All methods now require userId for multi-user isolation
 
   app.get('/api/connector/permissions/:connectorId', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
@@ -632,9 +638,17 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
-      return { whitelistEnabled: false, commandAdminOnly: false, adminOpenIds: [], allowedGroups: [] };
+      return {
+        whitelistEnabled: false,
+        commandAdminOnly: false,
+        adminOpenIds: [],
+        allowedGroups: [],
+        userWhitelistEnabled: false,
+        allowedUsers: [],
+        ownerOpenId: undefined,
+      };
     }
-    return store.getConfig(connectorId);
+    return store.getConfig(userId, connectorId);
   });
 
   app.put('/api/connector/permissions/:connectorId', async (request, reply) => {
@@ -651,21 +665,41 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       commandAdminOnly?: boolean;
       adminOpenIds?: string[];
       allowedGroups?: Array<{ externalChatId: string; label?: string }>;
+      // F152: Personal user whitelist
+      userWhitelistEnabled?: boolean;
+      allowedUsers?: Array<{ openId: string; name?: string }>;
+      ownerOpenId?: string;
     };
+
+    // Group whitelist
     if (body.whitelistEnabled !== undefined) {
-      await store.setWhitelistEnabled(connectorId, body.whitelistEnabled);
+      await store.setWhitelistEnabled(userId, connectorId, body.whitelistEnabled);
     }
     if (body.commandAdminOnly !== undefined) {
-      await store.setCommandAdminOnly(connectorId, body.commandAdminOnly);
+      await store.setCommandAdminOnly(userId, connectorId, body.commandAdminOnly);
     }
     if (body.adminOpenIds !== undefined) {
-      await store.setAdminOpenIds(connectorId, body.adminOpenIds);
+      await store.setAdminOpenIds(userId, connectorId, body.adminOpenIds);
     }
     if (body.allowedGroups !== undefined) {
-      const current = await store.listAllowedGroups(connectorId);
-      for (const g of current) await store.denyGroup(connectorId, g.externalChatId);
-      for (const g of body.allowedGroups) await store.allowGroup(connectorId, g.externalChatId, g.label);
+      const current = await store.listAllowedGroups(userId, connectorId);
+      for (const g of current) await store.denyGroup(userId, connectorId, g.externalChatId);
+      for (const g of body.allowedGroups) await store.allowGroup(userId, connectorId, g.externalChatId, g.label);
     }
-    return store.getConfig(connectorId);
+
+    // F152: Personal user whitelist
+    if (body.userWhitelistEnabled !== undefined) {
+      await store.setUserWhitelistEnabled(userId, connectorId, body.userWhitelistEnabled);
+    }
+    if (body.allowedUsers !== undefined) {
+      const current = await store.listAllowedUsers(userId, connectorId);
+      for (const u of current) await store.denyUser(userId, connectorId, u.openId);
+      for (const u of body.allowedUsers) await store.allowUser(userId, connectorId, u.openId, u.name);
+    }
+    if (body.ownerOpenId !== undefined) {
+      await store.setOwnerOpenId(userId, connectorId, body.ownerOpenId);
+    }
+
+    return store.getConfig(userId, connectorId);
   });
 };

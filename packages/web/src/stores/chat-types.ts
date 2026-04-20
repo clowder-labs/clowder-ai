@@ -4,6 +4,8 @@
  *
  */
 
+import type { ErrorFallbackMetadata } from '@repo/shared';
+
 /** Content block types matching backend MessageContent */
 export interface TextContent {
   type: 'text';
@@ -73,6 +75,8 @@ export interface ToolEvent {
   label: string;
   detail?: string;
   timestamp: number;
+  /** F142: Tool call ID for precise pairing */
+  toolCallId?: string;
 }
 
 /** F22: Rich block types for frontend rendering */
@@ -273,6 +277,8 @@ export interface ChatMessage {
       reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
       invocationId?: string;
     };
+    /** Error fallback metadata for backend-transformed error messages */
+    errorFallback?: ErrorFallbackMetadata;
   };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
@@ -533,6 +539,8 @@ export interface CliEvent {
   label?: string;
   detail?: string;
   content?: string;
+  /** F142: Tool call ID for precise pairing */
+  toolCallId?: string;
 }
 
 export const DEFAULT_THREAD_STATE: ThreadState = {

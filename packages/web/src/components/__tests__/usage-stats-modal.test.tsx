@@ -163,7 +163,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageTenButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '10');
+    const pageTenButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '10',
+    );
     expect(pageTenButton).toBeTruthy();
 
     act(() => {
@@ -182,10 +184,12 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageEightButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '8');
+    const pageEightButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '8',
+    );
 
     expect(fetchDataset).toHaveBeenCalledTimes(2);
-    expect(pageEightButton?.className).toContain('bg-[#F5F5F5]');
+    expect(pageEightButton?.className).toContain('bg-[var(--modal-muted-surface)]');
     expect(container.textContent).toContain('session-43');
     expect(container.textContent).not.toContain('session-55');
   });
@@ -198,7 +202,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageTwoButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '2');
+    const pageTwoButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '2',
+    );
     expect(pageTwoButton).toBeTruthy();
 
     act(() => {
@@ -206,7 +212,7 @@ describe('UsageStatsModal', () => {
     });
 
     expect(fetchDataset).toHaveBeenCalledTimes(1);
-    expect(pageTwoButton?.className).toContain('bg-[#F5F5F5]');
+    expect(pageTwoButton?.className).toContain('bg-[var(--modal-muted-surface)]');
     expect(container.textContent).toContain('session-7');
   });
 
@@ -242,7 +248,9 @@ describe('UsageStatsModal', () => {
     expect(container.textContent).toContain('today-session');
     expect(container.textContent).toContain('week-session');
 
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
     act(() => {
       rangeTrigger?.click();
     });
@@ -299,8 +307,12 @@ describe('UsageStatsModal', () => {
     await flush();
 
     const refreshButton = container.querySelector('[data-testid="usage-stats-refresh"]') as HTMLButtonElement | null;
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
-    const pageTwoButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '2');
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
+    const pageTwoButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '2',
+    );
 
     expect(fetchDataset).toHaveBeenCalledTimes(1);
     expect(refreshButton?.disabled).toBe(true);
@@ -325,7 +337,7 @@ describe('UsageStatsModal', () => {
     expect(rangeTrigger?.disabled).toBe(false);
   });
 
-  it('uses 12px and #191919 for the visible range value and default dropdown options without refetching', async () => {
+  it('uses themed modal tokens for the visible range value and dropdown options without refetching', async () => {
     const fetchDataset = vi.fn(async () => createDataset(13, NOW));
 
     act(() => {
@@ -333,9 +345,11 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
     expect(rangeTrigger?.className).toContain('text-[12px]');
-    expect(rangeTrigger?.className).toContain('text-[#191919]');
+    expect(rangeTrigger?.className).toContain('text-[var(--modal-text)]');
 
     act(() => {
       rangeTrigger?.click();
@@ -343,14 +357,14 @@ describe('UsageStatsModal', () => {
 
     const options = Array.from(container.querySelectorAll('[data-testid="usage-stats-range-menu"] button'));
     expect(options).toHaveLength(4);
-    expect(options[0]?.className).toContain('hover:bg-[#F5F5F5]');
+    expect(options[0]?.className).toContain('hover:bg-[var(--modal-muted-surface)]');
 
     const defaultOption = options.find((option) => option.textContent?.trim() === '今日');
     const selectedOption = options.find((option) => option.textContent?.trim() === '近7日');
 
     expect(defaultOption?.className).toContain('text-[12px]');
-    expect(defaultOption?.className).toContain('text-[#191919]');
-    expect(selectedOption?.className).toContain('text-[#1476FF]');
+    expect(defaultOption?.className).toContain('text-[var(--modal-text)]');
+    expect(selectedOption?.className).toContain('text-[var(--modal-accent-text)]');
 
     act(() => {
       options.find((option) => option.textContent?.trim() === '近3日')?.click();
@@ -371,6 +385,88 @@ describe('UsageStatsModal', () => {
     expect(separators[0]?.className).toContain('h-4');
     expect(separators[0]?.className).toContain('w-px');
     expect(separators[0]?.className).toContain('top-1/2');
-    expect(separators[0]?.className).toContain('bg-[#DBDBDB]');
+    expect(separators[0]?.className).toContain('bg-[var(--modal-table-divider)]');
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onClose = vi.fn();
+    const fetchDataset = vi.fn(async () => createDataset(1, NOW));
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose, fetchDataset }));
+    });
+    await flush(320);
+
+    const modal = container.querySelector('[data-testid="usage-stats-modal-panel"]');
+    expect(modal).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts the in-flight usage stats request when the modal unmounts', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const abortListener = vi.fn();
+    const fetchDataset = vi.fn(
+      ({ signal }: { signal?: AbortSignal } = {}) =>
+        new Promise<ReturnType<typeof createDataset>>(() => {
+          capturedSignal = signal;
+          signal?.addEventListener('abort', abortListener, { once: true });
+        }),
+    );
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+
+    await flush();
+
+    expect(fetchDataset).toHaveBeenCalledTimes(1);
+    expect(capturedSignal).toBeDefined();
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      root.unmount();
+    });
+
+    expect(abortListener).toHaveBeenCalledTimes(1);
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('clears previously loaded rows when the modal closes before it opens again', async () => {
+    const fetchDataset = vi
+      .fn()
+      .mockResolvedValueOnce(createDataset(1, NOW))
+      .mockImplementationOnce(
+        () =>
+          new Promise<ReturnType<typeof createDataset>>(() => {
+            // Keep the second open in a loading state so stale rows would be visible if not cleared.
+          }),
+      );
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+    await flush(320);
+
+    expect(container.textContent).toContain('session-1');
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: false, onClose: vi.fn(), fetchDataset }));
+    });
+
+    expect(container.textContent).not.toContain('session-1');
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose: vi.fn(), fetchDataset }));
+    });
+    await flush();
+
+    expect(fetchDataset).toHaveBeenCalledTimes(2);
+    expect(container.textContent).not.toContain('session-1');
+    expect(container.querySelector('[data-testid="usage-stats-loading-overlay"]')).toBeTruthy();
   });
 });

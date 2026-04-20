@@ -11,7 +11,11 @@ import { parse as parseYaml } from 'yaml';
 import { resolveCatCafeHostRoot } from '../../../../utils/cat-cafe-root.js';
 import { parseFrontmatterString } from './frontmatter-parser.js';
 import { loadInstalledRegistry } from './InstalledSkillRegistry.js';
-import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from './SkillPaths.js';
+import { ensureSkillStorageMigrated } from './SkillStorageMigration.js';
+import {
+  resolveOfficialSkillsRoot,
+  resolveUserSkillsRoot,
+} from './SkillPaths.js';
 
 interface BootstrapEntry {
   name: string;
@@ -335,6 +339,7 @@ async function collectRelatedFiles(skillDir: string): Promise<string[]> {
 
 async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): Promise<ResolvedSkillEntry[]> {
   const roots = resolveSkillRoots(options);
+  await ensureSkillStorageMigrated(roots.hostRoot);
   const [officialSkillNames, userSkillNames, bootstrapEntries, manifestMeta, installedRegistry] = await Promise.all([
     listSkillDirs(roots.officialSkillsRoot),
     listSkillDirs(roots.userSkillsRoot),
@@ -343,7 +348,10 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
     loadInstalledRegistry(roots.hostRoot),
   ]);
   const officialSkillNameSet = new Set(officialSkillNames);
-  const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !officialSkillNameSet.has(name))];
+  const userSkillNameSet = new Set(userSkillNames);
+
+  const mergedOfficialSkillNameSet = new Set(officialSkillNames);
+  const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !mergedOfficialSkillNameSet.has(name))];
 
   const installedByName = new Map(installedRegistry.skills.map((record) => [record.name, record]));
   const orderedNames: string[] = [];
@@ -364,7 +372,7 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
 
   const entries = await Promise.all(
     orderedNames.map(async (name): Promise<ResolvedSkillEntry> => {
-      const skillDir = officialSkillNameSet.has(name)
+      const skillDir = mergedOfficialSkillNameSet.has(name)
         ? join(roots.officialSkillsRoot, name)
         : join(roots.userSkillsRoot, name);
       const skillMarkdown = await readFile(join(skillDir, 'SKILL.md'), 'utf-8');

@@ -16,8 +16,8 @@
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatConfig, CatId } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@office-claw/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
@@ -45,6 +45,7 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
+import { appendGeneratedFileLocationDisclosure } from './generated-file-artifacts.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
@@ -165,6 +166,7 @@ export async function* routeSerial(
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
       const catConfig: CatConfig | undefined =
         catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+      const isRelayClaw = catConfig?.provider === 'relayclaw';
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
       const streamReplyTo = worklistEntry.a2aTriggerMessageId.get(catId);
@@ -182,7 +184,12 @@ export async function* routeSerial(
       // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
       // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
-      const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
+      const staticIdentity = buildStaticIdentity(catId, {
+        mcpAvailable,
+        ...(isRelayClaw
+          ? { omitMagicWords: true, omitRichBlockToolLine: true, omitRichBlockReference: true }
+          : {}),
+      });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable)
         ? buildMcpCallbackInstructions({
@@ -357,7 +364,7 @@ export async function* routeSerial(
       let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
-      const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
+      const streamRichBlocks: import('@office-claw/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
       let ownInvocationId: string | undefined;
       // F111 Phase B: Streaming TTS chunker for real-time voice (voiceMode only)
@@ -367,6 +374,7 @@ export async function* routeSerial(
       let lastFlushTime = Date.now();
       let lastFlushLen = 0;
       let lastFlushToolLen = 0;
+      let hadErrorTransformed = false; // Track if error was transformed in stream loop
       const FLUSH_INTERVAL_MS = 2000;
       const FLUSH_CHAR_DELTA = 2000;
       const noop = () => {};
@@ -527,9 +535,49 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
-          if (msg.error) {
-            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
+          const rawError = msg.error ?? '';
+
+          // 收集原始错误（用于日志/审计）
+          if (rawError) {
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${rawError}`;
           }
+
+          // ✨ 转换为友好的 text 消息
+          const errorKind = classifyError(rawError);
+          const friendlyMessage = getFriendlyAgentErrorMessage({
+            catId: msg.catId,
+            error: rawError,
+            errorCode: msg.errorCode,
+            metadata: msg.metadata,
+          });
+
+          // 累积到 textContent（和正常 text 一样，用于持久化）
+          textContent += friendlyMessage;
+          hadErrorTransformed = true; // 标记已转换
+
+          // 构造转换后的消息
+          const transformedMsg = {
+            type: 'text' as const,
+            catId: msg.catId,
+            content: friendlyMessage,
+            timestamp: msg.timestamp,
+            metadata: msg.metadata,
+            origin: 'stream' as const,
+            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
+            ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
+            extra: {
+              errorFallback: {
+                v: 1 as const,
+                kind: errorKind,
+                rawError,
+                timestamp: msg.timestamp,
+              },
+            },
+          };
+
+          // yield 转换后的消息（而不是原始 error）
+          yield transformedMsg;
+          continue; // ✅ 跳过后面的逻辑，但不影响后续消息处理
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.
@@ -595,7 +643,6 @@ export async function* routeSerial(
 
         // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
         const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
-        const storedContent = cleanText;
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...streamRichBlocks];
 
         // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
@@ -613,6 +660,7 @@ export async function* routeSerial(
             }
           }
         }
+        const storedContent = appendGeneratedFileLocationDisclosure(cleanText, allRichBlocks);
 
         // In play mode, CLI stream output (thinking) is hidden from other cats.
         // Only share previousResponses in debug mode where cats see each other's thinking.
@@ -902,7 +950,7 @@ export async function* routeSerial(
             await deps.messageStore.append({
               userId,
               catId,
-              content: '',
+              content: appendGeneratedFileLocationDisclosure('', noTextBlocks),
               mentions: [],
               origin: 'stream',
               timestamp: Date.now(),
@@ -1017,23 +1065,50 @@ export async function* routeSerial(
         }
       }
 
-      // Persist error as system message so it survives F5 reload.
-      // During streaming, errors render as red badges via ephemeral frontend state.
-      // Without persistence, they vanish on page refresh.
-      if (collectedErrorText) {
+      // 降级逻辑：仅在错误未被流式循环转换时触发
+      // 这种情况理论上不应该发生，但保留作为安全网
+      if (collectedErrorText && !hadErrorTransformed) {
+        log.warn(
+          { catId: catId as string, collectedErrorText },
+          'Error not transformed in stream loop — fallback persistence',
+        );
+        const errorKind = classifyError(collectedErrorText);
+        const friendlyMessage = getFriendlyAgentErrorMessage({
+          catId: catId as string,
+          error: collectedErrorText,
+        });
+        const errorFallback = {
+          v: 1 as const,
+          kind: errorKind,
+          rawError: collectedErrorText,
+          timestamp: Date.now(),
+        };
+
         try {
           await deps.messageStore.append({
-            userId: 'system',
-            catId: null,
-            content: `Error: ${collectedErrorText}`,
+            userId, // ← 改为 userId（而非 'system'）
+            catId, // ← 改为 catId（而非 null）
+            content: friendlyMessage, // ← 友好消息（而非 "Error: ..."）
             mentions: [],
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            extra: {
+              errorFallback,
+            },
           });
         } catch (err) {
-          log.error({ catId: catId as string, err }, 'messageStore.append (error system msg) failed');
+          log.error({ catId: catId as string, err }, 'messageStore.append (error fallback) failed');
         }
+
+        yield {
+          type: 'text' as AgentMessageType,
+          catId,
+          content: friendlyMessage,
+          origin: 'stream',
+          extra: { errorFallback },
+          timestamp: Date.now(),
+        } as AgentMessage;
       }
 
       // Ack cursor regardless of hadError: messages were assembled into the prompt

@@ -46,6 +46,7 @@ export function DirectoryPickerModal({
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [bindExpanded, setBindExpanded] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [defaultWorkspacePath, setDefaultWorkspacePath] = useState<string | null>(null);
   const [showBrowser, setShowBrowser] = useState(false);
   const [pathInput, setPathInput] = useState('');
   const [pathError, setPathError] = useState<string | null>(null);
@@ -148,7 +149,8 @@ export function DirectoryPickerModal({
         const res = await apiFetch('/api/projects/cwd');
         if (res.ok) {
           const data = await res.json();
-          setCwdPath(data.path);
+          setCwdPath(typeof data?.path === 'string' ? data.path : null);
+          setDefaultWorkspacePath(typeof data?.workspacePath === 'string' ? data.workspacePath : null);
         }
       } catch {
         // ignore — cwd is optional
@@ -166,25 +168,26 @@ export function DirectoryPickerModal({
   }, [onCancel]);
 
   const [catsExpanded, setCatsExpanded] = useState(false);
+  const recommendedPath = defaultWorkspacePath ?? cwdPath;
   const catSummary = selectedCats.length > 0 ? `已选 ${selectedCats.length}` : '';
 
   return (
     <div
       role="presentation"
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)]"
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-[640px] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
+        className="mx-4 flex max-h-[85vh] w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]"
       >
         {/* ── Header + Title ── */}
-        <div className="px-5 pt-4 pb-3 border-b border-gray-100">
+        <div className="border-b border-[var(--modal-divider)] px-5 pb-3 pt-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-cafe-black">新建会话</h2>
+            <h2 className="text-base font-semibold text-[var(--modal-title-text)]">新建会话</h2>
             <button
               type="button"
               onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              className="rounded-md p-1 text-[var(--modal-close-icon)] transition-colors hover:bg-[var(--modal-close-hover-bg)] hover:text-[var(--modal-close-icon-hover)]"
             >
               <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -207,21 +210,21 @@ export function DirectoryPickerModal({
 
         {/* ── Project list (PRIMARY ACTION — takes most space, hidden when browser is open) ── */}
         <div className={`overflow-y-auto px-5 py-3 space-y-1 ${showBrowser ? 'hidden' : 'flex-1 min-h-[180px]'}`}>
-          <div className="text-[10px] text-gray-400 font-medium mb-1">选择项目</div>
+          <div className="text-[10px] text-[var(--modal-empty-text)] font-medium mb-1">选择项目</div>
 
-          {cwdPath && !existingProjects.includes(cwdPath) && (
+          {recommendedPath && !existingProjects.includes(recommendedPath) && (
             <button
               type="button"
-              onClick={() => handleSelectPath(cwdPath)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : 'ring-1 ring-cocreator-primary/30 bg-cocreator-bg/50'}`}
-              title={cwdPath}
+              onClick={() => handleSelectPath(recommendedPath)}
+              className={`w-full text-left px-3 py-2.5 text-sm text-[var(--modal-text)] hover:bg-[var(--modal-selected-surface)] rounded-lg transition-colors flex items-center gap-2 ${selectedPath === recommendedPath ? 'border border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)]' : 'border border-[var(--modal-selected-border)] bg-[var(--modal-muted-surface)]'}`}
+              title={recommendedPath}
             >
               <FolderIcon />
               <div className="min-w-0 flex-1">
-                <span className="font-medium block truncate">{projectDisplayName(cwdPath)}</span>
-                <span className="text-[10px] text-gray-400 block truncate">{cwdPath}</span>
+                <span className="font-medium block truncate">{projectDisplayName(recommendedPath)}</span>
+                <span className="text-[10px] text-[var(--modal-empty-text)] block truncate">{recommendedPath}</span>
               </div>
-              <span className="text-[10px] text-cocreator-primary flex-shrink-0">推荐</span>
+              <span className="text-[10px] text-[var(--modal-accent-text)] flex-shrink-0">推荐</span>
             </button>
           )}
 
@@ -230,13 +233,13 @@ export function DirectoryPickerModal({
               type="button"
               key={path}
               onClick={() => handleSelectPath(path)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === path ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : ''}`}
+              className={`w-full text-left px-3 py-2.5 text-sm text-[var(--modal-text)] hover:bg-[var(--modal-selected-surface)] rounded-lg transition-colors flex items-center gap-2 ${selectedPath === path ? 'border border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)]' : ''}`}
               title={path}
             >
               <FolderIcon />
               <div className="min-w-0 flex-1">
                 <span className="font-medium block truncate">{projectDisplayName(path)}</span>
-                <span className="text-[10px] text-gray-400 block truncate">{path}</span>
+                <span className="text-[10px] text-[var(--modal-empty-text)] block truncate">{path}</span>
               </div>
             </button>
           ))}
@@ -244,7 +247,7 @@ export function DirectoryPickerModal({
           <button
             type="button"
             onClick={() => handleSelectPath('lobby')}
-            className={`w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === 'lobby' ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : ''}`}
+            className={`w-full text-left px-3 py-2.5 text-sm text-[var(--modal-text-muted)] hover:bg-[var(--modal-selected-surface)] rounded-lg transition-colors flex items-center gap-2 ${selectedPath === 'lobby' ? 'border border-[var(--modal-selected-border)] bg-[var(--modal-selected-surface)]' : ''}`}
           >
             <span className="text-base">🏠</span>
             <span>大厅 (无项目)</span>
@@ -253,14 +256,14 @@ export function DirectoryPickerModal({
 
         {/* ── Options bar: feat + pin + cats toggle (hidden when browser is open) ── */}
         <div
-          className={`px-5 py-2 border-t border-gray-100 flex items-center gap-3 flex-wrap ${showBrowser ? 'hidden' : ''}`}
+          className={`px-5 py-2 border-t border-[var(--modal-divider)] flex items-center gap-3 flex-wrap ${showBrowser ? 'hidden' : ''}`}
         >
           {backlogItems.length > 0 && (
             <div className="flex-1 min-w-[140px]">
               <select
                 value={selectedBacklogItemId}
                 onChange={(e) => setSelectedBacklogItemId(e.target.value)}
-                className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-cocreator-primary text-gray-600"
+                className="w-full text-xs px-2 py-1.5 rounded border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] focus:outline-none focus:ring-1 focus:ring-[var(--border-accent)] text-[var(--modal-text-muted)]"
               >
                 <option value="">关联 Feature（可选）</option>
                 {backlogItems.map((item) => (
@@ -271,22 +274,22 @@ export function DirectoryPickerModal({
               </select>
             </div>
           )}
-          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer flex-shrink-0">
+          <label className="flex items-center gap-1.5 text-xs text-[var(--modal-text-muted)] cursor-pointer flex-shrink-0">
             <input
               type="checkbox"
               checked={pinOnCreate}
               onChange={(e) => setPinOnCreate(e.target.checked)}
-              className="rounded border-gray-300 text-cocreator-primary focus:ring-cocreator-primary"
+              className="rounded border-[var(--modal-muted-border)] text-[var(--modal-accent-text)] focus:ring-[var(--border-accent)]"
             />
             <span>创建后置顶</span>
           </label>
           <button
             type="button"
             onClick={() => setCatsExpanded((v) => !v)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors ml-auto"
+            className="flex items-center gap-1 text-xs text-[var(--modal-text-muted)] hover:text-[var(--modal-text)] transition-colors ml-auto"
           >
             <span>{catsExpanded ? '收起列表' : '选智能体'}</span>
-            {catSummary && <span className="text-cocreator-primary">({catSummary})</span>}
+            {catSummary && <span className="text-[var(--modal-accent-text)]">({catSummary})</span>}
             <svg
               aria-hidden="true"
               className={`w-3 h-3 transition-transform ${catsExpanded ? 'rotate-180' : ''}`}
@@ -304,7 +307,7 @@ export function DirectoryPickerModal({
 
         {/* ── Cat selector (collapsed by default, hidden when browser is open) ── */}
         {catsExpanded && !showBrowser && (
-          <div className="px-5 py-2 border-t border-gray-100">
+          <div className="px-5 py-2 border-t border-[var(--modal-divider)]">
             <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
             {/* F33: Session binding */}
             {selectedCats.length > 0 && (
@@ -312,7 +315,7 @@ export function DirectoryPickerModal({
                 <button
                   type="button"
                   onClick={() => setBindExpanded((v) => !v)}
-                  className="w-full text-xs text-gray-500 hover:text-gray-700 flex items-center justify-between transition-colors py-1"
+                  className="w-full text-xs text-[var(--modal-text-muted)] hover:text-[var(--modal-text)] flex items-center justify-between transition-colors py-1"
                 >
                   <span>绑定外部 Session (可选)</span>
                   <svg
@@ -330,13 +333,13 @@ export function DirectoryPickerModal({
                 </button>
                 {bindExpanded && (
                   <div className="mt-1.5 space-y-2">
-                    <p className="text-[10px] text-gray-400">粘贴 Claude Code / Codex 的 Session ID，创建后自动绑定</p>
+                    <p className="text-[10px] text-[var(--modal-empty-text)]">粘贴 Claude Code / Codex 的 Session ID，创建后自动绑定</p>
                     {selectedCats.map((catId) => {
                       const cat = getCatById(catId);
                       const label = cat ? formatCatName(cat) : catId;
                       return (
                         <div key={catId} className="flex items-center gap-2">
-                          <span className="text-[11px] text-gray-600 w-16 truncate flex-shrink-0" title={label}>
+                          <span className="text-[11px] text-[var(--modal-text-muted)] w-16 truncate flex-shrink-0" title={label}>
                             {label}
                           </span>
                           <input
@@ -358,10 +361,18 @@ export function DirectoryPickerModal({
 
         {/* ── F113: Inline directory browser (replaces osascript picker) ── */}
         {showBrowser && (
-          <div className="border-t border-gray-100 flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="border-t border-[var(--modal-divider)] flex-1 min-h-0 flex flex-col overflow-hidden">
             <DirectoryBrowser
-              initialPath={cwdPath ?? undefined}
-              activeProjectPath={cwdPath ?? undefined}
+              initialPath={
+                selectedPath && selectedPath !== 'lobby'
+                  ? selectedPath
+                  : defaultWorkspacePath ?? cwdPath ?? undefined
+              }
+              activeProjectPath={
+                selectedPath && selectedPath !== 'lobby'
+                  ? selectedPath
+                  : defaultWorkspacePath ?? undefined
+              }
               onSelect={handleBrowserSelect}
               onCancel={() => setShowBrowser(false)}
             />
@@ -369,13 +380,13 @@ export function DirectoryPickerModal({
         )}
 
         {/* ── Bottom: browse button + path input + confirm ── */}
-        <div className="px-5 py-3 border-t border-gray-100 space-y-2 flex-shrink-0">
+        <div className="px-5 py-3 border-t border-[var(--modal-divider)] space-y-2 flex-shrink-0">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setShowBrowser((v) => !v)}
               className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
-                showBrowser ? 'bg-cocreator-primary text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                showBrowser ? 'bg-[var(--button-primary-bg)] text-[var(--button-primary-text)]' : 'bg-[var(--modal-button-muted-bg)] hover:bg-[var(--modal-button-muted-bg-hover)] text-[var(--modal-text)]'
               }`}
             >
               <FolderOpenIcon />
@@ -395,7 +406,7 @@ export function DirectoryPickerModal({
               <button
                 type="button"
                 onClick={handlePathSubmit}
-                className="px-2.5 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                className="px-2.5 py-2 rounded-lg bg-[var(--modal-button-muted-bg)] text-[var(--modal-text)] hover:bg-[var(--modal-button-muted-bg-hover)] transition-colors"
                 aria-label="跳转到路径"
               >
                 <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -408,15 +419,15 @@ export function DirectoryPickerModal({
               </button>
             )}
           </div>
-          {pathError && <p className="text-[10px] text-red-500">{pathError}</p>}
+          {pathError && <p className="text-[10px] text-[var(--modal-danger-text)]">{pathError}</p>}
           {/* F068-R7: Selected path hint + confirm button */}
           <div className="flex items-center gap-2 pt-1">
             {selectedPath && (
               <span
                 className={`truncate flex-1 ${
                   showBrowser
-                    ? 'text-xs font-medium text-cocreator-primary bg-cocreator-bg px-2 py-1 rounded-md'
-                    : 'text-[11px] text-gray-500'
+                    ? 'text-xs font-medium text-[var(--modal-accent-text)] bg-[var(--modal-selected-surface)] px-2 py-1 rounded-md'
+                    : 'text-[11px] text-[var(--modal-text-muted)]'
                 }`}
                 title={selectedPath === 'lobby' ? '大厅' : selectedPath}
               >
@@ -427,7 +438,7 @@ export function DirectoryPickerModal({
               type="button"
               onClick={confirmCreate}
               disabled={selectedPath === null}
-              className="ml-auto px-5 py-2 rounded-lg bg-cocreator-primary hover:bg-cocreator-dark text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="ml-auto px-5 py-2 rounded-lg bg-[var(--button-primary-bg)] hover:bg-[var(--button-primary-bg-hover)] text-[var(--button-primary-text)] text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               创建会话
             </button>

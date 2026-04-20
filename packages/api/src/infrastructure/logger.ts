@@ -16,9 +16,12 @@
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { format as utilFormat } from 'node:util';
 import pino from 'pino';
+
+const require = createRequire(import.meta.url);
 
 /**
  * --debug CLI flag: `node dist/index.js --debug` sets log level to 'debug'.
@@ -26,7 +29,8 @@ import pino from 'pino';
  */
 export const isDebugMode = process.argv.includes('--debug');
 const LOG_LEVEL = (isDebugMode ? 'debug' : (process.env.LOG_LEVEL ?? 'info')) as pino.Level;
-const LOG_DIR = resolve(process.cwd(), 'data', 'logs', 'api');
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
+const LOG_DIR = resolve(findMonorepoRoot(), 'data', 'logs', 'api');
 const RETENTION_FILES = 14;
 
 /**
@@ -34,10 +38,18 @@ const RETENTION_FILES = 14;
  * Uses fast-redact: compiled once at creation, zero per-log overhead.
  */
 const REDACT_PATHS = [
+  // === HTTP Headers ===
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["set-cookie"]',
   'req.headers["x-api-key"]',
+  'req.headers["x-callback-token"]',
+  'req.headers["x-cat-cafe-hook-token"]',
+  'req.headers["x-access-key"]',
+  'req.headers["x-acs-dingtalk-access-token"]',
+  'req.headers["x-goog-api-key"]',
+  'req.headers["x-sign"]',
+  // === Top-level fields ===
   'authorization',
   'cookie',
   'token',
@@ -48,8 +60,27 @@ const REDACT_PATHS = [
   'credential',
   'credentials',
   'callbackToken',
+  'hookToken',
+  'accessToken',
+  'sk',
+  'appSecret',
+  'privateKey',
+  'userId',
+  'CAT_CAFE_USER_ID',
+  // === Environment variables ===
   'OFFICE_CLAW_CALLBACK_TOKEN',
   'OFFICE_CLAW_ANTHROPIC_API_KEY',
+  'OFFICE_CLAW_HOOK_TOKEN',
+  'AOM_TOKEN',
+  'GITHUB_TOKEN',
+  'DINGTALK_APP_SECRET',
+  'WEIXIN_BOT_TOKEN',
+  'WECOM_BOT_SECRET',
+  'WECOM_AGENT_SECRET',
+  'WECOM_TOKEN',
+  'WECOM_ENCODING_AES_KEY',
+  'VAPID_PRIVATE_KEY',
+  'F102_API_KEY',
 ];
 
 if (!existsSync(LOG_DIR)) {
@@ -64,7 +95,7 @@ const transport = pino.transport({
       level: LOG_LEVEL,
     },
     {
-      target: 'pino-roll',
+      target: require.resolve('pino-roll'),
       options: {
         file: resolve(LOG_DIR, 'api.log'),
         frequency: 'daily',

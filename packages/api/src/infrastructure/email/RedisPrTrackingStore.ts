@@ -4,7 +4,7 @@
  *
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { CiStateFields, IPrTrackingStore, PrTrackingEntry, PrTrackingInput } from './PrTrackingStore.js';
 import { PrTrackingKeys } from './pr-tracking-keys.js';
 

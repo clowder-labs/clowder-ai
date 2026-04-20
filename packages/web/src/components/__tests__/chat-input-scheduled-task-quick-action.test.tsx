@@ -35,12 +35,18 @@ vi.mock('@/hooks/useCatData', () => ({
 vi.mock('@/utils/skill-options-cache', () => ({
   fetchSkillOptionsWithCache: () => Promise.resolve([]),
   seedSkillOptionsCache: vi.fn(),
+  SKILL_OPTIONS_UPDATED_EVENT: 'skill-options-updated',
 }));
 
-const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === '/icons/scheduled-task.svg');
+const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === '/icons/time-time.svg');
+const expertDebateAction = QUICK_ACTIONS.find((action) => action.icon === '/icons/expert-debate.svg');
 
 if (!scheduledTaskAction) {
   throw new Error('Missing scheduled task quick action config');
+}
+
+if (!expertDebateAction || !expertDebateAction.expertCards?.length) {
+  throw new Error('Missing expert debate quick action config');
 }
 
 function flush() {
@@ -108,5 +114,46 @@ describe('ChatInput scheduled task quick action injection', () => {
     for (const prompt of scheduledTaskAction.prompts) {
       expect(container.textContent).toContain(prompt);
     }
+  });
+
+  it('undoes expert card autofill back to the quick-action capsule state', async () => {
+    await act(async () => {
+      root.render(React.createElement(ChatInput, { threadId: 'thread-1', onSend: vi.fn() }));
+    });
+    await flush();
+
+    const quickActionButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes(expertDebateAction.label),
+    ) as HTMLButtonElement | undefined;
+    expect(quickActionButton).toBeTruthy();
+
+    act(() => {
+      quickActionButton!.click();
+    });
+    await flush();
+
+    const firstCard = expertDebateAction.expertCards[0]!;
+    const expertCardButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes(firstCard.agentName),
+    ) as HTMLButtonElement | undefined;
+    expect(expertCardButton).toBeTruthy();
+
+    act(() => {
+      expertCardButton!.click();
+    });
+    await flush();
+
+    const textbox = container.querySelector('[role="textbox"]') as HTMLDivElement | null;
+    expect(textbox).toBeTruthy();
+    expect(textbox!.textContent).toContain(expertDebateAction.label);
+    expect(textbox!.textContent).toContain(firstCard.agentName);
+
+    act(() => {
+      textbox!.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    await flush();
+
+    expect(textbox!.textContent).toContain(expertDebateAction.label);
+    expect(textbox!.textContent).not.toContain(firstCard.agentName);
   });
 });

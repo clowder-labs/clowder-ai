@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatInput } from '@/components/ChatInput';
+import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/components/icons/SendIcon', () => ({
   SendIcon: () => React.createElement('span', null, 'send'),
@@ -41,6 +42,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  useToastStore.setState({ toasts: [] });
 });
 
 afterEach(() => {
@@ -53,16 +55,68 @@ function render(props: Partial<React.ComponentProps<typeof ChatInput>> = {}) {
   act(() => {
     root.render(React.createElement(ChatInput, { ...defaults, ...props }));
   });
+  return defaults;
 }
 
 describe('ChatInput upload feedback', () => {
   it('shows uploading hint while image request is in progress', () => {
     render({ uploadStatus: 'uploading' });
-    expect(container.textContent).toContain('图片上传中，请稍候...');
+    expect(container.textContent).toContain('文件上传中，请稍候...');
   });
 
   it('shows visible error hint when image send fails', () => {
     render({ uploadStatus: 'failed', uploadError: '上传超时' });
-    expect(container.textContent).toContain('图片发送失败：上传超时');
+    expect(container.textContent).toContain('文件发送失败：上传超时');
+  });
+
+  it('blocks oversized files (>10MB) and shows a toast', () => {
+    render();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const oversized = new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'oversized.pdf', {
+      type: 'application/pdf',
+    });
+
+    Object.defineProperty(fileInput!, 'files', {
+      configurable: true,
+      value: [oversized],
+    });
+
+    act(() => {
+      fileInput!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    expect(latestToast?.title).toBe('上传失败');
+    expect(latestToast?.message).toContain('最大支持 10MB');
+
+  });
+
+  it('blocks selecting more than 5 attachments and shows a toast', () => {
+    render();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const files = Array.from({ length: 6 }, (_, index) =>
+      new File([`file-${index}`], `file-${index}.pdf`, {
+        type: 'application/pdf',
+      }),
+    );
+
+    Object.defineProperty(fileInput!, 'files', {
+      configurable: true,
+      value: files,
+    });
+
+    act(() => {
+      fileInput!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    expect(latestToast?.title).toBe('附件数量已达上限');
+    expect(latestToast?.message).toContain('最多支持选择 5 个附件');
   });
 });

@@ -6,15 +6,18 @@
 
 'use client';
 
+import { transform } from 'esbuild-wasm';
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
-import { transform } from 'esbuild-wasm';
+import { EmptyDataState } from './shared/EmptyDataState';
+import { SearchInput } from './shared/SearchInput';
 
 type AgentTabKey = 'persona' | 'collab' | 'skills';
 type EditableTabKey = 'persona' | 'collab';
@@ -46,12 +49,26 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 
 const TEMPLATE_PAGE_SIZE = 4;
 const ACTION_MENU_ITEM_CLASS =
-  'flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition text-black';
+  'group flex h-8 w-full items-center gap-2 rounded-[6px] px-[16px] py-[7px] text-left text-[12px] font-medium text-[var(--overlay-text)] transition-colors enabled:hover:bg-[var(--overlay-item-hover-bg)]';
+const ACTION_MENU_EDIT_ITEM_CLASS = `${ACTION_MENU_ITEM_CLASS} enabled:hover:text-[var(--text-accent)]`;
+const ACTION_MENU_DELETE_ITEM_CLASS = `${ACTION_MENU_ITEM_CLASS} enabled:hover:text-[var(--state-error-text)]`;
 const ACTION_MENU_VIEWPORT_PADDING = 12;
 const ACTION_MENU_OFFSET_Y = 8;
 const ACTION_MENU_ALIGN_RIGHT_OFFSET = 24;
 const ACTION_MENU_FALLBACK_WIDTH = 136;
 const ACTION_MENU_FALLBACK_HEIGHT = 96;
+const AGENT_CARD_CLASS =
+  'relative h-[76px] border px-3 py-2 transition-[border-color,background-color,box-shadow] [border-radius:var(--connector-tab-radius)]';
+const AGENT_CARD_DEFAULT_CLASS =
+  'border-[var(--connector-tab-border-default)] bg-[var(--connector-tab-bg-default)] hover:border-[var(--connector-tab-border-hover)] hover:bg-[var(--connector-tab-bg-hover)] hover:shadow-[var(--card-hover-shadow)]';
+const AGENT_CARD_SELECTED_CLASS =
+  'border-[var(--connector-tab-border-selected)] bg-[var(--connector-tab-bg-selected)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-hover-shadow)]';
+const AGENT_CARD_MENU_BUTTON_CLASS =
+  'inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition-colors';
+const AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS =
+  'bg-[var(--overlay-item-hover-bg)] text-[var(--text-accent)]';
+const AGENT_CARD_MENU_BUTTON_IDLE_CLASS =
+  'text-[var(--text-muted)] hover:bg-[var(--overlay-item-hover-bg)] hover:text-[var(--text-accent)]';
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
@@ -139,15 +156,6 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
 - 默认补充图表建议、后续验证方向和数据缺口。`,
   },
 ];
-
-function SearchIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function PersonaIcon(props: IconProps) {
   return <AgentManagementIcon name="persona" className={props.className} />;
@@ -266,7 +274,7 @@ function renderAvatar(cat: CatData) {
   return (
     <div
       className="flex h-11 w-11 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-      style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
+      style={{ backgroundColor: cat.color?.primary ?? 'var(--accent-primary)' }}
     >
       <span>{avatar || catInitial(cat.displayName)}</span>
     </div>
@@ -308,6 +316,17 @@ export function AgentsPanel() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [deleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
   const [catToDelete, setCatToDelete] = useState<string | null>(null);
+
+  const closeDeleteConfirmModal = useCallback(() => {
+    setDeleteConfirmModalOpen(false);
+    setCatToDelete(null);
+  }, []);
+
+  useEscapeKey({
+    enabled: deleteConfirmModalOpen,
+    onEscape: closeDeleteConfirmModal,
+  });
+
   const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const [templateBubblePosition, setTemplateBubblePosition] = useState<TemplateBubblePosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -348,6 +367,7 @@ export function AgentsPanel() {
     : EMPTY_EDITABLE_DRAFTS;
 
   const canEditActiveTab = currentTab.editable && isEditableTab(activeTab);
+  const canEditPersona = canEditActiveTab && activeTab === 'persona' && selectedCat?.source === 'runtime';
   const activeSavedDraft = canEditActiveTab ? selectedSavedDrafts[activeTab] : '';
   const activeWorkingDraft = canEditActiveTab ? selectedWorkingDrafts[activeTab] : '';
   const showEmptyPersonaEditor = mode === 'edit' && activeTab === 'persona' && !activeWorkingDraft.trim();
@@ -775,9 +795,9 @@ export function AgentsPanel() {
     <button
       type="button"
       onClick={handleStartEdit}
-      disabled={!canEditActiveTab}
+      disabled={!canEditPersona}
       className={`inline-flex h-[18px] w-[44px] items-center justify-center gap-1 text-[12px] font-normal transition ${
-        canEditActiveTab
+        canEditPersona
           ? 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           : 'cursor-not-allowed text-[var(--text-subtle)]'
       }`}
@@ -854,38 +874,35 @@ export function AgentsPanel() {
       return (
         <div className="flex h-full min-h-0 flex-col items-center justify-center px-8 pb-6">
           <div className="text-center">
-            <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">暂无内容</h3>
-            <p className="text-[12px] text-[var(--text-secondary)] mt-1" >当前暂无内容，您可以填写后获取数据。</p>
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              disabled={!canEditActiveTab}
-              className={`mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition ${
-                !canEditActiveTab ? 'cursor-not-allowed opacity-50' : 'hover:bg-black/5'
-              }`}
-            >
-              编辑
-            </button>
+            <EmptyDataState title="暂无内容" />
+            <p className="text-[12px] text-[var(--text-secondary)] mt-1">当前暂无内容，您可以填写后获取数据。</p>
+            {canEditPersona ? (
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                className="ui-button-default mt-4 inline-flex h-7 min-w-[72px] items-center justify-center px-6 py-[5px] text-[12px] font-normal"
+              >
+                编辑
+              </button>
+            ) : null}
           </div>
         </div>
       );
     }
 
     return (
-      <div className="h-full px-8 pb-6">
-        <div className="h-full">
-          <MarkdownContent
-            content={content}
-            className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
-            disableCommandPrefix
-          />
-        </div>
+      <div data-testid="agent-tab-preview" className="min-h-full px-8 pb-6">
+        <MarkdownContent
+          content={content}
+          className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
+          disableCommandPrefix
+        />
       </div>
     );
   };
 
   const renderMarkdownEditor = () => (
-    <div className="flex h-full min-h-0 flex-col px-8 pb-6">
+    <div data-testid="agent-tab-editor" className="flex min-h-full flex-col px-8 pb-6">
       <div ref={editorSurfaceRef} className="min-h-0 flex-1">
         <textarea
           ref={editorTextareaRef}
@@ -907,8 +924,8 @@ export function AgentsPanel() {
   );
 
   const renderPersonaEmptyEditor = () => (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <div className="px-8 pb-3">
+    <div data-testid="agent-tab-empty-editor" className="relative flex min-h-full flex-col px-8 pb-6">
+      <div className="shrink-0 pb-3">
         <textarea
           value={activeWorkingDraft}
           onChange={(event) => {
@@ -920,8 +937,8 @@ export function AgentsPanel() {
           data-testid="agent-tab-textarea"
         />
       </div>
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6">
-        <div className="mt-auto mx-auto w-full">
+      <div className="relative mt-5 flex flex-col">
+        <div className="mx-auto w-full">
           <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
@@ -981,10 +998,12 @@ export function AgentsPanel() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
+                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition-[border-color,background-color,box-shadow] hover:border-[var(--card-hover-border)] hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.dexcription}</div>
+                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
+                      {template.dexcription}
+                    </div>
                   </button>
                 </div>
               );
@@ -994,7 +1013,7 @@ export function AgentsPanel() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[400px] h-[300px] flex flex-col shadow-[0_2px_12px_0_rgba(0,0,0,0.16)] rounded-[8px]"
+              className="fixed z-40 flex h-[300px] w-[400px] flex-col rounded-[8px] shadow-[var(--overlay-shadow)]"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -1101,17 +1120,17 @@ export function AgentsPanel() {
       <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
           <aside className="relative flex h-full w-[322px] shrink-0 flex-col px-4 py-6">
-            <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-[calc(100%-4px)] items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
-              <SearchIcon className="h-3.5 w-3.5 shrink-0" />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="搜索智能体"
-                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px] pl-0"
-              />
-            </label>
+            <SearchInput
+              wrapperClassName="mb-3"
+              value={searchQuery}
+              onChange={(value) => setSearchQuery(value)}
+              onClear={() => setSearchQuery('')}
+              placeholder="搜索智能体"
+              aria-label="搜索智能体"
+              clearAriaLabel="清除搜索"
+            />
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {filteredCats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const modelText = cat.defaultModel || '未配置模型';
@@ -1122,15 +1141,7 @@ export function AgentsPanel() {
                   <div
                     key={cat.id}
                     data-testid={`agent-card-${cat.id}`}
-                    className="relative h-[76px] border px-3 py-2 transition-colors [border-radius:var(--connector-tab-radius)]"
-                    style={{
-                      borderColor: isSelected
-                        ? 'var(--connector-tab-border-selected)'
-                        : 'var(--border-default)',
-                      backgroundColor: isSelected
-                        ? 'var(--connector-tab-bg-selected)'
-                        : 'var(--connector-tab-bg-default)',
-                    }}
+                    className={`${AGENT_CARD_CLASS} ${isSelected ? AGENT_CARD_SELECTED_CLASS : AGENT_CARD_DEFAULT_CLASS}`}
                   >
                     <div className="flex h-full items-center gap-3">
                       <button
@@ -1154,9 +1165,7 @@ export function AgentsPanel() {
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">
-                            {modelText}
-                          </span>
+                          <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">{modelText}</span>
                         </span>
                       </button>
 
@@ -1179,10 +1188,10 @@ export function AgentsPanel() {
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition ${
+                          className={`${AGENT_CARD_MENU_BUTTON_CLASS} ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[#f5f5f5] text-[var(--text-accent)]'
-                              : 'text-[var(--text-muted)] hover:bg-[#f5f5f5] hover:text-[var(--text-accent)]'
+                              ? AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS
+                              : AGENT_CARD_MENU_BUTTON_IDLE_CLASS
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1207,7 +1216,7 @@ export function AgentsPanel() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[80px] rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1.5 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+                className="ui-overlay-card fixed z-40 w-[80px] rounded-[6px] py-2 shadow-[var(--overlay-shadow)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1220,9 +1229,9 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[#f5f5f5]`}
+                  className={ACTION_MENU_EDIT_ITEM_CLASS}
                 >
-                  <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
+                  <EditIcon className="h-3.5 w-3.5 text-current" />
                   <span>编辑</span>
                 </button>
                 <button
@@ -1237,14 +1246,14 @@ export function AgentsPanel() {
                     setOpenActionMenuCatId(null);
                     setActionMenuPosition(null);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} ${
+                  className={`${ACTION_MENU_DELETE_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[#f5f5f5]'
+                      ? ''
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
                   <TrashIcon
-                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[var(--state-error-text)]' : 'text-[var(--text-subtle)]'}`}
+                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-current' : 'text-[var(--text-subtle)]'}`}
                   />
                   <span>删除</span>
                 </button>
@@ -1257,19 +1266,14 @@ export function AgentsPanel() {
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
                   const TabIcon = tab.icon;
-                  const isActive = tab.id === activeTab;
 
                   return (
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => {
-                        setActiveTab(tab.id);
-                        setMode('preview');
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
-                        isActive ? 'bg-[rgba(230,230,230,1)]' : ' hover:bg-[#F8FAFC]'
-                      }`}
+                      disabled
+                      aria-disabled="true"
+                      className="inline-flex cursor-default items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[var(--text-primary)]"
                       data-testid={`agent-tab-${tab.id}`}
                     >
                       <TabIcon className="h-3.5 w-3.5" />
@@ -1286,7 +1290,9 @@ export function AgentsPanel() {
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab
                     ? renderEditActions()
-                    : renderPreviewActions()
+                    : canEditPersona
+                      ? renderPreviewActions()
+                      : null
                   : null}
               </div>
 
@@ -1339,26 +1345,19 @@ export function AgentsPanel() {
 
       {/* 删除确认弹窗 */}
       {deleteConfirmModalOpen && catToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        >
-          <div
-            className="w-[400px] rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)]">
+          <div className="w-[400px] rounded-[8px] border border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[16px] font-bold text-gray-900">确认删除智能体</h3>
+                  <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">确认删除智能体</h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
-                  }}
+                  onClick={closeDeleteConfirmModal}
                   aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-                 style={{ transform: 'translate(4px, -4px)' }}
+                  className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                  style={{ transform: 'translate(4px, -4px)' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -1367,20 +1366,11 @@ export function AgentsPanel() {
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm text-gray-600">
-                  是否确认删除?删除后数据将不可恢复。
-                </p>
+                <p className="text-sm text-[var(--modal-text-muted)]">是否确认删除?删除后数据将不可恢复。</p>
               </div>
 
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
-                  }}
-                  className="ui-button-default font-normal"
-                >
+                <button type="button" onClick={closeDeleteConfirmModal} className="ui-button-default font-normal">
                   取消
                 </button>
                 <button
@@ -1389,8 +1379,7 @@ export function AgentsPanel() {
                     if (catToDelete) {
                       await handleDeleteMember(catToDelete);
                     }
-                    setDeleteConfirmModalOpen(false);
-                    setCatToDelete(null);
+                    closeDeleteConfirmModal();
                   }}
                   className="ui-button-primary font-normal"
                 >
@@ -1404,4 +1393,3 @@ export function AgentsPanel() {
     </div>
   );
 }
-

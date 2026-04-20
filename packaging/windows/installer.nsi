@@ -43,6 +43,7 @@ SetFont "Segoe UI" 9
 !define AUTOSTART_VALUE "${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
 !define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
+!define INSTALLER_MUTEX_NAME "Local\${COMPANY_KEY}.${APP_NAME}.InstallerSession"
 
 Name "${APP_NAME}"
 OutFile "${OUTPUT_EXE}"
@@ -50,10 +51,11 @@ InstallDir "${DEFAULT_INSTALL_DIR}"
 InstallDirRegKey HKCU "${INSTALL_KEY}" "InstallDir"
 BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
-ShowUninstDetails nevershow
+ShowUninstDetails show
 
 Var SelectedInstallDir
 Var ExistingInstallDir
+Var InstallerMutexHandle
 
 ; --------------- License page (custom nsDialogs) ---------------
 Page custom LicensePageCreate LicensePageLeave
@@ -61,11 +63,8 @@ Page custom LicensePageCreate LicensePageLeave
 ; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
 Page custom WelcomePageCreate
 
-; --------------- Directory page ---------------
-!define MUI_DIRECTORYPAGE_VARIABLE $SelectedInstallDir
-!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
-!insertmacro MUI_PAGE_DIRECTORY
+; --------------- Directory page (custom nsDialogs) ---------------
+Page custom DirectoryPageCreate DirectoryPageLeave
 
 ; --------------- Options page ---------------
 Page custom OptionsPageCreate OptionsPageLeave
@@ -88,6 +87,9 @@ Var AgreeRadio
 Var DisagreeRadio
 Var NextButton
 Var WelcomeDialog
+Var DirectoryDialog
+Var DirectoryInput
+Var DirectoryBrowseButton
 Var OptionsDialog
 Var StartMenuShortcutCheckbox
 Var DesktopShortcutCheckbox
@@ -98,6 +100,7 @@ Var CreateStartMenuShortcut
 Var CreateDesktopShortcut
 Var EnableAutoStart
 Var DetectedRunningProcesses
+Var IsExistingInstall
 
 ; Check if OfficeClaw-related processes are running
 ; Returns "1" in $R0 if running, "0" otherwise
@@ -181,12 +184,19 @@ Function LicensePageCreate
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 46uu 10u "2.了解和同意"
+  ${NSD_CreateLabel} 10u 40u 46u 10u "2.了解和同意"
   Pop $0
 
   ${NSD_CreateLink} 56u 40u 100% 10u "AgentArts服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
+
+  ${NSD_CreateLabel} 10u 55u 46u 10u "3.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 56u 55u 100% 10u "华为云公测试用服务协议"
+  Pop $1
+  ${NSD_OnClick} $1 "OnTestServiceLinkClick"
 
   ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(&A)"
   Pop $AgreeRadio
@@ -209,6 +219,11 @@ FunctionEnd
 Function OnServiceLinkClick
   Pop $0
   ExecShell "open" "https://www.huaweicloud.com/declaration/agentarts.html"
+FunctionEnd
+
+Function OnTestServiceLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/fsa_test.html"
 FunctionEnd
 
 Function OnAgreementChanged
@@ -235,13 +250,8 @@ Function WelcomePageCreate
     Abort
   ${EndIf}
 
-  ${If} $ExistingInstallDir != ""
-    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n已检测到本机已安装 ${APP_NAME}，本次将沿用现有安装目录进行更新。$\r$\n$\r$\n您下一步可以确认快捷方式和启动方式等安装选项。"
-    Pop $0
-  ${Else}
-    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
-    Pop $0
-  ${EndIf}
+  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」继续。"
+  Pop $0
 
   nsDialogs::Show
 FunctionEnd
@@ -329,16 +339,42 @@ Function FinishPageLeave
   ${EndIf}
 FunctionEnd
 
+Function AcquireInstallerSessionMutex
+  ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
+  ; cannot race on the same install dir, payload archive, or uninstall registry.
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0 ?e'
+  StrCpy $InstallerMutexHandle $0
+  Pop $1
+  ${If} $1 == 183
+    MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function un.AcquireInstallerSessionMutex
+  ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
+  ; cannot race on the same install dir, payload archive, or uninstall registry.
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0 ?e'
+  StrCpy $InstallerMutexHandle $0
+  Pop $1
+  ${If} $1 == 183
+    MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
+    Abort
+  ${EndIf}
+FunctionEnd
+
 Function .onInit
   SetShellVarContext current
+  Call AcquireInstallerSessionMutex
   Call ResolveExistingInstallDir
   Call ResolveInstallOptionDefaults
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
-    MessageBox MB_ICONINFORMATION|MB_OK "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$ExistingInstallDir$\r$\n$\r$\n如需更换安装位置，请先卸载当前版本。"
+    StrCpy $IsExistingInstall "1"
   ${Else}
     StrCpy $SelectedInstallDir $INSTDIR
+    StrCpy $IsExistingInstall "0"
   ${EndIf}
 
   ; Check if OfficeClaw is running
@@ -353,6 +389,7 @@ FunctionEnd
 
 Function un.onInit
   SetShellVarContext current
+  Call un.AcquireInstallerSessionMutex
 
   ; Check if OfficeClaw is running before uninstall
   Call un.CheckOfficeClawRunning
@@ -360,13 +397,6 @@ Function un.onInit
     MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n卸载需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续卸载？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续卸载。$\r$\n选择「否」将退出卸载程序。" IDYES proceed_uninstall
     Abort
   proceed_uninstall:
-  ${EndIf}
-FunctionEnd
-
-Function .onVerifyInstDir
-  StrLen $0 $INSTDIR
-  ${If} $0 > 200
-    Abort
   ${EndIf}
 FunctionEnd
 
@@ -407,43 +437,282 @@ Function ResolveInstallOptionDefaults
   ${EndIf}
 FunctionEnd
 
-Function RestoreInstallDirSelection
+Function DirectoryPageCreate
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
-    Abort
-  ${EndIf}
-
-  ${If} $SelectedInstallDir == ""
-    StrCpy $SelectedInstallDir $INSTDIR
+  ${ElseIf} $SelectedInstallDir == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+    StrCpy $INSTDIR $SelectedInstallDir
   ${Else}
+    Call NormalizeSelectedInstallDir
     StrCpy $INSTDIR $SelectedInstallDir
   ${EndIf}
+
+  ${If} $IsExistingInstall == "1"
+    !insertmacro MUI_HEADER_TEXT "安装目录" "本次安装将更新现有安装"
+  ${Else}
+    !insertmacro MUI_HEADER_TEXT "选择安装目录" "选择 ${APP_NAME} 的安装位置"
+  ${EndIf}
+  
+  nsDialogs::Create 1018
+  Pop $DirectoryDialog
+  ${If} $DirectoryDialog == error
+    Abort
+  ${EndIf}
+  
+  ${If} $IsExistingInstall == "1"
+    ; 已安装场景：显示警告和只读目录
+    ${NSD_CreateLabel} 0 0 100% 30u "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$\r$\n安装目录不可修改，如需更换位置请先卸载当前版本。"
+    Pop $0
+    SetCtlColors $0 0x0000FF transparent
+    
+    ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
+    Pop $0
+    
+    ${NSD_CreateText} 55u 35u 245u 12u "$ExistingInstallDir"
+    Pop $DirectoryInput
+    EnableWindow $DirectoryInput 0
+    SetCtlColors $DirectoryInput 0x808080 0xF0F0F0
+  ${Else}
+    ; 新装场景：可编辑的目录选择
+    ${NSD_CreateLabel} 0 0 100% 24u "请选择安装路径。若选择父目录，安装器会自动在其下创建 ${APP_NAME} 子目录。$\r$\n$\r$\n建议使用默认目录，安装路径过长可能导致部分功能异常。"
+    Pop $0
+    
+    ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
+    Pop $0
+    
+    ${NSD_CreateText} 55u 35u 205u 12u "$SelectedInstallDir"
+    Pop $DirectoryInput
+    
+    ${NSD_CreateButton} 265u 35u 35u 12u "浏览..."
+    Pop $DirectoryBrowseButton
+    ${NSD_OnClick} $DirectoryBrowseButton OnDirectoryBrowseClicked
+  ${EndIf}
+  
+  nsDialogs::Show
 FunctionEnd
 
-Function VerifyInstallDirLeave
+Function OnDirectoryBrowseClicked
+  ${If} $DirectoryInput == 0
+    Return
+  ${EndIf}
+
+  ${NSD_GetText} $DirectoryInput $0
+  nsDialogs::SelectFolderDialog "选择安装目录" $0
+  Pop $0
+  ${If} $0 == error
+    Return
+  ${EndIf}
+  StrCpy $SelectedInstallDir $0
+  Call NormalizeSelectedInstallDir
+  StrCpy $INSTDIR $SelectedInstallDir
+  ${NSD_SetText} $DirectoryInput $SelectedInstallDir
+FunctionEnd
+
+Function CheckDirectoryRequiresAdmin
+  ; Check if the selected directory requires admin privileges by attempting to create it
+  ; Returns "1" in $R0 if admin required, "0" otherwise
+  StrCpy $R0 "0"
+
+  ; First check common system directories (fast path)
+  StrCpy $0 $SelectedInstallDir
+  ${If} $0 != ""
+    StrCpy $1 $0 15
+    ${If} $1 == "C:\Program Fil"
+    ${OrIf} $1 == "c:\program fil"
+    ${OrIf} $1 == "C:/Program Fil"
+    ${OrIf} $1 == "c:/program fil"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+
+    ; Check for other drive letters with Program Files
+    StrCpy $2 $0 1
+    StrCpy $3 $0 14 2
+    ${If} $3 == "\Program Files"
+    ${OrIf} $3 == "\program files"
+    ${OrIf} $3 == "/Program Files"
+    ${OrIf} $3 == "/program files"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+
+    ; Check for Windows directory
+    StrCpy $1 $0 10
+    ${If} $1 == "C:\Windows"
+    ${OrIf} $1 == "c:\windows"
+    ${OrIf} $1 == "C:/Windows"
+    ${OrIf} $1 == "c:/windows"
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  ; Actually test write permission by attempting to create the directory
+  ; This catches any directory with restrictive NTFS permissions
+  ClearErrors
+  CreateDirectory "$SelectedInstallDir"
+  ${If} ${Errors}
+    ; Failed to create directory - likely permission issue
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+
+  ; Try to create a test file
+  ClearErrors
+  FileOpen $1 "$SelectedInstallDir\.write-test-$$" w
+  ${If} ${Errors}
+    ; Failed to create file - no write permission
+    RMDir "$SelectedInstallDir"
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+
+  ; Cleanup test file and directory
+  FileClose $1
+  Delete "$SelectedInstallDir\.write-test-$$"
+  RMDir "$SelectedInstallDir"
+FunctionEnd
+
+Function NormalizeSelectedInstallDir
   ${If} $ExistingInstallDir != ""
+    Return
+  ${EndIf}
+
+  StrCpy $0 $SelectedInstallDir
+
+trim_trailing_separator:
+  StrLen $1 $0
+  ${If} $1 <= 3
+    Goto check_suffix
+  ${EndIf}
+
+  IntOp $2 $1 - 1
+  StrCpy $3 $0 1 $2
+  ${If} $3 == "\"
+  ${OrIf} $3 == "/"
+    StrCpy $0 $0 $2
+    Goto trim_trailing_separator
+  ${EndIf}
+
+check_suffix:
+  ${If} $0 == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+    Return
+  ${EndIf}
+
+  StrLen $1 "${APP_NAME}"
+  StrLen $2 $0
+  ${If} $2 >= $1
+    IntOp $3 $2 - $1
+    StrCpy $4 $0 "" $3
+    ${If} $4 == "${APP_NAME}"
+      ${If} $3 == 0
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+
+      IntOp $5 $3 - 1
+      StrCpy $6 $0 1 $5
+      ${If} $6 == "\"
+      ${OrIf} $6 == "/"
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+
+  StrCpy $SelectedInstallDir "$0\${APP_NAME}"
+FunctionEnd
+
+Function DirectoryPageLeave
+  ${If} $IsExistingInstall == "1"
+    ; 已安装场景，保持原目录
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
     Return
   ${EndIf}
 
-  StrCpy $SelectedInstallDir $INSTDIR
+  ; 新装场景，获取用户输入
+  ${NSD_GetText} $DirectoryInput $SelectedInstallDir
+  Call NormalizeSelectedInstallDir
+
   StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
     MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
   ${EndIf}
+
+  ${If} $SelectedInstallDir == ""
+    MessageBox MB_ICONEXCLAMATION|MB_OK "请选择安装目录。"
+    Abort
+  ${EndIf}
+
+  ; Check if selected directory requires admin privileges
+  Call CheckDirectoryRequiresAdmin
+  ${If} $R0 == "1"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "所选目录需要管理员权限，无法安装。$\r$\n$\r$\n请选择以下位置之一：$\r$\n  · $LOCALAPPDATA\Programs\${APP_NAME}（推荐）$\r$\n  · $PROFILE\${APP_NAME}$\r$\n  · 其他用户目录"
+    Abort
+  ${EndIf}
+
+  StrCpy $INSTDIR $SelectedInstallDir
+  ${NSD_SetText} $DirectoryInput $SelectedInstallDir
 FunctionEnd
 
-; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).
-; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
-; IMPORTANT: Uses registry InstallDir (old install path) for path-based kills, not $INSTDIR (new path).
-; This ensures processes from previous installation are killed even when reinstalling to a different directory.
+; Stop OfficeClaw services by delegating to stop-windows.ps1 when available.
+; Falls back to direct process termination if the script is not found.
+; IMPORTANT: Uses registry InstallDir (old install path) to locate the stop script,
+; ensuring processes from previous installation are stopped even when reinstalling to a different directory.
 !macro _ForceKillInstalledProcesses
-  ; 1. Kill desktop launcher by name only when it exists
+  ; First, try to use stop-windows.ps1 from the installed directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    IfFileExists "$0\scripts\stop-windows.ps1" use_stop_script 0
+  ${EndIf}
+
+  ; Fallback: direct process termination when stop-windows.ps1 is not available
+  Goto fallback_kill
+
+use_stop_script:
+  DetailPrint "正在通过 stop-windows.ps1 停止服务..."
+  ; Execute stop-windows.ps1 with 60 second timeout
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "& { Set-Location \"$0\"; & \"$0\scripts\stop-windows.ps1\" }"'
+  Pop $1
+  ${If} $1 == "timeout"
+    DetailPrint "stop-windows.ps1 执行超时，使用备用方式终止进程..."
+    Goto fallback_kill
+  ${ElseIf} $1 != 0
+    DetailPrint "stop-windows.ps1 执行失败 (错误码: $1)，使用备用方式终止进程..."
+    Goto fallback_kill
+  ${EndIf}
+
+  ; Verify processes are stopped, force-kill any remaining
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
   Pop $0
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
+  Pop $0
+
+  ; Kill remaining node/python processes from the install directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+    ; Also kill processes with jiuwenclaw in command line
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
+    Pop $1
+  ${EndIf}
+
+  Sleep 3000
+  Goto done_kill
+
+fallback_kill:
+  ; 1. Kill desktop launcher by name
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
+  Pop $0
+
   ; 2. Kill jiuwenclaw.exe (sidecar agent) by name
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
   Pop $0
@@ -463,48 +732,27 @@ FunctionEnd
     Pop $0
   ${EndIf}
 
-  ; 4. Multi-round force kill (10 rounds, 5s interval each) - ensures all processes are killed
-  ;    Total ~50s wait time, guarantees all processes terminated and file handles released
-  ;    Round 1-10: Kill processes whose command line contains 'jiuwenclaw' and path-based matches
+  ; 4. Kill processes whose command line contains 'jiuwenclaw' and path-based matches
+  ;    Do 3 rounds with 3s interval each for robustness
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
-  Sleep 5000
+  Sleep 3000
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+  ${EndIf}
+  Sleep 3000
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+  ; Final round: kill any remaining processes from install directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+  ${EndIf}
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+done_kill:
 !macroend
 
 Function CloseRunningServices
@@ -574,7 +822,7 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
 FunctionEnd
 
-; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
+; Delete all managed dirs/files in $INSTDIR, preserving user-data (.office-claw, data, logs, .env, cat-config.json).
 ; Uses cmd /c rd /s /q for speed — handles tens of thousands of files near-instantly.
 !macro _CleanupManagedPayload
   nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\packages" rd /s /q "$INSTDIR\packages"'
@@ -612,6 +860,11 @@ FunctionEnd
   Delete "$INSTDIR\.npmrc"
   Delete "$INSTDIR\office-claw-template.json"
   Delete "$INSTDIR\pnpm-workspace.yaml"
+  Delete "$INSTDIR\OfficeClaw.exe"
+  Delete "$INSTDIR\OfficeClaw.exe.config"
+  Delete "$INSTDIR\Microsoft.Web.WebView2.Core.dll"
+  Delete "$INSTDIR\Microsoft.Web.WebView2.WinForms.dll"
+  Delete "$INSTDIR\WebView2Loader.dll"
 !macroend
 
 Function CleanupManagedPayload
@@ -652,7 +905,7 @@ Function WriteUninstallRegistry
   WriteRegStr HKCU "${INSTALL_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "huawei cloud"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Huawei Cloud"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\assets\app.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -682,16 +935,62 @@ Section "Install"
   DetailPrint "正在解压安装文件..."
   nsExec::ExecToLog '"$WINDIR\System32\tar.exe" -xzf "$INSTDIR\payload.tar.gz" -C "$INSTDIR"'
   Pop $0
+  ${If} $0 != 0
+    DetailPrint "警告: tar 解压返回错误码 $0"
+  ${EndIf}
+
   Delete "$INSTDIR\payload.tar.gz"
 
   CreateDirectory "$INSTDIR\data"
   CreateDirectory "$INSTDIR\logs"
   CreateDirectory "$INSTDIR\.office-claw"
 
-  IfFileExists "$INSTDIR\.env" +2 0
-    CopyFiles /SILENT "$INSTDIR\.env.example" "$INSTDIR\.env"
-  IfFileExists "$INSTDIR\office-claw-config.json" +2 0
-    CopyFiles /SILENT "$INSTDIR\installer-seed\office-claw-config.json" "$INSTDIR\office-claw-config.json"
+  ; Create .env from .env.example if .env doesn't exist
+  IfFileExists "$INSTDIR\.env" env_already_exists 0
+    IfFileExists "$INSTDIR\.env.example" copy_env_example 0
+      DetailPrint "错误: .env.example 文件未找到，无法创建 .env"
+      Goto env_done
+    copy_env_example:
+      ; Try cmd copy first (more reliable with logging)
+      nsExec::ExecToStack 'cmd /c copy /Y "$INSTDIR\.env.example" "$INSTDIR\.env" >nul 2>&1'
+      Pop $0
+      Pop $1
+      IfFileExists "$INSTDIR\.env" env_copy_success 0
+        ; Fallback 1: NSIS CopyFiles without /SILENT to see errors
+        ClearErrors
+        CopyFiles "$INSTDIR\.env.example" "$INSTDIR\.env"
+        IfErrors 0 env_copy_success
+          ; Fallback 2: PowerShell Copy-Item
+          nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Copy-Item -Path \"$INSTDIR\.env.example\" -Destination \"$INSTDIR\.env\" -Force" 2>$$null'
+          Pop $1
+          Pop $2
+          IfFileExists "$INSTDIR\.env" env_copy_success 0
+            DetailPrint "错误: .env 文件创建失败"
+            Goto env_done
+    env_copy_success:
+      DetailPrint ".env 配置文件写入成功"
+      Goto env_done
+  env_already_exists:
+    DetailPrint ".env 配置文件已存在，跳过写入"
+  env_done:
+
+  IfFileExists "$INSTDIR\office-claw-config.json" config_already_exists 0
+    IfFileExists "$INSTDIR\installer-seed\office-claw-config.json" config_source_exists config_source_missing
+    config_source_exists:
+      CopyFiles /SILENT "$INSTDIR\installer-seed\office-claw-config.json" "$INSTDIR\office-claw-config.json"
+      IfFileExists "$INSTDIR\office-claw-config.json" config_copy_success config_copy_failed
+    config_copy_success:
+      DetailPrint "office-claw-config.json 写入成功"
+      Goto config_done
+    config_copy_failed:
+      DetailPrint "警告: office-claw-config.json 复制失败"
+      Goto config_done
+    config_source_missing:
+      DetailPrint "提示: installer-seed/office-claw-config.json 不存在，跳过"
+      Goto config_done
+  config_already_exists:
+    DetailPrint "office-claw-config.json 已存在，跳过写入"
+  config_done:
 
   ; 检查并安装 WebView2 运行时
   DetailPrint "正在检查 WebView2 运行时..."
@@ -727,9 +1026,46 @@ webview2_found:
   DetailPrint "WebView2 已安装 (版本: $0$1)"
 webview2_done:
 
+  ; 检查并安装 VC++ 运行时库 (2015-2022 x64)
+  DetailPrint "正在检查 VC++ 运行时库..."
+  ; 检查 HKLM (per-machine) 注册表 - VC++ 2015-2022 x64
+  ReadRegDWORD $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $0 == 1
+    DetailPrint "VC++ x64 运行时已安装"
+    Goto vc_done
+  ${EndIf}
+
+  ; 检查 HKCU (per-user) 注册表 - 有些情况可能安装在这里
+  ReadRegDWORD $1 HKCU "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $1 == 1
+    DetailPrint "VC++ x64 运行时已安装 (per-user)"
+    Goto vc_done
+  ${EndIf}
+
+  ; 未安装，执行静默安装
+  DetailPrint "正在安装 VC++ 运行时库..."
+  IfFileExists "$INSTDIR\tools\vc-redist\vc_redist.x64.exe" vc_install vc_missing
+
+vc_install:
+  ; /quiet 静默安装, /norestart 不重启
+  nsExec::ExecToLog '"$INSTDIR\tools\vc-redist\vc_redist.x64.exe" /quiet /norestart'
+  Pop $2
+  ${If} $2 == 0
+    DetailPrint "VC++ 运行时库安装成功"
+  ${Else}
+    DetailPrint "警告: VC++ 运行时库安装失败 (错误码: $2)"
+  ${EndIf}
+  Goto vc_done
+
+vc_missing:
+  DetailPrint "警告: VC++ 安装程序未找到，跳过安装"
+  Goto vc_done
+
+vc_done:
+
   ; Run post-install configuration only for fresh installs.
   ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
-  IfFileExists "$INSTDIR\.cat-cafe\cat-catalog.json" init_config_skip 0
+  IfFileExists "$INSTDIR\.office-claw\office-claw-catalog.json" init_config_skip 0
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0
@@ -747,6 +1083,7 @@ SectionEnd
 Var RemoveUserData
 
 Section "Uninstall"
+  DetailPrint "正在停止 OfficeClaw 及相关进程..."
   Call un.CloseRunningServices
 
   Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
@@ -762,7 +1099,7 @@ Section "Uninstall"
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 
   ; Ask user whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.office-claw、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n选择「是」将删除：$\r$\n  · 整个安装目录（含配置、数据库、日志、上传文件、工作区）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将仅删除程序文件，保留：$\r$\n  · 用户配置（.env、office-claw-config.json）$\r$\n  · 运行时数据（.office-claw、data、logs、workspace）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）" IDYES +3
     StrCpy $RemoveUserData "0"
     Goto +2
     StrCpy $RemoveUserData "1"

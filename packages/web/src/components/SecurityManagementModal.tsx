@@ -1,62 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
 
 export interface SecurityManagementModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-type RiskLevel = 'low' | 'medium' | 'high';
+type PermissionDecision = 'allow' | 'ask';
+
+interface ToolPermissionRule {
+  '*': PermissionDecision;
+  patterns?: Record<string, PermissionDecision>;
+}
+
+interface PermissionsConfig {
+  enabled?: boolean;
+  tools?: Record<string, PermissionDecision | ToolPermissionRule>;
+}
 
 interface SecurityPolicyItem {
   id: string;
   action: string;
-  riskLevel: RiskLevel;
   approvalRequired: boolean;
 }
-
-const INITIAL_POLICIES: SecurityPolicyItem[] = [
-  { id: 'policy-1', action: 'write_file', riskLevel: 'low', approvalRequired: false },
-  { id: 'policy-2', action: 'mcp_exec_command', riskLevel: 'high', approvalRequired: false },
-  { id: 'policy-3', action: 'mcp_exec_command', riskLevel: 'medium', approvalRequired: true },
-  { id: 'policy-4', action: 'write_file', riskLevel: 'medium', approvalRequired: true },
-  { id: 'policy-5', action: 'write_file', riskLevel: 'medium', approvalRequired: false },
-  { id: 'policy-6', action: 'write_file', riskLevel: 'medium', approvalRequired: false },
-  { id: 'policy-7', action: 'write_file', riskLevel: 'medium', approvalRequired: false },
-];
-
-const RISK_LEVEL_META: Record<RiskLevel, { label: string; dotClassName: string }> = {
-  low: { label: '浣庨闄?', dotClassName: 'bg-[#C7C7C7]' },
-  medium: { label: '涓闄?', dotClassName: 'bg-[#FF9800]' },
-  high: { label: '楂橀闄?', dotClassName: 'bg-[#F04438]' },
-};
 
 interface ToggleSwitchProps {
   checked: boolean;
   onToggle: () => void;
   ariaLabel: string;
+  disabled?: boolean;
   testId?: string;
 }
 
-function ToggleSwitch({ checked, onToggle, ariaLabel, testId }: ToggleSwitchProps) {
+function ToggleSwitch({ checked, onToggle, ariaLabel, disabled = false, testId }: ToggleSwitchProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel}
+      aria-disabled={disabled}
+      disabled={disabled}
       data-testid={testId}
       onClick={onToggle}
       className={[
-        'relative inline-flex h-[22px] w-8 shrink-0 items-center rounded-full transition-colors duration-200',
-        checked ? 'bg-[#2F7BFF]' : 'bg-[#D1D5DB]',
+        'relative inline-flex h-[22px] w-8 shrink-0 items-center rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60',
+        checked ? 'bg-[var(--modal-switch-on)]' : 'bg-[var(--modal-switch-off)]',
       ].join(' ')}
     >
       <span
         className={[
-          'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+          'inline-block h-4 w-4 rounded-full bg-[var(--modal-switch-thumb)] shadow-sm transition-transform duration-200',
           checked ? 'translate-x-[14px]' : 'translate-x-[2px]',
         ].join(' ')}
       />
@@ -64,20 +63,292 @@ function ToggleSwitch({ checked, onToggle, ariaLabel, testId }: ToggleSwitchProp
   );
 }
 
-export default function SecurityManagementModal({ open, onClose }: SecurityManagementModalProps) {
-  const [approvalBarEnabled, setApprovalBarEnabled] = useState(true);
-  const [policies, setPolicies] = useState(INITIAL_POLICIES);
+function getToolDecision(value: PermissionDecision | ToolPermissionRule | undefined): PermissionDecision {
+  if (!value) return 'allow';
+  if (typeof value === 'string') return value;
+  return value['*'] ?? 'allow';
+}
 
-  const handleTogglePolicy = (id: string) => {
+function normalizePolicies(config?: PermissionsConfig): SecurityPolicyItem[] {
+  const tools = config?.tools ?? {};
+  return Object.entries(tools).map(([toolName, value]) => ({
+    id: toolName,
+    action: toolName,
+    approvalRequired: getToolDecision(value) === 'ask',
+  }));
+}
+
+function isPermissionsEnabled(config?: PermissionsConfig): boolean {
+  return config?.enabled ?? true;
+}
+
+function updateToolValue(
+  current: PermissionDecision | ToolPermissionRule | undefined,
+  nextDecision: PermissionDecision,
+): PermissionDecision | ToolPermissionRule {
+  if (!current || typeof current === 'string') {
+    return nextDecision;
+  }
+
+  return {
+    ...current,
+    '*': nextDecision,
+  };
+}
+
+export default function SecurityManagementModal({ open, onClose }: SecurityManagementModalProps) {
+  const [permissionsConfig, setPermissionsConfig] = useState<PermissionsConfig | null>(null);
+  const [approvalBarEnabled, setApprovalBarEnabled] = useState(false);
+  const [policies, setPolicies] = useState<SecurityPolicyItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingApprovalBar, setSavingApprovalBar] = useState(false);
+  const [savingPolicyIds, setSavingPolicyIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPermissions() {
+      setLoading(true);
+      setLoadError(null);
+      setSaveError(null);
+
+      try {
+        const response = await apiFetch('/api/config/relayclaw/security');
+        const payload = (await response.json()) as { permissions?: PermissionsConfig; error?: string };
+        const permissions = payload.permissions;
+        if (!response.ok || !permissions) {
+          throw new Error(payload.error || 'Failed to load permissions config');
+        }
+
+        if (cancelled) return;
+
+        setPermissionsConfig(permissions);
+        setApprovalBarEnabled(isPermissionsEnabled(permissions));
+        setPolicies(normalizePolicies(permissions));
+      } catch (error) {
+        if (cancelled) return;
+
+        setPermissionsConfig(null);
+        setApprovalBarEnabled(false);
+        setPolicies([]);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load permissions config');
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadPermissions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
+
+  const handleToggleApprovalBar = async () => {
+    if (savingApprovalBar) return;
+
+    const previousEnabled = approvalBarEnabled;
+    const nextEnabled = !previousEnabled;
+    setApprovalBarEnabled(nextEnabled);
+    setSaveError(null);
+    setSavingApprovalBar(true);
+
+    try {
+      const response = await apiFetch('/api/config/relayclaw/security', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          permissions: {
+            enabled: nextEnabled,
+          },
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Failed to save permissions config');
+
+      setPermissionsConfig((current) => ({
+        ...(current ?? {}),
+        enabled: nextEnabled,
+      }));
+    } catch (error) {
+      setApprovalBarEnabled(previousEnabled);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save permissions config');
+    } finally {
+      setSavingApprovalBar(false);
+    }
+  };
+
+  const handleTogglePolicy = async (id: string) => {
+    if (savingPolicyIds[id]) return;
+
+    const currentPolicy = policies.find((policy) => policy.id === id);
+    const previousApprovalRequired = currentPolicy?.approvalRequired ?? false;
+    const currentValue = permissionsConfig?.tools?.[id];
+    const nextApprovalRequired = !previousApprovalRequired;
+    const nextDecision: PermissionDecision = nextApprovalRequired ? 'ask' : 'allow';
+    const nextToolValue = updateToolValue(currentValue, nextDecision);
+
     setPolicies((current) =>
       current.map((policy) =>
         policy.id === id
           ? {
               ...policy,
-              approvalRequired: !policy.approvalRequired,
+              approvalRequired: nextApprovalRequired,
             }
           : policy,
       ),
+    );
+    setPermissionsConfig((current) => ({
+      ...(current ?? {}),
+      tools: {
+        ...(current?.tools ?? {}),
+        [id]: nextToolValue,
+      },
+    }));
+    setSaveError(null);
+    setSavingPolicyIds((current) => ({ ...current, [id]: true }));
+
+    try {
+      const response = await apiFetch('/api/config/relayclaw/security', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          permissions: {
+            tools: {
+              [id]: nextToolValue,
+            },
+          },
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to save tool policy');
+      }
+    } catch (error) {
+      setPolicies((current) =>
+        current.map((policy) =>
+          policy.id === id
+            ? {
+                ...policy,
+                approvalRequired: previousApprovalRequired,
+              }
+            : policy,
+        ),
+      );
+      setPermissionsConfig((current) => {
+        const nextTools = { ...(current?.tools ?? {}) };
+        if (currentValue === undefined) {
+          delete nextTools[id];
+        } else {
+          nextTools[id] = currentValue;
+        }
+
+        return {
+          ...(current ?? {}),
+          tools: nextTools,
+        };
+      });
+      setSaveError(error instanceof Error ? error.message : 'Failed to save tool policy');
+    } finally {
+      setSavingPolicyIds((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div
+          className="flex min-h-[220px] flex-1 items-center justify-center"
+          data-testid="security-management-loading"
+        >
+          <CenteredLoadingState />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-4" data-testid="security-management-approval-header">
+            <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">是否开启审批护栏</h4>
+            <ToggleSwitch
+              checked={approvalBarEnabled}
+              onToggle={() => void handleToggleApprovalBar()}
+              ariaLabel="是否开启审批护栏"
+              disabled={savingApprovalBar}
+              testId="security-management-approval-bar-toggle"
+            />
+          </div>
+          <p
+            className="block w-full text-[12px] leading-6 text-[var(--modal-text-muted)]"
+            data-testid="security-management-approval-description"
+          >
+            开启后，若对话中触发相关权限时按安全策略展示确认卡片；若关闭，则所有敏感操作无需用户执行风险审批。
+          </p>
+          {loadError ? (
+            <p className="text-[12px] leading-5 text-[var(--modal-danger-text)]" data-testid="security-management-load-error">
+              {loadError}
+            </p>
+          ) : null}
+          {saveError ? (
+            <p className="text-[12px] leading-5 text-[var(--modal-danger-text)]" data-testid="security-management-save-error">
+              {saveError}
+            </p>
+          ) : null}
+        </section>
+
+        {approvalBarEnabled && policies.length > 0 ? (
+          <section className="space-y-3" data-testid="security-management-policy-section">
+            <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">安全策略配置</h4>
+
+            <div className="rounded-[12px] border border-[var(--modal-muted-border)]">
+              <div className="grid grid-cols-[1.6fr_1.4fr] border-b border-[var(--modal-muted-border)] bg-[var(--modal-table-header-bg)] px-5 py-4 text-[13px] font-medium text-[var(--modal-text-muted)]">
+                <div>敏感操作</div>
+                <div>在对话中是否需要审批</div>
+              </div>
+
+              <div className="max-h-[360px] overflow-y-auto bg-[var(--modal-surface)]">
+                {policies.map((policy) => (
+                  <div
+                    key={policy.id}
+                    data-testid={`security-policy-row-${policy.id}`}
+                    className="grid grid-cols-[1.6fr_1.4fr] items-center border-b border-[var(--modal-table-divider)] px-5 py-5 text-[14px] text-[var(--modal-title-text)] last:border-b-0"
+                  >
+                    <div className="font-normal leading-5 text-[var(--modal-text)]">{policy.action}</div>
+                    <div className="flex items-center gap-3">
+                      <ToggleSwitch
+                        checked={policy.approvalRequired}
+                        onToggle={() => void handleTogglePolicy(policy.id)}
+                        ariaLabel={`${policy.action} 执行前审批开关`}
+                        disabled={Boolean(savingPolicyIds[policy.id])}
+                        testId={`security-policy-toggle-${policy.id}`}
+                      />
+                      <span className="text-[14px] text-[var(--modal-title-text)]">{policy.approvalRequired ? '是' : '否'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </div>
     );
   };
 
@@ -86,8 +357,8 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       open={open}
       onClose={onClose}
       disableBackdropClose
-      title="瀹夊叏绠＄悊"
-      closeButtonAriaLabel="鍏抽棴瀹夊叏绠＄悊寮圭獥"
+      title="安全管理"
+      closeButtonAriaLabel="关闭安全管理弹窗"
       backdropTestId="security-management-modal-backdrop"
       panelTestId="security-management-modal"
       bodyTestId="security-management-modal-body"
@@ -95,67 +366,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       headerClassName="p-0 pb-4"
       bodyClassName="flex flex-col"
     >
-      <div className="space-y-6">
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-4" data-testid="security-management-approval-header">
-            <h4 className="text-[14px] font-semibold leading-6 text-[#111827]">鏄惁寮€鍚鎵规姢鏍?</h4>
-            <ToggleSwitch
-              checked={approvalBarEnabled}
-              onToggle={() => setApprovalBarEnabled((current) => !current)}
-              ariaLabel="鍒囨崲瀹℃壒鎶ゆ爮"
-              testId="security-management-approval-bar-toggle"
-            />
-          </div>
-          <p
-            className="block w-full text-[12px] leading-6 text-[#808080]"
-            data-testid="security-management-approval-description"
-          >
-            寮€鍚悗锛岃嫢瀵硅瘽涓Е鍙戠浉鍏虫潈闄愭椂瀹夊叏绛栫暐灞曠ず纭鍗＄墖锛涜嫢鍏抽棴锛屽垯鎵€鏈夋晱鎰熸搷浣滄棤闇€鐢ㄦ埛鎵ц椋庨櫓瀹℃壒銆?
-          </p>
-        </section>
-
-        {approvalBarEnabled ? (
-          <section className="space-y-3" data-testid="security-management-policy-section">
-            <h4 className="text-[14px] font-semibold leading-6 text-[#111827]">瀹夊叏绛栫暐閰嶇疆</h4>
-
-            <div className="rounded-[12px] border border-[#EEF2F7]">
-              <div className="grid grid-cols-[1.4fr_1fr_1.35fr] border-b border-[#EEF2F7] bg-[#F5F7FA] px-5 py-4 text-[13px] font-medium text-[#4B5563]">
-                <div>鏁忔劅鎿嶄綔</div>
-                <div>椋庨櫓绛夌骇</div>
-                <div>鍦ㄥ璇濅腑鏄惁闇€瑕佸鎵?</div>
-              </div>
-
-              <div className="max-h-[360px] overflow-y-auto bg-white">
-                {policies.map((policy) => {
-                  const riskMeta = RISK_LEVEL_META[policy.riskLevel];
-
-                  return (
-                    <div
-                      key={policy.id}
-                      className="grid grid-cols-[1.4fr_1fr_1.35fr] items-center border-b border-[#F3F5F8] px-5 py-5 text-[14px] text-[#111827] last:border-b-0"
-                    >
-                      <div className="font-normal leading-5 text-[#1F2937]">{policy.action}</div>
-                      <div className="flex items-center gap-2 text-[14px] text-[#374151]">
-                        <span className={`h-2 w-2 rounded-full ${riskMeta.dotClassName}`} />
-                        <span>{riskMeta.label}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <ToggleSwitch
-                          checked={policy.approvalRequired}
-                          onToggle={() => handleTogglePolicy(policy.id)}
-                          ariaLabel={`${policy.action}瀹℃壒寮€鍏?`}
-                          testId={`security-policy-toggle-${policy.id}`}
-                        />
-                        <span className="text-[14px] text-[#111827]">{policy.approvalRequired ? '鏄?' : '鍚?'}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        ) : null}
-      </div>
+      {renderContent()}
     </AppModal>
   );
 }

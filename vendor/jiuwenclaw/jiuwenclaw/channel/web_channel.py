@@ -21,7 +21,8 @@ from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 
-from jiuwenclaw.utils import get_workspace_dir, logger
+from jiuwenclaw.utils import get_workspace_dir
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.channel.base import BaseChannel, ChannelMetadata, RobotMessageRouter
 from jiuwenclaw.schema.message import Message, Mode, ReqMethod
 
@@ -351,7 +352,7 @@ class WebChannel(BaseChannel):
 
         if isinstance(msg.payload, dict):
             # 对于需要传递完整结构化数据的事件类型
-            if event_name in ("connection.ack", "todo.updated", "chat.tool_call", "chat.tool_result",
+            if event_name in ("connection.ack", "todo.updated", "chat.tool_call", "chat.tool_calls.delta", "chat.tool_result",
                              "chat.processing_status", "chat.interrupt_result", "chat.error", "heartbeat.relay",
                              "context.compressed", "chat.ask_user_question", "chat.subtask_update",
                              "history.message",

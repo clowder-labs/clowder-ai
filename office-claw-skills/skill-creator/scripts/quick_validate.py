@@ -2,13 +2,12 @@
 """
 Quick validation script for skills - minimal version
 """
-import logging
+
 import sys
 import os
 import re
-from pathlib import Path
 import yaml
-
+from pathlib import Path
 
 def validate_skill(skill_path):
     """Basic validation of a skill"""
@@ -40,14 +39,14 @@ def validate_skill(skill_path):
         return False, f"Invalid YAML in frontmatter: {e}"
 
     # Define allowed properties
-    allowed_properties = {'name', 'description', 'license', 'allowed-tools', 'metadata', 'compatibility'}
+    ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata', 'compatibility'}
 
     # Check for unexpected properties (excluding nested keys under metadata)
-    unexpected_keys = set(frontmatter.keys()) - allowed_properties
+    unexpected_keys = set(frontmatter.keys()) - ALLOWED_PROPERTIES
     if unexpected_keys:
         return False, (
             f"Unexpected key(s) in SKILL.md frontmatter: {', '.join(sorted(unexpected_keys))}. "
-            f"Allowed properties are: {', '.join(sorted(allowed_properties))}"
+            f"Allowed properties are: {', '.join(sorted(ALLOWED_PROPERTIES))}"
         )
 
     # Check required fields
@@ -96,9 +95,9 @@ def validate_skill(skill_path):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        logging.info("Usage: python quick_validate.py <skill_directory>")
+        print("Usage: python quick_validate.py <skill_directory>")
         sys.exit(1)
     
     valid, message = validate_skill(sys.argv[1])
-    logging.info(message)
+    print(message)
     sys.exit(0 if valid else 1)

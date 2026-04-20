@@ -9,14 +9,14 @@
  * Redis-backed summary storage with same interface as in-memory SummaryStore.
  *
  * Redis 数据结构:
- *   cat-cafe:summary:{summaryId}              → Hash (纪要详情)
- *   cat-cafe:summaries:thread:{threadId}      → Sorted Set (每线程纪要列表, score=createdAt)
+ *   office-claw:summary:{summaryId}              → Hash (纪要详情)
+ *   office-claw:summaries:thread:{threadId}      → Sorted Set (每线程纪要列表, score=createdAt)
  *
  * TTL 默认 30 天。
  */
 
-import type { CreateSummaryInput, ThreadSummary } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CreateSummaryInput, ThreadSummary } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { ISummaryStore } from '../ports/SummaryStore.js';
 import { SummaryKeys } from '../redis-keys/summary-keys.js';

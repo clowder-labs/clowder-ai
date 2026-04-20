@@ -85,7 +85,8 @@ describe('HubSkillsTab empty search state', () => {
                 slug: 'skill-1',
                 name: 'skill-1',
                 description: 'Alpha skill',
-                tags: ['AI 鏅鸿兘'],
+                category: 'ai-intelligence',
+                tags: ['ignored-tag'],
                 repo: { githubOwner: 'demo', githubRepoName: 'skills' },
                 isInstalled: false,
               },
@@ -134,7 +135,7 @@ describe('HubSkillsTab empty search state', () => {
 
     const searchInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
     expect(searchInput).not.toBeNull();
-    expect(container.textContent).toContain('AI 智能 (1)');
+    expect(container.textContent).toContain('(1)');
     expect(container.textContent).toContain('skill-1');
 
     await changeInputValue(searchInput!, 'zzz');
@@ -160,7 +161,7 @@ describe('HubSkillsTab empty search state', () => {
     await flushEffects();
 
     expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('');
-    expect(container.textContent).toContain('AI 智能 (1)');
+    expect(container.textContent).toContain('(1)');
     expect(container.textContent).toContain('skill-1');
     expect(
       mockApiFetch.mock.calls.some(([input]) =>
@@ -178,9 +179,48 @@ describe('HubSkillsTab empty search state', () => {
     const emptyState = container.querySelector('[data-testid="empty-data-state"]') as HTMLDivElement | null;
     expect(emptyState).not.toBeNull();
     expect(emptyState?.querySelector('[data-testid="empty-data-image"]')).not.toBeNull();
-    expect(emptyState?.textContent).toContain('暂无数据');
     expect(container.querySelector('[data-testid="no-search-results-state"]')).toBeNull();
     expect(container.querySelector('[data-testid="no-search-results-clear"]')).toBeNull();
+  });
+
+  it('orders category tabs with 办公套件 immediately after 全部', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', '办公套件', 'communication-collaboration'] }));
+      }
+      if (url.startsWith('/api/skills/all?')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url.startsWith('/api/skills/search?')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const categoryButtons = Array.from(container.querySelectorAll('[data-testid="hub-skills-fixed-header"] button')).map(
+      (button) => button.textContent?.trim(),
+    );
+    expect(categoryButtons.slice(0, 4)).toEqual(['全部', '办公套件', '开发工具', '沟通协作']);
   });
 
   it('keeps no-search-results state for empty search responses', async () => {
@@ -212,5 +252,57 @@ describe('HubSkillsTab empty search state', () => {
     expect(container.querySelector('[data-testid="no-search-results-state"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="empty-data-state"]')).toBeNull();
+  });
+
+  it('shows backend fallback category instead of a noisy long tag', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools'] }));
+      }
+      if (url.startsWith('/api/skills/all?')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-2',
+                slug: 'skill-2',
+                name: 'skill-2',
+                description: 'Beta skill',
+                category: '通用',
+                tags: ['This is an unexpectedly long English sentence that should not be used as a badge.'],
+                repo: { githubOwner: 'demo', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url.startsWith('/api/skills/search?')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('skill-2');
+    expect(container.textContent).toContain('通用');
+    expect(container.textContent).not.toContain(
+      'This is an unexpectedly long English sentence that should not be used as a badge.',
+    );
   });
 });

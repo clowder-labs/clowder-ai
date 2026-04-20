@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { FeishuQrPanel } from './FeishuQrPanel';
+import { FeishuPermissionPanel } from './FeishuPermissionPanel';
 import {
   ConnectorLockIcon,
   DEFAULT_VISUAL,
@@ -20,6 +21,7 @@ import {
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { PasswordField } from './shared/PasswordField';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -50,7 +52,31 @@ interface ConnectorTestResult {
   };
 }
 
+// F152: Personal user whitelist types
+interface UserWhitelistEntry {
+  openId: string;
+  name?: string;
+  addedAt: number;
+  addedBy?: string;
+}
+
+interface PermissionConfig {
+  whitelistEnabled: boolean;
+  commandAdminOnly: boolean;
+  adminOpenIds: string[];
+  allowedGroups: Array<{ externalChatId: string; label?: string; addedAt: number }>;
+  userWhitelistEnabled: boolean;
+  allowedUsers: UserWhitelistEntry[];
+  ownerOpenId?: string;
+}
+
 const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+const PLATFORM_HELP_LINKS: Record<string, string> = {
+  feishu: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/feishu.html',
+  weixin: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/weixin.html',
+  dingtalk: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/dingtalk.html',
+  xiaoyi: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/xiaoyi.html',
+};
 
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
@@ -129,10 +155,26 @@ function parseDocsLink(rawUrl: string): { href: string; hostname: string } | nul
   }
 }
 
+function normalizeConnectorFieldValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function collectConfiguredFieldEntries(
+  fields: PlatformFieldStatus[],
+  fieldValues: Record<string, string>,
+): Array<[string, string]> {
+  return fields.flatMap((field) => {
+    const value = normalizeConnectorFieldValue(fieldValues[field.envName]);
+    return value ? [[field.envName, value]] : [];
+  });
+}
+
 export function HubConnectorConfigTab() {
   const addToast = useToastStore((s) => s.addToast);
   const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -140,8 +182,13 @@ export function HubConnectorConfigTab() {
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
-    setIsLoading(true);
+  const fetchStatus = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background ?? false;
+    if (background) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     try {
       const res = await apiFetch('/api/connector/status');
       if (!res.ok) return;
@@ -155,7 +202,11 @@ export function HubConnectorConfigTab() {
     } catch {
       // fall through
     } finally {
-      setIsLoading(false);
+      if (background) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -181,9 +232,8 @@ export function HubConnectorConfigTab() {
   };
 
   const handleSave = async (platform: PlatformStatus) => {
-    const updates = platform.fields
-      .filter((f) => fieldValues[f.envName] !== undefined && fieldValues[f.envName] !== '')
-      .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
+    const fieldEntries = collectConfiguredFieldEntries(platform.fields, fieldValues);
+    const updates = fieldEntries.map(([name, value]) => ({ name, value }));
 
     if (updates.length === 0) {
       addToast({
@@ -199,11 +249,7 @@ export function HubConnectorConfigTab() {
     setSaveResult(null);
 
     if (TESTABLE_PLATFORMS.includes(platform.id)) {
-      const payload = Object.fromEntries(
-        platform.fields
-          .map((field) => [field.envName, fieldValues[field.envName]])
-          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
-      );
+      const payload = Object.fromEntries(fieldEntries);
       const testRes = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -264,7 +310,7 @@ export function HubConnectorConfigTab() {
             },
       );
       setFieldValues({});
-      await fetchStatus();
+      await fetchStatus({ background: true });
     } catch {
       addToast({
         type: 'error',
@@ -293,11 +339,7 @@ export function HubConnectorConfigTab() {
     setTesting(true);
     setSaveResult(null);
     try {
-      const payload = Object.fromEntries(
-        platform.fields
-          .map((field) => [field.envName, fieldValues[field.envName]])
-          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
-      );
+      const payload = Object.fromEntries(collectConfiguredFieldEntries(platform.fields, fieldValues));
       const res = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,11 +347,11 @@ export function HubConnectorConfigTab() {
       });
       const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
       if (!res.ok || !data.ok) {
-        const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
+        const pieces = data.error ?? data.details ?? '测试失败';
         addToast({
           type: 'error',
           title: '测试连接失败',
-          message: pieces.join('：'),
+          message: pieces,
           duration: 5000,
         });
         return;
@@ -371,7 +413,7 @@ export function HubConnectorConfigTab() {
               duration: 3000,
             },
       );
-      await fetchStatus();
+      await fetchStatus({ background: true });
     } catch {
       addToast({
         type: 'error',
@@ -389,11 +431,14 @@ export function HubConnectorConfigTab() {
   }
 
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
+  const selectedPlatformHelpLink = selectedPlatform
+    ? parseDocsLink(PLATFORM_HELP_LINKS[selectedPlatform.id] ?? '')
+    : null;
 
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
       <div
-        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6"
+        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[#f0f0f0] px-4 py-6"
         data-testid="connector-left-pane"
       >
         {platforms.map((platform) => {
@@ -431,7 +476,23 @@ export function HubConnectorConfigTab() {
         className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6"
         data-testid="connector-right-pane"
       >
-        <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        <div className="flex items-center gap-[4px]">
+          <p className="text-[var(--text-primary)] font-semibold">配置</p>
+          {selectedPlatformHelpLink && (
+            <a
+              href={selectedPlatformHelpLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="查看帮助文档"
+              title="查看帮助文档"
+              className="inline-flex h-5 w-5 items-center justify-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+              data-testid={`platform-help-link-${selectedPlatform?.id}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+            </a>
+          )}
+        </div>
         {isLoading && (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <CenteredLoadingState />
@@ -460,15 +521,19 @@ export function HubConnectorConfigTab() {
                             {platform.id === 'feishu' ? (
                               <FeishuQrPanel
                                 configured={platform.configured}
-                                onConfirmed={() => void fetchStatus()}
-                                onDisconnected={() => void fetchStatus()}
+                                onConfirmed={() => void fetchStatus({ background: true })}
+                                onDisconnected={() => void fetchStatus({ background: true })}
                               />
                             ) : (
                               <WeixinQrPanel
                                 configured={platform.configured}
-                                onConfigured={fetchStatus}
-                                onDisconnected={fetchStatus}
+                                onConfigured={() => fetchStatus({ background: true })}
+                                onDisconnected={() => fetchStatus({ background: true })}
                               />
+                            )}
+                            {/* F152: Feishu permission panel (whitelist) */}
+                            {platform.id === 'feishu' && platform.configured && (
+                              <FeishuPermissionPanel />
                             )}
                           </div>
                         )}
@@ -520,29 +585,43 @@ export function HubConnectorConfigTab() {
                                 </span>
                               )}
                             </label>
-                            <input
-                              id={`config-${field.envName}`}
-                              type={field.sensitive ? 'password' : 'text'}
-                              name={`connector-${field.envName}`}
-                              placeholder={
-                                field.sensitive
-                                  ? field.currentValue
-                                    ? '已设置（输入新值覆盖）'
-                                    : '未设置'
-                                  : (field.currentValue ?? '未设置')
-                              }
-                              value={fieldValues[field.envName] ?? ''}
-                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'new-password' : 'off'}
-                              autoCapitalize="off"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              data-form-type="other"
-                              data-1p-ignore="true"
-                              data-lpignore="true"
-                              className="ui-input"
-                              data-testid={`field-${field.envName}`}
-                            />
+                            {field.sensitive ? (
+                              <PasswordField
+                                id={`config-${field.envName}`}
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ? '已设置（输入新值覆盖）' : '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="new-password"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                                toggleTestId={`connector-password-toggle-${field.envName}`}
+                              />
+                            ) : (
+                              <input
+                                id={`config-${field.envName}`}
+                                type="text"
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ?? '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -568,7 +647,7 @@ export function HubConnectorConfigTab() {
                           type="button"
                           className="ui-button-default inline-flex items-center gap-1.5"
                           onClick={() => void handleTestConnection(platform)}
-                          disabled={testing}
+                          disabled={testing || isRefreshing}
                         >
                           <WifiIcon />
                           {testing ? '测试中...' : '测试连接'}
@@ -576,7 +655,7 @@ export function HubConnectorConfigTab() {
                         <button
                           type="button"
                           onClick={() => handleSave(platform)}
-                          disabled={saving}
+                          disabled={saving || isRefreshing}
                           className="ui-button-primary disabled:opacity-50"
                           data-testid={`save-${platform.id}`}
                         >
@@ -586,7 +665,7 @@ export function HubConnectorConfigTab() {
                           <button
                             type="button"
                             onClick={() => handleDisconnect(platform.id)}
-                            disabled={disconnecting === platform.id}
+                            disabled={disconnecting === platform.id || isRefreshing}
                             className="ui-button-default text-red-500 hover:text-red-700 disabled:opacity-50"
                             data-testid={`disconnect-${platform.id}`}
                           >

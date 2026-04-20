@@ -11,7 +11,7 @@ from dataclasses import asdict
 from typing import Any, AsyncIterator
 from urllib.parse import urlsplit
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
 
 
@@ -223,6 +223,8 @@ class WebSocketAgentServerClient(AgentServerClient):
             raise RuntimeError("未连接 AgentServer，请先调用 connect(uri)")
 
     async def send_request(self, request: AgentRequest) -> AgentResponse:
+        import time
+        start_time = time.time()
         self._ensure_connected()
         logger.info("[WebSocketAgentServerClient] 发送请求(非流式) AgentRequest: %s", _to_json(asdict(request)))
 
@@ -241,7 +243,8 @@ class WebSocketAgentServerClient(AgentServerClient):
             data = await queue.get()
             logger.info("[WebSocketAgentServerClient] 收到响应(非流式) raw: %s", json.dumps(data, ensure_ascii=False))
             resp = _payload_to_response(data)
-            logger.info("[WebSocketAgentServerClient] 收到完整响应 AgentResponse: %s", _to_json(asdict(resp)))
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info("[WebSocketAgentServerClient] 收到完整响应 AgentResponse: %s， elapsed_ms=%s", _to_json(asdict(resp)), elapsed_ms)
             return resp
         finally:
             # 清理队列
@@ -251,6 +254,8 @@ class WebSocketAgentServerClient(AgentServerClient):
     async def send_request_stream(
         self, request: AgentRequest
     ) -> AsyncIterator[AgentResponseChunk]:
+        import time
+        start_time = time.time()
         self._ensure_connected()
         request.is_stream = True
         logger.info("[WebSocketAgentServerClient] 发送请求(流式) AgentRequest: %s", _to_json(asdict(request)))
@@ -280,9 +285,11 @@ class WebSocketAgentServerClient(AgentServerClient):
                 yield chunk
                 if chunk.is_complete:
                     break
-            logger.info("[WebSocketAgentServerClient] 流式响应结束: request_id=%s 共 %s 个 chunk", request.request_id, chunk_count)
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info("[WebSocketAgentServerClient] 流式响应结束: request_id=%s 共 %s 个 chunk， elapsed_ms=%s", request.request_id, chunk_count, elapsed_ms)
+
         except asyncio.CancelledError:
-            logger.info("[WebSocketAgentServerClient] 流式接收被取消: request_id=%s", request.request_id)
+            logger.info("[WebSocketAgentServerClient] 流式接收被取消: request_id=%s session_id=%s", request.request_id, request.session_id)
             raise
         finally:
             # 清理队列

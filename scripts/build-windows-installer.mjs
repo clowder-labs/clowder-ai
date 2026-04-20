@@ -1,12 +1,17 @@
 import { spawnSync } from 'node:child_process';
 import {
+  closeSync,
   copyFileSync,
   cpSync,
   createWriteStream,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  renameSync,
+  openSync,
   readdirSync,
+  readSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -21,6 +26,9 @@ const repoRoot = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const DEFAULT_WEBVIEW2_VERSION = process.env.CLOWDER_WEBVIEW2_VERSION ?? '1.0.3856.49';
 const WEBVIEW2_BOOTSTRAPPER_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+
+const VC_REDIST_VERSION = process.env.CLOWDER_VC_REDIST_VERSION ?? '14.42.34433';
+const VC_REDIST_X64_URL = `https://aka.ms/vs/17/release/vc_redist.x64.exe`;
 
 const stepTimings = [];
 let currentStepName = null;
@@ -72,7 +80,7 @@ const WINDOWS_RUNTIME_NPM_ARGS = [
   '--loglevel=error',
 ];
 
-export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
+export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw', 'workspace'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
@@ -80,6 +88,7 @@ export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'tools',
   'installer-seed',
   'vendor',
+  'assets',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
@@ -93,6 +102,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
   '.env',
   'data',
   'logs',
+  'uploads',
+  'workspace',
   'dist',
   'packages/api/dist',
   'packages/mcp-server/dist',
@@ -101,6 +112,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
 const EXCLUDED_PREFIXES = [
   'data/',
   'logs/',
+  'uploads/',
+  'workspace/',
   'dist/',
   'packages/api/dist/',
   'packages/mcp-server/dist/',
@@ -128,12 +141,16 @@ const WEB_PUBLIC_DIR = join(repoRoot, 'packages', 'web', 'public');
 const ROOT_NODE_MODULES_DIR = join(repoRoot, 'node_modules');
 const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'better-sqlite3',
+  'cross-keychain',
   'node-pty',
   'pino',
   'pino-roll',
   'puppeteer',
   'sharp',
   'sqlite-vec',
+  'snappy',
+  '@napi-rs/keyring',
+  '@napi-rs/keyring-win32-x64-msvc',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');
@@ -162,7 +179,7 @@ process.env.NODE_ENV = 'production';
 process.chdir(__dirname);
 
 const currentPort = parseInt(process.env.PORT, 10) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+const hostname = process.env.HOSTNAME || '127.0.0.1';
 
 let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
 
@@ -655,8 +672,14 @@ function installSharedPythonDeps(bundleDir) {
     'python-pptx', // PowerPoint read/write
     'openpyxl', // Excel read/write
     'python-docx', // Word read/write
+    'requests', // HTTP integrations used by multiple office skills
+    'pillow', // Image processing for report/image skills
+    'PyYAML', // YAML config parsing for knowledge skills
+    'coze_workload_identity', // Feishu meeting auth helper
     'xlsxwriter', // Excel write (fast, chart support)
     'pypdf', // PDF read/merge/split
+    'pdfplumber', // PDF text/table extraction
+    'pandas', // Tabular extraction and spreadsheet shaping
     'reportlab', // PDF creation
     'markitdown', // Microsoft multi-format → Markdown converter
   ];
@@ -715,6 +738,54 @@ function stageVendorPythonSources(bundleDir) {
   ensureDir(vendorDir);
   copySourceTree(join(repoRoot, 'vendor', 'dare-cli'), join(vendorDir, 'dare-cli'));
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
+}
+
+function compileVendorPythonSources(bundleDir) {
+  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+  if (!existsSync(pythonExe)) {
+    throw new Error(`Bundled Python runtime not found for vendor compilation: ${pythonExe}`);
+  }
+
+  const vendorRoots = [join(bundleDir, 'vendor', 'dare-cli'), join(bundleDir, 'vendor', 'jiuwenclaw')];
+  const compilerScriptPath = join(bundleDir, 'tools', 'python', 'compile-vendor-python.py');
+  const compilerScript = `import compileall
+import os
+import py_compile
+import shutil
+import sys
+
+roots = sys.argv[1:]
+if not roots:
+    raise SystemExit("no vendor roots provided")
+
+for root in roots:
+    ok = compileall.compile_dir(
+        root,
+        force=True,
+        quiet=1,
+        legacy=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    )
+    if not ok:
+        raise SystemExit(f"failed to compile python sources under {root}")
+
+for root in roots:
+    for current_root, dirnames, filenames in os.walk(root):
+        for filename in filenames:
+            if filename.endswith(".py"):
+                os.remove(os.path.join(current_root, filename))
+        for dirname in list(dirnames):
+            if dirname == "__pycache__":
+                shutil.rmtree(os.path.join(current_root, dirname), ignore_errors=True)
+`;
+
+  writeFileSync(compilerScriptPath, compilerScript, 'utf8');
+  try {
+    run(pythonExe, [compilerScriptPath, ...vendorRoots]);
+  } finally {
+    rmSync(compilerScriptPath, { force: true });
+  }
 }
 
 function stageInstallerSeed(bundleDir) {
@@ -906,7 +977,7 @@ export function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@cat-cafe/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -1021,6 +1092,7 @@ async function stageBundledApiRuntime(targetRootDir) {
       '--target=node20',
       `--outfile=${join(targetDir, 'dist', 'index.js')}`,
       `--banner:js=${banner}`,
+      '--minify',
       '--log-level=error',
       ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dependency) => `--external:${dependency}`),
     ]);
@@ -1119,6 +1191,7 @@ function ensureWindowsBuildNode(options) {
   const windowsNodeWslDir = toWslPath(windowsNodeDir);
   const nodeRootName = `node-${options.nodeVersion}-win-x64`;
   const npmCmdPath = win32.join(windowsNodeDir, nodeRootName, 'npm.cmd');
+  const npxCmdPath = win32.join(windowsNodeDir, nodeRootName, 'npx.cmd');
   if (!existsSync(toWslPath(npmCmdPath))) {
     resetDir(windowsNodeWslDir);
     const archivePath = join(options.cacheDir, `node-${options.nodeVersion}-win-x64.zip`);
@@ -1127,15 +1200,74 @@ function ensureWindowsBuildNode(options) {
   return {
     windowsNodeDir,
     npmCmdPath,
+    npxCmdPath,
   };
 }
 
 function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
-  run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
+  run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, {
+    cwd: packageWindowsDir,
+    shell: true,
+    env: {
+      // Runtime packaging does not need Puppeteer's postinstall browser download.
+      PUPPETEER_SKIP_DOWNLOAD: '1',
+    },
+  });
+}
+
+function getOfficeSkillPackageDirs(skillsRoot) {
+  if (!existsSync(skillsRoot)) {
+    return [];
+  }
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(skillsRoot, entry.name))
+    .filter((skillDir) => existsSync(join(skillDir, 'package.json')));
+}
+
+function readSkillPackageJson(skillDir) {
+  return readJson(join(skillDir, 'package.json'));
+}
+
+function hasPlaywrightDependency(pkg) {
+  return [pkg.dependencies, pkg.optionalDependencies, pkg.devDependencies].some(
+    (group) => typeof group?.playwright === 'string',
+  );
+}
+
+function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
+  const skillsRoot = join(bundleDir, 'office-claw-skills');
+  const skillPackageDirs = getOfficeSkillPackageDirs(skillsRoot);
+  let playwrightPackageDir = null;
+
+  for (const skillDir of skillPackageDirs) {
+    runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(skillDir));
+    rmSync(join(skillDir, 'package-lock.json'), { force: true });
+    const nmDir = join(skillDir, 'node_modules');
+    pruneNativePrebuilds(nmDir);
+    pruneDateFnsLocales(nmDir);
+
+    const pkg = readSkillPackageJson(skillDir);
+    if (!playwrightPackageDir && hasPlaywrightDependency(pkg)) {
+      playwrightPackageDir = skillDir;
+    }
+  }
+
+  if (playwrightPackageDir) {
+    const playwrightBrowsersPath = join(skillsRoot, '.playwright-browsers');
+    ensureDir(playwrightBrowsersPath);
+    run(windowsNode.npxCmdPath, ['playwright', 'install', 'chromium'], {
+      cwd: toWindowsPath(playwrightPackageDir),
+      shell: true,
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH: toWindowsPath(playwrightBrowsersPath),
+      },
+    });
+  }
 }
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     if (!lstatSync(sharedLinkPath).isSymbolicLink()) {
       return;
@@ -1160,6 +1292,94 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
     pruneNativePrebuilds(nmDir);
     pruneDateFnsLocales(nmDir);
   }
+
+  installBundledOfficeSkillDependencies(bundleDir, windowsNode);
+}
+
+async function minifyJsFilesInPlace(targetDir) {
+  const esbuildCommand = resolveLocalEsbuildCommand();
+  walkFiles(targetDir, (fullPath, entry) => {
+    if (!entry.name.endsWith('.js')) return;
+    const tempOut = `${fullPath}.min`;
+    try {
+      run(esbuildCommand, [
+        fullPath,
+        '--minify',
+        '--platform=node',
+        '--format=esm',
+        '--target=node20',
+        `--outfile=${tempOut}`,
+        '--log-level=error',
+      ]);
+      rmSync(fullPath, { force: true });
+      cpSync(tempOut, fullPath, { force: true });
+      rmSync(tempOut, { force: true });
+    } catch (error) {
+      // If minify fails, keep original file
+      rmSync(tempOut, { force: true });
+    }
+  });
+}
+
+async function stageBundledMcpServerRuntime(targetRootDir) {
+  const sourceDir = join(repoRoot, 'packages', 'mcp-server');
+  const sourceEntry = join(sourceDir, 'dist', 'index.js');
+  const targetDir = join(targetRootDir, 'packages', 'mcp-server');
+  if (!existsSync(sourceEntry)) {
+    throw new Error(`Missing mcp-server build artifact for bundling: ${sourceEntry}`);
+  }
+
+  resetDir(targetDir);
+  ensureDir(join(targetDir, 'dist'));
+
+  try {
+    const esbuildCommand = resolveLocalEsbuildCommand();
+    const banner = [
+      "import { createRequire as __createRequire } from 'node:module';",
+      "import { dirname as __pathDirname } from 'node:path';",
+      "import { fileURLToPath as __fileURLToPath } from 'node:url';",
+      'const require = __createRequire(import.meta.url);',
+      'const __filename = __fileURLToPath(import.meta.url);',
+      'const __dirname = __pathDirname(__filename);',
+    ].join(' ');
+    run(esbuildCommand, [
+      sourceEntry,
+      '--bundle',
+      '--platform=node',
+      '--format=esm',
+      '--target=node20',
+      `--outfile=${join(targetDir, 'dist', 'index.js')}`,
+      `--banner:js=${banner}`,
+      '--minify',
+      '--log-level=error',
+      '--external:@office-claw/shared',
+      '--external:@modelcontextprotocol/sdk',
+      '--external:zod',
+    ]);
+
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'node dist/index.js',
+        },
+      }),
+    );
+  } catch (error) {
+    logStep(
+      `mcp-server bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`,
+    );
+    copyIfPresent(join(sourceDir, 'dist'), join(targetDir, 'dist'));
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'node dist/index.js',
+        },
+      }),
+    );
+  }
+  pruneRuntimePackage(targetDir, { removePaths: ['src', 'test', 'tsconfig.json'] });
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -1167,11 +1387,15 @@ async function stageWorkspacePackages(targetRootDir) {
     copyPaths: ['dist'],
     removePaths: ['tsconfig.json'],
   });
+
+  // Minify all JS files in shared package
+  const sharedDistDir = join(targetRootDir, 'packages', 'shared', 'dist');
+  if (existsSync(sharedDistDir)) {
+    await minifyJsFilesInPlace(sharedDistDir);
+  }
+
   await stageBundledApiRuntime(targetRootDir);
-  stageRuntimePackageTemplate(targetRootDir, 'mcp-server', {
-    copyPaths: ['dist'],
-    removePaths: ['src', 'test', 'tsconfig.json'],
-  });
+  await stageBundledMcpServerRuntime(targetRootDir);
   stageStandaloneWebRuntime(targetRootDir);
 }
 
@@ -1198,6 +1422,8 @@ function stripLeadingDirectory(targetDir, predicate) {
 }
 
 async function downloadFile(url, destination) {
+  const tempDestination = `${destination}.partial`;
+  rmSync(tempDestination, { force: true });
   const response = await fetch(url, {
     headers: {
       'user-agent': 'clowder-ai-windows-installer-builder',
@@ -1209,18 +1435,57 @@ async function downloadFile(url, destination) {
     throw new Error(`Download failed for ${url}: ${response.status} ${response.statusText}`);
   }
   ensureDir(dirname(destination));
-  await pipeline(response.body, createWriteStream(destination));
+  try {
+    await pipeline(response.body, createWriteStream(tempDestination));
+    rmSync(destination, { force: true });
+    renameSync(tempDestination, destination);
+  } catch (error) {
+    rmSync(tempDestination, { force: true });
+    throw error;
+  }
+}
+
+function isValidZipArchive(archivePath) {
+  let fd;
+  try {
+    fd = openSync(archivePath, 'r');
+    const stat = fstatSync(fd);
+    if (stat.size < 22) {
+      return false;
+    }
+    const tailLength = Math.min(65557, stat.size);
+    const buffer = Buffer.alloc(tailLength);
+    readSync(fd, buffer, 0, tailLength, stat.size - tailLength);
+    return buffer.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) {
+      closeSync(fd);
+    }
+  }
 }
 
 async function ensureCachedDownload(url, destination) {
   if (existsSync(destination)) {
-    return destination;
+    if (destination.toLowerCase().endsWith('.zip') && !isValidZipArchive(destination)) {
+      rmSync(destination, { force: true });
+    } else {
+      return destination;
+    }
   }
   await downloadFile(url, destination);
+  if (destination.toLowerCase().endsWith('.zip') && !isValidZipArchive(destination)) {
+    rmSync(destination, { force: true });
+    throw new Error(`Downloaded archive is not a valid zip: ${destination}`);
+  }
   return destination;
 }
 
 function extractZip(archivePath, destination) {
+  if (archivePath.toLowerCase().endsWith('.zip') && !isValidZipArchive(archivePath)) {
+    throw new Error(`Zip archive is corrupt or incomplete: ${archivePath}`);
+  }
   resetDir(destination);
   const runners = [];
   if (commandExists('unzip')) {
@@ -1280,7 +1545,8 @@ async function stageWindowsNode(bundleDir, options) {
   const targetDir = join(bundleDir, 'tools', 'node');
   resetDir(targetDir);
   cpSync(nodeRoot, targetDir, { recursive: true, force: true });
-  removePaths(targetDir, ['node_modules', 'corepack', 'include', 'share']);
+  // Keep node_modules (contains npm and its dependencies, needed for runtime skill installation)
+  removePaths(targetDir, ['corepack', 'include', 'share']);
   walkFiles(targetDir, (fullPath, entry) => {
     if (entry.name.endsWith('.map') || entry.name.endsWith('.md')) {
       rmSync(fullPath, { force: true });
@@ -1379,6 +1645,25 @@ async function stageWebView2Installer(bundleDir, options) {
   logStep('WebView2 Bootstrapper downloaded');
 }
 
+async function stageVcRedistInstaller(bundleDir, options) {
+  const vcDir = join(bundleDir, 'tools', 'vc-redist');
+  ensureDir(vcDir);
+  const installerPath = join(vcDir, 'vc_redist.x64.exe');
+
+  if (existsSync(installerPath)) {
+    logStep('VC++ Redist installer already exists, skipping download');
+    return;
+  }
+
+  logStep('Downloading VC++ Redistributable (x64)...');
+  const archiveName = 'vc_redist.x64.exe';
+  const archivePath = join(options.cacheDir, archiveName);
+  await ensureCachedDownload(VC_REDIST_X64_URL, archivePath);
+
+  cpSync(archivePath, installerPath, { force: true });
+  logStep('VC++ Redistributable downloaded');
+}
+
 function computeMaxRelativePathLength(bundleDir) {
   let maxLength = 0;
   const stack = [bundleDir];
@@ -1405,10 +1690,10 @@ function ensureBuildArtifacts(options) {
     return;
   }
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@cat-cafe/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }
@@ -1576,6 +1861,9 @@ async function main() {
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
   }
 
+  logStep('Compiling vendor Python sources to pyc');
+  compileVendorPythonSources(bundleDir);
+
   logStep('Preparing runtime package payload');
   await stageWorkspacePackages(bundleDir);
 
@@ -1596,6 +1884,7 @@ async function main() {
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
   await stageWebView2Installer(bundleDir, options);
+  await stageVcRedistInstaller(bundleDir, options);
   writeReleaseMetadata(bundleDir, {
     name: 'Clowder AI',
     version: packageJson.version,
@@ -1606,6 +1895,7 @@ async function main() {
     pythonEmbed,
     redis,
     webview2Version: options.webview2Version,
+    vcRedistVersion: VC_REDIST_VERSION,
     maxRelativePathLength: computeMaxRelativePathLength(bundleDir),
   });
 

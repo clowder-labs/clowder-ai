@@ -125,7 +125,7 @@ const dir = __dirname;
 process.env.NODE_ENV = 'production';
 process.chdir(__dirname);
 const currentPort = parseInt(process.env.PORT, 10) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+const hostname = process.env.HOSTNAME || '127.0.0.1';
 let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
 
 const requiredServerFiles = JSON.parse(
@@ -532,7 +532,7 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@cat-cafe/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
   const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
@@ -618,10 +618,13 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--sourcemap=external',
     '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
-    '--external:@cat-cafe/shared',
+    '--external:@office-claw/shared',
   ]);
 
-  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')),
+  );
 }
 
 function createStandaloneWebRuntimePackageJson(sourcePath) {
@@ -678,7 +681,10 @@ function stageStandaloneWebRuntime(targetRootDir) {
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
 
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
-  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')),
+  );
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -909,7 +915,20 @@ function installSharedPythonDeps(bundleDir) {
   tryPipInstall(pipExe, [...pipArgs, '--no-deps', join(repoRoot, 'vendor', 'jiuwenclaw')], 'JiuwenClaw package');
 
   // Office automation
-  const officeDeps = ['python-pptx', 'openpyxl', 'python-docx', 'xlsxwriter', 'pypdf', 'reportlab', 'markitdown'];
+  const officeDeps = [
+    'python-pptx',
+    'openpyxl',
+    'python-docx',
+    'requests',
+    'pillow',
+    'PyYAML',
+    'coze_workload_identity',
+    'xlsxwriter',
+    'pypdf',
+    'pdfplumber',
+    'reportlab',
+    'markitdown',
+  ];
   tryPipInstall(pipExe, [...pipArgs, ...officeDeps], 'Office deps');
 
   // Relay-teams CLI
@@ -923,7 +942,7 @@ function installSharedPythonDeps(bundleDir) {
 // ─── Runtime Dependencies ───────────────────────────────────────────
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     const stat = spawnSync('test', ['-L', sharedLinkPath]);
     if (stat.status !== 0) {
@@ -935,6 +954,22 @@ function materializeSharedDependency(stagePackagesDir, packageName) {
   rmSync(sharedLinkPath, { recursive: true, force: true });
   cpSync(join(stagePackagesDir, 'shared'), sharedLinkPath, { recursive: true, force: true });
   pruneRuntimePackage(sharedLinkPath);
+}
+
+function getOfficeSkillPackageDirs(skillsRoot) {
+  if (!existsSync(skillsRoot)) {
+    return [];
+  }
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(skillsRoot, entry.name))
+    .filter((skillDir) => existsSync(join(skillDir, 'package.json')));
+}
+
+function hasPlaywrightDependency(pkg) {
+  return [pkg.dependencies, pkg.optionalDependencies, pkg.devDependencies].some(
+    (group) => typeof group?.playwright === 'string',
+  );
 }
 
 function installMacosRuntimeDependencies(bundleDir) {
@@ -949,6 +984,33 @@ function installMacosRuntimeDependencies(bundleDir) {
     materializeSharedDependency(bundlePackagesDir, packageName);
     pruneRuntimePackage(join(pkgDir));
     pruneNativePrebuilds(join(pkgDir, 'node_modules'));
+  }
+
+  const skillsRoot = join(bundleDir, 'office-claw-skills');
+  const skillPackageDirs = getOfficeSkillPackageDirs(skillsRoot);
+  let playwrightPackageDir = null;
+
+  for (const skillDir of skillPackageDirs) {
+    run('npm', npmArgs, { cwd: skillDir });
+    rmSync(join(skillDir, 'package-lock.json'), { force: true });
+    pruneNativePrebuilds(join(skillDir, 'node_modules'));
+    pruneDateFnsLocales(join(skillDir, 'node_modules'));
+
+    const pkg = readJson(join(skillDir, 'package.json'));
+    if (!playwrightPackageDir && hasPlaywrightDependency(pkg)) {
+      playwrightPackageDir = skillDir;
+    }
+  }
+
+  if (playwrightPackageDir) {
+    const playwrightBrowsersPath = join(skillsRoot, '.playwright-browsers');
+    ensureDir(playwrightBrowsersPath);
+    run('npx', ['playwright', 'install', 'chromium'], {
+      cwd: playwrightPackageDir,
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH: playwrightBrowsersPath,
+      },
+    });
   }
 }
 

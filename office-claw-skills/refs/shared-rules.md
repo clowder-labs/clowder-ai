@@ -1,3 +1,12 @@
+<!--
+metadata:
+  version: "1.0.0"
+  last_updated: "2026-03-08"
+  owner: "团队共识"
+  changelog:
+    - "2026-03-08: 初始版本，第一性原理 + 操作规则共识"
+-->
+
 # 协作规则（智能体共用）
 
 > 用户说"遵守规则" = 遵守本文件全部规则。
@@ -127,9 +136,9 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 完成一个可验证的子任务就提交。
 
-**签名（强制）**：commit message body 必须带智能体签名，格式 `[昵称/模型🐾]`。
-签名必须包含**模型型号**，不能只写 `[Ragdoll🐾]`——同族有多个模型（Opus 4.6 / Opus 4.5 / Sonnet），不带型号无法区分是谁干的。
-签名表见 `refs/commit-signatures.md`。示例：`[Ragdoll/Opus-46🐾]`、`[Maine Coon/GPT-52🐾]`。
+**签名（强制）**：commit message body 必须带智能体签名，格式 `[昵称/模型]`。
+签名必须包含**模型型号**，不能只写 `[Office]`——同族有多个模型（Opus 4.6 / Opus 4.5 / Sonnet），不带型号无法区分是谁干的。
+签名表见 `refs/commit-signatures.md`。示例：`[Office/Opus-46]`、`[OpenCode/GPT-52]`。
 
 commit body 补一行 `Why:` 说明决策理由。
 
@@ -216,7 +225,7 @@ commit body 补一行 `Why:` 说明决策理由。
 
 **常见误用**：
 - ❌ 等待阶段互相 @ 确认"在等"（浪费调用）
-- ❌ 叙述性提及用 @（"@opus 已经完成了 X" → "Ragdoll已经完成了 X"）
+- ❌ 叙述性提及用 @（"@opus 已经完成了 X" → "Opus已经完成了 X"）
 - ✅ 需要行动才 @（另起一行行首写 @，如"完成了，请 review：\n@opus"）
 
 ## 11. Feature 生命周期 Skill
@@ -228,8 +237,8 @@ commit body 补一行 `Why:` 说明决策理由。
 
 ## 12. Runtime 单实例保护（Anti-Self-TERM）
 
-- `../cat-cafe-runtime` 是单实例运行态，默认当作在线服务处理。
-- `../cat-cafe-runtime` 的 `localhost:3003/3004` 默认视为**在线 runtime 端口**；对这两个端口做浏览器 / Playwright / curl 操作，等同于在操作 runtime，不是本地沙箱。
+- `../office-claw-runtime` 是单实例运行态，默认当作在线服务处理。
+- `../office-claw-runtime` 的 `localhost:3003/3004` 默认视为**在线 runtime 端口**；对这两个端口做浏览器 / Playwright / curl 操作，等同于在操作 runtime，不是本地沙箱。
 - 在 runtime 会话中禁止执行重启命令：`pnpm start`、`pnpm runtime:start`、`./scripts/start-dev.sh`。
 - 前端证据采集先复用现有服务：先查 `curl -sf http://localhost:3004/health`。
 - 如果目的是验证**未合入的本地改动**，必须先确认“当前 CWD / worktree”和“要访问的 URL”属于同一实例；看到 `3003/3004` 就先停下来，确认自己是不是误打到了 runtime。
@@ -273,7 +282,7 @@ commit body 补一行 `Why:` 说明决策理由。
 
 | # | 证据 | 示例 |
 |---|------|------|
-| 1 | **命令** | `pnpm test`（全量）或 `pnpm --filter @cat-cafe/api test`（指明 scope） |
+| 1 | **命令** | `pnpm test`（全量）或 `pnpm --filter @office-claw/api test`（指明 scope） |
 | 2 | **SHA** | `基于 abc1234` |
 | 3 | **是否 rebase 到最新 main** | `已 rebase origin/main` 或 `未 rebase（基于 3 天前的 main）` |
 

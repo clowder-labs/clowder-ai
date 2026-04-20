@@ -1,7 +1,21 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiFetch } from '@/utils/api-client';
 import SecurityManagementModal from '../SecurityManagementModal';
+
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(),
+}));
+
+const mockApiFetch = vi.mocked(apiFetch);
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('SecurityManagementModal', () => {
   let container: HTMLDivElement;
@@ -16,6 +30,31 @@ describe('SecurityManagementModal', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
+            },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { permissions?: unknown };
+        return Promise.resolve(
+          jsonResponse({
+            permissions: body.permissions ?? {},
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
+    });
   });
 
   afterEach(() => {
@@ -28,96 +67,281 @@ describe('SecurityManagementModal', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders the static security management layout and policy table', async () => {
+  async function flush() {
     await act(async () => {
-      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      await Promise.resolve();
       await Promise.resolve();
     });
+  }
 
-    const modal = container.querySelector('[data-testid="security-management-modal"]');
-    expect(modal).toBeTruthy();
-    expect(modal?.className).toContain('ui-modal-panel');
-    expect(container.textContent).toContain('瀹夊叏绠＄悊');
-    expect(container.textContent).toContain('鏄惁寮€鍚鎵规姢鏍?);
-    expect(container.textContent).toContain('瀹夊叏绛栫暐閰嶇疆');
-    expect(container.textContent).toContain('鏁忔劅鎿嶄綔');
-    expect(container.textContent).toContain('椋庨櫓绛夌骇');
-    expect(container.textContent).toContain('鍦ㄥ璇濅腑鏄惁闇€瑕佸鎵?);
+  function createDeferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it('loads permissions config from the API proxy when the modal opens', async () => {
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/config/relayclaw/security');
+    const pageToggle = container.querySelector(
+      '[data-testid="security-management-approval-bar-toggle"]',
+    ) as HTMLButtonElement | null;
+    expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('mcp_exec_command');
-    expect(container.textContent).toContain('楂橀闄?);
+    expect(container.textContent).toContain('write_memory');
   });
 
-  it('keeps the approval toggle on the title row and the description on its own full-width line', async () => {
+  it('shows only the shared loading state in the modal body before data resolves', async () => {
+    const pending = createDeferred<Response>();
+    mockApiFetch.mockImplementationOnce(() => pending.promise);
+
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
       await Promise.resolve();
     });
 
-    const header = container.querySelector('[data-testid="security-management-approval-header"]');
-    const description = container.querySelector('[data-testid="security-management-approval-description"]');
-    const pageToggle = container.querySelector(
-      '[data-testid="security-management-approval-bar-toggle"]',
-    ) as HTMLButtonElement | null;
-
-    expect(header).toBeTruthy();
-    expect(header?.className).toContain('items-center');
-    expect(header?.contains(pageToggle)).toBe(true);
-    expect(header?.textContent).toContain('鏄惁寮€鍚鎵规姢鏍?);
-    expect(description).toBeTruthy();
-    expect(description?.className).toContain('w-full');
-    expect(header?.contains(description)).toBe(false);
-  });
-
-  it('hides the policy section when the approval guard is turned off', async () => {
-    await act(async () => {
-      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
-      await Promise.resolve();
-    });
-
-    const pageToggle = container.querySelector(
-      '[data-testid="security-management-approval-bar-toggle"]',
-    ) as HTMLButtonElement | null;
-
-    expect(container.querySelector('[data-testid="security-management-policy-section"]')).toBeTruthy();
-
-    await act(async () => {
-      pageToggle?.click();
-      await Promise.resolve();
-    });
-
-    expect(pageToggle?.getAttribute('aria-checked')).toBe('false');
+    expect(container.querySelector('[data-testid="security-management-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="security-management-approval-header"]')).toBeNull();
     expect(container.querySelector('[data-testid="security-management-policy-section"]')).toBeNull();
-    expect(container.textContent).not.toContain('瀹夊叏绛栫暐閰嶇疆');
+    expect(container.querySelector('[data-testid="security-management-load-error"]')).toBeNull();
+    expect(container.querySelector('[data-testid="security-management-save-error"]')).toBeNull();
   });
 
-  it('toggles approval switches in the static preview', async () => {
+  it('treats missing permissions.enabled as enabled when loading config', async () => {
+    mockApiFetch.mockImplementationOnce(() =>
+      Promise.resolve(
+        jsonResponse({
+          permissions: {
+            tools: {
+              mcp_exec_command: { '*': 'ask' },
+            },
+          },
+        }),
+      ),
+    );
+
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
-      await Promise.resolve();
     });
+    await flush();
 
     const pageToggle = container.querySelector(
       '[data-testid="security-management-approval-bar-toggle"]',
     ) as HTMLButtonElement | null;
-    const policyToggle = container.querySelector('[data-testid="security-policy-toggle-policy-2"]') as HTMLButtonElement | null;
 
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
-    expect(policyToggle?.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('saves approval guard changes through the API proxy', async () => {
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const pageToggle = container.querySelector(
+      '[data-testid="security-management-approval-bar-toggle"]',
+    ) as HTMLButtonElement | null;
 
     await act(async () => {
       pageToggle?.click();
+      await Promise.resolve();
+    });
+
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH',
+    );
+    expect(patchCall?.[1]?.body ? JSON.parse(String(patchCall[1].body)) : null).toEqual({
+      permissions: {
+        enabled: false,
+      },
+    });
+    expect(pageToggle?.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('saves tool policy toggles as ask or allow and preserves patterns', async () => {
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const commandToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-mcp_exec_command"]',
+    ) as HTMLButtonElement | null;
+    const memoryToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-write_memory"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
+      commandToggle?.click();
+      await Promise.resolve();
+    });
+
+    const firstPatchBody = mockApiFetch.mock.calls
+      .filter(([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH')
+      .map(([, init]) => JSON.parse(String(init?.body ?? '{}')))[0];
+
+    expect(firstPatchBody).toEqual({
+      permissions: {
+        tools: {
+          mcp_exec_command: {
+            '*': 'allow',
+            patterns: {
+              'git status *': 'allow',
+            },
+          },
+        },
+      },
+    });
+    expect(commandToggle?.getAttribute('aria-checked')).toBe('false');
+
+    await act(async () => {
+      memoryToggle?.click();
+      await Promise.resolve();
+    });
+
+    const lastPatchBody = mockApiFetch.mock.calls
+      .filter(([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH')
+      .map(([, init]) => JSON.parse(String(init?.body ?? '{}')))
+      .at(-1);
+
+    expect(lastPatchBody).toEqual({
+      permissions: {
+        tools: {
+          write_memory: 'ask',
+        },
+      },
+    });
+    expect(memoryToggle?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('reverts optimistic changes when save fails', async () => {
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
+            },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ error: 'save failed' }, 500));
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const pageToggle = container.querySelector(
+      '[data-testid="security-management-approval-bar-toggle"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
       pageToggle?.click();
-      policyToggle?.click();
+      await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
-    expect(policyToggle?.getAttribute('aria-checked')).toBe('true');
-    expect(container.textContent).toContain('鏄?);
+    expect(container.textContent).toContain('save failed');
   });
 
-  it('uses a 700px panel width and does not close on backdrop click', async () => {
+  it('keeps later successful tool toggles when an earlier save fails', async () => {
+    const firstSave = createDeferred<Response>();
+    const secondSave = createDeferred<Response>();
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
+            },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        return mockApiFetch.mock.calls.filter(([, callInit]) => callInit?.method === 'PATCH').length === 1
+          ? firstSave.promise
+          : secondSave.promise;
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const commandToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-mcp_exec_command"]',
+    ) as HTMLButtonElement | null;
+    const memoryToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-write_memory"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
+      commandToggle?.click();
+      memoryToggle?.click();
+      await Promise.resolve();
+    });
+
+    secondSave.resolve(
+      jsonResponse({
+        permissions: {
+          tools: {
+            write_memory: 'ask',
+          },
+        },
+      }),
+    );
+    await flush();
+
+    firstSave.resolve(jsonResponse({ error: 'first save failed' }, 500));
+    await flush();
+
+    expect(commandToggle?.getAttribute('aria-checked')).toBe('true');
+    expect(memoryToggle?.getAttribute('aria-checked')).toBe('true');
+    expect(container.textContent).toContain('first save failed');
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
     const onClose = vi.fn();
+    mockApiFetch.mockImplementation((path) => {
+      if (path === '/api/config/relayclaw/security') {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                write_memory: 'ask',
+              },
+            },
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
 
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose }));
@@ -125,17 +349,12 @@ describe('SecurityManagementModal', () => {
     });
 
     const modal = container.querySelector('[data-testid="security-management-modal"]');
-    const backdrop = container.querySelector('[data-testid="security-management-modal-backdrop"]') as HTMLDivElement | null;
+    expect(modal).not.toBeNull();
 
-    expect(modal?.className).toContain('w-[700px]');
-
-    await act(async () => {
-      backdrop?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      await Promise.resolve();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
 
-    expect(onClose).not.toHaveBeenCalled();
-    expect(container.querySelector('[data-testid="security-management-modal"]')).toBeTruthy();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

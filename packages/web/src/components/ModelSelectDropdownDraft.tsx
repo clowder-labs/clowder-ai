@@ -7,6 +7,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { OverflowTooltip } from './shared/OverflowTooltip';
+import { SearchInput } from './shared/SearchInput';
 
 const DEFAULT_MODEL_ICON = '/avatars/assistant.svg';
 
@@ -39,19 +41,16 @@ interface ModelSelectValueDraftProps {
   loading?: boolean;
 }
 
-function SearchIcon() {
-  return (
-    <svg className="h-3 w-3 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function ChevronDownIcon() {
   return (
     <svg className="h-4 w-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M7 10L12 15L17 10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -77,9 +76,20 @@ export function ModelSelectValueDraft({
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {item && !loading ? <ModelIcon item={item} /> : null}
-      <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-        {loading ? '加载模型中...' : item?.name ?? placeholder}
-      </span>
+      <OverflowTooltip content={loading ? '加载模型中...' : (item?.name ?? placeholder)} className="min-w-0">
+        <span
+          className={`block min-w-0 truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+          style={{
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            wordBreak: 'break-all',
+          }}
+        >
+          {loading ? '加载模型中...' : (item?.name ?? placeholder)}
+        </span>
+      </OverflowTooltip>
     </span>
   );
 }
@@ -116,25 +126,26 @@ export function ModelSelectDropdownDraft({
 
   return (
     <div
-      className="ui-panel flex max-h-[335px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]"
+      className="ui-panel flex max-h-[335px] w-full py-2 flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]"
       data-testid="model-select-dropdown"
     >
-      <div className="px-[10px] pb-1 pt-[10px]">
-        <label className="ui-field flex h-7 items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
-          <SearchIcon />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholder}
-            className="ui-input ui-input-plain w-full text-[10px]"
-          />
-        </label>
+      <div className="px-4 py-1">
+        <SearchInput
+          aria-label="搜索模型"
+          value={query}
+          onChange={(value) => setQuery(value)}
+          onClear={() => setQuery('')}
+          placeholder={searchPlaceholder}
+          wrapperClassName="w-full"
+          inputClassName="h-7 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] text-[12px]"
+        />
       </div>
+      <div aria-hidden="true" className="my-[6px] h-px w-full bg-[var(--panel-border-outer)]" />
 
-      <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-0 pb-2 pt-1">
+      <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {filteredGroups.map((group) => (
-          <div key={group.id} className="pt-1">
-            <div className="px-4 pb-1 text-[10px] font-medium text-[var(--text-muted)]">{group.label}</div>
+          <div key={group.id}>
+            <div className="px-4 text-[12px] font-medium leading-[32px] text-[var(--text-label-secondary)]">{group.label}</div>
             {group.items.map((item) => {
               const isSelected = item.id === selectedId;
 
@@ -147,15 +158,28 @@ export function ModelSelectDropdownDraft({
                   data-testid={`model-row-${item.id}`}
                   onClick={() => onSelect?.(item)}
                   className={`flex min-h-[34px] w-full items-center border-0 px-4 py-1.5 text-left transition-colors ${
-                    isSelected ? 'bg-[#f5f5f5]' : 'bg-[var(--surface-panel)] hover:bg-[#f5f5f5]'
+                    isSelected
+                      ? 'bg-[var(--menu-active-bg)] text-[var(--text-accent)]'
+                      : 'bg-[var(--surface-panel)] text-[var(--modal-text)] hover:bg-[var(--menu-hover-bg)] hover:text-[var(--text-accent)]'
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <ModelIcon item={item} />
                     <div className="min-w-0">
-                      <div className="truncate text-[14px] leading-[20px] font-normal text-[var(--text-primary)]">
-                        {item.name}
-                      </div>
+                      <OverflowTooltip content={item.name} className="w-full">
+                        <div
+                          className="block min-w-0 truncate text-[14px] leading-[20px] font-normal text-current"
+                          style={{
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            wordBreak: 'break-all',
+                          }}
+                        >
+                          {item.name}
+                        </div>
+                      </OverflowTooltip>
                     </div>
                   </div>
                 </button>

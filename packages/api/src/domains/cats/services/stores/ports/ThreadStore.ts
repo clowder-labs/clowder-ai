@@ -14,8 +14,8 @@
 
 import { existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { relative, resolve, win32 } from 'node:path';
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
-import { generateThreadId } from '@cat-cafe/shared';
+import type { CatId, ThreadPhase } from '@office-claw/shared';
+import { generateThreadId } from '@office-claw/shared';
 import { GovernanceBootstrapService } from '../../../../../config/governance/governance-bootstrap.js';
 import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
@@ -275,7 +275,7 @@ function bootstrapWorkspaceGovernance(projectPath: string, monorepoRoot: string)
 }
 
 function ensureWorkspaceProjectPath(monorepoRoot: string): { projectPath: string; created: boolean } {
-  const workspacePath = resolve(monorepoRoot, 'workspace');
+  const workspacePath = resolve(monorepoRoot, 'workspace', Date.now().toString());
   const existedBefore = existsSync(workspacePath);
   mkdirSync(workspacePath, { recursive: true });
 

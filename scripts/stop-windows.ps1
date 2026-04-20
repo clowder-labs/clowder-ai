@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Clowder AI (Cat Cafe) - Windows Stop Script
+  OfficeClaw - Windows Stop Script
 
 .DESCRIPTION
-  Stops Cat Cafe services (API, Frontend, Redis) by port.
+  Stops OfficeClaw services (API, Frontend, Redis) by port.
 
 .EXAMPLE
   .\scripts\stop-windows.ps1
@@ -24,7 +24,7 @@ $RunDir = if ($ProjectRoot) { Join-Path $ProjectRoot ".office-claw/run/windows" 
 $RuntimeStateFile = if ($RunDir) { Join-Path $RunDir "runtime-state.json" } else { $null }
 $runtimeState = Read-WindowsRuntimeStateFile -StateFile $RuntimeStateFile
 
-Write-Host "Cat Cafe - Stopping services" -ForegroundColor Cyan
+Write-Host "OfficeClaw - Stopping services" -ForegroundColor Cyan
 Write-Host "============================="
 
 # Load .env for port config
@@ -72,6 +72,19 @@ $redisStartedByLauncher = [bool]($runtimeState -and $runtimeState.RedisStartedBy
 if (-not $configuredRedisUrl -and $env:REDIS_URL) {
     $configuredRedisUrl = $env:REDIS_URL.Trim()
 }
+# Restore Redis auth from Credential Manager (runtime-state stores redacted URL)
+$redisAuthFromCM = [bool]($runtimeState -and $runtimeState.RedisAuthFromCredentialManager)
+if ($redisAuthFromCM) {
+    try {
+        $storedPassword = Read-ClowderCredential -Path "redis/password"
+        if ($storedPassword) {
+            $escapedPwd = [System.Uri]::EscapeDataString($storedPassword)
+            $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+        }
+    } catch {
+        Write-Warn "Cannot read Redis password from Credential Manager: $_"
+    }
+}
 
 function Get-ManagedProcessId {
     param([string]$ManagedPidFile)
@@ -105,7 +118,9 @@ function Test-ClowderOwnedProcess {
         return $false
     }
     $normalizedRoot = $ClowderProjectRoot.TrimEnd('\', '/') + '\'
-    return ($commandLine -like "*$normalizedRoot*") -or ($commandLine -like "*$ClowderProjectRoot`"*") -or ($commandLine -like "*$ClowderProjectRoot'*")
+    return (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle $normalizedRoot) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + '"')) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + "'"))
 }
 
 function Stop-PortProcess {
@@ -229,11 +244,11 @@ if ($ProjectRoot) {
             if (-not $proc.CommandLine) { continue }
             $cmdLine = $proc.CommandLine
             $isClowderPython = (
-                ($cmdLine -like "*$ProjectRoot*") -or
-                ($cmdLine -like "*tools\python\python.exe*") -or
-                ($cmdLine -like "*tools/python/python.exe*") -or
-                ($cmdLine -like "*vendor\jiuwenclaw*") -or
-                ($cmdLine -like "*vendor/jiuwenclaw*")
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle $ProjectRoot) -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools\python\python.exe") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools/python/python.exe") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor\jiuwenclaw") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor/jiuwenclaw")
             )
             if (-not $isClowderPython) { continue }
             if (-not (Test-ClowderOwnedProcess -ProcessId $proc.ProcessId -ClowderProjectRoot $ProjectRoot)) {
@@ -248,7 +263,7 @@ if ($ProjectRoot) {
             Write-Ok "Stopped orphaned Python processes"
         }
     } catch {
-        # Best-effort cleanup — do not block shutdown
+        # Best-effort cleanup - do not block shutdown
     }
 }
 
@@ -258,3 +273,4 @@ Remove-Item $redisPidFile -ErrorAction SilentlyContinue
 Remove-WindowsRuntimeStateFile -StateFile $RuntimeStateFile
 
 Write-Host "`nAll services stopped." -ForegroundColor Green
+

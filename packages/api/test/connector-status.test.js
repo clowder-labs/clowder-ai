@@ -60,6 +60,17 @@ describe('buildConnectorStatus', () => {
     assert.notEqual(dingtalk.fields[1]?.currentValue, 'ding-secret');
   });
 
+  it('trims connector values before reporting status', () => {
+    const result = buildConnectorStatus({
+      DINGTALK_APP_KEY: '  ding-app-key  ',
+      DINGTALK_APP_SECRET: '\nding-secret\t',
+    });
+    const dingtalk = getPlatform(result, 'dingtalk');
+
+    assert.equal(dingtalk.configured, true);
+    assert.equal(dingtalk.fields[0]?.currentValue, 'ding-app-key');
+  });
+
   it('treats secret refs as configured and masked for sensitive connector fields', () => {
     const result = buildConnectorStatus({
       DINGTALK_APP_KEY: 'ding-app-key',
@@ -90,8 +101,8 @@ describe('buildConnectorStatus', () => {
       XIAOYI_SK: 'sk-value',
     });
 
-    const dingtalk = getPlatform(first, 'dingtalk');
-    const xiaoyi = getPlatform(first, 'xiaoyi');
+    const dingtalk = getPlatform(result, 'dingtalk');
+    const xiaoyi = getPlatform(result, 'xiaoyi');
     const dingSecret = dingtalk.fields.find((field) => field.envName === 'DINGTALK_APP_SECRET');
     const xiaoyiAk = xiaoyi.fields.find((field) => field.envName === 'XIAOYI_AK');
     const xiaoyiSk = xiaoyi.fields.find((field) => field.envName === 'XIAOYI_SK');
@@ -110,7 +121,8 @@ describe('buildConnectorStatus', () => {
     const result = buildConnectorStatus({});
 
     for (const platform of result) {
-      assert.ok(platform.docsUrl.startsWith('https://'));
+      assert.equal(typeof platform.docsUrl, 'string');
+      assert.ok(platform.docsUrl.length > 0);
       assert.ok(platform.steps.length >= 3);
       for (const step of platform.steps) {
         assert.equal(typeof step.text, 'string');

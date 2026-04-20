@@ -4,7 +4,7 @@
  *
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { CAT_CONFIGS } from '@office-claw/shared';
 import { create } from 'zustand';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type {
@@ -132,6 +132,181 @@ function appendThinkingText(existing: string | undefined, next: string): string 
   return `${existing}${next}`;
 }
 
+// ── 去重辅助函数 ──
+
+/** 句子分割正则表达式 */
+const SENTENCE_SPLIT_REGEX = /(?<=[。！？.!?])\s*/;
+
+/** 去重配置参数 */
+const DEDUP_CONFIG = {
+  similarityThreshold: 0.7, // 相似度阈值（70%）
+  checkSentenceCount: 3, // 检查句子数量
+  minSentenceLength: 5, // 最小句子长度
+} as const;
+
+/**
+ * 计算两个字符串的相似度（0-1）
+ * 使用简化的最长公共子序列算法
+ *
+ * @param s1 - 字符串1
+ * @param s2 - 字符串2
+ * @returns 相似度 (0-1, 1表示完全相同)
+ *
+ * 公式：similarity = (2 × LCS) / (len(s1) + len(s2))
+ */
+function calculateSimilarity(s1: string, s2: string): number {
+  const len1 = s1.length;
+  const len2 = s2.length;
+
+  // 空字符串处理
+  if (len1 === 0) return len2 === 0 ? 1 : 0;
+  if (len2 === 0) return 0;
+
+  // 最长公共子序列算法
+  const dp: number[][] = Array(len1 + 1)
+    .fill(0)
+    .map(() => Array(len2 + 1).fill(0));
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  const lcs = dp[len1][len2];
+  return (2 * lcs) / (len1 + len2);
+}
+
+/**
+ * 标准化字符串：去除标点、空格、转小写
+ */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[，。！？、,.!?]/g, '')
+    .trim();
+}
+
+/**
+ * 判断两个句子是否相似
+ *
+ * @param s1 - 句子1
+ * @param s2 - 句子2
+ * @returns 是否相似
+ *
+ * 判断逻辑：
+ * 1. 短句子（<10字符）：直接比较
+ * 2. 标准化：去除标点、空格、转小写
+ * 3. 完全相同：返回 true
+ * 4. 计算相似度：≥50% 返回 true
+ */
+function areSentencesSimilar(s1: string, s2: string): boolean {
+  // 短句子直接比较
+  if (s1.length < 10 || s2.length < 10) {
+    return s1 === s2;
+  }
+
+  const norm1 = normalize(s1);
+  const norm2 = normalize(s2);
+
+  // 完全相同
+  if (norm1 === norm2) return true;
+
+  // 计算相似度
+  const similarity = calculateSimilarity(norm1, norm2);
+  return similarity >= DEDUP_CONFIG.similarityThreshold;
+}
+
+/**
+ * 提取文本的最后 N 句话
+ *
+ * @param text - 输入文本
+ * @param count - 提取句子数量
+ * @returns 最后 N 句话数组
+ */
+function extractLastSentences(text: string, count: number): string[] {
+  if (!text) return [];
+  const sentences = text.split(SENTENCE_SPLIT_REGEX).filter((s) => s.trim().length > 0);
+  return sentences.slice(-count);
+}
+
+/**
+ * 提取文本的前 N 句话
+ *
+ * @param text - 输入文本
+ * @param count - 提取句子数量
+ * @returns 前 N 句话数组
+ */
+function extractFirstSentences(text: string, count: number): string[] {
+  if (!text) return [];
+  const sentences = text.split(SENTENCE_SPLIT_REGEX).filter((s) => s.trim().length > 0);
+  return sentences.slice(0, count);
+}
+
+/**
+ * 移除与现有内容重复的句子
+ *
+ * 用于解决 LLM 流式输出中的重复问题。某些模型在流式生成时会"回退"并重新生成开头部分，
+ * 导致前端显示重复内容。此函数通过句子级别的相似度检测，移除重复部分。
+ *
+ * @param existing - 现有消息内容
+ * @param newContent - 新收到的内容
+ * @returns 去重后的新内容
+ *
+ * 算法流程：
+ * 1. 提取现有内容的最后 N 句话
+ * 2. 提取新内容的前 N 句话
+ * 3. 逐对比较相似度
+ * 4. 移除重复句子及相关标点
+ */
+function removeDuplicateSentences(existing: string, newContent: string): string {
+  // 空内容处理
+  if (!existing || !existing.trim()) return newContent;
+  if (!newContent || !newContent.trim()) return '';
+
+  const checkCount = DEDUP_CONFIG.checkSentenceCount;
+
+  // 提取现有内容的最后几句
+  const lastSentences = extractLastSentences(existing, checkCount);
+  if (lastSentences.length === 0) return newContent;
+
+  // 提取新内容的前几句
+  const firstSentences = extractFirstSentences(newContent, checkCount);
+  if (firstSentences.length === 0) return newContent;
+
+  // 逐对比较，找出重复的句子数量
+  // 对齐方式：从现有内容的最后一句开始，与新内容的第一句对齐比较
+  let duplicateCount = 0;
+  const maxCompare = Math.min(lastSentences.length, firstSentences.length);
+
+  for (let i = 0; i < maxCompare; i++) {
+    const oldSentence = lastSentences[lastSentences.length - 1 - i];
+    const newSentence = firstSentences[i];
+
+    if (areSentencesSimilar(oldSentence, newSentence)) {
+      duplicateCount++;
+    } else {
+      // 一旦不匹配就停止（连续匹配模式）
+      break;
+    }
+  }
+
+  if (duplicateCount === 0) return newContent;
+
+  // 移除重复的句子
+  const resultSentences = firstSentences.slice(duplicateCount);
+
+  // 清理开头的标点符号（去除因移除句子留下的标点）
+  let result = resultSentences.join('');
+  result = result.replace(/^[，。！？、,.!?]+\s*/, '');
+
+  return result;
+}
+
 function revokeBlobUrls(messages: ChatMessage[]) {
   for (const msg of messages) {
     if (msg.contentBlocks) {
@@ -246,6 +421,42 @@ function getLatestMessageTimestamp(messages: ChatMessage[]): number {
 
 function isUnreadBodyMessage(msg: ChatMessage): boolean {
   return msg.type === 'assistant' || !!msg.source;
+}
+
+function isSeenCallbackTailMessage(existing: ThreadState, msg: ChatMessage): boolean {
+  if (msg.type !== 'assistant' || msg.origin !== 'callback') return false;
+
+  const callbackInvocationId = msg.extra?.stream?.invocationId;
+  if (callbackInvocationId) {
+    return existing.messages.some(
+      (m) =>
+        m.type === 'assistant' &&
+        m.origin === 'stream' &&
+        m.catId === msg.catId &&
+        m.extra?.stream?.invocationId === callbackInvocationId,
+    );
+  }
+
+  // Fallback for providers that emit callback text without invocationId:
+  // if we just had a stream message from the same cat very recently, treat
+  // callback as tail replacement instead of a brand-new unread message.
+  const fallbackWindowMs = 8_000;
+  for (let i = existing.messages.length - 1; i >= 0; i -= 1) {
+    const m = existing.messages[i];
+    if (m?.type !== 'assistant' || m.origin !== 'stream' || m.catId !== msg.catId) continue;
+    if (
+      typeof m.timestamp === 'number' &&
+      Number.isFinite(m.timestamp) &&
+      typeof msg.timestamp === 'number' &&
+      Number.isFinite(msg.timestamp) &&
+      msg.timestamp >= m.timestamp &&
+      msg.timestamp - m.timestamp <= fallbackWindowMs
+    ) {
+      return true;
+    }
+    break;
+  }
+  return false;
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the co-creator */
@@ -884,9 +1095,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages };
     }),
 
+  /**
+   * 追加内容到指定消息（带去重）
+   *
+   * 使用句子级别的去重逻辑，移除与现有内容重复的句子。
+   * 用于解决 LLM 流式输出中的重复问题。
+   */
   appendToMessage: (id, content) =>
     set((state) => ({
-      messages: state.messages.map((m) => (m.id === id ? { ...m, content: m.content + content } : m)),
+      messages: state.messages.map((m) => {
+        if (m.id === id) {
+          // 先去重，再追加
+          const deduped = removeDuplicateSentences(m.content || '', content);
+          return { ...m, content: (m.content || '') + deduped };
+        }
+        return m;
+      }),
     })),
 
   appendToolEvent: (id, event) =>
@@ -1142,8 +1366,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existing.messages.some((m) => m.id === msg.id)) return state;
       const lastReadAt = state._lastReadAtByThread[threadId] ?? 0;
       const isBodyMessage = isUnreadBodyMessage(msg);
+      const isSeenTail = isSeenCallbackTailMessage(existing, msg);
       const isReplayOrAlreadyViewed =
         !isBodyMessage ||
+        isSeenTail ||
         (typeof msg.timestamp === 'number' && Number.isFinite(msg.timestamp) && msg.timestamp <= lastReadAt);
 
       // F067 Phase 2: Fire macOS notification for @co-creator mention
@@ -1221,13 +1447,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   patchThreadMessage: (threadId, messageId, patch) =>
     set((state) => updateThreadMessage(state, threadId, messageId, (m) => applyMessagePatch(m, patch))),
 
-  /** Append chunk content to a specific message in a specific thread. */
+  /**
+   * 追加内容到指定线程中的指定消息（带去重）
+   *
+   * 使用与 appendToMessage 相同的去重逻辑。
+   */
   appendToThreadMessage: (threadId, messageId, content) =>
     set((state) =>
-      updateThreadMessage(state, threadId, messageId, (m) => ({
-        ...m,
-        content: m.content + content,
-      })),
+      updateThreadMessage(state, threadId, messageId, (m) => {
+        // 先去重，再追加（与 appendToMessage 保持一致）
+        const deduped = removeDuplicateSentences(m.content || '', content);
+        return { ...m, content: (m.content || '') + deduped };
+      }),
     ),
 
   /** Append tool event to a specific assistant message in a specific thread. */
@@ -1592,7 +1823,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           updated[tid] = ts;
         }
       }
-      return changed ? { threadStates: updated, _unreadSuppressedUntil: suppressed, _lastReadAtByThread: nextReadAtByThread } : state;
+      return changed
+        ? { threadStates: updated, _unreadSuppressedUntil: suppressed, _lastReadAtByThread: nextReadAtByThread }
+        : state;
     }),
 
   confirmUnreadAck: (threadId) =>

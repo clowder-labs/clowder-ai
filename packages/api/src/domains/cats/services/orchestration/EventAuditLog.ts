@@ -41,15 +41,14 @@ export interface AuditEvent {
 
 export type AuditEventInput = Omit<AuditEvent, 'id' | 'timestamp'>;
 
-/** Default audit log directory */
-const DEFAULT_AUDIT_DIR = './data/audit-logs';
+import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
 
 export class EventAuditLog {
   private readonly auditDir: string;
   private initialized = false;
 
   constructor(options?: { auditDir?: string }) {
-    this.auditDir = options?.auditDir ?? process.env.AUDIT_LOG_DIR ?? DEFAULT_AUDIT_DIR;
+    this.auditDir = options?.auditDir ?? resolve(findMonorepoRoot(), process.env.AUDIT_LOG_DIR ?? 'data/audit-logs');
   }
 
   /**
@@ -208,10 +207,10 @@ export const AuditEventTypes = {
 
   // === 消息级审计 (茶话会夺魂 bug fix #37) ===
 
-  /** 猫被调用 (CLI spawn 前) */
-  CAT_INVOKED: 'cat_invoked',
-  /** 猫响应完成 (done 消息后) */
-  CAT_RESPONDED: 'cat_responded',
+  /** 智能体被调用 (CLI spawn 前) */
+  AGENT_INVOKED: 'agent_invoked',
+  /** 智能体响应完成 (done 消息后) */
+  AGENT_RESPONDED: 'agent_responded',
   /** 调用发生错误 */
   CAT_ERROR: 'cat_error',
   /** 猫猫互调 handoff */

@@ -10,8 +10,10 @@ import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, use
 import { createPortal } from 'react-dom';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
+import { normalizeAgentSaveErrorMessage } from '@/utils/agent-save-error';
 import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
@@ -30,6 +32,7 @@ import {
   ModelSelectTriggerIcon,
   ModelSelectValueDraft,
 } from './ModelSelectDropdownDraft';
+import { Textarea } from './shared/Textarea';
 
 interface CreateAgentModalProps {
   open: boolean;
@@ -82,7 +85,7 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = '华为云MaaS';
+const HUAWEI_GROUP_LABEL = '华为云 MaaS';
 const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
@@ -114,6 +117,8 @@ const PRESET_AVATARS = [
   '/avatars/agent-avatar-8.png',
   '/avatars/agent-avatar-9.png',
 ];
+const DEFAULT_PRESET_AVATAR = PRESET_AVATARS[0];
+
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
@@ -131,9 +136,7 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
-const AGENT_NAME_VALIDATION_MESSAGE =
-  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
-
+const AGENT_NAME_VALIDATION_MESSAGE = '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 function validateAgentName(name: string): string | null {
   if (!name) return AGENT_NAME_VALIDATION_MESSAGE;
   if (name !== name.trim()) return AGENT_NAME_VALIDATION_MESSAGE;
@@ -143,30 +146,26 @@ function validateAgentName(name: string): string | null {
   }
   return null;
 }
-function normalizeSaveErrorMessage(message: string | null | undefined): string | null {
-  if (!message) return null;
 
+function isDuplicateNameErrorMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
   const normalized = message.trim().toLowerCase();
-  if (!normalized) return null;
+  if (!normalized) return false;
 
-  if (
+  return (
+    (normalized.includes('名称') && normalized.includes('已被使用')) ||
     normalized.includes('duplicate') ||
     normalized.includes('already exists') ||
     normalized.includes('名称重复') ||
     normalized.includes('名字重复') ||
-    normalized.includes('重名') ||
-    normalized.includes('别名')
-  ) {
-    return '名称重复';
-  }
-
-  return message;
+    normalized.includes('重名')
+  );
 }
 
 function generateRandomCatId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
-  return `cat-${timestamp}${random}`.slice(0, 64);
+  return `agent-${timestamp}${random}`.slice(0, 64);
 }
 
 /**
@@ -301,7 +300,8 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const protocol = pickStringField(normalized, ['protocol']);
-  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
+  const isHuawei =
+    accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
   const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
@@ -354,7 +354,6 @@ export function buildDefaultCreateForm(
   name: string,
   description: string,
   avatar: string,
-  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
@@ -374,7 +373,7 @@ export function buildDefaultCreateForm(
     teamStrengths: '',
     caution: '',
     strengths: '',
-    client: selectedClient,
+    client: RELAYCLAW_CLIENT,
     accountRef: selectedModel?.accountRef ?? '',
     defaultModel: selectedModel?.model ?? '',
     commandArgs: '',
@@ -397,7 +396,6 @@ function buildEditForm(
   name: string,
   description: string,
   avatar: string,
-  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const base = initialState(cat, null);
@@ -411,7 +409,7 @@ function buildEditForm(
     mentionPatterns: `@${mentionSeed}`,
     avatar,
     roleDescription: description.trim() || base.roleDescription,
-    client: selectedClient,
+    client: RELAYCLAW_CLIENT,
     accountRef: selectedModel?.accountRef ?? base.accountRef,
     defaultModel: selectedModel?.model ?? base.defaultModel,
     ocProviderName: '',
@@ -446,7 +444,9 @@ export function CreateAgentModal({
   const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [nameSubmitError, setNameSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const clientMenuRef = useRef<HTMLDivElement | null>(null);
   const clientTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -477,9 +477,8 @@ export function CreateAgentModal({
     if (cat) {
       setDraftAvatar(resolveInitialAvatar(cat));
     } else {
-      setDraftAvatar(getRandomPresetAvatar());
+      setDraftAvatar(DEFAULT_PRESET_AVATAR);
     }
-    const incomingClient = (draft?.client ?? cat?.provider ?? RELAYCLAW_CLIENT) as ClientValue;
     if (isSkipAuth) {
       setSelectedClient(RELAYCLAW_CLIENT);
       setSelectedOptionId(null);
@@ -489,13 +488,12 @@ export function CreateAgentModal({
       setModelMenuOpen(false);
       setOpenAbove(false);
       setModelMenuPosition(null);
-      setError(null);
+      setGlobalError(null);
+      setAvatarError(null);
+      setNameSubmitError(null);
       return;
     }
-    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient)
-      ? incomingClient
-      : RELAYCLAW_CLIENT;
-    setSelectedClient(nextClient);
+    setSelectedClient(RELAYCLAW_CLIENT);
     setSelectedOptionId(null);
     setClientMenuOpen(false);
     setClientOpenAbove(false);
@@ -503,8 +501,10 @@ export function CreateAgentModal({
     setModelMenuOpen(false);
     setOpenAbove(false);
     setModelMenuPosition(null);
-    setError(null);
-  }, [cat, description, draft?.client, isSkipAuth, name, open]);
+    setGlobalError(null);
+    setAvatarError(null);
+    setNameSubmitError(null);
+  }, [cat, description, isSkipAuth, name, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -544,6 +544,11 @@ export function CreateAgentModal({
     };
   }, [clientMenuOpen, modelMenuOpen]);
 
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -563,7 +568,7 @@ export function CreateAgentModal({
       } catch (err) {
         if (cancelled) return;
         setMarketplaceModels([]);
-        setError(err instanceof Error ? err.message : '模型广场加载失败');
+        setGlobalError(err instanceof Error ? err.message : '模型广场加载失败');
       } finally {
         if (!cancelled) setLoadingModels(false);
       }
@@ -621,12 +626,14 @@ export function CreateAgentModal({
     [clientOptions, selectedClient],
   );
   const nameError = useMemo(() => validateAgentName(draftName), [draftName]);
-  const isConfirmDisabled = saving || Boolean(nameError);
+  const inlineNameError = nameError ?? nameSubmitError;
+  const isConfirmDisabled = saving || Boolean(inlineNameError);
 
   const updateClientMenuPosition = useCallback(() => {
     if (!clientMenuOpen || !clientTriggerRef.current) return;
     const rect = clientTriggerRef.current.getBoundingClientRect();
-    const estimatedMenuHeight = clientMenuRef.current?.offsetHeight ?? Math.min(Math.max(clientOptions.length, 1) * 34 + 8, 220);
+    const estimatedMenuHeight =
+      clientMenuRef.current?.offsetHeight ?? Math.min(Math.max(clientOptions.length, 1) * 34 + 8, 220);
     const spaceBelow = window.innerHeight - rect.bottom;
     const nextOpenAbove = spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET;
     setClientOpenAbove(nextOpenAbove);
@@ -711,17 +718,17 @@ export function CreateAgentModal({
 
     const validationError = validateAvatarFile(file);
     if (validationError) {
-      setError(validationError);
+      setAvatarError(validationError);
       event.target.value = '';
       return;
     }
 
     setUploadingAvatar(true);
-    setError(null);
+    setAvatarError(null);
     try {
       setDraftAvatar(await uploadAvatarAsset(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '头像上传失败');
+      setAvatarError(err instanceof Error ? err.message : '头像上传失败');
     } finally {
       setUploadingAvatar(false);
       event.target.value = '';
@@ -733,16 +740,17 @@ export function CreateAgentModal({
     if (nameError) return;
 
     if (!selectedModel) {
-      setError('请选择模型');
+      setGlobalError('请选择模型');
       return;
     }
 
     setSaving(true);
-    setError(null);
+    setGlobalError(null);
+    setNameSubmitError(null);
     try {
       const formState = cat
-        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel)
-        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel);
+        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
+        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
       const payload = buildCatPayload(formState, cat);
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
@@ -752,7 +760,13 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError(normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
+        const nextError =
+          normalizeAgentSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`;
+        if (isDuplicateNameErrorMessage(nextError)) {
+          setNameSubmitError(nextError);
+        } else {
+          setGlobalError(nextError);
+        }
         return;
       }
 
@@ -762,16 +776,22 @@ export function CreateAgentModal({
       await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
-      setError(normalizeSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败'));
+      const nextError =
+        normalizeAgentSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败');
+      if (isDuplicateNameErrorMessage(nextError)) {
+        setNameSubmitError(nextError);
+      } else {
+        setGlobalError(nextError);
+      }
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-backdrop-medium)] px-6 py-8">
       <div
-        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] border-[var(--modal-border)] bg-[var(--modal-surface)] p-6 shadow-[var(--modal-shadow)]"
         data-testid="create-agent-modal"
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
@@ -780,7 +800,7 @@ export function CreateAgentModal({
             type="button"
             onClick={onClose}
             aria-label="close"
-            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
             style={{ transform: 'translate(4px, -4px)' }}
           >
             <CloseIcon />
@@ -796,30 +816,34 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-primary)]">名称</div>
               <input
                 aria-label="Name"
-                aria-invalid={Boolean(nameError)}
+                aria-invalid={Boolean(inlineNameError)}
                 value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
+                onChange={(event) => {
+                  setDraftName(event.target.value);
+                  setNameSubmitError(null);
+                }}
                 maxLength={64}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
-              {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
+              {inlineNameError ? (
+                <div data-testid="create-agent-name-error" className="text-[12px] text-[var(--state-error-text)]">
+                  {inlineNameError}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2.5">
               <div className="text-[12px] text-[var(--text-primary)]">描述（可选）</div>
-              <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
-                <textarea
-                  aria-label="Description"
-                  value={draftDescription}
-                  onChange={(event) => setDraftDescription(event.target.value)}
-                  placeholder="请输入描述"
-                  maxLength={1000}
-                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full rounded-none text-[12px]"
-                />
-                <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
-                  {draftDescription.length}/1000
-                </div>
-              </div>
+              <Textarea
+                aria-label="Description"
+                value={draftDescription}
+                onChange={(event) => setDraftDescription(event.target.value)}
+                placeholder="请输入描述"
+                maxLength={1000}
+                showCount
+                formatCount={(current, max) => `${current}/${max ?? 0}`}
+                className="h-[60px] min-h-[60px]"
+              />
             </div>
 
             <div className="space-y-2.5">
@@ -829,11 +853,11 @@ export function CreateAgentModal({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                  <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover rounded-full" />
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-[var(--modal-loading-overlay)] opacity-0 transition group-hover:opacity-100">
                     <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                   </span>
                 </button>
@@ -850,26 +874,27 @@ export function CreateAgentModal({
                 </div>
                 <div className="h-11 pt-[16px]">
                   <button
-                  type="button"
-                  aria-label="Random preset avatar"
-                  onClick={() => setDraftAvatar(getRandomPresetAvatar())}
-                  title="换一换"
-                  className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[6px]"
-                >
-                  <SparklesIcon />
-                </button>
+                    type="button"
+                    aria-label="Random preset avatar"
+                    onClick={() => setDraftAvatar(getRandomPresetAvatar())}
+                    title="换一换"
+                    className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[6px]"
+                  >
+                    <SparklesIcon />
+                  </button>
                 </div>
-    
               </div>
               <div className="text-[12px] text-[var(--text-muted)]">
-                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
+                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200KB 内'}
               </div>
-              {error ? (
-                <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div>
+              {avatarError ? (
+                <div data-testid="create-agent-avatar-error" className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
+                  {avatarError}
+                </div>
               ) : null}
             </div>
 
-            {true ? (
+            {false ? (
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">Agent 客户端</div>
                 <button
@@ -900,7 +925,7 @@ export function CreateAgentModal({
                           transform: clientOpenAbove ? 'translateY(-100%)' : undefined,
                         }}
                       >
-                        <div className="ui-panel flex max-h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]">
+                        <div className="ui-panel flex max-h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] border-[var(--modal-border)] bg-[var(--modal-surface)] shadow-[var(--modal-shadow)]">
                           <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1">
                             {clientOptions.map((option) => {
                               const isSelected = option.value === selectedClient;
@@ -916,8 +941,8 @@ export function CreateAgentModal({
                                   }}
                                   className={`flex min-h-[32px] w-full items-center px-3 text-left text-[12px] transition-colors ${
                                     isSelected
-                                      ? 'bg-[#f5f5f5] text-[var(--text-primary)]'
-                                      : 'text-[var(--text-primary)] hover:bg-[#f5f5f5]'
+                                      ? 'bg-[var(--modal-muted-surface)] text-[var(--text-primary)]'
+                                      : 'text-[var(--text-primary)] hover:bg-[var(--modal-muted-surface-hover)]'
                                   }`}
                                 >
                                   {option.label}
@@ -982,15 +1007,16 @@ export function CreateAgentModal({
               )}
             </div>
           </div>
+
+          {globalError ? (
+            <div data-testid="create-agent-global-error" className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
+              {globalError}
+            </div>
+          ) : null}
         </div>
 
         <div data-testid="create-agent-modal-footer" className="flex shrink-0 justify-end gap-3">
-          <button
-            type="button"
-            aria-label="Cancel"
-            onClick={onClose}
-            className="ui-button-default ui-modal-action-button font-normal"
-          >
+          <button type="button" aria-label="Cancel" onClick={onClose} className="ui-button-default">
             取消
           </button>
           <button
@@ -998,7 +1024,7 @@ export function CreateAgentModal({
             aria-label="Create"
             onClick={handleSave}
             disabled={isConfirmDisabled}
-            className="ui-button-primary ui-modal-action-button font-normal disabled:opacity-50"
+            className="ui-button-primary disabled:opacity-50"
           >
             {primaryButtonText}
           </button>

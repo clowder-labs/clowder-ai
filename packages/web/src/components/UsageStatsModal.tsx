@@ -2,23 +2,25 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import {
   buildUsageStatsPageFromDataset,
   fetchUsageStatsDataset,
   type UsageRange,
+  type UsageStatsFetchOptions,
   type UsageStatsDataset,
   type UsageStatsPageResult,
 } from '@/services/usageStats';
 import { AppModal } from './AppModal';
-import { formatTokenCount } from './status-helpers';
-import { EmptyDataState } from './shared/EmptyDataState';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
+import { formatTokenCount } from './status-helpers';
 
 interface UsageStatsModalProps {
   open: boolean;
   onClose: () => void;
-  fetchDataset?: () => Promise<UsageStatsDataset>;
+  fetchDataset?: (options?: UsageStatsFetchOptions) => Promise<UsageStatsDataset>;
 }
 
 const PAGE_SIZE = 6;
@@ -56,7 +58,9 @@ export function formatPaginationPages(currentPage: number, totalPages: number): 
     currentPage + 1,
     currentPage + 2,
   ]);
-  const sortedPages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
   const result: Array<number | 'ellipsis'> = [];
 
   for (let index = 0; index < sortedPages.length; index += 1) {
@@ -90,6 +94,34 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
     if (!open) return;
 
     let cancelled = false;
+    const controller = new AbortController();
+    let loadingDelayId: ReturnType<typeof setTimeout> | null = null;
+
+    const waitForMinimumLoadingTime = async (elapsed: number) => {
+      if (cancelled || elapsed >= MIN_LOADING_MS) return;
+
+      await new Promise<void>((resolve) => {
+        const cleanupDelay = () => {
+          if (loadingDelayId != null) {
+            clearTimeout(loadingDelayId);
+            loadingDelayId = null;
+          }
+          controller.signal.removeEventListener('abort', handleAbort);
+        };
+
+        const handleAbort = () => {
+          cleanupDelay();
+          resolve();
+        };
+
+        loadingDelayId = setTimeout(() => {
+          cleanupDelay();
+          resolve();
+        }, MIN_LOADING_MS - elapsed);
+
+        controller.signal.addEventListener('abort', handleAbort, { once: true });
+      });
+    };
 
     const load = async () => {
       const startedAt = Date.now();
@@ -97,18 +129,17 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
       setError(null);
 
       try {
-        const next = await fetchDataset();
+        const next = await fetchDataset({ signal: controller.signal });
         if (cancelled) return;
         setDataset(next);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         setError('用量数据加载失败，请稍后重试');
         setDataset(null);
       } finally {
         const elapsed = Date.now() - startedAt;
-        if (elapsed < MIN_LOADING_MS) {
-          await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
-        }
+        await waitForMinimumLoadingTime(elapsed);
 
         if (!cancelled) {
           setIsLoading(false);
@@ -120,8 +151,18 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
 
     return () => {
       cancelled = true;
+      controller.abort();
+      if (loadingDelayId != null) {
+        clearTimeout(loadingDelayId);
+        loadingDelayId = null;
+      }
     };
   }, [fetchDataset, open, refreshKey]);
+
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -188,13 +229,13 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
     >
       <div className="space-y-4 min-w-[300px]">
         <div className="flex items-center justify-between">
-          <h4 className="text-[14px] font-semibold leading-none text-[#191919]">Tokens消耗</h4>
+          <h4 className="text-[14px] font-semibold leading-none text-[var(--modal-title-text)]">Tokens消耗</h4>
 
           <div className="flex items-center gap-2">
             <div className="relative" ref={rangeMenuRef}>
               <button
                 type="button"
-                className="flex items-center gap-1 text-[12px] font-medium text-[#191919]"
+                className="flex items-center gap-1 text-[12px] font-medium text-[var(--modal-text)]"
                 onClick={() => {
                   if (isLoading) return;
                   setIsRangeMenuOpen((current) => !current);
@@ -203,22 +244,25 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
                 data-testid="usage-stats-range-trigger"
               >
                 {RANGE_OPTIONS.find((option) => option.value === range)?.label ?? '近7日'}
-                <svg className="h-4 w-4 text-[#7C7C7C]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <svg className="h-4 w-4 text-[var(--modal-text-subtle)]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
               </button>
 
               {isRangeMenuOpen ? (
                 <div
-                  className="absolute right-0 top-full z-10 mt-2 min-w-[104px] rounded-xl border border-[#ECECEC] bg-white p-1.5 shadow-[0px_10px_30px_rgba(0,0,0,0.08)]"
+                  className="absolute right-0 top-full z-10 mt-2 min-w-[104px] rounded-xl border border-[var(--modal-border)] bg-[var(--modal-surface)] p-1.5 shadow-[var(--modal-shadow)]"
                   data-testid="usage-stats-range-menu"
                 >
                   {RANGE_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       type="button"
-                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
-                        }`}
+                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${
+                        option.value === range
+                          ? 'text-[var(--modal-accent-text)]'
+                          : 'text-[var(--modal-text)] hover:bg-[var(--modal-muted-surface)]'
+                      }`}
                       onClick={() => handleChangeRange(option.value)}
                     >
                       {option.label}
@@ -228,12 +272,12 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
               ) : null}
             </div>
 
-            <div className="h-4 w-px bg-[#DBDBDB]" aria-hidden="true" />
+            <div className="h-4 w-px bg-[var(--modal-table-divider)]" aria-hidden="true" />
 
             <button
               type="button"
               onClick={handleRefresh}
-              className="inline-flex items-center justify-center text-[#4A4A4A]"
+              className="inline-flex items-center justify-center text-[var(--modal-text-muted)]"
               aria-label="刷新"
               disabled={isLoading}
               data-testid="usage-stats-refresh"
@@ -250,28 +294,40 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
           </div>
         </div>
 
-        <div className="relative overflow-x-auto overflow-y-hidden rounded-[0.5rem] border border-[#F0F0F0] bg-white [scrollbar-gutter:auto]">
+        <div className="relative overflow-x-auto overflow-y-hidden rounded-[0.5rem] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] [scrollbar-gutter:auto]">
           <div className="w-full rounded-[0.5rem]">
             <table className="w-full border-collapse table-fixed min-w-[49.5rem]">
-              <thead className="bg-[#F5F5F5]">
-                <tr className="text-left text-[12px] text-[#595959]">
-                  <th className="relative h-12 border-b border-[#F0F0F0] px-4 py-0">
+              <thead className="bg-[var(--modal-table-header-bg)]">
+                <tr className="text-left text-[12px] text-[var(--modal-text-muted)]">
+                  <th className="relative h-12 border-b border-[var(--modal-table-divider)] px-4 py-0">
                     会话
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[var(--modal-table-divider)]"
+                      aria-hidden="true"
+                    />
                   </th>
-                  <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                  <th className="relative h-12 w-[150px] border-b border-[var(--modal-table-divider)] px-4 py-0">
                     Input Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[var(--modal-table-divider)]"
+                      aria-hidden="true"
+                    />
                   </th>
-                  <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                  <th className="relative h-12 w-[150px] border-b border-[var(--modal-table-divider)] px-4 py-0">
                     Output Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[var(--modal-table-divider)]"
+                      aria-hidden="true"
+                    />
                   </th>
-                  <th className="relative h-12 w-[132px] border-b border-[#F0F0F0] px-4 py-0">
+                  <th className="relative h-12 w-[132px] border-b border-[var(--modal-table-divider)] px-4 py-0">
                     总Tokens消耗
-                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                    <span
+                      className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[var(--modal-table-divider)]"
+                      aria-hidden="true"
+                    />
                   </th>
-                  <th className="h-12 w-[200px] border-b border-[#F0F0F0] px-4 py-0">时间</th>
+                  <th className="h-12 w-[200px] border-b border-[var(--modal-table-divider)] px-4 py-0">时间</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,31 +353,31 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
                   </tr>
                 ) : (
                   result.items.map((item) => (
-                    <tr key={item.id} className="border-t border-[#F0F0F0]" data-testid={`usage-stats-row-${item.id}`}>
-                      <td className="h-16 px-4 py-0 text-[14px] text-[#191919]">
+                    <tr key={item.id} className="border-t border-[var(--modal-table-divider)]" data-testid={`usage-stats-row-${item.id}`}>
+                      <td className="h-16 px-4 py-0 text-[14px] text-[var(--modal-text)]">
                         <OverflowTooltip content={item.sessionName} className="w-full">
                           <span className="block truncate">{item.sessionName}</span>
                         </OverflowTooltip>
                       </td>
                       <td
-                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        className="h-16 px-4 py-0 text-[14px] text-[var(--modal-text)]"
                         title={item.inputTokensUsed != null ? item.inputTokensUsed.toLocaleString() : undefined}
                       >
                         {renderTokenValue(item.inputTokensUsed)}
                       </td>
                       <td
-                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        className="h-16 px-4 py-0 text-[14px] text-[var(--modal-text)]"
                         title={item.outputTokensUsed != null ? item.outputTokensUsed.toLocaleString() : undefined}
                       >
                         {renderTokenValue(item.outputTokensUsed)}
                       </td>
                       <td
-                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        className="h-16 px-4 py-0 text-[14px] text-[var(--modal-text)]"
                         title={item.totalTokensUsed != null ? item.totalTokensUsed.toLocaleString() : undefined}
                       >
                         {renderTokenValue(item.totalTokensUsed)}
                       </td>
-                      <td className="h-16 px-4 py-0 text-[12px] text-[#191919]">{item.occurredAt}</td>
+                      <td className="h-16 px-4 py-0 text-[12px] text-[var(--modal-text)]">{item.occurredAt}</td>
                     </tr>
                   ))
                 )}
@@ -331,7 +387,7 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
 
           {isLoading ? (
             <div
-              className="absolute inset-x-0 bottom-0 top-12 flex items-center justify-center bg-white/45"
+              className="absolute inset-x-0 bottom-0 top-12 flex items-center justify-center bg-[var(--modal-loading-overlay)]"
               data-testid="usage-stats-loading-overlay"
             >
               <CenteredLoadingState />
@@ -343,7 +399,7 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
           <div className="flex items-center justify-end gap-1" data-testid="usage-stats-pagination">
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#7C7C7C] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--modal-text-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 if (isLoading) return;
                 setPage((current) => Math.max(1, current - 1));
@@ -358,15 +414,18 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
 
             {paginationItems.map((item, index) =>
               item === 'ellipsis' ? (
-                <span key={`ellipsis-${index}`} className="px-2 text-[14px] text-[#7C7C7C]">
+                <span key={`ellipsis-${index}`} className="px-2 text-[14px] text-[var(--modal-text-subtle)]">
                   ...
                 </span>
               ) : (
                 <button
                   key={item}
                   type="button"
-                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
-                    }`}
+                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${
+                    item === page
+                      ? 'bg-[var(--modal-muted-surface)] text-[var(--modal-text)]'
+                      : 'text-[var(--modal-text-muted)] hover:bg-[var(--modal-muted-surface)]'
+                  }`}
                   onClick={() => {
                     if (isLoading) return;
                     setPage(item);
@@ -380,7 +439,7 @@ export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsD
 
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#7C7C7C] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--modal-text-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 if (isLoading) return;
                 setPage((current) => Math.min(totalPages, current + 1));

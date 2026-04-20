@@ -1,3 +1,6 @@
+# Petal 搜索开关（默认关闭，启用后需同时配置 API_BASE / default_headers 环境变量）
+enable_petal_search: false
+
 # 前端显示语言：zh（中文）/ en（英文），与 Web 界面语言切换同步
 preferred_language: zh
 
@@ -202,11 +205,11 @@ channels:
 #     3. defaults.*                       全局默认
 #   同一工具的 patterns 内部: deny > ask > allow (最严格者胜出)
 permissions:
-  enabled: false
+  enabled: true
 
   # 全局默认: 未匹配任何规则时的行为
   defaults:
-    "*": "allow"
+    "*": "ask"
 
   # 按具体工具名设置权限 (支持 patterns 子规则)
   tools:
@@ -217,23 +220,27 @@ permissions:
         "git log *": "allow"
         "git diff *": "allow"
         "git branch *": "allow"
-        "ls *": "allow"
         "dir *": "allow"
-        "pwd *": "allow"
         "cd *": "allow"
         "echo *": "allow"
-        "cat *": "allow"
         "type *": "allow"
-        "head *": "allow"
-        "tail *": "allow"
-        "rm *": "deny"
-        "del *": "deny"
-        "rd *": "deny"
+        "more *": "allow"
+        "where *": "allow"
+        "findstr *": "allow"
+        "Get-ChildItem *": "allow"
+        "Get-Location *": "allow"
+        "Set-Location *": "allow"
+        "Write-Host *": "allow"
+        "Get-Content *": "allow"
+        "Select-String *": "allow"
+        "Test-Path *": "allow"
         "format *": "deny"
         "shutdown *": "deny"
         "reboot *": "deny"
-        "mkfs *": "deny"
+        "Restart-Computer *": "deny"
+        "Stop-Computer *": "deny"
         "diskpart *": "deny"
+        "Clear-Disk *": "deny"
         "sudo *": "deny"
     write_memory: "allow"
     edit_memory: "allow"

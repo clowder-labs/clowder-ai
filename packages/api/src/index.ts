@@ -10,14 +10,14 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
+import { createRedisClient, SessionStore } from '@office-claw/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { orchestrate } from './config/capabilities/capability-orchestrator.js';
-import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
+import { isSeedCat, resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
@@ -41,6 +41,7 @@ import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueP
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
+import { getJiuwenPermissionBridge } from './domains/cats/services/auth/JiuwenPermissionBridge.js';
 import {
   AgentRouter,
   AuditEventTypes,
@@ -107,23 +108,23 @@ import {
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
-import { gameRoutes } from './routes/games.js';
 import {
   auditRoutes,
   authorizationRoutes,
   authRoutes,
   availableClientsRoutes,
   backlogRoutes,
-  bootcampRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
   catsRoutes,
   claudeRescueRoutes,
+  cleanupIncompleteDownloads,
   commandsRoutes,
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
+  downloadRoutes,
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
@@ -131,8 +132,6 @@ import {
   featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
-  leaderboardEventsRoutes,
-  leaderboardRoutes,
   maasModelsRoutes,
   memoryPublishRoutes,
   memoryRoutes,
@@ -152,10 +151,6 @@ import {
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
   sessionTranscriptRoutes,
-  signalCollectionRoutes,
-  signalPodcastRoutes,
-  signalStudyRoutes,
-  signalsRoutes,
   skillsRoutes,
   sliceRoutes,
   soulTemplatesRoutes,
@@ -166,17 +161,23 @@ import {
   ttsRoutes,
   uploadsRoutes,
   usageRoutes,
+  versionRoutes,
   workflowSopRoutes,
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
-  versionRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
+import {
+  createAomMetricsReporterFromEnv,
+  createTokenUsageReporter,
+  initMetricsService,
+  startTokenUsageReporter,
+} from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
@@ -186,7 +187,6 @@ import {
 } from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
-import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
@@ -212,10 +212,54 @@ const PROCESS_START_AT = Date.now();
 import { migrateDeprecatedEnvVars } from './config/env-registry.js';
 migrateDeprecatedEnvVars();
 
+/**
+ * Sensitive query params to redact from request URL logs.
+ */
+const SENSITIVE_QUERY_PARAMS = [
+  'callbackToken',
+  'token',
+  'apiKey',
+  'api_key',
+  'secret',
+  'password',
+  'accessToken',
+  'hookToken',
+];
+
+/**
+ * Redact sensitive query params from URL string.
+ * E.g., "?callbackToken=xxx&foo=bar" → "?callbackToken=[REDACTED]&foo=bar"
+ */
+function redactUrlQuery(url: string): string {
+  const idx = url.indexOf('?');
+  if (idx === -1) return url;
+  const path = url.slice(0, idx);
+  const query = url.slice(idx + 1);
+  const redacted = query.replace(
+    /([?&])(callbackToken|token|apiKey|api_key|secret|password|accessToken|hookToken)=([^&]*)/gi,
+    '$1$2=[REDACTED]',
+  );
+  return `${path}?${redacted}`;
+}
+
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
+  
+  // Create child logger with custom request serializer that redacts URL query params
+  const redactingLogger = customLogger.child({}, {
+    serializers: {
+      req: (req: { method?: string; url?: string; hostname?: string; remoteAddress?: string; remotePort?: number }) => ({
+        method: req.method,
+        url: req.url ? redactUrlQuery(req.url) : undefined,
+        hostname: req.hostname,
+        remoteAddress: req.remoteAddress,
+        remotePort: req.remotePort,
+      }),
+    },
+  });
+  
   const app = Fastify({
-    logger: customLogger as unknown as import('fastify').FastifyBaseLogger,
+    logger: redactingLogger as unknown as import('fastify').FastifyBaseLogger,
     bodyLimit: API_BODY_LIMIT_BYTES,
   });
 
@@ -590,6 +634,7 @@ async function main(): Promise<void> {
     const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
     const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
     const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+    taskRunnerV2.setDynamicTaskStore(dynamicTaskStore);
 
     // Schedule panel API routes
     const { scheduleRoutes } = await import('./routes/schedule.js');
@@ -597,9 +642,11 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
+      deliver: schedulerDeliver,
     });
 
     // Hydrate persisted dynamic tasks + start
@@ -623,7 +670,7 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
     // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    const { CAT_CONFIGS } = await import('@office-claw/shared');
     for (const [id, config] of Object.entries(CAT_CONFIGS)) {
       if (!catRegistry.has(id)) catRegistry.register(id, config);
     }
@@ -847,6 +894,10 @@ async function main(): Promise<void> {
     }
   }
 
+  // F142: Resolve data dirs relative to monorepo root (not API cwd) so they land in PRESERVE zone
+  const monoRoot = findMonorepoRoot(process.cwd());
+  const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
+
   // Register routes (socketManager injected, no circular import)
   const messagesOpts = {
     registry,
@@ -865,6 +916,7 @@ async function main(): Promise<void> {
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
+    uploadDir,
   };
   await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
@@ -886,6 +938,7 @@ async function main(): Promise<void> {
     router,
     invocationTracker,
     queueProcessor,
+    uploadDir,
   });
   await app.register(messageActionsRoutes, {
     messageStore,
@@ -897,44 +950,8 @@ async function main(): Promise<void> {
   await app.register(quotaRoutes);
   // F128: Daily token usage aggregation
   await app.register(usageRoutes, { invocationRecordStore });
-  // F075 Phase B+C: Game + Achievement stores
-  const { GameStore } = await import('./domains/leaderboard/game-store.js');
-  const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
-  const gameStore = new GameStore();
-  const achievementStore = new AchievementStore();
-  await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
-  await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
-  await app.register(bootcampRoutes, { threadStore });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
-  // F101: Game routes (store created earlier for /game command interception)
-  if (f101GameStore) {
-    await app.register(gameRoutes, {
-      gameStore: f101GameStore,
-      socketManager,
-      threadStore,
-      messageStore,
-      ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
-    });
-
-    const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
-    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const actionOrchestrator = new GameOrchestrator({
-      gameStore: f101GameStore,
-      socketManager,
-      messageStore,
-      onGameEnd: (gameId) => clearGameNonces(gameId),
-    });
-    await app.register(gameActionRoutes, {
-      gameStore: f101GameStore,
-      orchestrator: actionOrchestrator,
-      threadStore,
-      actionNotifier: sharedActionNotifier,
-    });
-
-    app.log.info('[api] F101 game routes registered');
-  }
-
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = redis ? new RedisPrTrackingStore(redis) : new MemoryPrTrackingStore();
   app.log.info(`[api] PrTrackingStore: ${redis ? 'Redis' : 'Memory'}`);
@@ -990,6 +1007,7 @@ async function main(): Promise<void> {
     auditStore: authAuditStore,
     io: socketManager.getIO(),
   });
+  getJiuwenPermissionBridge().bindAuthorizationManager(authManager);
   const connectorBindingStore = redisClient
     ? new RedisConnectorThreadBindingStore(redisClient)
     : new MemoryConnectorThreadBindingStore();
@@ -1047,7 +1065,9 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {
+    agentRegistry,
+  };
   await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);
@@ -1056,6 +1076,7 @@ async function main(): Promise<void> {
   await app.register(auditRoutes, { threadStore });
   await app.register(authRoutes);
   await app.register(versionRoutes);
+  await app.register(downloadRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {
@@ -1074,6 +1095,7 @@ async function main(): Promise<void> {
     portDiscovery,
     gatewayPort: PREVIEW_GATEWAY_ENABLED ? previewGateway.actualPort || PREVIEW_GATEWAY_PORT : 0,
     runtimePorts,
+    uploadDir,
     socketEmit: (event, data, room) => {
       socketManager?.broadcastToRoom(room, event, data);
     },
@@ -1112,10 +1134,6 @@ async function main(): Promise<void> {
   }
   await app.register(sessionStrategyConfigRoutes);
 
-  // Voting system (F079)
-  const { voteRoutes } = await import('./routes/votes.js');
-  await app.register(voteRoutes, { threadStore, socketManager, messageStore });
-
   // Evidence search (SQLite) + reindex endpoint (D-11)
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
@@ -1140,34 +1158,34 @@ async function main(): Promise<void> {
     opusService,
     threadStore,
   });
-  await app.register(signalsRoutes);
-  await app.register(signalStudyRoutes, { threadStore });
-  await app.register(signalCollectionRoutes);
-  await app.register(signalPodcastRoutes, {
-    messageStore,
-    threadStore,
-    router,
-    invocationRecordStore,
-    invocationTracker,
-  });
 
   // Serve uploaded files (images)
-  const uploadDir = process.env.UPLOAD_DIR ?? './uploads';
   await app.register(uploadsRoutes, { uploadDir });
 
   // F088: Serve downloaded connector media files
-  const connectorMediaDir = process.env.CONNECTOR_MEDIA_DIR ?? './data/connector-media';
+  const connectorMediaDir = resolve(monoRoot, process.env.CONNECTOR_MEDIA_DIR ?? 'data/connector-media');
   await app.register(connectorMediaRoutes, { mediaDir: connectorMediaDir });
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();
   const ttsUrl = process.env.TTS_URL!;
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
-  const ttsCacheDir = process.env.TTS_CACHE_DIR ?? './data/tts-cache';
+  const ttsCacheDir = resolve(monoRoot, process.env.TTS_CACHE_DIR ?? 'data/tts-cache');
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   initStreamingTtsRegistry(ttsRegistry);
   startTtsCacheCleaner(ttsCacheDir);
+
+  // Token Usage Reporter (AOM metrics, 1-minute interval)
+  // Try environment variables first (legacy), then rely on credential-based init after login
+  const envReporter = createAomMetricsReporterFromEnv();
+  if (envReporter) {
+    initMetricsService();
+    startTokenUsageReporter(60_000);
+    app.log.info('[api] Token usage reporter started (from env)');
+  } else {
+    app.log.info('[api] Token usage reporter will initialize after login (credential-based)');
+  }
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';
@@ -1566,6 +1584,14 @@ async function main(): Promise<void> {
       } catch (err) {
         exitCode = 1;
         app.log.error(`[api] SocketManager close failed: ${String(err)}`);
+      }
+
+      // Cleanup incomplete downloads
+      try {
+        cleanupIncompleteDownloads();
+        app.log.info('[api] Cleanup incomplete downloads completed');
+      } catch (err) {
+        app.log.error(`[api] Cleanup incomplete downloads failed: ${String(err)}`);
       }
 
       // Close Fastify server

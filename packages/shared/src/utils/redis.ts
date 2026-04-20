@@ -6,7 +6,7 @@
 
 /**
  * Redis 连接和 Session 存储
- * 用于管理三只猫猫的 Session 状态
+ * 用于管理智能体的 Session 状态
  */
 
 import { Redis } from 'ioredis';
@@ -21,22 +21,25 @@ export interface RedisConfig {
 export function getDefaultRedisConfig(): RedisConfig {
   return {
     url: process.env['REDIS_URL']!,
-    keyPrefix: process.env['REDIS_KEY_PREFIX'] ?? 'cat-cafe:',
+    keyPrefix: process.env['REDIS_KEY_PREFIX'] ?? 'office-claw:',
   };
 }
 
 export function createRedisClient(config?: Partial<RedisConfig>): RedisClient {
   const finalConfig = { ...getDefaultRedisConfig(), ...config };
-  const keyPrefix = finalConfig.keyPrefix ?? 'cat-cafe:';
+  const keyPrefix = finalConfig.keyPrefix ?? 'office-claw:';
 
   const client = new Redis(finalConfig.url, {
     keyPrefix,
     retryStrategy: (times: number) => {
-      if (times > 3) {
+      // Allow up to 30 reconnect attempts (~2-3 minutes total).
+      // This tolerates macOS sleep/wake cycles where the loopback Redis socket
+      // is briefly disrupted and needs time to re-establish.
+      if (times > 30) {
         console.error('[Redis] Max retry attempts reached');
         return null;
       }
-      return Math.min(times * 200, 2000);
+      return Math.min(times * 500, 5000);
     },
     maxRetriesPerRequest: 3,
   });

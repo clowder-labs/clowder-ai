@@ -495,4 +495,50 @@ describe('MultiMentionOrchestrator', () => {
     assert.equal(aborted, 0);
     assert.equal(ctrlA.signal.aborted, false, 'catA should be untouched');
   });
+
+  test('recordFailure transitions a single-target request to done', () => {
+    const req = orch.create({
+      threadId: 'thread-single-failure',
+      initiator,
+      callbackTo: initiator,
+      targets: [catA],
+      question: 'test',
+      timeoutMinutes: 8,
+    });
+    orch.start(req.id);
+
+    const status = orch.recordFailure(req.id, catA, '[dispatch canceled]');
+    assert.equal(status, 'done');
+
+    const result = orch.getResult(req.id);
+    assert.equal(result.responses[0].catId, catA);
+    assert.equal(result.responses[0].status, 'failed');
+  });
+
+  test('recordFailure still lets multi-target requests converge once all targets terminate', () => {
+    const req = orch.create({
+      threadId: 'thread-partial-failure',
+      initiator,
+      callbackTo: initiator,
+      targets: [catA, catB],
+      question: 'test',
+      timeoutMinutes: 8,
+    });
+    orch.start(req.id);
+
+    const partial = orch.recordFailure(req.id, catA, '[dispatch canceled]');
+    assert.equal(partial, 'partial');
+
+    const done = orch.recordResponse(req.id, catB, 'answer from catB');
+    assert.equal(done, 'done');
+
+    const result = orch.getResult(req.id);
+    assert.deepEqual(
+      result.responses.map((response) => [response.catId, response.status]),
+      [
+        [catA, 'failed'],
+        [catB, 'received'],
+      ],
+    );
+  });
 });

@@ -10,10 +10,11 @@
  */
 
 import { isAbsolute, relative, resolve } from 'node:path';
-import type { MessageContent } from '@cat-cafe/shared';
+import type { MessageContent } from '@office-claw/shared';
 import { getRegisteredWorktreeRoot } from '../../../../workspace/workspace-security.js';
 
-const DEFAULT_UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
+const DEFAULT_UPLOAD_DIR = resolve(findMonorepoRoot(), process.env.UPLOAD_DIR ?? 'data/uploads');
 
 export interface LocalUploadRef {
   kind: 'image' | 'file';

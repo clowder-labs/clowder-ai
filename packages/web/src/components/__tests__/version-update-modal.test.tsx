@@ -7,8 +7,8 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import VersionUpdateModal from '../VersionUpdateModal';
 import { apiFetch } from '@/utils/api-client';
+import VersionUpdateModal from '../VersionUpdateModal';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -41,19 +41,27 @@ describe('VersionUpdateModal', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  const mockVersionResponse = (
-    versionInfo: {
-      curversion: string;
-      lastversion: string;
-      description: string;
-      downloadUrl?: string;
-      download_url?: string;
-    },
-  ) => {
+  const mockVersionResponse = (versionInfo: {
+    curversion: string;
+    lastversion: string;
+    description: string;
+    downloadUrl?: string;
+    download_url?: string;
+  }) => {
     mockedApiFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(versionInfo),
     } as Response);
+
+    const hasNewVersion =
+      !!versionInfo.lastversion && !!versionInfo.curversion && versionInfo.lastversion !== versionInfo.curversion;
+
+    if (hasNewVersion) {
+      mockedApiFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      } as Response);
+    }
   };
 
   it('uses the OfficeClaw icon in the update dialog', async () => {
@@ -105,7 +113,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card).toBeInstanceOf(HTMLElement);
     expect((card as HTMLElement).style.backgroundImage).toBe('url("/images/version-bg.svg")');
@@ -123,7 +131,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card?.className).toContain('w-[360px]');
   });
@@ -140,7 +148,7 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const card = container.querySelector('.shadow-lg');
+    const card = container.querySelector('[data-testid="version-update-card"]');
     expect(card).not.toBeNull();
     expect(card?.className).toContain('rounded-[16px]');
   });
@@ -218,7 +226,7 @@ describe('VersionUpdateModal', () => {
     expect(content?.className).toContain('text-left');
   });
 
-  it('left aligns the action buttons when a new version is available', async () => {
+  it('has action buttons in a separate area at the bottom', async () => {
     mockVersionResponse({
       curversion: '1.0.0',
       lastversion: '1.0.1',
@@ -230,9 +238,11 @@ describe('VersionUpdateModal', () => {
       await Promise.resolve();
     });
 
-    const actions = container.querySelector('[data-testid="version-update-actions"]');
-    expect(actions).not.toBeNull();
-    expect(actions?.className).toContain('justify-start');
+    const laterButton = container.querySelector('[data-testid="version-update-cancel"]');
+    expect(laterButton).not.toBeNull();
+
+    const updateButton = container.querySelector('[data-testid="version-update-confirm"]');
+    expect(updateButton).not.toBeNull();
   });
 
   it('calls onCancel when clicking the later button', async () => {
@@ -251,7 +261,6 @@ describe('VersionUpdateModal', () => {
     const laterButton = container.querySelector('[data-testid="version-update-cancel"]');
     expect(laterButton).not.toBeNull();
     expect(laterButton?.className).toContain('ui-button-default');
-    expect(laterButton?.className).toContain('ui-modal-action-button');
 
     await act(async () => {
       laterButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -260,8 +269,7 @@ describe('VersionUpdateModal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('opens the download url immediately when clicking update', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+  it('starts download when clicking update button', async () => {
     mockVersionResponse({
       curversion: '1.0.0',
       lastversion: '1.0.1',
@@ -277,15 +285,65 @@ describe('VersionUpdateModal', () => {
     const updateButton = container.querySelector('[data-testid="version-update-confirm"]');
     expect(updateButton).not.toBeNull();
     expect(updateButton?.className).toContain('ui-button-primary');
-    expect(updateButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('shows download progress when download starts', async () => {
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        headers: new Headers({ 'content-length': '1000' }),
+        body: {
+          getReader: () => ({
+            read: vi
+              .fn()
+              .mockResolvedValueOnce({ done: false, value: new Uint8Array([1, 2, 3]) })
+              .mockResolvedValueOnce({ done: true }),
+          }),
+        },
+      } as unknown as Response),
+    );
+
+    mockVersionResponse({
+      curversion: '1.0.0',
+      lastversion: '1.0.1',
+      description: 'bug fixes',
+      downloadUrl: 'https://example.com/update.exe',
+    });
+
+    await act(async () => {
+      root.render(React.createElement(VersionUpdateModal, { open: true, onCancel: vi.fn() }));
+      await Promise.resolve();
+    });
+
+    const updateButton = container.querySelector('[data-testid="version-update-confirm"]');
 
     await act(async () => {
       updateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
-    expect(openSpy).toHaveBeenCalledWith('https://example.com/update.exe', '_blank');
-    expect(container.textContent).not.toContain('下载中');
+    mockFetch.mockRestore();
+  });
 
-    openSpy.mockRestore();
+  it('closes the modal when Escape key is pressed', async () => {
+    const onCancel = vi.fn();
+    mockVersionResponse({
+      curversion: '1.0.0',
+      lastversion: '1.0.1',
+      description: 'bug fixes',
+    });
+
+    await act(async () => {
+      root.render(React.createElement(VersionUpdateModal, { open: true, onCancel }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="version-update-card"]')).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

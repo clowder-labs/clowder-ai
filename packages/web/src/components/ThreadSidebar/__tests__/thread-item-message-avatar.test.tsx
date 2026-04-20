@@ -193,14 +193,14 @@ describe('ThreadItem message avatar', () => {
       );
     });
 
-    const avatarShell = container.querySelector('.answer-avatar') as HTMLDivElement | null;
-    const avatarImage = container.querySelector('.ui-avatar-image') as HTMLImageElement | null;
+    const avatarImage = container.querySelector('img[alt="九文爪"]') as HTMLImageElement | null;
+    const avatarShell = avatarImage?.parentElement as HTMLDivElement | null;
 
     expect(avatarShell).toBeTruthy();
     expect(avatarShell?.style.width).toBe('32px');
     expect(avatarShell?.style.height).toBe('32px');
     expect(avatarImage).toBeTruthy();
-    expect(avatarImage?.className).toContain('object-contain');
+    expect(avatarImage?.className).toContain('object-cover');
   });
 
   it('uses the shared tooltip for the thread title instead of a native title attribute', async () => {

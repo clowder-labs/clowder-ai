@@ -163,7 +163,7 @@ describe('Concurrent fault drills - Redis stores', { skip: !REDIS_URL ? 'REDIS_U
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'concurrent-fault-drill');
 
-    const shared = await import('@cat-cafe/shared/utils');
+    const shared = await import('@office-claw/shared/utils');
     createRedisClient = shared.createRedisClient;
     SessionStore = shared.SessionStore;
 

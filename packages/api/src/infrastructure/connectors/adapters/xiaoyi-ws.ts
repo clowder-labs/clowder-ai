@@ -44,8 +44,8 @@ export class XiaoyiWsManager {
     this.onMessage = onMessage;
     this.running = true;
     this.channels = [
-      this.mkChannel(this.opts.wsUrl1 ?? WS_PRIMARY, 'primary'),
-      this.mkChannel(this.opts.wsUrl2 ?? WS_BACKUP, 'backup'),
+      this.mkChannel(WS_PRIMARY, 'primary'),
+      this.mkChannel(WS_BACKUP, 'backup'),
     ];
     for (const ch of this.channels) this.connect(ch);
   }

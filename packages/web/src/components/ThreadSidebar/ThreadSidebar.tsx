@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -7,19 +7,21 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getMentionToCat } from '@/lib/mention-highlight';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { type Thread, useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
+import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { sanitizeThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
+import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
@@ -27,6 +29,7 @@ import { useProjectPins } from './use-project-pins';
 
 const MAX_SIDEBAR_RESTORE_FRAMES = 90;
 const SIDEBAR_SCROLL_STORAGE_KEY = 'cat-cafe:sidebar-scroll:v1';
+const MAX_SESSIONS = 200;
 
 function readSidebarScrollTop(): number {
   if (typeof window === 'undefined') return 0;
@@ -76,6 +79,18 @@ function getThreadSourceLabel(thread: Thread): string | undefined {
   return CONNECTOR_SOURCE_LABELS[connectorId] ?? connectorId;
 }
 
+function getThreadLastActiveAtMs(thread: Thread): number {
+  const lastActiveAt = Number(thread.lastActiveAt);
+  return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
+}
+
+const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
+  all: '全部',
+  '1m': '近1个月',
+  '3m': '近3个月',
+  '6m': '近6个月',
+};
+
 export function ThreadSidebar({
   onClose,
   className,
@@ -100,16 +115,20 @@ export function ThreadSidebar({
     getThreadState,
     threadStates,
   } = useChatStore();
+  const { addToast } = useToastStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterOption, setFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
-  const [pendingFilterOption, setPendingFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
+  useEscapeKey({
+    enabled: deleteTarget !== null,
+    onEscape: () => setDeleteTarget(null),
+  });
   // F095 Phase D: Trash bin state
   const [showTrash, setShowTrash] = useState(false);
   const [trashedThreads, setTrashedThreads] = useState<Thread[]>([]);
@@ -157,10 +176,9 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
       const threads = (data.threads ?? []).map((thread: Thread) => ({
         ...thread,
-        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+        title: normalizeStoredThreadTitleOrNull(thread.title),
       }));
       setThreads(threads);
       // F069: Sync unread state from API (both non-zero and zero).
@@ -219,7 +237,6 @@ export function ThreadSidebar({
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      handleScroll();
       el.removeEventListener('scroll', handleScroll);
     };
   }, []);
@@ -253,12 +270,12 @@ export function ThreadSidebar({
         restoreFrameRef.current = requestAnimationFrame(apply);
       };
 
-      restoreFrameRef.current = requestAnimationFrame(apply);
+      apply();
     },
     [cancelPendingScrollRestore],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     scheduleScrollRestore(readSidebarScrollTop());
     return cancelPendingScrollRestore;
   }, [threads.length, isLoadingThreads, pathname, scheduleScrollRestore, cancelPendingScrollRestore]);
@@ -289,6 +306,21 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+    if (actualThreadCount >= MAX_SESSIONS) {
+      addToast({
+        type: 'error',
+        title: '会话数量已达上限',
+        message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+        duration: 5000,
+      });
+      return;
+    }
+
+    setSearchQuery('');
+    setIsSearchOpen(false);
+    setShowFilter(false);
+    setFilterOption('all');
     if (onNewChatClick) {
       onNewChatClick();
       return;
@@ -299,10 +331,21 @@ export function ThreadSidebar({
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       onClose?.();
     }
-  }, [onNewChatClick, onClose, setCurrentProject, setCurrentThread, navigateToThread]);
+  }, [addToast, onNewChatClick, onClose, setCurrentProject, setCurrentThread, navigateToThread, threads]);
 
   const createInProject = useCallback(
     async (opts: NewThreadOptions) => {
+      const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+      if (actualThreadCount >= MAX_SESSIONS) {
+        addToast({
+          type: 'error',
+          title: '会话数量已达上限',
+          message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+          duration: 5000,
+        });
+        return;
+      }
+
       setIsCreating(true);
       setShowPicker(false);
       try {
@@ -333,7 +376,9 @@ export function ThreadSidebar({
           );
           const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
           if (failed.length > 0) {
-            setBindWarning(`Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`);
+            setBindWarning(
+              `Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`,
+            );
             setTimeout(() => setBindWarning(null), 6000);
           }
         }
@@ -351,7 +396,7 @@ export function ThreadSidebar({
         setIsCreating(false);
       }
     },
-    [setCurrentProject, navigateToThread, loadThreads, onClose],
+    [addToast, setCurrentProject, navigateToThread, loadThreads, onClose, threads],
   );
 
   // F095 Phase D: Load trashed threads
@@ -393,6 +438,17 @@ export function ThreadSidebar({
 
   /** F087: Create a bootcamp onboarding thread */
   const createBootcampThread = useCallback(async () => {
+    const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+    if (actualThreadCount >= MAX_SESSIONS) {
+      addToast({
+        type: 'error',
+        title: '会话数量已达上限',
+        message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+        duration: 5000,
+      });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const res = await apiFetch('/api/threads', {
@@ -419,7 +475,7 @@ export function ThreadSidebar({
     } finally {
       setIsCreating(false);
     }
-  }, [navigateToThread, loadThreads, onClose]);
+  }, [addToast, navigateToThread, loadThreads, onClose, threads]);
 
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(
@@ -497,8 +553,7 @@ export function ThreadSidebar({
       if (scrollRegion) {
         writeSidebarScrollTop(scrollRegion.scrollTop);
       }
-      const isAlreadyOnThreadRoute =
-        (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
+      const isAlreadyOnThreadRoute = (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
       if (threadId === currentThreadId && isAlreadyOnThreadRoute) return;
       // B1.1: Restore projectPath from thread metadata on switch
       const target = threads.find((t) => t.id === threadId);
@@ -530,7 +585,7 @@ export function ThreadSidebar({
       const now = Date.now();
       const days = filterOption === '1m' ? 30 : filterOption === '3m' ? 90 : 180;
       const threshold = now - days * 24 * 60 * 60 * 1000;
-      result = result.filter((thread) => thread.lastActiveAt >= threshold);
+      result = result.filter((thread) => getThreadLastActiveAtMs(thread) >= threshold);
     }
 
     return result;
@@ -574,9 +629,9 @@ export function ThreadSidebar({
     if (sortedPinned.length > 0) {
       groups.push({ type: 'pinned' as const, label: '置顶', threads: sortedPinned });
     }
-    groups.push({ type: 'recent' as const, label: '全部', threads: sortedUnpinned });
+    groups.push({ type: 'recent' as const, label: FILTER_OPTION_LABELS[filterOption], threads: sortedUnpinned });
     return groups;
-  }, [filteredThreads]);
+  }, [filteredThreads, filterOption]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
   const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
@@ -584,7 +639,8 @@ export function ThreadSidebar({
     () => displayThreadGroups.some((group) => (group.threads?.length ?? 0) > 0),
     [displayThreadGroups],
   );
-  const showNoResults = !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
+  const showNoResults =
+    !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
 
   // F095: Collapse state with localStorage persistence + search/active auto-expand
   const { isCollapsed, toggleGroup } = useCollapseState({
@@ -607,39 +663,10 @@ export function ThreadSidebar({
         <div className="ui-sidebar-section ui-sidebar-section-no-divider flex items-center justify-between px-3 py-[14px] border-0">
           <div className="flex items-center gap-2">
             <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
-            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
+            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">
+              OfficeClaw
+            </span>
           </div>
-        </div>
-
-        <div className="ui-sidebar-section hidden px-3 py-2">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              router.push(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
-            data-testid="sidebar-mission-control"
-          >
-            <svg
-              className="h-4 w-4 shrink-0 text-[#9CA3AF]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Mission Hub
-          </button>
         </div>
 
         <div className="ui-sidebar-section px-3 py-2.5">
@@ -695,17 +722,13 @@ export function ThreadSidebar({
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
             </button>
           </div>
         </div>
 
-        {bindWarning && (
-          <div className="px-3 py-1.5 bg-yellow-50 border-b border-yellow-200 text-[10px] text-yellow-700">
-            {bindWarning}
-          </div>
-        )}
+        {bindWarning && <div className="ui-status-warning border-b border-[var(--border-default)] px-3 py-1.5 text-[10px]">{bindWarning}</div>}
 
         <div className="relative px-4 pt-2 pb-1">
           <div className="flex items-center justify-between">
@@ -719,12 +742,16 @@ export function ThreadSidebar({
                   setIsSearchOpen(false);
                   setSearchQuery('');
                 }}
-                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
+                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
-                <svg  className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor" >
-                  <path id="_减去顶层" d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z" fillRule="evenodd"/>
+                <svg className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor">
+                  <path
+                    id="_减去顶层"
+                    d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z"
+                    fillRule="evenodd"
+                  />
                 </svg>
               </button>
               <button
@@ -733,7 +760,6 @@ export function ThreadSidebar({
                   setIsSearchOpen((prev) => !prev);
                   setShowFilter(false);
                   setFilterOption('all');
-                  setPendingFilterOption('all');
                 }}
                 className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="搜索会话"
@@ -749,33 +775,21 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFilterOption('all');
-                  setPendingFilterOption('all');
-                }}
-                placeholder="搜索会话"
-                autoComplete="off"
-                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFilter(false);
-                    setIsSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
-                  aria-label="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput
+              wrapperClassName="mt-2"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFilterOption('all');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setShowFilter(false);
+              }}
+              placeholder="搜索会话"
+              autoComplete="off"
+              aria-label="搜索会话"
+            />
           )}
 
           {showFilter && (
@@ -783,7 +797,7 @@ export function ThreadSidebar({
               ref={filterPanelRef}
               className="ui-overlay-card absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] p-4"
             >
-              <div className="text-[12px] font-[400] leading-[18px] text-[#808080]">会话时间</div>
+              <div className="text-[12px] font-[400] leading-[18px] text-[var(--text-label-secondary)]">会话时间</div>
               <div className="mt-3 flex flex-col">
                 {[
                   { key: 'all', label: '全部' },
@@ -794,38 +808,16 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
-                    style={{ marginBottom: '14px' }}
-                    onClick={() => setPendingFilterOption(item.key as 'all' | '1m' | '3m' | '6m')}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] text-[var(--overlay-text)] transition-colors hover:bg-[var(--overlay-item-hover-bg)] focus-visible:bg-[var(--overlay-item-hover-bg)] focus-visible:outline-none ${filterOption === item.key ? 'text-[var(--text-accent)]' : ''}`}
+                    style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
+                    onClick={() => {
+                      setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');
+                      setShowFilter(false);
+                    }}
                   >
                     {item.label}
                   </button>
                 ))}
-              </div>
-              <div className="pt-4 flex justify-end gap-2 border-t border-[#E5E7EB]">
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setPendingFilterOption('all');
-                    setFilterOption('all');
-                    setShowFilter(false);
-                  }}
-                >
-                  重置
-                </button>
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setFilterOption(pendingFilterOption);
-                    setShowFilter(false);
-                    setSearchQuery('');
-                    setIsSearchOpen(false);
-                  }}
-                >
-                  确定
-                </button>
               </div>
             </div>
           )}
@@ -845,7 +837,7 @@ export function ThreadSidebar({
 
         <div ref={scrollRegionRef} className="flex-1 overflow-y-auto" data-testid="thread-sidebar-scroll-region">
           {isLoadingThreads && threads.length === 0 && (
-            <div className="text-center py-4 text-xs text-gray-400">加载中..</div>
+            <div className="py-4 text-center text-xs text-[var(--text-label-secondary)]">加载中..</div>
           )}
 
           {false && showDefaultThread && (
@@ -861,15 +853,13 @@ export function ThreadSidebar({
           )}
 
           {showNoResults ? (
-            <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
-              <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">请<button
-                type="button"
-                onClick={handleNewChat}
-                className="text-[12px] font-[400] text-[#1476ff]"
-              >
-                新建会话
-              </button>
+            <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-[var(--text-label-secondary)]">
+              <div className="text-[14px] font-[400] text-[var(--text-primary)]">没有结果</div>
+              <div className="mt-1 flex gap-1 text-[12px] font-[400] text-[var(--text-secondary)]">
+                请
+                <button type="button" onClick={handleNewChat} className="text-[12px] font-[400] text-[var(--text-accent)]">
+                  新建会话
+                </button>
               </div>
             </div>
           ) : (
@@ -944,13 +934,15 @@ export function ThreadSidebar({
                   icon={icon}
                   count={group.threads.length}
                   isCollapsed={group.type === 'pinned' || group.type === 'recent' ? false : isCollapsed(groupKey)}
-                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => { } : () => toggleGroup(groupKey)}
+                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => {} : () => toggleGroup(groupKey)}
                   hideToggle={group.type === 'pinned' || group.type === 'recent'}
                   hideCount={group.type === 'pinned' || group.type === 'recent'}
                   projectPath={group.projectPath}
                   governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
                   onToggleProjectPin={
-                    group.type === 'project' && group.projectPath ? () => toggleProjectPin(group.projectPath!) : undefined
+                    group.type === 'project' && group.projectPath
+                      ? () => toggleProjectPin(group.projectPath!)
+                      : undefined
                   }
                   isProjectPinned={
                     group.type === 'project' && group.projectPath ? pinnedProjects.has(group.projectPath) : undefined
@@ -983,10 +975,11 @@ export function ThreadSidebar({
               );
             })
           )}
-
         </div>
 
         {/* 回收站入口暂时隐藏 */}
+
+        <WechatGroupInvite />
 
         <div className="border-t border-[var(--border-default)] mx-4"></div>
 
@@ -1009,10 +1002,10 @@ export function ThreadSidebar({
         disableBackdropClose
         title={
           <div className="flex items-center gap-2">
-            <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg className="h-6 w-6 text-[var(--state-warning-text)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
             </svg>
-            <h3 className="text-[16px] font-bold text-gray-900">确认删除会话</h3>
+            <h3 className="text-[16px] font-bold text-[var(--modal-title-text)]">确认删除会话</h3>
           </div>
         }
         panelClassName="w-[500px]"
@@ -1022,19 +1015,66 @@ export function ThreadSidebar({
       >
         <div className="flex flex-col gap-5" data-testid="thread-delete-modal-content">
           <div className="space-y-1">
-            <p className="text-sm text-gray-600">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
+            <p className="text-sm text-[var(--modal-text-muted)]">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary">
               确定
             </button>
           </div>
         </div>
       </AppModal>
     </>
+  );
+}
+
+function WechatGroupInvite() {
+  const [showPopover, setShowPopover] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPopover) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target)) return;
+      setShowPopover(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [showPopover]);
+
+  return (
+    <div ref={containerRef} className="relative px-4 mx-4 mb-[12px] rounded-[8px]"  style={{ background: 'rgba(255,255,255, 0.7)' }}>
+      <div
+        ref={triggerRef}
+        className="relative flex items-center gap-2 h-[44px] cursor-pointer transition-colors group"
+        onMouseEnter={() => setShowPopover(true)}
+        onMouseLeave={() => setShowPopover(false)}
+        data-testid="wechat-group-invite"
+      >
+        <img src="/images/connectors/weixin.svg" alt="" className="w-[24px] h-[24px] shrink-0 relative z-10" />
+        <span className="text-[14px] font-normal text-[var(--text-primary)] truncate relative z-10">扫码加入体验官交流群</span>
+        {showPopover && (
+          <div
+            ref={popoverRef}
+            className="ui-overlay-card absolute left-[-12px] right-[-12px] bottom-[calc(100%+12px)] z-50"
+            onMouseEnter={() => setShowPopover(true)}
+            onMouseLeave={() => setShowPopover(false)}
+            data-testid="wechat-group-qr-popover"
+          >
+            <div className="p-4 flex items-center justify-center rounded-[inherit]" style={{ aspectRatio: '1/1' }}>
+              <img src="https://openjiuwen-ci.obs.cn-north-4.myhuaweicloud.com/office-claw/image/wechat-officeclaw.jpg" alt="微信交流群二维码" className="w-full h-full object-contain" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

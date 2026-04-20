@@ -19,6 +19,7 @@
  */
 
 import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli-timeout.js';
+import { isHubEnvPatchAllowed } from './env-patch-whitelist.js';
 import { buildConnectorEnvRefVarName, isConnectorSecretBackedEnvVarName } from './local-secret-store.js';
 
 export type EnvCategory =
@@ -102,7 +103,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'server',
     sensitive: false,
   },
-  { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
+  { name: 'UPLOAD_DIR', defaultValue: 'data/uploads', description: '文件上传目录（默认相对 monorepo root）', category: 'server', sensitive: false },
   {
     name: 'PROJECT_ALLOWED_ROOTS',
     defaultValue: '(未设置 — 使用 denylist 模式，仅拦截系统目录)',
@@ -125,6 +126,15 @@ export const ENV_VARS: EnvDefinition[] = [
       'Denylist 模式下额外拦截的目录（按系统路径分隔符分隔，会合并到平台默认拦截列表）。仅在未设置 PROJECT_ALLOWED_ROOTS 时生效。',
     category: 'server',
     sensitive: false,
+  },
+  {
+    name: 'OFFICE_CLAW_ENV_PATCH_WHITELIST',
+    defaultValue: '(未设置 → /api/config/env 全部拒绝)',
+    description: 'Hub 环境变量写回白名单；使用分号分隔，例如 DINGTALK_APP_KEY;DINGTALK_APP_SECRET',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+    runtimeEditable: false,
   },
   {
     name: 'FRONTEND_URL',
@@ -195,7 +205,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'REDIS_KEY_PREFIX',
-    defaultValue: 'cat-cafe:',
+    defaultValue: 'office-claw:',
     description: 'Redis key 命名空间前缀，用于多实例隔离',
     category: 'storage',
     sensitive: false,
@@ -402,6 +412,14 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'JIUWENCLAW_DATA_DIR',
+    defaultValue: '(未设置)',
+    description:
+      'jiuwenclaw 用户数据根目录的绝对路径；未设置时 sidecar 使用 OFFICE_CLAW_DATA_DIR/.jiuwenclaw',
+    category: 'cli',
+    sensitive: false,
+  },
+  {
     name: 'OFFICE_CLAW_CALLBACK_TOKEN',
     defaultValue: '(未设置)',
     description: 'Callback 鉴权 token',
@@ -458,7 +476,7 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_API_URL',
+    name: 'OFFICE_CLAW_API_URL',
     defaultValue: 'http://localhost:3002',
     description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -466,7 +484,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_INVOCATION_ID',
+    name: 'OFFICE_CLAW_INVOCATION_ID',
     defaultValue: '(运行时注入)',
     description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -474,15 +492,15 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_CAT_ID',
+    name: 'OFFICE_CLAW_CAT_ID',
     defaultValue: '(运行时注入)',
-    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    description: '当前智能体 ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
     sensitive: false,
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    name: 'OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT',
     defaultValue: '(未设置)',
     description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
     category: 'cli',
@@ -490,7 +508,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    name: 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS',
     defaultValue: '30000',
     description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
     category: 'cli',
@@ -775,6 +793,15 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
 
+  {
+    name: 'CAN_CREATE_MODEL',
+    defaultValue: '0',
+    description: 'Set to 1 or true to show the create model button',
+    category: 'frontend',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+
   // --- push ---
   {
     name: 'VAPID_PUBLIC_KEY',
@@ -792,7 +819,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'VAPID_SUBJECT',
-    defaultValue: 'mailto:cat-cafe@localhost',
+    defaultValue: 'mailto:office-claw@localhost',
     description: 'VAPID 联系方式 (mailto: 或 URL)',
     category: 'push',
     sensitive: false,
@@ -935,10 +962,13 @@ function isHubVisibleEnvVar(def: EnvDefinition): boolean {
 export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string | null }> {
   return ENV_VARS.filter(isHubVisibleEnvVar).map((def) => {
     const raw = process.env[def.name];
-    const ref =
-      isConnectorSecretBackedEnvVarName(def.name) ? process.env[buildConnectorEnvRefVarName(def.name)] ?? null : null;
-    const currentValue = raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
-    return { ...def, currentValue };
+    const ref = isConnectorSecretBackedEnvVarName(def.name)
+      ? (process.env[buildConnectorEnvRefVarName(def.name)] ?? null)
+      : null;
+    const currentValue =
+      raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
+    const runtimeEditable = isHubEnvPatchAllowed(def.name) ? def.runtimeEditable : false;
+    return { ...def, runtimeEditable, currentValue };
   });
 }
 
@@ -956,6 +986,7 @@ export function isConnectorEnvVarName(name: string): boolean {
 }
 
 export function isEditableEnvVarName(name: string): boolean {
+  if (!isHubEnvPatchAllowed(name)) return false;
   return ENV_VARS.some(
     (def) =>
       def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
@@ -985,7 +1016,6 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
   ['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH'],
   ['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS', 'OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS'],
   ['CAT_CAFE_SIGNAL_USER', 'OFFICE_CLAW_SIGNAL_USER'],
-  ['CAT_CAFE_SKIP_AUTH', 'OFFICE_CLAW_SKIP_AUTH'],
   ['CAT_CAFE_CONFIG_ROOT', 'OFFICE_CLAW_CONFIG_ROOT'],
   ['CAT_CAFE_GLOBAL_CONFIG_ROOT', 'OFFICE_CLAW_GLOBAL_CONFIG_ROOT'],
   ['CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED'],
@@ -999,12 +1029,19 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
   ['CAT_CAFE_RELAYCLAW_PYTHON', 'OFFICE_CLAW_RELAYCLAW_PYTHON'],
   ['CAT_CAFE_DARE_DIAG_LOG', 'OFFICE_CLAW_DARE_DIAG_LOG'],
   ['CAT_CAFE_DARE_MODEL_OVERRIDE', 'OFFICE_CLAW_DARE_MODEL_OVERRIDE'],
+  ['CAT_CAFE_API_URL', 'OFFICE_CLAW_API_URL'],
+  ['CAT_CAFE_INVOCATION_ID', 'OFFICE_CLAW_INVOCATION_ID'],
+  ['CAT_CAFE_CAT_ID', 'OFFICE_CLAW_CAT_ID'],
+  ['CAT_CAFE_PREFLIGHT_TIMEOUT_MS', 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS'],
 ];
 
 /**
  * Migrate deprecated CAT_CAFE_* env vars to OFFICE_CLAW_* equivalents.
  * Call once at startup before any env var reads.
  * New name takes precedence; old name is only copied when new name is unset.
+ *
+ * Keys removed from OfficeClaw's public configuration surface should not stay
+ * here indefinitely; keep this map limited to transitional runtime aliases.
  */
 export function migrateDeprecatedEnvVars(): void {
   for (const [oldName, newName] of LEGACY_ENV_MAP) {

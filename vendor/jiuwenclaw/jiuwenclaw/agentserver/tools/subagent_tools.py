@@ -18,9 +18,14 @@ from jiuwenclaw.agentserver.tools.subagent_models import (
     SubagentConfig,
     SubagentTaskSpec,
 )
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 _executor: SubagentExecutor | None = None
+
+
+def get_subagent_executor() -> SubagentExecutor | None:
+    """Get the global SubagentExecutor instance."""
+    return _executor
 
 
 def init_subagent_tools(
@@ -54,7 +59,9 @@ def register_skill_subagent_config(skill_name: str, config: SubagentConfig) -> N
         config: SubagentConfig from Skill frontmatter
     """
     if _executor is None:
-        logger.warning("[Subagent] Executor not initialized, cannot register skill config")
+        logger.warning(
+            "[Subagent] Executor not initialized, cannot register skill config"
+        )
         return
     _executor.register_skill_config(skill_name, config)
     logger.info(f"[Subagent] Registered skill config for: {skill_name}")
@@ -62,9 +69,7 @@ def register_skill_subagent_config(skill_name: str, config: SubagentConfig) -> N
 
 @tool(
     name="spawn_subagent",
-    description=(
-        "Spawn a subagent to execute a task."
-    ),
+    description=("Spawn a subagent to execute a task."),
 )
 async def spawn_subagent(
     objective: str,
