@@ -55,31 +55,39 @@ function isSessionActive(session: Pick<UserInfo, 'expiresAt'> | undefined): bool
   return parseSessionExpiresAt(session.expiresAt) > Date.now();
 }
 
-function pickActiveSessionForConnectorFallback(): { userId: string; session: UserInfo } | null {
-  let chosenUserId = '';
-  let chosenSession: UserInfo | null = null;
-  let chosenExpiry = Number.NEGATIVE_INFINITY;
-
+function collectActiveSessions(): Array<{ userId: string; session: UserInfo; expiry: number }> {
+  const candidates: Array<{ userId: string; session: UserInfo; expiry: number }> = [];
   for (const [candidateUserId, candidateSession] of sessions.entries()) {
     if (!candidateSession || CONNECTOR_SESSION_FALLBACK_USERS.has(candidateUserId)) continue;
     const expiry = parseSessionExpiresAt(candidateSession.expiresAt);
     if (!Number.isFinite(expiry) || expiry <= Date.now()) continue;
-    if (expiry > chosenExpiry) {
-      chosenExpiry = expiry;
-      chosenUserId = candidateUserId;
-      chosenSession = candidateSession;
-    }
+    candidates.push({ userId: candidateUserId, session: candidateSession, expiry });
   }
+  return candidates;
+}
 
-  if (!chosenSession) return null;
-  return { userId: chosenUserId, session: chosenSession };
+function pickActiveSessionForConnectorFallback(): { userId: string; session: UserInfo } | null {
+  const candidates = collectActiveSessions();
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.expiry - a.expiry);
+  return {
+    userId: candidates[0].userId,
+    session: candidates[0].session,
+  };
+}
+
+function shouldFallbackToAnyActiveSession(resolvedUserId: string): boolean {
+  if (CONNECTOR_SESSION_FALLBACK_USERS.has(resolvedUserId)) return true;
+  // Connector-triggered user IDs are often external IDs and may not match local login user IDs.
+  // In that case, fallback is only allowed when there is exactly ONE active MaaS session to avoid ambiguity.
+  return collectActiveSessions().length === 1;
 }
 
 export function resolveHuaweiMaaSRuntimeConfig(userId: string): HuaweiMaaSRuntimeConfig {
   const resolvedUserId = userId.trim();
   let session = sessions.get(resolvedUserId);
 
-  if ((!session || !isSessionActive(session)) && CONNECTOR_SESSION_FALLBACK_USERS.has(resolvedUserId)) {
+  if ((!session || !isSessionActive(session)) && shouldFallbackToAnyActiveSession(resolvedUserId)) {
     const fallback = pickActiveSessionForConnectorFallback();
     if (fallback) {
       session = fallback.session;

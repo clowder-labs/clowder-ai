@@ -13,7 +13,6 @@
     "test": "tsc && node --test test/*.test.js"
   },
   "dependencies": {
-    "@office-claw/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.4"
   },

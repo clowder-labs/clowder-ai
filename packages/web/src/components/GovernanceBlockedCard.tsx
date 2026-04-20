@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -22,6 +22,12 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 type CardState = 'idle' | 'confirming' | 'retrying' | 'done' | 'error';
+
+interface RetryErrorPayload {
+  error?: string;
+  code?: string;
+  currentStatus?: string;
+}
 
 export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId, onResolved }: GovernanceBlockedCardProps) {
   const [state, setState] = useState<CardState>('idle');
@@ -61,7 +67,12 @@ export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId, o
         });
 
         if (!retryRes.ok) {
-          const data = (await retryRes.json()) as { error?: string };
+          const data = (await retryRes.json()) as RetryErrorPayload;
+          if (data.code === 'INVOCATION_NOT_RETRYABLE' && data.currentStatus === 'succeeded') {
+            setState('done');
+            onResolved?.();
+            return;
+          }
           setState('error');
           setErrorMsg(data.error ?? '重试失败，请手动重新发送消息');
           return;
