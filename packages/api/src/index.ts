@@ -26,7 +26,11 @@ import {
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
-import { resolveAnthropicRuntimeProfile, resolveRuntimeProviderProfileForClient } from './config/provider-profiles.js';
+import {
+  readProviderProfiles,
+  resolveAnthropicRuntimeProfile,
+  resolveRuntimeProviderProfileForClient,
+} from './config/provider-profiles.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
@@ -1291,6 +1295,14 @@ async function main(): Promise<void> {
   }
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
+
+  try {
+    const projectRoot = resolveActiveProjectRoot(process.cwd());
+    await readProviderProfiles(projectRoot);
+    app.log.info(`[api] provider profiles warmed up for ${projectRoot}`);
+  } catch (err) {
+    app.log.warn(`[api] provider profiles warmup failed (best-effort): ${String(err)}`);
+  }
 
   // Detect available CLI clients at startup (non-blocking)
   const { detectAvailableClients } = await import('./utils/client-detection.js');
