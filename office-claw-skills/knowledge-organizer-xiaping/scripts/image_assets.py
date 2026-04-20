@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ipaddress
 import re
 import shutil
+import socket
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -12,6 +14,52 @@ from .image_fields import resolve_image_targets
 
 
 _INVALID_FILENAME_CHARS = re.compile(r'[\\/:*?"<>|]')
+
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("224.0.0.0/4"),
+    ipaddress.ip_network("240.0.0.0/4"),
+]
+
+
+def _is_private_url(url: str) -> bool:
+    """Check if URL points to a private/internal network."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if not parsed.hostname:
+            return True
+        hostname = parsed.hostname.lower()
+        if hostname in ("localhost", "localhost.localdomain"):
+            return True
+        if hostname.endswith(".local"):
+            return True
+        if hostname.startswith("127."):
+            return True
+        if hostname.startswith("0."):
+            return True
+        try:
+            addr = socket.gethostbyname(hostname)
+            ip = ipaddress.ip_address(addr)
+            for network in _PRIVATE_NETWORKS:
+                if ip in network:
+                    return True
+        except socket.gaierror:
+            pass
+        return False
+    except Exception:
+        return True
+
+
+def _validate_url_for_download(url: str) -> None:
+    """Validate URL before downloading. Raises ValueError if blocked."""
+    if _is_private_url(url):
+        raise ValueError(
+            f"URL blocked: private/internal network access not allowed: {url}"
+        )
 
 
 def sanitize_filename(title: str, *, max_len: int = 120) -> str:
@@ -49,6 +97,7 @@ def _unique_path(path: Path) -> Path:
 
 
 def download_remote_image(url: str, destination: Path) -> None:
+    _validate_url_for_download(url)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(url) as response, destination.open("wb") as handle:
         shutil.copyfileobj(response, handle)
@@ -96,7 +145,11 @@ def render_image_markdown(
                     pass
             for candidate in (destination.parent, asset_dir.parent):
                 try:
-                    if candidate.exists() and candidate.is_dir() and not any(candidate.iterdir()):
+                    if (
+                        candidate.exists()
+                        and candidate.is_dir()
+                        and not any(candidate.iterdir())
+                    ):
                         candidate.rmdir()
                 except OSError:
                     pass
