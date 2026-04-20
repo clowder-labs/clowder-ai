@@ -72,31 +72,37 @@ Based on the user interview, fill in these components:
 
 #### Skill Development Location
 
-Create new skills in the **OfficeClaw workspace/skills directory** under `workspace/skills/<skill-name>/` for development and testing.
+Create new skills in **both locations** for redundancy and availability:
 
-**Why workspace instead of immediate installation:**
-- Allows iterative testing before committing
-- User can choose to install or share after satisfied
-- Avoids accidental overwrite during OfficeClaw upgrades
-- Provides a clean separation between "drafting" and "deploying"
+1. **User data directory** (runtime loading): `~/.office-claw/.jiuwenclaw/skills/<skill-name>/`
+2. **Installation directory** (pre-installed/bundled): `<office-claw>/.office-claw/skills/<skill-name>/`
 
-**How to find the OfficeClaw installation directory (workspace is inside it):**
-1. Check environment variable `OFFICE_CLAW_CONFIG_ROOT` (if set, use this path)
+**How to find the paths:**
+
+**User data path:**
+1. First check environment variable `JIUWENCLAW_DATA_DIR` - if set, use `$JIUWENCLAW_DATA_DIR/skills/`
+2. Otherwise use the standard OfficeClaw user data path: `~/.office-claw/.jiuwenclaw/skills/`
+   - On Windows: `C:\Users\<user>\.office-claw\.jiuwenclaw\skills\`
+   - On macOS/Linux: `~/.office-claw/.jiuwenclaw/skills/`
+
+**Installation path:**
+1. Check environment variable `OFFICE_CLAW_ROOT` - if set, use `$OFFICE_CLAW_ROOT/.office-claw/skills/`
 2. Check Windows registry: `HKCU\Software\ClowderLabs\OfficeClaw\InstallDir`
-3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw` (e.g., `C:\Users\<user>\AppData\Local\Programs\OfficeClaw`)
-4. If running from source: the repository root containing `pnpm-workspace.yaml`
+3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw\.office-claw\skills\`
 
-**Final skill location options:**
-- Default: `<office-claw>/.office-claw/skills/<skill-name>/`
-- Custom: User can specify any writable directory
+**Installation workflow:**
+1. Create the skill in the user data directory first
+2. After skill is finalized and tested, copy to installation directory
+3. Register in `installed-skills.json` if needed
 
 **Before creating, always confirm with user:**
-> "技能将创建到 `<office-claw>/.office-claw/skills/<skill-name>/`，确认吗？如需修改路径请告诉我。"
+> "技能将创建到两个位置：\n- 用户目录: `~/.office-claw/.jiuwenclaw/skills/<skill-name>/`\n- 安装目录: `<office-claw>/.office-claw/skills/<skill-name>/`\n确认吗？如需修改请告诉我。"
 
 #### Anatomy of a Skill
 
 ```
-workspace/skills/skill-name/   ← user-created skills go here
+~/.office-claw/.jiuwenclaw/skills/skill-name/   ← user-created skills (runtime)
+<office-claw>/.office-claw/skills/skill-name/   ← pre-installed skills (bundled)
 ├── SKILL.md (required)
 │   ├── YAML frontmatter (name, description required)
 │   └── Markdown instructions
