@@ -357,4 +357,282 @@ describe('SecurityManagementModal', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  describe('pagination', () => {
+    const manyTools: Record<string, unknown> = {
+      tool_1: 'ask',
+      tool_2: 'allow',
+      tool_3: 'ask',
+      tool_4: 'allow',
+      tool_5: 'ask',
+      tool_6: 'allow',
+      tool_7: 'ask',
+      tool_8: 'allow',
+      tool_9: 'ask',
+      tool_10: 'allow',
+      tool_11: 'ask',
+      tool_12: 'allow',
+    };
+
+    it('hides pagination when there are fewer than 5 tools', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: 'ask',
+                write_memory: 'allow',
+              },
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      expect(container.querySelector('[data-testid="security-management-pagination"]')).toBeNull();
+      expect(container.querySelectorAll('[data-testid^="security-policy-row-"]').length).toBe(2);
+    });
+
+    it('shows pagination and displays first 5 tools on page 1', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      expect(container.querySelector('[data-testid="security-management-pagination"]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-testid^="security-policy-row-"]').length).toBe(5);
+      expect(container.querySelector('[data-testid="security-policy-row-tool_1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_5"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_6"]')).toBeNull();
+    });
+
+    it('navigates to page 2 when next button is clicked', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const nextButton = container.querySelector(
+        '[data-testid="security-management-pagination-next"]',
+      ) as HTMLButtonElement | null;
+      expect(nextButton).not.toBeNull();
+      expect(nextButton?.disabled).toBe(false);
+
+      await act(async () => {
+        nextButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(container.querySelectorAll('[data-testid^="security-policy-row-"]').length).toBe(5);
+      expect(container.querySelector('[data-testid="security-policy-row-tool_6"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_10"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_1"]')).toBeNull();
+    });
+
+    it('navigates back to page 1 when prev button is clicked', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const nextButton = container.querySelector(
+        '[data-testid="security-management-pagination-next"]',
+      ) as HTMLButtonElement | null;
+
+      await act(async () => {
+        nextButton?.click();
+        await Promise.resolve();
+      });
+
+      const prevButton = container.querySelector(
+        '[data-testid="security-management-pagination-prev"]',
+      ) as HTMLButtonElement | null;
+      expect(prevButton).not.toBeNull();
+      expect(prevButton?.disabled).toBe(false);
+
+      await act(async () => {
+        prevButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(container.querySelector('[data-testid="security-policy-row-tool_1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_6"]')).toBeNull();
+    });
+
+    it('navigates directly to a page when page number button is clicked', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const page3Button = container.querySelector(
+        '[data-testid="security-management-pagination-page-3"]',
+      ) as HTMLButtonElement | null;
+      expect(page3Button).not.toBeNull();
+
+      await act(async () => {
+        page3Button?.click();
+        await Promise.resolve();
+      });
+
+      expect(container.querySelector('[data-testid="security-policy-row-tool_11"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_1"]')).toBeNull();
+    });
+
+    it('disables prev button on first page and next button on last page', async () => {
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const prevButton = container.querySelector(
+        '[data-testid="security-management-pagination-prev"]',
+      ) as HTMLButtonElement | null;
+      const nextButton = container.querySelector(
+        '[data-testid="security-management-pagination-next"]',
+      ) as HTMLButtonElement | null;
+
+      expect(prevButton?.disabled).toBe(true);
+      expect(nextButton?.disabled).toBe(false);
+
+      await act(async () => {
+        nextButton?.click();
+        await Promise.resolve();
+        nextButton?.click();
+        await Promise.resolve();
+        nextButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(prevButton?.disabled).toBe(false);
+      expect(nextButton?.disabled).toBe(true);
+    });
+
+    it('shows ellipsis when there are more than 8 pages', async () => {
+      const manyPagesTools: Record<string, unknown> = {};
+      for (let i = 1; i <= 50; i += 1) {
+        manyPagesTools[`tool_${i}`] = i % 2 === 0 ? 'allow' : 'ask';
+      }
+
+      mockApiFetch.mockImplementationOnce(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyPagesTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const pagination = container.querySelector('[data-testid="security-management-pagination"]');
+      expect(pagination?.textContent).toContain('...');
+    });
+
+    it('always starts from page 1 when modal opens', async () => {
+      mockApiFetch.mockImplementation(() =>
+        Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: manyTools,
+            },
+          }),
+        ),
+      );
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      const nextButton = container.querySelector(
+        '[data-testid="security-management-pagination-next"]',
+      ) as HTMLButtonElement | null;
+
+      await act(async () => {
+        nextButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(container.querySelector('[data-testid="security-policy-row-tool_6"]')).not.toBeNull();
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: false, onClose: vi.fn() }));
+      });
+
+      await act(async () => {
+        root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      });
+      await flush();
+
+      expect(container.querySelector('[data-testid="security-policy-row-tool_1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="security-policy-row-tool_6"]')).toBeNull();
+    });
+  });
 });
