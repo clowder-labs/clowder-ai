@@ -291,6 +291,18 @@ async function main(): Promise<void> {
     done();
   });
 
+  // Security headers for all API responses
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('X-XSS-Protection', '1; mode=block');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'",
+    );
+  });
+
   // Global error handler — catches unhandled route errors
   app.setErrorHandler((error, request, reply) => {
     const statusCode = error.statusCode ?? 500;

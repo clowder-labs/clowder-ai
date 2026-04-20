@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -22,6 +22,7 @@ import { useConfirm } from './useConfirm';
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '其他';
 const ALL_SOURCES = 'all';
+const FIXED_SOURCE_OPTIONS: readonly string[] = [ALL_SOURCES, 'builtin', 'external'];
 const SKILL_SEARCH_PLACEHOLDER = '搜索技能';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
@@ -212,10 +213,7 @@ export function HubCapabilityTab({
     if (activeCategory === ALL_CATEGORY) return skillItems;
     return skillItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === activeCategory);
   }, [activeCategory, skillItems]);
-  const sourceOptions = useMemo(() => {
-    const options = Array.from(new Set(skillItems.map((item) => item.source).filter(Boolean)));
-    return [ALL_SOURCES, ...options];
-  }, [skillItems]);
+  const sourceOptions = FIXED_SOURCE_OPTIONS;
   const sourceFilteredItems = useMemo(() => {
     if (activeSource === ALL_SOURCES) return displayedSkillItems;
     return displayedSkillItems.filter((item) => item.source === activeSource);
