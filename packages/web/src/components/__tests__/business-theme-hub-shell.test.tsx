@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -556,5 +556,175 @@ describe('business theme hub shell', () => {
     ).toBe(true);
     expect(mockNotifySkillOptionsChanged).not.toHaveBeenCalled();
     expect(document.body.querySelector('.fixed')?.textContent).toContain('卸载失败');
+  });
+
+  describe('source filter dropdown', () => {
+    it('always shows all three fixed source options regardless of data', async () => {
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+      expect(sourceSelect).not.toBeNull();
+
+      const options = Array.from(sourceSelect?.options ?? []).map((opt) => opt.value);
+      expect(options).toEqual(['all', 'builtin', 'external']);
+    });
+
+    it('shows all three source options even when only builtin skills exist', async () => {
+      mockApiFetch.mockImplementationOnce((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith('/api/capabilities?')) {
+          return Promise.resolve(
+            jsonResponse({
+              projectPath: 'project-a',
+              catFamilies: [{ id: 'ops', name: 'Ops', catIds: ['office'] }],
+              items: [
+                {
+                  id: 'builtin-only-skill',
+                  type: 'skill',
+                  source: 'builtin',
+                  enabled: true,
+                  cats: { office: true },
+                  description: 'builtin skill only',
+                  category: 'Automation',
+                },
+              ],
+              skillHealth: {
+                allMounted: true,
+                registrationConsistent: true,
+                unregistered: [],
+                phantom: [],
+              },
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse({}));
+      });
+
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+      expect(sourceSelect).not.toBeNull();
+
+      const options = Array.from(sourceSelect?.options ?? []).map((opt) => opt.value);
+      expect(options).toEqual(['all', 'builtin', 'external']);
+    });
+
+    it('shows all three source options even when only external skills exist', async () => {
+      mockApiFetch.mockImplementationOnce((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith('/api/capabilities?')) {
+          return Promise.resolve(
+            jsonResponse({
+              projectPath: 'project-a',
+              catFamilies: [{ id: 'ops', name: 'Ops', catIds: ['office'] }],
+              items: [
+                {
+                  id: 'external-only-skill',
+                  type: 'skill',
+                  source: 'external',
+                  enabled: true,
+                  cats: { office: true },
+                  description: 'external skill only',
+                  category: 'Knowledge',
+                },
+              ],
+              skillHealth: {
+                allMounted: true,
+                registrationConsistent: true,
+                unregistered: [],
+                phantom: [],
+              },
+            }),
+          );
+        }
+        return Promise.resolve(jsonResponse({}));
+      });
+
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+      expect(sourceSelect).not.toBeNull();
+
+      const options = Array.from(sourceSelect?.options ?? []).map((opt) => opt.value);
+      expect(options).toEqual(['all', 'builtin', 'external']);
+    });
+
+    it('displays correct labels for each source option in dropdown menu', async () => {
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      const dropdownButton = container.querySelector('button[aria-haspopup="listbox"]') as HTMLButtonElement | null;
+      expect(dropdownButton).not.toBeNull();
+
+      await act(async () => {
+        dropdownButton?.click();
+        await Promise.resolve();
+      });
+
+      const listbox = container.querySelector('[role="listbox"]');
+      expect(listbox).not.toBeNull();
+
+      const optionButtons = Array.from(listbox?.querySelectorAll('button[role="option"]') ?? []);
+      const labels = optionButtons.map((btn) => btn.textContent?.trim());
+
+      expect(labels).toContain('全部来源');
+      expect(labels).toContain('内置技能');
+      expect(labels).toContain('用户添加技能');
+    });
+
+    it('filters skills by builtin source', async () => {
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      expect(container.textContent).toContain('ops-skill');
+      expect(container.textContent).toContain('doc-skill');
+
+      const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(sourceSelect, 'builtin');
+        sourceSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+        await Promise.resolve();
+      });
+
+      expect(container.textContent).toContain('ops-skill');
+      expect(container.textContent).not.toContain('doc-skill');
+    });
+
+    it('filters skills by external source', async () => {
+      await act(async () => {
+        root.render(React.createElement(HubCapabilityTab));
+      });
+      await flushEffects();
+
+      expect(container.textContent).toContain('ops-skill');
+      expect(container.textContent).toContain('doc-skill');
+
+      const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(sourceSelect, 'external');
+        sourceSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+        await Promise.resolve();
+      });
+
+      expect(container.textContent).not.toContain('ops-skill');
+      expect(container.textContent).toContain('doc-skill');
+    });
   });
 });
