@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+
+const MODELARTS_PLACEHOLDER_API_KEY = 'xxxxxxxx';
 
 const BUILTIN_ACCOUNT_SPECS = [
   {
@@ -515,7 +516,7 @@ function buildModelartsBreed(template, breedId, options) {
 function applyModelartsPreset(projectDir, apiKey) {
   const preset = readModelartsPreset();
   const account = preset.sharedAccount;
-  const sharedApiKey = apiKey?.trim() || `modelarts-${randomBytes(12).toString('hex')}`;
+  const sharedApiKey = apiKey?.trim() || MODELARTS_PLACEHOLDER_API_KEY;
   upsertInstallerApiKeyAccount(projectDir, 'dare', {
     profileId: account.profileId,
     displayName: account.displayName,

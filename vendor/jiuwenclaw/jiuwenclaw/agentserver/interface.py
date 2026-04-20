@@ -861,20 +861,26 @@ class JiuWenClaw:
         )
         logger.info(f"[JiuwenClaw] update tool and prompt for channel {channel}")
         if channel not in ["heartbeat", "cron"] and self._should_register_cron_tools():
-            cron_controller = CronController.get_instance()
-            if channel == "feishu":
-                cron_controller.set_target_channel(CronTargetChannel.FEISHU)
-            elif channel == "wecom":
-                cron_controller.set_target_channel(CronTargetChannel.WECOM)
-            elif channel == "xiaoyi":
-                cron_controller.set_target_channel(CronTargetChannel.XIAOYI)
-            elif channel in ("web", "sess"):
-                cron_controller.set_target_channel(CronTargetChannel.WEB)
+            try:
+                cron_controller = CronController.get_instance()
+                if channel == "feishu":
+                    cron_controller.set_target_channel(CronTargetChannel.FEISHU)
+                elif channel == "wecom":
+                    cron_controller.set_target_channel(CronTargetChannel.WECOM)
+                elif channel == "xiaoyi":
+                    cron_controller.set_target_channel(CronTargetChannel.XIAOYI)
+                elif channel in ("web", "sess"):
+                    cron_controller.set_target_channel(CronTargetChannel.WEB)
 
-            for cron_tool in cron_controller.get_tools():
-                if not Runner.resource_mgr.get_tool(cron_tool.card.id):
-                    Runner.resource_mgr.add_tool(cron_tool)
-                self._instance.ability_manager.add(cron_tool.card)
+                for cron_tool in cron_controller.get_tools():
+                    if not Runner.resource_mgr.get_tool(cron_tool.card.id):
+                        Runner.resource_mgr.add_tool(cron_tool)
+                    self._instance.ability_manager.add(cron_tool.card)
+            except Exception as exc:
+                logger.warning(
+                    "[JiuWenClaw] skip runtime cron tools registration: CronController unavailable, reason=%s",
+                    exc,
+                )
         elif channel not in ["heartbeat", "cron"]:
             logger.info(
                 "[JiuWenClaw] skip runtime cron tools registration: channel=%s disable_all=%s",
