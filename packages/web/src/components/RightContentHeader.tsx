@@ -128,7 +128,7 @@ const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   },
   {
     id: 'other_issue',
-    label: '其他原因',
+    label: '其他问题',
   },
 ];
 const HIGH_SCORE_ISSUE_OPTIONS: IssueOption[] = [
@@ -162,7 +162,7 @@ const HIGH_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   },
   {
     id: 'other_issue',
-    label: '其他原因',
+    label: '其他问题',
   },
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
