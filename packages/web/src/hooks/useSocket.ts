@@ -85,6 +85,7 @@ const ROOM_JOIN_ACK_TIMEOUT_MS = 500;
 const ROOM_JOIN_POLL_INTERVAL_MS = 25;
 const ROOM_JOIN_SETTLE_MS = 80;
 const MISSING_THREAD_ID_RECOVERY_THROTTLE_MS = 1200;
+const MISSING_THREAD_ID_BUFFER_TIMEOUT_MS = 700;
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
@@ -247,6 +248,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
   const threadIdRef = useRef(threadId);
   const missingThreadRecoveryAtRef = useRef<Map<string, number>>(new Map());
   const invocationThreadMapRef = useRef<Map<string, string>>(new Map());
+  const missingThreadBufferRef = useRef<Map<string, AgentMessage[]>>(new Map());
+  const missingThreadBufferTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   threadIdRef.current = threadId;
 
   // Use ref to avoid socket disconnect/reconnect on every callbacks change.
@@ -373,17 +376,51 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       reconcileInvocationStateOnReconnect(tid ?? null);
     });
 
-    socket.on('agent_message', (msg: AgentMessage) => {
-      let resolvedThreadId = msg.threadId;
-      if (!resolvedThreadId && msg.invocationId) {
-        resolvedThreadId = invocationThreadMapRef.current.get(msg.invocationId);
+    const requestMissingThreadCatchUp = (reason: string, sourceMsg: AgentMessage) => {
+      const refreshThreadId = threadIdRef.current ?? useChatStore.getState().currentThreadId;
+      const now = Date.now();
+      recordInvocationEvent({
+        event: sourceMsg.type === 'done' ? 'done' : 'agent_message',
+        action: reason,
+        threadId: undefined,
+        isFinal: sourceMsg.isFinal === true,
+      });
+      if (refreshThreadId) {
+        const lastRecoveryAt = missingThreadRecoveryAtRef.current.get(refreshThreadId) ?? 0;
+        if (now - lastRecoveryAt >= MISSING_THREAD_ID_RECOVERY_THROTTLE_MS) {
+          missingThreadRecoveryAtRef.current.set(refreshThreadId, now);
+          requestThreadLiveRefresh(refreshThreadId, 'messages', reason);
+          useChatStore.getState().requestStreamCatchUp?.(refreshThreadId);
+        }
       }
-      const routedMsg: AgentMessage =
-        resolvedThreadId && resolvedThreadId !== msg.threadId ? { ...msg, threadId: resolvedThreadId } : msg;
+      console.warn('[ws] Dropping agent_message without threadId to prevent cross-thread contamination', {
+        type: sourceMsg.type,
+        catId: sourceMsg.catId,
+        invocationId: sourceMsg.invocationId,
+        refreshThreadId: refreshThreadId ?? null,
+        reason,
+      });
+    };
+
+    const flushBufferedInvocationMessages = (invocationId: string, resolvedThreadId: string) => {
+      const buffered = missingThreadBufferRef.current.get(invocationId);
+      if (!buffered || buffered.length === 0) return;
+      const timer = missingThreadBufferTimerRef.current.get(invocationId);
+      if (timer) {
+        clearTimeout(timer);
+        missingThreadBufferTimerRef.current.delete(invocationId);
+      }
+      missingThreadBufferRef.current.delete(invocationId);
+      for (const bufferedMsg of buffered) {
+        routeAgentMessage({ ...bufferedMsg, threadId: resolvedThreadId }, bufferedMsg, true);
+      }
+    };
+
+    const routeAgentMessage = (routedMsg: AgentMessage, originalMsg: AgentMessage, recoveredFromBuffer = false) => {
       if (routedMsg.threadId && routedMsg.invocationId) {
         invocationThreadMapRef.current.set(routedMsg.invocationId, routedMsg.threadId);
+        flushBufferedInvocationMessages(routedMsg.invocationId, routedMsg.threadId);
       }
-
       const routeThread = threadIdRef.current;
       const storeThread = useChatStore.getState().currentThreadId;
 
@@ -402,7 +439,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       recordInvocationEvent({
         event: routedMsg.type === 'done' ? 'done' : 'agent_message',
         threadId: routedMsg.threadId,
-        action: routedMsg.threadId === msg.threadId ? routedMsg.type : 'recover_missing_thread_id',
+        action:
+          recoveredFromBuffer || routedMsg.threadId !== originalMsg.threadId
+            ? 'recover_missing_thread_id'
+            : routedMsg.type,
         isFinal: routedMsg.isFinal === true,
       });
 
@@ -410,29 +450,33 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       // Doing so can leak content into the wrong thread during rapid switches.
       // We drop and rely on thread-scoped history refresh for eventual consistency.
       if (!routedMsg.threadId) {
-        const refreshThreadId = threadIdRef.current ?? useChatStore.getState().currentThreadId;
-        const now = Date.now();
-        recordInvocationEvent({
-          event: routedMsg.type === 'done' ? 'done' : 'agent_message',
-          action: 'drop_missing_thread_id',
-          threadId: undefined,
-          isFinal: routedMsg.isFinal === true,
-        });
-        if (refreshThreadId) {
-          const lastRecoveryAt = missingThreadRecoveryAtRef.current.get(refreshThreadId) ?? 0;
-          if (now - lastRecoveryAt >= MISSING_THREAD_ID_RECOVERY_THROTTLE_MS) {
-            missingThreadRecoveryAtRef.current.set(refreshThreadId, now);
-            requestThreadLiveRefresh(refreshThreadId, 'messages', 'drop_missing_thread_id');
-            // Force a thread-scoped replace-hydration catch-up as a stronger eventual-consistency path.
-            useChatStore.getState().requestStreamCatchUp?.(refreshThreadId);
+        if (routedMsg.invocationId) {
+          const invocationId = routedMsg.invocationId;
+          const existing = missingThreadBufferRef.current.get(invocationId);
+          if (existing) {
+            existing.push(routedMsg);
+          } else {
+            missingThreadBufferRef.current.set(invocationId, [routedMsg]);
+            const timeoutId = setTimeout(() => {
+              const pending = missingThreadBufferRef.current.get(invocationId);
+              missingThreadBufferRef.current.delete(invocationId);
+              missingThreadBufferTimerRef.current.delete(invocationId);
+              if (!pending || pending.length === 0) return;
+              for (const pendingMsg of pending) {
+                requestMissingThreadCatchUp('drop_missing_thread_id_timeout', pendingMsg);
+              }
+            }, MISSING_THREAD_ID_BUFFER_TIMEOUT_MS);
+            missingThreadBufferTimerRef.current.set(invocationId, timeoutId);
           }
+          recordInvocationEvent({
+            event: routedMsg.type === 'done' ? 'done' : 'agent_message',
+            action: 'buffer_missing_thread_id',
+            threadId: undefined,
+            isFinal: routedMsg.isFinal === true,
+          });
+          return;
         }
-        console.warn('[ws] Dropping agent_message without threadId to prevent cross-thread contamination', {
-          type: routedMsg.type,
-          catId: routedMsg.catId,
-          invocationId: routedMsg.invocationId,
-          refreshThreadId: refreshThreadId ?? null,
-        });
+        requestMissingThreadCatchUp('drop_missing_thread_id', routedMsg);
         return;
       }
 
@@ -442,6 +486,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         clearBackgroundStreamRefForActiveEvent(routedMsg, bgStreamRefsRef.current);
         if (routedMsg.isFinal && routedMsg.invocationId) {
           invocationThreadMapRef.current.delete(routedMsg.invocationId);
+          const timer = missingThreadBufferTimerRef.current.get(routedMsg.invocationId);
+          if (timer) {
+            clearTimeout(timer);
+            missingThreadBufferTimerRef.current.delete(routedMsg.invocationId);
+          }
+          missingThreadBufferRef.current.delete(routedMsg.invocationId);
         }
         return;
       }
@@ -460,7 +510,23 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       });
       if (routedMsg.isFinal && routedMsg.invocationId) {
         invocationThreadMapRef.current.delete(routedMsg.invocationId);
+        const timer = missingThreadBufferTimerRef.current.get(routedMsg.invocationId);
+        if (timer) {
+          clearTimeout(timer);
+          missingThreadBufferTimerRef.current.delete(routedMsg.invocationId);
+        }
+        missingThreadBufferRef.current.delete(routedMsg.invocationId);
       }
+    };
+
+    socket.on('agent_message', (msg: AgentMessage) => {
+      let resolvedThreadId = msg.threadId;
+      if (!resolvedThreadId && msg.invocationId) {
+        resolvedThreadId = invocationThreadMapRef.current.get(msg.invocationId);
+      }
+      const routedMsg: AgentMessage =
+        resolvedThreadId && resolvedThreadId !== msg.threadId ? { ...msg, threadId: resolvedThreadId } : msg;
+      routeAgentMessage(routedMsg, msg);
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
@@ -482,6 +548,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         });
         if (data.threadId && data.invocationId) {
           invocationThreadMapRef.current.set(data.invocationId, data.threadId);
+          flushBufferedInvocationMessages(data.invocationId, data.threadId);
         }
 
         // Dual-pointer guard: both route and store must agree for active-thread processing.
@@ -749,6 +816,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
     return () => {
       socket.disconnect();
       joinedRoomsRef.current.clear();
+      for (const timeoutId of missingThreadBufferTimerRef.current.values()) {
+        clearTimeout(timeoutId);
+      }
+      missingThreadBufferTimerRef.current.clear();
+      missingThreadBufferRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
   }, [persistJoinedRooms]);

@@ -7,6 +7,7 @@
 'use client';
 
 import { type AriaRole, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from 'react';
+import { createPortal } from 'react-dom';
 
 interface AppModalProps {
   open: boolean;
@@ -92,7 +93,7 @@ export function AppModal({
     return title;
   };
 
-  return (
+  const modalNode = (
     <div
       role={backdropRole}
       aria-modal={backdropAriaModal}
@@ -133,4 +134,9 @@ export function AppModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modalNode;
+  }
+  return createPortal(modalNode, document.body);
 }

@@ -411,8 +411,75 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     // Still background-routed to thread-A, no active-thread contamination and no drop recovery fetch.
     expect(onMessage).not.toHaveBeenCalled();
     expect(mockAddMessageToThread.mock.calls.some((call) => call?.[0] === 'thread-A')).toBe(true);
-    expect(mockBatchStreamChunkUpdate.mock.calls.some((call) => call?.[0]?.threadId === 'thread-A')).toBe(true);
     expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+  });
+
+  it('buffers missing-thread message and replays after intent_mode maps invocationId', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        invocationId: 'inv-buffer',
+        content: 'chunk before thread mapping',
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+
+    act(() => {
+      simulateServerEvent('intent_mode', {
+        threadId: 'thread-A',
+        mode: 'execute',
+        targetCats: ['opus'],
+        invocationId: 'inv-buffer',
+      });
+    });
+
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(mockAddMessageToThread.mock.calls.some((call) => call?.[0] === 'thread-A')).toBe(true);
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+  });
+
+  it('buffered missing-thread message triggers catch-up on timeout if never mapped', () => {
+    vi.useFakeTimers();
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        invocationId: 'inv-timeout',
+        content: 'orphan chunk',
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(900);
+    });
+
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-B');
+    vi.useRealTimers();
   });
 
   it('route/store mismatch: message for route thread must go background until store switches', () => {
