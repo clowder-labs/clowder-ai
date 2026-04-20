@@ -629,7 +629,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
           <Alert mode="prompt" closable={false} className="mb-4">
             1.支持上传文件或文件夹：单个文件 ≤ 1MB，文件总数 ≤ 100 个，总大小 ≤ 4MB；
             <br />
-            2.上传内容的根目录必须包含 `SKILL.md` 文件。
+            2.上传内容的根目录必须包含 SKILL.md 文件。
           </Alert>
 
           <div className="mb-4 flex gap-2">

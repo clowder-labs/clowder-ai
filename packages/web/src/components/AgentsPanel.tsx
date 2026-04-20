@@ -63,10 +63,8 @@ const AGENT_CARD_DEFAULT_CLASS =
   'border-[var(--connector-tab-border-default)] bg-[var(--connector-tab-bg-default)] hover:border-[var(--connector-tab-border-hover)] hover:bg-[var(--connector-tab-bg-hover)] hover:shadow-[var(--card-hover-shadow)]';
 const AGENT_CARD_SELECTED_CLASS =
   'border-[var(--connector-tab-border-selected)] bg-[var(--connector-tab-bg-selected)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-hover-shadow)]';
-const AGENT_CARD_MENU_BUTTON_CLASS =
-  'inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition-colors';
-const AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS =
-  'bg-[var(--overlay-item-hover-bg)] text-[var(--text-accent)]';
+const AGENT_CARD_MENU_BUTTON_CLASS = 'inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition-colors';
+const AGENT_CARD_MENU_BUTTON_ACTIVE_CLASS = 'bg-[var(--overlay-item-hover-bg)] text-[var(--text-accent)]';
 const AGENT_CARD_MENU_BUTTON_IDLE_CLASS =
   'text-[var(--text-muted)] hover:bg-[var(--overlay-item-hover-bg)] hover:text-[var(--text-accent)]';
 
@@ -901,176 +899,162 @@ export function AgentsPanel() {
     );
   };
 
-  const renderMarkdownEditor = () => (
-    <div data-testid="agent-tab-editor" className="flex min-h-full flex-col px-8 pb-6">
-      <div ref={editorSurfaceRef} className="min-h-0 flex-1">
-        <textarea
-          ref={editorTextareaRef}
-          value={activeWorkingDraft}
-          onChange={(event) => {
-            if (!isEditableTab(activeTab)) return;
-            updateWorkingDraft(activeTab, event.target.value);
-          }}
-          placeholder={
-            activeTab === 'persona'
-              ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
-              : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
-          }
-          className="ui-textarea ui-textarea-plain block min-h-full w-full resize-none overflow-hidden rounded-none text-[12px] leading-7"
-          data-testid="agent-tab-textarea"
-        />
-      </div>
-    </div>
-  );
+  const renderMarkdownEditor = () => {
+    const showTemplates = activeTab === 'persona';
+    const isPersonaEmpty = activeTab === 'persona' && !activeWorkingDraft.trim();
 
-  const renderPersonaEmptyEditor = () => (
-    <div data-testid="agent-tab-empty-editor" className="relative flex min-h-full flex-col px-8 pb-6">
-      <div className="shrink-0 pb-3">
-        <textarea
-          value={activeWorkingDraft}
-          onChange={(event) => {
-            if (!isEditableTab(activeTab)) return;
-            updateWorkingDraft(activeTab, event.target.value);
-          }}
-          placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="ui-textarea ui-textarea-plain h-[120px] w-full resize-none rounded-none text-[12px] leading-7"
-          data-testid="agent-tab-textarea"
-        />
-      </div>
-      <div className="relative mt-5 flex flex-col">
-        <div className="mx-auto w-full">
-          <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
-            <span>灵魂模板</span>
-            {templatePageCount > 1 ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTemplatePage((current) => Math.max(0, current - 1))}
-                  disabled={templatePage === 0}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="上一页模板"
-                >
-                  <ChevronLeftIcon className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTemplatePage((current) => Math.min(templatePageCount - 1, current + 1))}
-                  disabled={templatePage >= templatePageCount - 1}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="下一页模板"
-                >
-                  <ChevronRightIcon className="h-3.5 w-3.5" />
-                </button>
+    return (
+      <div data-testid="agent-tab-editor" className="relative flex h-full min-h-0 flex-col px-8 pb-6">
+        <div ref={editorSurfaceRef} className="min-h-0 flex-1">
+          <textarea
+            ref={editorTextareaRef}
+            value={activeWorkingDraft}
+            onChange={(event) => {
+              if (!isEditableTab(activeTab)) return;
+              updateWorkingDraft(activeTab, event.target.value);
+            }}
+            placeholder={
+              activeTab === 'persona'
+                ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
+                : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
+            }
+            className="ui-textarea ui-textarea-plain block h-full min-h-0 w-full resize-none overflow-hidden rounded-none text-[12px] leading-7"
+            data-testid="agent-tab-textarea"
+          />
+        </div>
+
+        {showTemplates ? (
+          <div className={`mt-4 flex shrink-0 flex-col ${isPersonaEmpty ? '' : 'hidden'}`}>
+            <div className="mx-auto w-full">
+              <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
+                <span>灵魂模板</span>
+                {templatePageCount > 1 ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTemplatePage((current) => Math.max(0, current - 1))}
+                      disabled={templatePage === 0}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="上一页模板"
+                    >
+                      <ChevronLeftIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTemplatePage((current) => Math.min(templatePageCount - 1, current + 1))}
+                      disabled={templatePage >= templatePageCount - 1}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="下一页模板"
+                    >
+                      <ChevronRightIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {visibleTemplates.map((template) => {
-              const isHovered = hoveredTemplatePreview?.id === template.id;
-              return (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 pb-6">
+                {visibleTemplates.map((template) => {
+                  const isHovered = hoveredTemplatePreview?.id === template.id;
+                  return (
+                    <div
+                      key={template.id}
+                      className="relative"
+                      ref={isHovered ? hoveredTemplateTriggerRef : null}
+                      onMouseEnter={(event) => {
+                        if (templateHoverClearTimerRef.current) {
+                          clearTimeout(templateHoverClearTimerRef.current);
+                          templateHoverClearTimerRef.current = null;
+                        }
+                        hoveredTemplateTriggerRef.current = event.currentTarget;
+                        setHoveredTemplateId(template.id);
+                      }}
+                      onMouseLeave={scheduleTemplateHoverClear}
+                      onFocus={(event) => {
+                        if (templateHoverClearTimerRef.current) {
+                          clearTimeout(templateHoverClearTimerRef.current);
+                          templateHoverClearTimerRef.current = null;
+                        }
+                        hoveredTemplateTriggerRef.current = event.currentTarget;
+                        setHoveredTemplateId(template.id);
+                      }}
+                      onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          scheduleTemplateHoverClear();
+                        }
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveTemplateId(template.id)}
+                        className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition-[border-color,background-color,box-shadow] hover:border-[var(--card-hover-border)] hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
+                      >
+                        <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
+                        <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
+                          {template.dexcription}
+                        </div>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {hoveredTemplatePreview ? (
                 <div
-                  key={template.id}
-                  className="relative"
-                  ref={isHovered ? hoveredTemplateTriggerRef : null}
-                  onMouseEnter={(event) => {
+                  ref={templateBubbleRef}
+                  className="fixed z-40 flex h-[300px] w-[400px] flex-col rounded-[8px] shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+                  style={{
+                    top: templateBubblePosition?.top ?? 0,
+                    left: templateBubblePosition?.left ?? 0,
+                    visibility: templateBubblePosition ? 'visible' : 'hidden',
+                  }}
+                  onMouseEnter={() => {
                     if (templateHoverClearTimerRef.current) {
                       clearTimeout(templateHoverClearTimerRef.current);
                       templateHoverClearTimerRef.current = null;
                     }
-                    hoveredTemplateTriggerRef.current = event.currentTarget;
-                    setHoveredTemplateId(template.id);
                   }}
                   onMouseLeave={scheduleTemplateHoverClear}
-                  onFocus={(event) => {
-                    if (templateHoverClearTimerRef.current) {
-                      clearTimeout(templateHoverClearTimerRef.current);
-                      templateHoverClearTimerRef.current = null;
-                    }
-                    hoveredTemplateTriggerRef.current = event.currentTarget;
-                    setHoveredTemplateId(template.id);
-                  }}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      scheduleTemplateHoverClear();
-                    }
-                  }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setActiveTemplateId(template.id)}
-                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition-[border-color,background-color,box-shadow] hover:border-[var(--card-hover-border)] hover:bg-[var(--card-hover-bg)] hover:shadow-[var(--card-hover-shadow)]"
-                  >
-                    <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
-                      {template.dexcription}
+                  <div className="relative flex h-full flex-col overflow-hidden rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
+                    <div className="shrink-0 pb-3">
+                      <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
+                        {hoveredTemplatePreview.title}
+                      </h3>
                     </div>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
 
-          {hoveredTemplatePreview ? (
-            <div
-              ref={templateBubbleRef}
-              className="fixed z-40 flex h-[300px] w-[400px] flex-col rounded-[8px] shadow-[var(--overlay-shadow)]"
-              style={{
-                top: templateBubblePosition?.top ?? 0,
-                left: templateBubblePosition?.left ?? 0,
-                visibility: templateBubblePosition ? 'visible' : 'hidden',
-              }}
-              onMouseEnter={() => {
-                if (templateHoverClearTimerRef.current) {
-                  clearTimeout(templateHoverClearTimerRef.current);
-                  templateHoverClearTimerRef.current = null;
-                }
-              }}
-              onMouseLeave={scheduleTemplateHoverClear}
-            >
-              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-[8px] border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
-                {/* 顶部标题 - 固定 */}
-                <div className="shrink-0  pb-3">
-                  <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
-                    {hoveredTemplatePreview.title}
-                  </h3>
-                </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <MarkdownContent
+                        content={buildTemplateMarkdown(hoveredTemplatePreview)}
+                        className="text-[12px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:hidden [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
+                        disableCommandPrefix
+                      />
+                    </div>
 
-                {/* 中间内容 - 可滚动 */}
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <MarkdownContent
-                    content={buildTemplateMarkdown(hoveredTemplatePreview)}
-                    className="text-[12px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:hidden [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
-                    disableCommandPrefix
+                    <div className="shrink-0 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
+                        className="ui-button-primary h-[24px] px-4 py-[3px] text-[12px] rounded-[999px] flex items-center justify-center font-normal"
+                      >
+                        插入模板
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className="pointer-events-none absolute top-full h-0 w-0 -translate-x-1/2 border-x-[7px] border-x-transparent border-t-[8px] border-t-[var(--border-default)]"
+                    style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+                  />
+                  <div
+                    className="pointer-events-none absolute top-full mt-[-1px] h-0 w-0 -translate-x-1/2 border-x-[6px] border-x-transparent border-t-[7px] border-t-[var(--surface-panel)]"
+                    style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
                   />
                 </div>
-
-                {/* 底部按钮 - 固定 */}
-                <div className="shrink-0 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                    className="ui-button-primary h-[24px] px-4 py-[3px] text-[12px] rounded-[999px] flex items-center justify-center font-normal"
-                  >
-                    插入模板
-                  </button>
-                </div>
-
-                {/* 气泡箭头 */}
-              </div>
-              <div
-                className="pointer-events-none absolute top-full h-0 w-0 -translate-x-1/2 border-x-[7px] border-x-transparent border-t-[8px] border-t-[var(--border-default)]"
-                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
-              />
-              <div
-                className="pointer-events-none absolute top-full mt-[-1px] h-0 w-0 -translate-x-1/2 border-x-[6px] border-x-transparent border-t-[7px] border-t-[var(--surface-panel)]"
-                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
-              />
+              ) : null}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderSkillsPreview = () => (
     <PlaceholderPanel
@@ -1086,7 +1070,6 @@ export function AgentsPanel() {
     }
 
     if (mode === 'edit' && canEditActiveTab) {
-      if (showEmptyPersonaEditor) return renderPersonaEmptyEditor();
       return renderMarkdownEditor();
     }
 
@@ -1247,9 +1230,7 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                   }}
                   className={`${ACTION_MENU_DELETE_ITEM_CLASS} ${
-                    actionMenuCat?.source === 'runtime'
-                      ? ''
-                      : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
+                    actionMenuCat?.source === 'runtime' ? '' : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
                   <TrashIcon

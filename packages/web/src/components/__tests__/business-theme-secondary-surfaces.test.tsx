@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -89,6 +89,8 @@ const sampleCat = {
   roster: { available: true },
 } as unknown as CatData;
 
+let intersectionObserverCallback: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null;
+
 describe('business theme secondary surfaces', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -96,10 +98,19 @@ describe('business theme secondary surfaces', () => {
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = class MockIntersectionObserver {
+      constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        intersectionObserverCallback = cb;
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    };
   });
 
   beforeEach(() => {
     vi.useFakeTimers();
+    intersectionObserverCallback = null;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -197,6 +208,7 @@ describe('business theme secondary surfaces', () => {
   afterAll(() => {
     delete (globalThis as { React?: typeof React }).React;
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
   });
 
   it('renders member surfaces with shared card and button tokens', async () => {
@@ -710,13 +722,9 @@ describe('business theme secondary surfaces', () => {
     await advanceTimers(300);
     await flushEffects();
 
-    const loadMoreButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('加载更多'),
-    );
-    expect(loadMoreButton).not.toBeUndefined();
-
+    expect(intersectionObserverCallback).not.toBeNull();
     await act(async () => {
-      loadMoreButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      intersectionObserverCallback?.([{ isIntersecting: true }]);
       await Promise.resolve();
     });
     await flushEffects();
@@ -839,13 +847,9 @@ describe('business theme secondary surfaces', () => {
     await advanceTimers(300);
     await flushEffects();
 
-    const loadMoreButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('加载更多'),
-    );
-    expect(loadMoreButton).not.toBeUndefined();
-
+    expect(intersectionObserverCallback).not.toBeNull();
     await act(async () => {
-      loadMoreButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      intersectionObserverCallback?.([{ isIntersecting: true }]);
       await Promise.resolve();
     });
     await flushEffects();
