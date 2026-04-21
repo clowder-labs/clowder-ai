@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -281,6 +281,7 @@
   --theme-preview-dark-check: #08101f;
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
+  --accent-pill-bg: rgba(20, 118, 255, 0.08);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
 
   /* Alert semantic backgrounds */
@@ -494,6 +495,9 @@
   --workspace-editor-error-bg: rgba(127, 29, 29, 0.22);
   --workspace-editor-error-border: rgba(127, 29, 29, 0.36);
   --workspace-editor-error-text: #fca5a5;
+
+  --accent-pill-text: rgba(204, 109, 26, 1);
+  --accent-pill-bg: rgba(255, 241, 230, 1);
 }
 
 [data-ui-theme="business"] {
@@ -2449,6 +2453,11 @@ select:-webkit-autofill:focus {
   display: none;
   width: 0;
   height: 0;
+}
+
+.chat-input-stop-generation {
+  color: var(--accent-pill-text);
+  background-color: var(--accent-pill-bg);
 }
 
 .overflow-tooltip {
