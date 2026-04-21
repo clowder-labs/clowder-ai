@@ -148,7 +148,7 @@ export function ChatInputActionButton({
       {hasActiveInvocation && !disabled && onStop && (
         <button
           onClick={() => onStop()}
-          className="ml-2 inline-flex shrink-0 items-center gap-2 rounded-full bg-[rgba(20, 118, 255, 0.1)] px-3 py-1.5 text-[12px] font-medium text-[rgba(20, 118, 255, 1)] transition-colors hover:bg-blue-50"
+          className="ml-2 inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-blue-50 chat-input-stop-generation"
           title="停止回答"
           aria-label="Stop generation"
         >
@@ -162,7 +162,7 @@ export function ChatInputActionButton({
         /* Backward compat: when explicitly disabled during active invocation, Stop is the only primary action */
         <button
           onClick={() => onStop()}
-          className="inline-flex ml-2 shrink-0 items-center bg-[rgba(20,118, 255, 0.1)] gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium text-[rgba(20, 118, 255, 1)] transition-colors hover:bg-blue-50"
+          className="inline-flex ml-2 shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors chat-input-stop-generation"
           title="停止回答"
           aria-label="Stop generation"
         >
