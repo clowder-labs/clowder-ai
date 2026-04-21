@@ -1068,6 +1068,67 @@ Be a warm person, not a cold machine. Help your user unconditionally and meet th
     return system_prompt
 
 
+def build_subagent_base_prompt(
+    language: str = "zh",
+    workspace_dir: Path | str | None = None,
+    include_time: bool = True,
+) -> str:
+    """Build minimal system prompt for subagent (inherits parent safety rules).
+
+    This is a lightweight version that only includes:
+    - Basic identity definition
+    - Safety rules (mandatory for security)
+    - Response format (for correct message parsing)
+    - Optional: workspace path and current time
+
+    Excludes non-essential parts: skills, tools table, memory system, todo, etc.
+    Estimated token reduction: ~70% (from ~3200 to ~800-1000 tokens)
+
+    Args:
+        language: language for the prompt ("zh" or "en")
+        workspace_dir: workspace directory path
+        include_time: whether to inject current time
+
+    Returns:
+        Minimal system prompt string for subagent
+    """
+    ws = Path(workspace_dir) if isinstance(workspace_dir, str) else workspace_dir
+
+    # Basic identity (simplified)
+    if language == "zh":
+        identity = """# 身份
+
+你是一个 AI 助手的子代理（Subagent），专门执行父代理分派的特定任务。
+你的职责是高效完成分配的任务，并将结果返回给父代理。
+
+"""
+    else:
+        identity = """# Identity
+
+You are a subagent of an AI assistant, specifically executing tasks assigned by the parent agent.
+Your responsibility is to efficiently complete assigned tasks and return results to the parent agent.
+
+"""
+
+    parts = [identity]
+
+    # Optional: current time
+    if include_time:
+        parts.append(_time_prompt(language) + '\n')
+
+    # Optional: workspace
+    if ws:
+        parts.append(_workspace_prompt(language, workspace_dir=ws) + '\n')
+
+    parts.append(_principle_prompt(language) + '\n')
+
+    # Mandatory: safety rules
+    parts.append("---\n\n")
+    parts.append(_safety_prompt(language) + '\n')
+
+    return "".join(parts)
+
+
 def build_user_prompt(content: str, files: dict, channel: str, language: str) -> str:
     """Build user prompt for the agent."""
     prompt = "你收到一条消息：\n"

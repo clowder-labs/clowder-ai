@@ -72,23 +72,13 @@ Based on the user interview, fill in these components:
 
 #### Skill Development Location
 
-Create new skills in the **OfficeClaw workspace/skills directory** under `workspace/skills/<skill-name>/` for development and testing.
+Create new skills in the **installation directory**: `<office-claw>/.office-claw/skills/<skill-name>/`
 
-**Why workspace instead of immediate installation:**
-- Allows iterative testing before committing
-- User can choose to install or share after satisfied
-- Avoids accidental overwrite during OfficeClaw upgrades
-- Provides a clean separation between "drafting" and "deploying"
-
-**How to find the OfficeClaw installation directory (workspace is inside it):**
-1. Check environment variable `OFFICE_CLAW_CONFIG_ROOT` (if set, use this path)
+**How to find the installation directory:**
+1. Check environment variable `OFFICE_CLAW_ROOT` - if set, use `$OFFICE_CLAW_ROOT/.office-claw/skills/`
 2. Check Windows registry: `HKCU\Software\ClowderLabs\OfficeClaw\InstallDir`
-3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw` (e.g., `C:\Users\<user>\AppData\Local\Programs\OfficeClaw`)
-4. If running from source: the repository root containing `pnpm-workspace.yaml`
-
-**Final skill location options:**
-- Default: `<office-claw>/.office-claw/skills/<skill-name>/`
-- Custom: User can specify any writable directory
+3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw\.office-claw\skills\`
+   - e.g., `C:\Users\<user>\AppData\Local\Programs\OfficeClaw\.office-claw\skills\`
 
 **Before creating, always confirm with user:**
 > "技能将创建到 `<office-claw>/.office-claw/skills/<skill-name>/`，确认吗？如需修改路径请告诉我。"
@@ -96,7 +86,7 @@ Create new skills in the **OfficeClaw workspace/skills directory** under `worksp
 #### Anatomy of a Skill
 
 ```
-workspace/skills/skill-name/   ← user-created skills go here
+<office-claw>/.office-claw/skills/skill-name/   ← skills directory
 ├── SKILL.md (required)
 │   ├── YAML frontmatter (name, description required)
 │   └── Markdown instructions
