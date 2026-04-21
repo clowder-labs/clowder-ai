@@ -540,10 +540,10 @@ export function useChatHistory(threadId: string) {
               `replacedHistory=${mergeResult.stats.replacedHistoryCount}`,
             ].join(','),
           });
-          replaceMessages(mergedMsgs, data.hasMore ?? false);
+          replaceMessages(mergedMsgs, data.hasMore ?? false, fetchForThread);
           return;
         }
-        prependHistory(historyMsgs, data.hasMore ?? false);
+        prependHistory(historyMsgs, data.hasMore ?? false, fetchForThread);
       } catch (err) {
         // AbortError is expected during thread switch — ignore silently
         if (isAbortError(err)) return;

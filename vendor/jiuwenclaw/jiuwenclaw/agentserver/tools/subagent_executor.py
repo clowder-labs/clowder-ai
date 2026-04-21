@@ -20,8 +20,10 @@ from jiuwenclaw.agentserver.tools.subagent_models import (
     SubagentRoleDefinition,
     SubagentTaskSpec,
 )
+from jiuwenclaw.agentserver.prompt_builder import build_subagent_base_prompt
 from jiuwenclaw.utils import get_agent_root_dir
 from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.config import get_config
 
 if TYPE_CHECKING:
     from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
@@ -522,25 +524,37 @@ Approach each task methodically and deliver high-quality results."""
         """
         # Get parent agent's config
         parent_config = self._parent_agent._config
+
+        # Get workspace and language (needed for both normal and fallback paths)
+        ws = get_agent_root_dir()
+        config_base = get_config()
+        language = config_base.get("preferred_language", "zh")
+
+        # P0 fix: Even in fallback, provide safety protection (same as main agent)
         if parent_config is None:
-            # Fallback: create default config if parent has no config
-            logger.warning("[Subagent] Parent agent has no _config, using defaults")
+            logger.warning("[Subagent] Parent agent has no _config, using defaults with safety protection")
+            base_prompt = build_subagent_base_prompt(
+                language=language,
+                workspace_dir=ws,
+                include_time=True,
+            )
+            augmented_content = base_prompt + "\n\n---\n\n# Subagent Role\n\n" + system_prompt
             return ReActAgentConfig(
-                prompt_template=[{"role": "system", "content": system_prompt}],
-                max_iterations=10,
+                prompt_template=[{"role": "system", "content": augmented_content}],
+                max_iterations=10,              
             )
 
-        # Inherit parent's system prompt (contains safety rules, governance, etc.)
-        # Collect all system messages and merge (consistent with react_agent._build_system_messages)
-        system_contents = [
-            msg.get("content", "")
-            for msg in (parent_config.prompt_template or [])
-            if msg.get("role") == "system"
-        ]
-        parent_content = "\n\n".join(system_contents) if system_contents else ""
+        # Build minimal system prompt for subagent (only safety rules + response format)
+        # This reduces baseline token usage by ~70% compared to full parent prompt inheritance
+        # Safety rules are preserved to ensure subagent respects security constraints
+        base_prompt = build_subagent_base_prompt(
+            language=language,
+            workspace_dir=ws,
+            include_time=True,
+        )
 
-        # Append subagent role to parent's prompt (parent safety rules preserved)
-        augmented_content = parent_content + "\n\n---\n\n# Subagent Role\n\n" + system_prompt
+        # Append subagent role specific instructions
+        augmented_content = base_prompt + "\n\n---\n\n# Subagent Role\n\n" + system_prompt
 
         # Build new config inheriting from parent, excluding problematic fields
         new_config = ReActAgentConfig(
