@@ -284,9 +284,9 @@ function Get-RedisAuthArgs {
         $authArgs = @()
         if ($parts.Count -eq 2) {
             if ($parts[0]) { $authArgs += @("--user", [System.Uri]::UnescapeDataString($parts[0])) }
-            if ($parts[1]) { $authArgs += @("-a", [System.Uri]::UnescapeDataString($parts[1])) }
+            if ($parts[1]) { $authArgs += @("-a", [System.Uri]::UnescapeDataString($parts[1]), "--no-auth-warning") }
         } elseif ($parts[0]) {
-            $authArgs += @("-a", [System.Uri]::UnescapeDataString($parts[0]))
+            $authArgs += @("-a", [System.Uri]::UnescapeDataString($parts[0]), "--no-auth-warning")
         }
         return $authArgs
     } catch {}

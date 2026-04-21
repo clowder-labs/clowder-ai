@@ -237,13 +237,13 @@ test('Windows bundled runtime prefers random frontend, API, and Redis ports and 
 test('Windows startup reuses Credential Manager Redis auth and keeps runtime state redacted', () => {
   assert.match(startWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
   assert.match(startWindowsScript, /Write-ClowderCredential -Path "redis\/password" -Secret \$localRedisPassword/);
-  assert.match(startWindowsScript, /Write-Ok "Redis auth: password loaded from Credential Manager"/);
+  assert.match(startWindowsScript, /Write-Ok "Redis auth: connected with Credential Manager password"/);
   assert.match(startWindowsScript, /Write-Ok "Redis auth: new password generated"/);
   assert.match(
     startWindowsScript,
-    /RedisUrl = if \(\$localRedisPassword -and \$env:REDIS_URL\) \{ Get-RedactedRedisUrl -RedisUrl \$env:REDIS_URL \}/,
+    /RedisUrl = if \(\$redisAuthFromCM -and \$env:REDIS_URL\) \{ Get-RedactedRedisUrl -RedisUrl \$env:REDIS_URL \}/,
   );
-  assert.match(startWindowsScript, /RedisAuthFromCredentialManager = \[bool\]\$localRedisPassword/);
+  assert.match(startWindowsScript, /RedisAuthFromCredentialManager = \[bool\]\$redisAuthFromCM/);
   assert.match(stopWindowsScript, /\$redisAuthFromCM = \[bool\]\(\$runtimeState -and \$runtimeState.RedisAuthFromCredentialManager\)/);
   assert.match(stopWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
   assert.match(

@@ -190,12 +190,19 @@ test('Windows start and stop scripts share Get-RedisAuthArgs from helpers instea
 });
 
 test('Windows startup preserves configured REDIS_URL with DB suffix after Redis auto-start', () => {
-  const pattern =
-    /if \(\$configuredRedisUrl\) \{\s+\$env:REDIS_URL = \$configuredRedisUrl\s+\} else \{\s+\$env:REDIS_URL = "redis:\/\/localhost:\$RedisPort"\s+\}/g;
-  const matches = startWindowsScript.match(pattern);
+  // Phase 1 probe success: if/else preservation for bare-URL case
+  assert.match(
+    startWindowsScript,
+    /if \(\$configuredRedisUrl\) \{\s+\$env:REDIS_URL = \$configuredRedisUrl\s+\} else \{\s+\$env:REDIS_URL = "redis:\/\/localhost:\$RedisPort"\s+\}/,
+  );
+  // Phase 2 auto-start: direct assignment (configuredRedisUrl always set with password)
+  assert.match(startWindowsScript, /\$env:REDIS_URL = \$configuredRedisUrl\s+\$env:REDIS_PORT/);
+  // DB suffix extracted once and reused in both Phase 1 CM-hit and Phase 2 URL construction
+  assert.match(startWindowsScript, /\$originalDbSuffix = ""/);
+  const dbSuffixUsages = startWindowsScript.match(/\$\{originalDbSuffix\}/g);
   assert.ok(
-    matches && matches.length >= 2,
-    `Expected REDIS_URL preservation in both already-running and auto-start branches, found ${matches ? matches.length : 0}`,
+    dbSuffixUsages && dbSuffixUsages.length >= 2,
+    `Expected DB suffix preserved in both probe-hit and auto-start branches, found ${dbSuffixUsages ? dbSuffixUsages.length : 0}`,
   );
 });
 
@@ -215,12 +222,10 @@ test('Windows startup passes localhost REDIS_URL auth into redis-server auto-sta
     /Get-RedisServerAuthArgs -RedisUrl \$configuredRedisUrl -AclFilePath \$redisAclFile/,
   );
 
-  const pingMatches = startWindowsScript.match(
-    /\$redisPing = & \$redisCliPath -p \$RedisPort @redisAuthArgs ping 2>\$null/g,
-  );
-  assert.ok(
-    pingMatches && pingMatches.length >= 2,
-    `Expected authenticated redis-cli ping in both already-running and auto-start branches, found ${pingMatches ? pingMatches.length : 0}`,
-  );
+  // Phase 1: probes use dedicated auth args per source
+  assert.match(startWindowsScript, /\$cmAuthArgs = Get-RedisAuthArgs -RedisUrl \$cmUrl/);
+  assert.match(startWindowsScript, /\$cfgAuthArgs = Get-RedisAuthArgs -RedisUrl \$configuredRedisUrl/);
+  // Phase 2: verification ping after auto-start
+  assert.match(startWindowsScript, /& \$redisCliPath -p \$RedisPort @redisAuthArgs ping 2>\$null/);
   assert.match(startWindowsScript, /& \$redisCliPath -p \$RedisPort @redisAuthArgs shutdown save 2>\$null/);
 });
