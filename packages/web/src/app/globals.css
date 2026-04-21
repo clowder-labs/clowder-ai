@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -146,8 +146,29 @@
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #ef4444;
   --button-danger-text-disabled: #ffffff;
+  --button-danger-outline-border: #ff4d4f;
+  --button-danger-outline-text: #ff4d4f;
+  --button-danger-outline-border-hover: #ff7875;
+  --button-danger-outline-bg-hover: #fff2f0;
+  --button-danger-outline-text-hover: #ff4d4f;
   --icon-delete-color: #191919;
   --icon-delete-hover: #1476ff;
+  --chat-action-transcript-bg: var(--tooltip-surface);
+  --chat-action-transcript-text: var(--tooltip-text);
+  --chat-action-muted-text: var(--text-label-secondary);
+  --chat-action-muted-hover-text: var(--text-accent);
+  --chat-action-muted-hover-bg: var(--overlay-item-hover-bg);
+  --chat-action-secondary-bg: var(--accent-pill-surface);
+  --chat-action-secondary-text: var(--accent-pill-text);
+  --chat-action-secondary-hover-bg: color-mix(in srgb, var(--accent-pill-surface) 88%, var(--surface-panel));
+  --chat-action-send-bg: var(--text-accent);
+  --chat-action-send-text: var(--text-inverse);
+  --chat-action-send-hover-bg: color-mix(in srgb, var(--text-accent) 88%, black);
+  --chat-action-queue-bg: var(--chat-input-queue-accent);
+  --chat-action-queue-text: var(--text-inverse);
+  --chat-action-queue-hover-bg: color-mix(in srgb, var(--chat-input-queue-accent) 88%, black);
+  --chat-action-error-border: color-mix(in srgb, var(--state-error-text) 18%, var(--border-default));
+  --chat-action-force-hover-bg: var(--button-danger-outline-bg-hover);
   --input-border: #c2c2c2;
   --input-border-hover: #191919;
   --input-border-active: #191919;
@@ -218,7 +239,7 @@
   --modal-accent-text: var(--text-accent);
   --modal-table-header-bg: var(--surface-card-muted);
   --modal-table-divider: var(--panel-divider);
-  --modal-loading-overlay: rgba(0, 0, 0, 0.3);
+  --modal-loading-overlay: rgba(0, 0, 0, 0.1);
   --modal-button-muted-bg: var(--surface-card-muted);
   --modal-button-muted-bg-hover: var(--overlay-hover-bg);
   --modal-button-muted-text: var(--text-secondary);
@@ -283,16 +304,34 @@
   --content-header-icon-gap: 16px;
   --content-header-icon-color: #191919;
   --content-header-divider: #d9d9d9;
+  --workspace-editor-bg: #1e1e24;
+  --workspace-editor-surface: #2a2a32;
+  --workspace-editor-border: #2a2a32;
+  --workspace-editor-hover: #252530;
+  --workspace-editor-overlay: rgba(255, 255, 255, 0.1);
+  --workspace-editor-text: #e5e7eb;
+  --workspace-editor-text-muted: #9ca3af;
+  --workspace-editor-text-subtle: #6b7280;
+  --workspace-editor-info-bg: rgba(59, 130, 246, 0.16);
+  --workspace-editor-info-text: #dbeafe;
+  --workspace-editor-success-bg: rgba(34, 197, 94, 0.16);
+  --workspace-editor-success-text: #dcfce7;
+  --workspace-editor-warning-bg: rgba(245, 158, 11, 0.16);
+  --workspace-editor-warning-border: rgba(120, 53, 15, 0.4);
+  --workspace-editor-warning-text: #fbbf24;
+  --workspace-editor-error-bg: rgba(127, 29, 29, 0.22);
+  --workspace-editor-error-border: rgba(127, 29, 29, 0.36);
+  --workspace-editor-error-text: #fca5a5;
 }
 
 [data-ui-theme="warm"] {
-  --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
+  --surface-app: linear-gradient(#FAECDC, #FFF8F1);;
   --shell-surface-bg: #FFFBF7;
   --surface-sidebar: linear-gradient(180deg, #faecdc 0%, #fff8f1 100%);
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #fbf5ec;
-  --surface-selected: #ffddd2;
+  --surface-selected: #fffbf7;
   --surface-inverse: var(--color-base-black);
 
   --text-primary: var(--color-base-black);
@@ -425,6 +464,11 @@
   --button-danger-text-hover: var(--surface-neutral-white);
   --button-danger-bg-disabled: var(--accent-button-danger);
   --button-danger-text-disabled: var(--surface-neutral-white);
+  --button-danger-outline-border: var(--state-error-text);
+  --button-danger-outline-text: var(--state-error-text);
+  --button-danger-outline-border-hover: color-mix(in srgb, var(--state-error-text) 72%, white);
+  --button-danger-outline-bg-hover: color-mix(in srgb, var(--state-error-surface) 86%, white);
+  --button-danger-outline-text-hover: var(--state-error-text);
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
@@ -432,6 +476,24 @@
   --tooltip-text: var(--text-primary);
 
   --tag-bg: #e6e6e6;
+  --workspace-editor-bg: #1f2128;
+  --workspace-editor-surface: #2a2e36;
+  --workspace-editor-border: #313741;
+  --workspace-editor-hover: #262a33;
+  --workspace-editor-overlay: rgba(255, 255, 255, 0.1);
+  --workspace-editor-text: #e5e7eb;
+  --workspace-editor-text-muted: #a9b1bc;
+  --workspace-editor-text-subtle: #8b94a3;
+  --workspace-editor-info-bg: rgba(91, 108, 255, 0.2);
+  --workspace-editor-info-text: #e0e7ff;
+  --workspace-editor-success-bg: rgba(34, 197, 94, 0.18);
+  --workspace-editor-success-text: #dcfce7;
+  --workspace-editor-warning-bg: rgba(245, 158, 11, 0.16);
+  --workspace-editor-warning-border: rgba(146, 64, 14, 0.34);
+  --workspace-editor-warning-text: #fbbf24;
+  --workspace-editor-error-bg: rgba(127, 29, 29, 0.22);
+  --workspace-editor-error-border: rgba(127, 29, 29, 0.36);
+  --workspace-editor-error-text: #fca5a5;
 }
 
 [data-ui-theme="business"] {
@@ -441,7 +503,7 @@
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #f4f5f7;
-  --surface-selected: #f7fbff;
+  --surface-selected: #ffffff;
   --surface-inverse: #111111;
 
   --text-primary: #191919;
@@ -572,6 +634,11 @@
   --button-danger-text-hover: var(--surface-neutral-white);
   --button-danger-bg-disabled: var(--accent-button-danger);
   --button-danger-text-disabled: var(--surface-neutral-white);
+  --button-danger-outline-border: var(--state-error-text);
+  --button-danger-outline-text: var(--state-error-text);
+  --button-danger-outline-border-hover: color-mix(in srgb, var(--state-error-text) 74%, white);
+  --button-danger-outline-bg-hover: color-mix(in srgb, var(--state-error-surface) 86%, white);
+  --button-danger-outline-text-hover: var(--state-error-text);
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
@@ -579,6 +646,24 @@
   --tooltip-text: var(--text-primary);
 
   --tag-bg: #f5f5f5;
+  --workspace-editor-bg: #1b1e24;
+  --workspace-editor-surface: #272c34;
+  --workspace-editor-border: #303744;
+  --workspace-editor-hover: #232831;
+  --workspace-editor-overlay: rgba(255, 255, 255, 0.1);
+  --workspace-editor-text: #e5e7eb;
+  --workspace-editor-text-muted: #a7b0bc;
+  --workspace-editor-text-subtle: #8b94a3;
+  --workspace-editor-info-bg: rgba(20, 118, 255, 0.18);
+  --workspace-editor-info-text: #dbeafe;
+  --workspace-editor-success-bg: rgba(34, 197, 94, 0.18);
+  --workspace-editor-success-text: #dcfce7;
+  --workspace-editor-warning-bg: rgba(245, 158, 11, 0.16);
+  --workspace-editor-warning-border: rgba(146, 64, 14, 0.34);
+  --workspace-editor-warning-text: #fbbf24;
+  --workspace-editor-error-bg: rgba(127, 29, 29, 0.22);
+  --workspace-editor-error-border: rgba(127, 29, 29, 0.36);
+  --workspace-editor-error-text: #fca5a5;
 }
 
 [data-ui-theme="dark"] {
@@ -738,6 +823,11 @@
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #7c3030;
   --button-danger-text-disabled: #f5d8d8;
+  --button-danger-outline-border: var(--state-error-text);
+  --button-danger-outline-text: var(--state-error-text);
+  --button-danger-outline-border-hover: color-mix(in srgb, var(--state-error-text) 82%, white);
+  --button-danger-outline-bg-hover: color-mix(in srgb, var(--state-error-surface) 94%, black);
+  --button-danger-outline-text-hover: #ffd4d4;
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
@@ -760,6 +850,24 @@
   --content-header-border: #243047;
   --content-header-icon-color: #d9e2f0;
   --content-header-divider: #34415b;
+  --workspace-editor-bg: #0f1624;
+  --workspace-editor-surface: #182133;
+  --workspace-editor-border: #243047;
+  --workspace-editor-hover: #1b2436;
+  --workspace-editor-overlay: rgba(255, 255, 255, 0.08);
+  --workspace-editor-text: #e2e8f0;
+  --workspace-editor-text-muted: #93a0b5;
+  --workspace-editor-text-subtle: #718096;
+  --workspace-editor-info-bg: rgba(96, 165, 250, 0.18);
+  --workspace-editor-info-text: #dbeafe;
+  --workspace-editor-success-bg: rgba(34, 197, 94, 0.18);
+  --workspace-editor-success-text: #dcfce7;
+  --workspace-editor-warning-bg: rgba(245, 158, 11, 0.16);
+  --workspace-editor-warning-border: rgba(180, 83, 9, 0.34);
+  --workspace-editor-warning-text: #fcd34d;
+  --workspace-editor-error-bg: rgba(239, 68, 68, 0.18);
+  --workspace-editor-error-border: rgba(153, 27, 27, 0.42);
+  --workspace-editor-error-text: #fca5a5;
 }
 
 [data-theme="dark"] {
@@ -1021,6 +1129,26 @@ select:-webkit-autofill:focus {
   .ui-button-danger:hover {
     background: var(--button-danger-bg-hover);
     color: var(--button-danger-text-hover);
+  }
+
+  .ui-button-danger-outline {
+    border: var(--border-width-default) solid var(--button-danger-outline-border);
+    background: transparent;
+    color: var(--button-danger-outline-text);
+  }
+
+  .ui-button-danger-outline:hover {
+    border-color: var(--button-danger-outline-border-hover);
+    background: var(--button-danger-outline-bg-hover);
+    color: var(--button-danger-outline-text-hover);
+  }
+
+  .ui-button-danger-outline:disabled {
+    border-color: var(--button-disabled-border);
+    background: var(--button-disabled-bg);
+    color: var(--button-disabled-text);
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .ui-button-danger:disabled {
@@ -1392,7 +1520,7 @@ select:-webkit-autofill:focus {
   .ui-textarea {
     color: var(--text-field);
     caret-color: var(--text-field);
-    resize: vertical;
+    resize: none;
   }
 
   .ui-textarea:hover {
@@ -1828,9 +1956,9 @@ select:-webkit-autofill:focus {
   }
 
   .ui-content-header-feedback-low-score-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 8px;
   }
 
   .ui-content-header-feedback-low-score-option {
@@ -2322,7 +2450,6 @@ select:-webkit-autofill:focus {
   width: 0;
   height: 0;
 }
-
 
 .overflow-tooltip {
   box-shadow: var(--tooltip-shadow);

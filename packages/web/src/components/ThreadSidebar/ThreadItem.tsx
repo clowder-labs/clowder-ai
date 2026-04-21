@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -488,7 +488,7 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] border border-[var(--overlay-border)] py-2 shadow-[var(--overlay-shadow)]"
+          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] py-2 shadow-[var(--overlay-shadow)]"
           data-testid="thread-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
@@ -559,7 +559,7 @@ export function ThreadItem({
         title="编辑会话名称"
         panelClassName="w-[500px]"
         bodyClassName="pt-5"
-        zIndexClassName="z-[60]"
+        zIndexClassName="z-[120]"
         backdropTestId="thread-rename-modal"
         panelTestId="thread-rename-modal-panel"
       >

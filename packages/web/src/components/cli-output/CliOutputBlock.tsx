@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentType, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AuthorizationCard } from '@/components/AuthorizationCard';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
@@ -42,9 +42,9 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
-type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'word' | 'docx' | 'xlsx' | 'pdf';
+export type LocalGeneratedFileKind = 'ppt' | 'markdown' | 'docx' | 'xlsx' | 'pdf' | 'txt';
 
-interface LocalGeneratedFile {
+export interface LocalGeneratedFile {
   name: string;
   path: string;
   kind: LocalGeneratedFileKind;
@@ -55,29 +55,74 @@ interface LocalGeneratedFileMeta {
   exists?: boolean;
 }
 
+interface FileIconProps {
+  width?: number | string;
+  height?: number | string;
+  className?: string;
+}
+
+interface LocalFileKindUiConfig {
+  badgeLabel: string;
+  cardTestId: string;
+  openTestId: string;
+  openFolderTestId: string;
+  Icon: ComponentType<FileIconProps>;
+}
+
+function normalizeLocalFilePath(path: string): string {
+  return path
+    .replace(/\\\\/g, '\\')
+    .replace(/\\\//g, '/')
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .trim();
+}
 type FileVerificationStatus = 'checking' | 'exists' | 'not-found' | 'error';
 
 function dedupeLocalGeneratedFiles(files: Array<LocalGeneratedFile | null>): LocalGeneratedFile[] {
   const deduped = new Map<string, LocalGeneratedFile>();
   const kindPriority: Record<LocalGeneratedFileKind, number> = {
-    word: 5,
-    ppt: 4,
+    ppt: 5,
+    docx: 4,
     markdown: 3,
-    docx: 2,
     xlsx: 2,
     pdf: 2,
+    txt: 2,
   };
 
   function normalizeFileKey(path: string): string {
-    return path.replace(/\\/g, '/').toLowerCase();
+    return normalizeLocalFilePath(path).toLowerCase();
+  }
+
+  function isSameFileCandidate(left: string, right: string): boolean {
+    if (left === right) return true;
+    return left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
   }
 
   for (const file of files) {
     if (!file) continue;
     const key = normalizeFileKey(file.path);
-    const existing = deduped.get(key);
-    if (!existing || kindPriority[file.kind] > kindPriority[existing.kind]) {
+    const matchedEntry = [...deduped.entries()].find(([existingKey]) => isSameFileCandidate(existingKey, key));
+    const matchedKey = matchedEntry?.[0];
+    const existing = matchedKey ? deduped.get(matchedKey) : deduped.get(key);
+    const shouldReplace =
+      !existing ||
+      kindPriority[file.kind] > kindPriority[existing.kind] ||
+      key.length > normalizeFileKey(existing.path).length;
+
+    if (!existing) {
       deduped.set(key, file);
+      continue;
+    }
+
+    if (matchedKey && matchedKey !== key) {
+      deduped.delete(matchedKey);
+    }
+
+    if (shouldReplace) {
+      deduped.set(key, file);
+    } else {
+      deduped.set(matchedKey ?? key, existing);
     }
   }
   return [...deduped.values()];
@@ -94,12 +139,12 @@ const PRESENTATION_PATH_PATTERNS = [
 ];
 const RELATIVE_PRESENTATION_PATH_TOKENS = /[^\s"'`<>]+\.pptx?\b/gi;
 const GENERATED_DOCUMENT_PATH_PATTERNS = [
-  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel)[^:\n\r]*[:锛歖\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
-  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel)[^:\n\r]*[:锛歖\s*[`'"]?(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
-  /([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
-  /(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf))/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel|spreadsheet|txt|text)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf|txt))/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|file(?:\s+path)?|document|report|pdf|word|excel|spreadsheet|txt|text)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf|txt))/gi,
+  /([A-Za-z]:\\[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf|txt))/gi,
+  /(\/[^\r\n`'"]+?\.(?:docx?|xlsx?|pdf|txt))/gi,
 ];
-const RELATIVE_DOCUMENT_PATH_TOKENS = /[^\s"'`<>]+\.(?:docx?|xlsx?|pdf)\b/gi;
+const RELATIVE_DOCUMENT_PATH_TOKENS = /[^\s"'`<>]+\.(?:docx?|xlsx?|pdf|txt)\b/gi;
 const MARKDOWN_PATH_PATTERNS = [
   /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.(?:md|markdown))/gi,
   /(?:saved|output|exported|generated|final\s+artifact|markdown(?:\s+file)?|md(?:\s+file)?|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?(\/[^\r\n`'"]+?\.(?:md|markdown))/gi,
@@ -195,7 +240,7 @@ function isLikelyRelativeDocumentPath(path: string): boolean {
   if (isAbsolutePresentationPath(path)) return false;
   if (!/[\\/]/.test(path)) return false;
   if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
-  return /\.(?:docx?|xlsx?|pdf)$/i.test(path);
+  return /\.(?:docx?|xlsx?|pdf|txt)$/i.test(path);
 }
 
 function collectRelativeDocumentCandidates(text: string): string[] {
@@ -279,7 +324,18 @@ function inferLocalGeneratedFileKind(path: string): LocalGeneratedFileKind {
   if (/\.docx?$/.test(normalized)) return 'docx';
   if (/\.xlsx?$/.test(normalized)) return 'xlsx';
   if (/\.pdf$/.test(normalized)) return 'pdf';
+  if (/\.txt$/.test(normalized)) return 'txt';
   return 'ppt';
+}
+
+function filterIntermediatePdfArtifacts(files: LocalGeneratedFile[]): LocalGeneratedFile[] {
+  const pdfFiles = files.filter((file) => file.kind === 'pdf');
+  if (pdfFiles.length <= 1) return files;
+
+  const nonCoverPdfFiles = pdfFiles.filter((file) => !/^cover\.pdf$/i.test(file.name));
+  if (nonCoverPdfFiles.length === 0) return files;
+
+  return files.filter((file) => file.kind !== 'pdf' || !/^cover\.pdf$/i.test(file.name));
 }
 
 function formatGeneratedDate(timestamp: number | null): string {
@@ -403,16 +459,16 @@ function extractLocalWordFile(events: CliEvent[]): LocalGeneratedFile | null {
 
   const path = candidates.at(-1) ?? fallbackCandidates.at(-1);
   if (!path) return null;
-  return { name: fileNameFromPath(path), path, kind: 'word' };
+  return { name: fileNameFromPath(path), path, kind: 'docx' };
 }
 
-function extractLocalGenericDocumentFile(events: CliEvent[]): LocalGeneratedFile | null {
+function extractLocalGenericDocumentFiles(events: CliEvent[]): LocalGeneratedFile[] {
   const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
   const candidates: LocalGeneratedFile[] = [];
 
   function pushGenericCandidate(candidatePath: string): void {
     const kind = inferLocalGeneratedFileKind(candidatePath);
-    if (kind === 'ppt' || kind === 'markdown' || kind === 'word' || kind === 'docx') return;
+    if (kind === 'ppt' || kind === 'markdown' || kind === 'docx') return;
     const candidate = { name: fileNameFromPath(candidatePath), path: candidatePath, kind };
     const hasMoreSpecificCandidate = candidates.some(
       (existing) => existing.path.length > candidate.path.length && existing.path.endsWith(candidate.path),
@@ -446,7 +502,19 @@ function extractLocalGenericDocumentFile(events: CliEvent[]): LocalGeneratedFile
     }
   }
 
-  return candidates.at(-1) ?? null;
+  return candidates;
+}
+
+export function extractDisplayedLocalGeneratedFiles(events: CliEvent[]): LocalGeneratedFile[] {
+  const markdownFile = extractLocalMarkdownFile(events);
+  const wordFile = extractLocalWordFile(events);
+  const presentationFile = extractLocalPresentationFile(events);
+  const genericDocumentFiles = extractLocalGenericDocumentFiles(events);
+  const officeFiles = filterIntermediatePdfArtifacts(
+    dedupeLocalGeneratedFiles([wordFile, presentationFile, ...genericDocumentFiles]),
+  );
+
+  return officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
 }
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -617,6 +685,31 @@ function CheckIcon() {
   );
 }
 
+function ErrorIcon() {
+  return (
+    <img
+      src="/icons/tool-error.svg"
+      alt=""
+      aria-hidden="true"
+      className="w-4 h-4 flex-shrink-0"
+    />
+  );
+}
+
+const PERMISSION_DENIED_MARKERS = [
+  '[PERMISSION_DENIED]',
+  '[PERMISSION_REJECTED]',
+  '[APPROVAL_REQUIRED]',
+  'PERMISSION_DENIED:',
+  '[permission denied]',
+  'command rejected for safety',
+];
+
+function isPermissionDeniedResult(detail: string | undefined): boolean {
+  if (!detail) return false;
+  return PERMISSION_DENIED_MARKERS.some((marker) => detail.includes(marker));
+}
+
 function PawPrint() {
   return (
     <svg
@@ -641,6 +734,125 @@ function PawPrint() {
 
 /* ── Status helpers ── */
 
+function MarkdownFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="MD" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_pptx">
+        <g id="编组-236">
+          <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(199,201,254)" fill-rule="evenodd" />
+          <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(116,121,244)" fill-rule="evenodd" />
+        </g>
+      </g>
+      <path id="矢量 111" d="M11.1118 28.3333L11.1118 20L15.2785 26.6667L19.4451 20L19.4451 28.3333" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.31428576" />
+      <path id="矢量 112" d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z" stroke="rgb(255,255,255)" stroke-linejoin="round" stroke-width="1.31428576" />
+    </svg>
+  );
+}
+
+function WordFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="word" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_doc">
+        <path id="矩形备份-6" d="M33.4961 11.251L34.3294 11.251L34.3294 12.0843L33.4961 12.0843L33.4961 11.251Z" fill="rgb(255,255,255)" fill-rule="evenodd" />
+        <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(59,140,250)" fill-rule="evenodd" />
+        <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(173,205,249)" fill-rule="evenodd" />
+        <path id="路径-4" d="M14.791 20.001L16.9162 28.4886C16.965 28.6837 17.239 28.6927 17.3006 28.5013L19.8444 20.5938C19.904 20.4087 20.1659 20.4088 20.2253 20.594L22.7574 28.4917C22.819 28.684 23.0944 28.6742 23.1422 28.478L25.2077 20.001" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.80555582" />
+      </g>
+    </svg>
+  );
+}
+
+function ExcelFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="excel" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_xls">
+        <path id="矩形备份-77" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(126,237,193)" fill-rule="evenodd" />
+        <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(6,187,115)" fill-rule="evenodd" />
+        <g id="编组-3">
+          <g id="编组-2">
+            <path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.80555582" transform="matrix(0.573677,0.819082,-0.819082,0.573677,16.4517,18.4229)" />
+            <path id="路径-5" d="M0 0L12.2267 0" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.80555582" transform="matrix(-0.573677,0.819082,-0.819082,-0.573677,23.6001,18.4746)" />
+          </g>
+        </g>
+      </g>
+</svg>
+  );
+}
+
+function PdfFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="pdf" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_pdf">
+        <path id="矩形备份-47" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(255,191,190)" fill-rule="evenodd" />
+        <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(255,76,72)" fill-rule="evenodd" />
+        <g id="编组">
+          <path id="多边形" d="M23.343 27.6338L16.7632 27.6338L20.0531 21.9355L23.343 27.6338Z" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" />
+          <path id="路径" d="M20.1496 21.4246C20.962 20.4724 21.3683 19.7558 21.3683 19.2749C21.3683 18.5255 20.7795 17.918 20.0533 17.918C19.327 17.918 18.7383 18.5255 18.7383 19.2749C18.7383 19.7557 19.1442 20.4718 19.956 21.4235" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" />
+          <path id="路径备份" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" transform="matrix(-0.5,0.866025,-0.866025,-0.5,27.4893,28.4678)" />
+          <path id="路径备份-2" d="M1.41132 3.50664C2.22376 2.55445 2.62998 1.83788 2.62998 1.35692C2.62998 0.607515 2.04124 0 1.31499 0C0.588741 0 0 0.607515 0 1.35692C0 1.83769 0.405893 2.55388 1.21768 3.50549" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35416675" transform="matrix(-0.5,-0.866025,0.866025,-0.5,13.9326,30.7461)" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function TxtFileIcon({ width = 24, height, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="text" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="编组-89">
+        <rect id="矩形" width="33.333332" height="33.333336" x="3.333496" y="3.333984" />
+        <g id="ic_normal_white_grid_documents">
+          <path id="矩形备份-81" d="M25.8335 3.33398L34.5835 12.084L27.7383 12.084C26.6863 12.084 25.8335 11.2312 25.8335 10.1792L25.8335 3.33398L25.8335 3.33398Z" fill="rgb(199,201,254)" fill-rule="evenodd" />
+          <path id="矩形备份-23" d="M25.9568 3.33398L25.9418 10.1751C25.9395 11.227 26.7905 12.0817 27.8424 12.084L34.6877 12.084L34.6877 33.334C34.6877 35.1749 33.1953 36.6673 31.3543 36.6673L8.85433 36.6673C7.01338 36.6673 5.521 35.1749 5.521 33.334L5.521 6.66732C5.521 4.82637 7.01338 3.33398 8.85433 3.33398L25.9568 3.33398L25.9568 3.33398Z" fill="rgb(116,121,244)" fill-rule="evenodd" />
+          <g id="编组-249">
+            <rect id="矩形" width="15.625000" height="1.666667" x="12.187500" y="18.541992" rx="0.833333" fill="rgb(255,255,255)" />
+            <rect id="矩形备份" width="15.625000" height="1.666667" x="12.187500" y="23.541992" rx="0.833333" fill="rgb(255,255,255)" />
+            <rect id="矩形备份-2" width="9.479168" height="1.666667" x="12.187500" y="28.541992" rx="0.833333" fill="rgb(255,255,255)" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function PptFileIcon({ width = 24, height = 24, className }: FileIconProps) {
+  return (
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width={width} height={height} fill="none" className={className}>
+      <rect id="ppt" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
+      <g id="ic_normal_white_grid_pptx">
+        <g id="编组-236">
+          <path id="矩形备份-24" d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z" fill="rgb(254,201,176)" fill-rule="evenodd" />
+          <path id="矩形备份-23" d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z" fill="rgb(255,119,55)" fill-rule="evenodd" />
+        </g>
+        <g id="编组-2">
+          <path id="路径-7" d="M20.5487 18.5439L16.7193 18.5439C16.4596 18.5439 16.249 18.7545 16.249 19.0143L16.249 29.8838" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.91840291" />
+          <path id="路径" d="M16.96 24.9265L20.5947 24.9265C22.348 24.9265 23.7693 23.5051 23.7693 21.7518C23.7693 19.9985 22.348 18.5439 20.5947 18.5439" fill-rule="evenodd" stroke="rgb(255,255,255)" stroke-linecap="round" stroke-width="1.91840291" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+const LOCAL_FILE_KIND_UI: Record<LocalGeneratedFileKind, LocalFileKindUiConfig> = {
+  markdown: { badgeLabel: 'MD', cardTestId: 'cli-output-markdown-card', openTestId: 'cli-output-markdown-open', openFolderTestId: 'cli-output-markdown-open-folder', Icon: MarkdownFileIcon },
+  docx: { badgeLabel: 'DOC', cardTestId: 'cli-output-word-card', openTestId: 'cli-output-word-open', openFolderTestId: 'cli-output-word-open-folder', Icon: WordFileIcon },
+  xlsx: { badgeLabel: 'XLS', cardTestId: 'cli-output-excel-card', openTestId: 'cli-output-excel-open', openFolderTestId: 'cli-output-excel-open-folder', Icon: ExcelFileIcon },
+  pdf: { badgeLabel: 'PDF', cardTestId: 'cli-output-pdf-card', openTestId: 'cli-output-pdf-open', openFolderTestId: 'cli-output-pdf-open-folder', Icon: PdfFileIcon },
+  txt: { badgeLabel: 'TXT', cardTestId: 'cli-output-txt-card', openTestId: 'cli-output-txt-open', openFolderTestId: 'cli-output-txt-open-folder', Icon: TxtFileIcon },
+  ppt: { badgeLabel: 'PPT', cardTestId: 'cli-output-ppt-card', openTestId: 'cli-output-ppt-open', openFolderTestId: 'cli-output-ppt-open-folder', Icon: PptFileIcon },
+};
+
 function LocalFileAttachmentCard({
   file,
   projectPath,
@@ -651,42 +863,23 @@ function LocalFileAttachmentCard({
   status: CliStatus;
 }) {
   const [isOpening, setIsOpening] = useState(false);
+  const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [fileStatus, setFileStatus] = useState<FileVerificationStatus>('checking');
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
-  const isMarkdown = file.kind === 'markdown';
-  const isWord = file.kind === 'word';
-  const isPresentation = file.kind === 'ppt';
-  const cardTestId = isMarkdown
-    ? 'cli-output-markdown-card'
-    : isWord
-      ? 'cli-output-word-card'
-      : isPresentation
-        ? 'cli-output-ppt-card'
-        : 'cli-output-file-card';
-  const openTestId = isMarkdown
-    ? 'cli-output-markdown-open'
-    : isWord
-      ? 'cli-output-word-open'
-      : isPresentation
-        ? 'cli-output-ppt-open'
-        : 'cli-output-file-open';
-  const badgeLabel =
-    file.kind === 'markdown'
-      ? 'MD'
-      : file.kind === 'docx'
-        ? 'DOC'
-        : file.kind === 'xlsx'
-          ? 'XLS'
-          : file.kind === 'pdf'
-            ? 'PDF'
-            : 'PPT';
+  const { badgeLabel, cardTestId, openTestId, openFolderTestId, Icon } = LOCAL_FILE_KIND_UI[file.kind];
+
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
     [defaultProjectPath, file.path, projectPath],
   );
+  const resolvedProjectFolder = useMemo(() => {
+    if (projectPath && projectPath !== 'default') return projectPath;
+    return defaultProjectPath;
+  }, [defaultProjectPath, projectPath]);
+  const isOpeningAction = isOpening || isOpeningFolder;
 
   useEffect(() => {
     let cancelled = false;
@@ -767,12 +960,6 @@ function LocalFileAttachmentCard({
     if (isOpening || !resolvedPath) return;
     setIsOpening(true);
     try {
-      console.log('[CliOutputBlock][MarkdownCard] open-local', {
-        kind: file.kind,
-        rawPath: file.path,
-        resolvedPath,
-        projectPath: projectPath ?? null,
-      });
       await apiFetch('/api/workspace/open-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -780,6 +967,20 @@ function LocalFileAttachmentCard({
       });
     } finally {
       setIsOpening(false);
+    }
+  }
+
+  async function handleOpenFolder(): Promise<void> {
+    if (isOpeningFolder || !resolvedProjectFolder) return;
+    setIsOpeningFolder(true);
+    try {
+      await apiFetch('/api/workspace/open-local-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: resolvedProjectFolder, ...(projectPath ? { projectPath } : {}) }),
+      });
+    } finally {
+      setIsOpeningFolder(false);
     }
   }
 
@@ -843,113 +1044,13 @@ function LocalFileAttachmentCard({
   return (
     <div
       data-testid={cardTestId}
-      className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
+      className="cli-output-doc-card mt-2 max-w-[485px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div
         title={badgeLabel}
-        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]"
+        className="flex flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]"
       >
-        {isMarkdown ? (
-          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40.000000" height="40.000000" fill="none">
-            <rect id="MD" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
-            <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
-            <g id="ic_normal_white_grid_pptx">
-              <g id="编组-236">
-                <path
-                  id="矩形备份-24"
-                  d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z"
-                  fill="rgb(254,201,176)"
-                  fillRule="evenodd"
-                />
-                <path
-                  id="矩形备份-23"
-                  d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z"
-                  fill="rgb(255,119,55)"
-                  fillRule="evenodd"
-                />
-              </g>
-            </g>
-            <path
-              id="矢量 111"
-              d="M11.1117 28.3333L11.1117 20L15.2783 26.6667L19.445 20L19.445 28.3333"
-              stroke="rgb(255,255,255)"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.31428576"
-            />
-            <path
-              id="矢量 112"
-              d="M22.7783 28.3333C24.0712 28.3333 24.3044 28.3333 25.2783 28.3333C28.6114 28.3334 29.4454 26.0067 29.445 23.9521C29.4446 21.8975 28.6115 19.9996 25.2783 20C21.9452 20.0004 23.7158 20 22.7783 20L22.7783 28.3333Z"
-              stroke="rgb(255,255,255)"
-              strokeLinejoin="round"
-              strokeWidth="1.31428576"
-            />
-          </svg>
-        ) : isWord ? (
-          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40.000000" height="40.000000" fill="none">
-            <rect id="Word" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
-            <rect id="矩形" width="40.000000" height="40.000000" x="0.000000" y="0.000000" />
-            <g id="ic_normal_white_grid_doc">
-              <path
-                id="矩形备份-6"
-                d="M33.4961 11.2512L34.3294 11.2512L34.3294 12.0846L33.4961 12.0846L33.4961 11.2512Z"
-                fill="rgb(255,255,255)"
-                fillRule="evenodd"
-              />
-              <path
-                id="矩形备份-23"
-                d="M25.9558 3.33496L25.9409 10.176C25.9386 11.228 26.7895 12.0827 27.8415 12.085L34.6867 12.085L34.6867 33.335C34.6867 35.1759 33.1943 36.6683 31.3534 36.6683L8.85335 36.6683C7.0124 36.6683 5.52002 35.1759 5.52002 33.335L5.52002 6.66829C5.52002 4.82735 7.0124 3.33496 8.85335 3.33496L25.9558 3.33496L25.9558 3.33496Z"
-                fill="rgb(59,140,250)"
-                fillRule="evenodd"
-              />
-              <path
-                id="矩形备份-24"
-                d="M25.8325 3.33496L34.5825 12.085L27.7373 12.085C26.6853 12.085 25.8325 11.2322 25.8325 10.1802L25.8325 3.33496L25.8325 3.33496Z"
-                fill="rgb(173,205,249)"
-                fillRule="evenodd"
-              />
-              <path
-                id="路径-4"
-                d="M14.7913 20.0012L16.9164 28.4888C16.9653 28.684 17.2392 28.693 17.3008 28.5015L19.8447 20.594C19.9042 20.4089 20.1661 20.4091 20.2255 20.5942L22.7576 28.4919C22.8193 28.6842 23.0946 28.6744 23.1424 28.4782L25.2079 20.0012"
-                fillRule="evenodd"
-                stroke="rgb(255,255,255)"
-                strokeLinecap="round"
-                strokeWidth="1.80555582"
-              />
-            </g>
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
-            <rect
-              id="文件格式/ppt"
-              width="24.000000"
-              height="24.000000"
-              x="0.000000"
-              y="0.000000"
-              fill="rgb(255,255,255)"
-              fillOpacity="0"
-            />
-            <path
-              id="矩形备份-23"
-              d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z"
-              fill="rgb(217,105,0)"
-              fillRule="evenodd"
-            />
-            <path
-              id="矩形备份-24"
-              d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z"
-              opacity="0.599999964"
-              fill="rgb(255,255,255)"
-              fillRule="evenodd"
-            />
-            <path
-              id="矢量 62"
-              d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z"
-              fill="rgb(255,255,255)"
-              fillRule="evenodd"
-            />
-          </svg>
-        )}
+        <Icon />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#191919]" title={file.name}>
@@ -957,17 +1058,30 @@ function LocalFileAttachmentCard({
         </div>
         <div className="mt-1 break-all text-sm leading-4 text-[#808080]">{formatGeneratedDate(generatedAt)}</div>
       </div>
-      <button
-        type="button"
-        data-testid={openTestId}
-        onClick={() => {
-          void handleOpen();
-        }}
-        disabled={isOpening || !resolvedPath}
-        className="inline-flex flex-shrink-0 items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        打开
-      </button>
+      <div className="flex flex-shrink-0 items-center gap-2">
+        <button
+          type="button"
+          data-testid={openFolderTestId}
+          onClick={() => {
+            void handleOpenFolder();
+          }}
+          disabled={isOpeningAction || !resolvedProjectFolder}
+          className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isOpeningFolder ? '打开中...' : '打开文件夹'}
+        </button>
+        <button
+          type="button"
+          data-testid={openTestId}
+          onClick={() => {
+            void handleOpen();
+          }}
+          disabled={isOpeningAction || !resolvedPath}
+          className="inline-flex items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isOpening ? '打开中...' : '打开'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -984,6 +1098,7 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 
 function ToolRow({
   event,
+  resultDetail,
   isActive,
   status,
   hasResultMatch,
@@ -991,6 +1106,7 @@ function ToolRow({
   accent,
 }: {
   event: CliEvent;
+  resultDetail?: string;
   isActive: boolean;
   status: CliStatus;
   /** F142: Whether a matching tool_result was found for this tool_use */
@@ -999,12 +1115,15 @@ function ToolRow({
   accent: string;
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
-  const hasDetail = event.detail != null;
+  const detailToRender = resultDetail ?? event.detail;
+  const hasDetail = detailToRender != null;
+  const shouldRenderMarkdown = resultDetail != null;
   // F142: Only show waiting spinner while stream is active; once finalized,
   // unmatched rows should not spin forever.
   const isWaitingForResult = status === 'streaming' && event.kind === 'tool_use' && !hasResultMatch;
   const showLoading = isActive || isWaitingForResult;
-  const showCheck = hasResultMatch && !showLoading;
+  const showError = hasResultMatch && !showLoading && isPermissionDeniedResult(resultDetail);
+  const showCheck = hasResultMatch && !showLoading && !showError;
   // Design: active = breed bg 20% + left border 2px + lighter text
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
 
@@ -1025,7 +1144,7 @@ function ToolRow({
       >
         <div className="flex items-center gap-2 mr-2">
           {/* Status icon */}
-          {showLoading ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : showCheck ? <CheckIcon /> : null}
+          {showLoading ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : showError ? <ErrorIcon /> : showCheck ? <CheckIcon /> : null}
           {/* Wrench icon — design: rgb(89, 89, 89) normal, #F5F3FF active */}
           {false && <WrenchIcon color={isActive ? 'rgb(89, 89, 89)' : 'rgb(89, 89, 89)'} />}
           {/* Tool label (full) */}
@@ -1041,12 +1160,18 @@ function ToolRow({
         {/* Detail — hidden by default, shown on click */}
         {hasDetail && <ChevronIcon expanded={rowExpanded} />}
       </button>
-      {rowExpanded && hasDetail && event.detail && (
+      {rowExpanded && hasDetail && detailToRender && (
         <div
-          className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
+          className={`w-[calc(100%-24px)] mt-1 ml-6 break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]${
+            shouldRenderMarkdown ? '' : ' whitespace-pre-wrap'
+          }`}
           style={{ color: '#64748B' }}
         >
-          {event.detail}
+          {shouldRenderMarkdown ? (
+            <MarkdownContent content={detailToRender} disableCommandPrefix />
+          ) : (
+            detailToRender
+          )}
         </div>
       )}
     </div>
@@ -1110,7 +1235,8 @@ function ToolsSection({
             return (
               <ToolRow
                 key={e.id}
-                event={{ ...e, detail: result?.detail ?? e.detail }}
+                event={e}
+                resultDetail={result?.detail}
                 isActive={e.id === lastToolId}
                 status={status}
                 hasResultMatch={result != null}
@@ -1131,6 +1257,7 @@ interface CliOutputBlockProps {
   events: CliEvent[];
   status: CliStatus;
   message?: ChatMessage;
+  suppressedGeneratedFileNames?: string[];
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
   breedColor?: string;
@@ -1149,6 +1276,7 @@ export function CliOutputBlock({
   events,
   status,
   message,
+  suppressedGeneratedFileNames,
   thinkingMode,
   defaultExpanded = false,
   breedColor,
@@ -1180,22 +1308,9 @@ export function CliOutputBlock({
   }, [forceExpanded]);
 
   const localGeneratedFiles = useMemo(() => {
-    const markdownFile = extractLocalMarkdownFile(events);
-    const wordFile = extractLocalWordFile(events);
-    const presentationFile = extractLocalPresentationFile(events);
-    const genericDocumentFile = extractLocalGenericDocumentFile(events);
-    const officeFiles = dedupeLocalGeneratedFiles([wordFile, presentationFile, genericDocumentFile]);
-    const selectedFiles = officeFiles.length > 0 ? officeFiles : dedupeLocalGeneratedFiles([markdownFile]);
-    return selectedFiles;
-  }, [events]);
-
-  useEffect(() => {
-    console.log('[CliOutputBlock] localGeneratedFiles', {
-      localGeneratedFiles,
-      projectPath: projectPath ?? null,
-      eventCount: events.length,
-    });
-  }, [events.length, localGeneratedFiles, projectPath]);
+    const hiddenNames = new Set((suppressedGeneratedFileNames ?? []).map((fileName) => fileName.toLowerCase()));
+    return extractDisplayedLocalGeneratedFiles(events).filter((file) => !hiddenNames.has(file.name.toLowerCase()));
+  }, [events, suppressedGeneratedFileNames]);
 
   useLayoutEffect(() => {
     if (!hasMounted.current) {

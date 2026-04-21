@@ -47,12 +47,19 @@ describe('HubSkillsTab empty search state', () => {
     vi.useFakeTimers();
     (globalThis as { React?: typeof React }).React = React;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = class MockIntersectionObserver {
+      constructor() {}
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    };
   });
 
   afterAll(() => {
     vi.useRealTimers();
     delete (globalThis as { React?: typeof React }).React;
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
   });
 
   beforeEach(() => {

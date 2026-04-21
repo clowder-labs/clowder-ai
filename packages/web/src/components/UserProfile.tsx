@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type ThemeType, useTheme } from '@/hooks/useTheme';
@@ -97,6 +97,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const [aboutPopoverLeft, setAboutPopoverLeft] = useState(0);
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const versionAutoShownRef = useRef(false);
   const profilePanelRef = useRef<HTMLDivElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
   const themeAnchorRef = useRef<HTMLDivElement>(null);
@@ -127,9 +128,10 @@ export function UserProfile({ className }: UserProfileProps) {
       const isNewVersionAvailable =
         !!data.lastversion && !!data.curversion && compareVersions(data.lastversion, data.curversion) > 0;
 
-      if (isNewVersionAvailable) {
+      if (isNewVersionAvailable && !versionAutoShownRef.current) {
+        versionAutoShownRef.current = true;
         setShowVersionUpdate(true);
-      } else {
+      } else if (!isNewVersionAvailable) {
         const taskId = `version-${data.curversion}`;
         try {
           await apiFetch('/api/download/clear', {
@@ -202,7 +204,10 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowUsageStats(false);
   };
 
-  const handleOpenVersionUpdate = () => {
+  const handleOpenVersionUpdate = async () => {
+    if (!hasNewVersion) {
+      await checkVersion();
+    }
     setShowVersionUpdate(true);
     setShowThemePanel(false);
     setShowAboutPanel(false);

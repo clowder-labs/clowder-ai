@@ -74,7 +74,7 @@ export function SearchInput({
         <button
           type="button"
           onClick={onClear}
-          className="absolute right-3 top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center text-[#c2c2c2] transition-colors hover:text-[#191919]"
+          className="absolute right-3 top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center text-[var(--text-disabled)] transition-colors hover:text-[var(--text-primary)]"
           aria-label={clearAriaLabel}
           data-testid="search-input-clear-button"
         >

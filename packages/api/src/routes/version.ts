@@ -6,7 +6,6 @@
 
 /**
  * Version Route
- * GET /api/curversion — 返回当前版本信息
  * GET /api/lastversion — 返回最新版本信息
  */
 
@@ -41,23 +40,23 @@ function getCurrentVersion(projectRoot: string): string {
   return DEFAULT_VERSION;
 }
 
-const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-latest-version";
+const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_URL! + '/v1/claw/client-latest-version';
+
+const versionVerifyDataMap = new Map<string, string>();
+
+let cachedCurversion: string | null = null;
+
+export function getVersionVerifyData(version: string): string | null {
+  return versionVerifyDataMap.get(version) ?? null;
+}
 
 export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOptions = {}): Promise<void> {
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
 
-  app.get('/api/curversion', async () => {
-    const version = getCurrentVersion(projectRoot);
-    return {
-      version,
-      name: '@office-claw/api',
-      current: true,
-    };
-  });
-
   app.get('/api/lastversion', async (request) => {
     console.log('projectRoot:', projectRoot);
-    const curversion = getCurrentVersion(projectRoot);
+    const curversion = cachedCurversion ?? getCurrentVersion(projectRoot);
+    cachedCurversion = curversion;
     try {
       const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
       if (!userId) {
@@ -73,13 +72,17 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
         throw new Error(`错误码: ${error_code}, 错误信息: ${error_message}`);
       }
       const data: any = await response.json();
+      const lastversion = data.latest_version || curversion;
+      if (data.verify_data && lastversion) {
+        versionVerifyDataMap.set(lastversion, data.verify_data);
+      }
       return {
         curversion,
-        lastversion: data.latest_version || curversion,
+        lastversion,
         downloadUrl: data.download_url || '',
         description: data.description || '',
       };
-    } catch(err) {
+    } catch (err) {
       console.error('获取最新版本信息失败，', err);
       return {
         curversion,

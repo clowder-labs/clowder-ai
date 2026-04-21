@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { MarkdownContent } from './MarkdownContent';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { SearchInput } from './shared/SearchInput';
 
 export interface PromptSelectionItem {
   id: string;
@@ -38,15 +39,6 @@ const CONTENT_GAP = CARD_DETAIL_GAP - LIST_SCROLLBAR_SLOT;
 const LIST_WIDTH = 240;
 const LIST_SCROLL_CONTAINER_WIDTH = LIST_WIDTH + LIST_SCROLLBAR_SLOT;
 const DETAIL_WIDTH = 596;
-
-function SearchIcon() {
-  return (
-    <svg className="h-4 w-4 text-[var(--modal-text-subtle)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function RefreshIcon() {
   return <AgentManagementIcon name="refresh" className="h-[18px] w-[18px]" />;
@@ -177,16 +169,14 @@ export function PromptSelectionModal({
 
         <div className="mt-4 flex min-h-0 flex-col">
           <div className="flex items-center gap-3">
-            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[6px] border border-[var(--modal-muted-border)] bg-[var(--modal-surface)] px-3">
-              <SearchIcon />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={searchPlaceholder}
-                className="ui-input ui-input-plain w-full text-[12px] pl-0"
-                data-testid="prompt-search-input"
-              />
-            </label>
+            <SearchInput
+              wrapperClassName="min-w-0 flex-1"
+              value={query}
+              onChange={(value) => setQuery(value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              data-testid="prompt-search-input"
+            />
             <button
               type="button"
               onClick={() => setQuery('')}
@@ -262,7 +252,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="ui-button-default h-7 min-w-[84px] px-4 text-[14px] font-normal"
+              className="ui-button-default"
             >
               {cancelLabel}
             </button>
@@ -270,7 +260,7 @@ export function PromptSelectionModal({
               type="button"
               onClick={() => selectedItem && onConfirm(selectedItem)}
               disabled={!selectedItem}
-              className="ui-button-primary h-7 min-w-[84px] px-4 text-[14px] font-normal disabled:cursor-not-allowed"
+              className="ui-button-primary disabled:cursor-not-allowed"
               data-testid="prompt-confirm-button"
             >
               {confirmLabel}

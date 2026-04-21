@@ -291,6 +291,9 @@ describe('workspace open-local endpoint', () => {
   const localDeckPath = join(localAgentDir, 'meta-test-deck.pptx');
   const localWordPath = join(localAgentDir, 'meta-test-report.docx');
   const localMarkdownPath = join(localAgentDir, 'meta-test-report.md');
+  const localExcelPath = join(localAgentDir, 'meta-test-report.xlsx');
+  const localPdfPath = join(localAgentDir, 'meta-test-report.pdf');
+  const localTxtPath = join(localAgentDir, 'meta-test-report.txt');
   const worktreeDeckDirName = '__workspace_open_local_test__';
   let worktreeDeckPath;
   let customProjectDeckPath;
@@ -309,6 +312,9 @@ describe('workspace open-local endpoint', () => {
     await writeFile(localDeckPath, Buffer.from('pptx-meta'));
     await writeFile(localWordPath, Buffer.from('word-meta'));
     await writeFile(localMarkdownPath, '# test report\n');
+    await writeFile(localExcelPath, Buffer.from('excel-meta'));
+    await writeFile(localPdfPath, Buffer.from('pdf-meta'));
+    await writeFile(localTxtPath, 'txt-meta\n');
     await mkdir(join(worktreeRoot, worktreeDeckDirName), { recursive: true });
     await writeFile(worktreeDeckPath, Buffer.from('pptx-worktree'));
     await mkdir(join(customProjectRoot, 'output'), { recursive: true });
@@ -323,6 +329,9 @@ describe('workspace open-local endpoint', () => {
     await rm(localDeckPath, { force: true });
     await rm(localWordPath, { force: true });
     await rm(localMarkdownPath, { force: true });
+    await rm(localExcelPath, { force: true });
+    await rm(localPdfPath, { force: true });
+    await rm(localTxtPath, { force: true });
     if (worktreeRoot) {
       await rm(join(worktreeRoot, worktreeDeckDirName), { recursive: true, force: true });
     }
@@ -362,6 +371,41 @@ describe('workspace open-local endpoint', () => {
     });
 
     assert.equal(res.statusCode, 404);
+  });
+
+  it('returns 500 or 200 for supported xlsx inside the allowed local agent root instead of rejecting the extension', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localExcelPath }),
+    });
+
+    assert.notEqual(res.statusCode, 400);
+  });
+
+  it('returns 500 or 200 when opening the provided custom project folder', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local-folder',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: customProjectRoot, projectPath: customProjectRoot }),
+    });
+
+    assert.notEqual(res.statusCode, 400);
+    assert.notEqual(res.statusCode, 403);
+    assert.notEqual(res.statusCode, 404);
+  });
+
+  it('rejects file paths for open-local-folder', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local-folder',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localPdfPath }),
+    });
+
+    assert.equal(res.statusCode, 400);
   });
 
   it('returns local ppt metadata with generatedAt', async () => {
@@ -433,6 +477,54 @@ describe('workspace open-local endpoint', () => {
     const body = JSON.parse(res.payload);
     assert.equal(body.fileName, 'meta-test-report.docx');
     assert.equal(body.path, localWordPath);
+    assert.ok(typeof body.generatedAt === 'number');
+    assert.ok(body.generatedAt > 0);
+  });
+
+  it('returns local Excel metadata with generatedAt', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/local-file-meta',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localExcelPath }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.fileName, 'meta-test-report.xlsx');
+    assert.equal(body.path, localExcelPath);
+    assert.ok(typeof body.generatedAt === 'number');
+    assert.ok(body.generatedAt > 0);
+  });
+
+  it('returns local PDF metadata with generatedAt', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/local-file-meta',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localPdfPath }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.fileName, 'meta-test-report.pdf');
+    assert.equal(body.path, localPdfPath);
+    assert.ok(typeof body.generatedAt === 'number');
+    assert.ok(body.generatedAt > 0);
+  });
+
+  it('returns local TXT metadata with generatedAt', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/local-file-meta',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localTxtPath }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.fileName, 'meta-test-report.txt');
+    assert.equal(body.path, localTxtPath);
     assert.ok(typeof body.generatedAt === 'number');
     assert.ok(body.generatedAt > 0);
   });

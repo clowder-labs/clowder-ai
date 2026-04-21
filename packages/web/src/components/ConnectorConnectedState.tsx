@@ -21,10 +21,10 @@ export function ConnectorConnectedState({
   return (
     <div className="space-y-2">
       <div
-        className=" text-xs flex h-[34px] w-1/2 items-center gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f5f5f5] px-3"
+        className="flex h-[34px] w-1/2 items-center gap-2 rounded-[8px] border border-[var(--border-default)] bg-[var(--tag-bg)] px-3 text-xs text-[var(--text-primary)]"
         data-testid="connector-connected-pill"
       >
-        <span className="shrink-0 text-green-600">
+        <span className="shrink-0 text-[var(--state-success-text)]">
           <CheckCircleIcon />
         </span>
         <span className="min-w-0 truncate">{label}</span>

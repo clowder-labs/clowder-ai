@@ -99,11 +99,11 @@ async function fetchUsageStatsResponse(path: string, signal?: AbortSignal): Prom
   }
 }
 
-const RANGE_TO_MS: Record<UsageRange, number> = {
-  today: 24 * 60 * 60 * 1000,
-  '3d': 3 * 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
+const RANGE_TO_DAY_COUNT: Record<UsageRange, number> = {
+  today: 1,
+  '3d': 3,
+  '7d': 7,
+  '30d': 30,
 };
 
 async function readApiError(response: Response): Promise<string> {
@@ -147,7 +147,10 @@ function normalizeSessions(payload: unknown): SessionSummary[] {
 }
 
 function resolveRangeStart(now: number, range: UsageRange): number {
-  return now - RANGE_TO_MS[range];
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (RANGE_TO_DAY_COUNT[range] - 1));
+  return start.getTime();
 }
 
 function toLocalDateTime(timestamp: number): string {

@@ -11,6 +11,8 @@ export interface SecurityManagementModalProps {
   onClose: () => void;
 }
 
+const PAGE_SIZE = 5;
+
 type PermissionDecision = 'allow' | 'ask';
 
 interface ToolPermissionRule {
@@ -96,10 +98,44 @@ function updateToolValue(
   };
 }
 
+function formatPaginationPages(currentPage: number, totalPages: number): Array<number | 'ellipsis'> {
+  if (totalPages <= 8) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([
+    1,
+    2,
+    totalPages - 1,
+    totalPages,
+    currentPage - 2,
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    currentPage + 2,
+  ]);
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+  const result: Array<number | 'ellipsis'> = [];
+
+  for (let index = 0; index < sortedPages.length; index += 1) {
+    const page = sortedPages[index];
+    const previous = sortedPages[index - 1];
+    if (previous != null && page - previous > 1) {
+      result.push('ellipsis');
+    }
+    result.push(page);
+  }
+
+  return result;
+}
+
 export default function SecurityManagementModal({ open, onClose }: SecurityManagementModalProps) {
   const [permissionsConfig, setPermissionsConfig] = useState<PermissionsConfig | null>(null);
   const [approvalBarEnabled, setApprovalBarEnabled] = useState(false);
   const [policies, setPolicies] = useState<SecurityPolicyItem[]>([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -131,6 +167,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         setPermissionsConfig(permissions);
         setApprovalBarEnabled(isPermissionsEnabled(permissions));
         setPolicies(normalizePolicies(permissions));
+        setPage(1);
       } catch (error) {
         if (cancelled) return;
 
@@ -314,39 +351,100 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
           ) : null}
         </section>
 
-        {approvalBarEnabled && policies.length > 0 ? (
-          <section className="space-y-3" data-testid="security-management-policy-section">
-            <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">安全策略配置</h4>
+{approvalBarEnabled && policies.length > 0 ? (
+          (() => {
+            const totalPages = Math.max(1, Math.ceil(policies.length / PAGE_SIZE));
+            const paginatedPolicies = policies.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+            const showPagination = policies.length > PAGE_SIZE;
+            const paginationItems = showPagination ? formatPaginationPages(page, totalPages) : [];
 
-            <div className="rounded-[12px] border border-[var(--modal-muted-border)]">
-              <div className="grid grid-cols-[1.6fr_1.4fr] border-b border-[var(--modal-muted-border)] bg-[var(--modal-table-header-bg)] px-5 py-4 text-[13px] font-medium text-[var(--modal-text-muted)]">
-                <div>敏感操作</div>
-                <div>在对话中是否需要审批</div>
-              </div>
+            return (
+              <section className="space-y-3" data-testid="security-management-policy-section">
+                <h4 className="text-[14px] font-semibold leading-6 text-[var(--modal-title-text)]">安全策略配置</h4>
 
-              <div className="max-h-[360px] overflow-y-auto bg-[var(--modal-surface)]">
-                {policies.map((policy) => (
-                  <div
-                    key={policy.id}
-                    data-testid={`security-policy-row-${policy.id}`}
-                    className="grid grid-cols-[1.6fr_1.4fr] items-center border-b border-[var(--modal-table-divider)] px-5 py-5 text-[14px] text-[var(--modal-title-text)] last:border-b-0"
-                  >
-                    <div className="font-normal leading-5 text-[var(--modal-text)]">{policy.action}</div>
-                    <div className="flex items-center gap-3">
-                      <ToggleSwitch
-                        checked={policy.approvalRequired}
-                        onToggle={() => void handleTogglePolicy(policy.id)}
-                        ariaLabel={`${policy.action} 执行前审批开关`}
-                        disabled={Boolean(savingPolicyIds[policy.id])}
-                        testId={`security-policy-toggle-${policy.id}`}
-                      />
-                      <span className="text-[14px] text-[var(--modal-title-text)]">{policy.approvalRequired ? '是' : '否'}</span>
-                    </div>
+                <div className="rounded-[12px] border border-[var(--modal-muted-border)]">
+                  <div className="grid grid-cols-[1.6fr_1.4fr] border-b border-[var(--modal-muted-border)] bg-[var(--modal-table-header-bg)] px-5 py-4 text-[13px] font-medium text-[var(--modal-text-muted)]">
+                    <div>敏感操作</div>
+                    <div>是否需要审批</div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </section>
+
+                  <div className="bg-[var(--modal-surface)]">
+                    {paginatedPolicies.map((policy) => (
+                      <div
+                        key={policy.id}
+                        data-testid={`security-policy-row-${policy.id}`}
+                        className="grid grid-cols-[1.6fr_1.4fr] items-center border-b border-[var(--modal-table-divider)] px-5 py-5 text-[14px] text-[var(--modal-title-text)] last:border-b-0"
+                      >
+                        <div className="font-normal leading-5 text-[var(--modal-text)]">{policy.action}</div>
+                        <div className="flex items-center gap-3">
+                          <ToggleSwitch
+                            checked={policy.approvalRequired}
+                            onToggle={() => void handleTogglePolicy(policy.id)}
+                            ariaLabel={`${policy.action} 执行前审批开关`}
+                            disabled={Boolean(savingPolicyIds[policy.id])}
+                            testId={`security-policy-toggle-${policy.id}`}
+                          />
+                          <span className="text-[14px] text-[var(--modal-title-text)]">{policy.approvalRequired ? '是' : '否'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {showPagination ? (
+                  <div className="flex items-center justify-end gap-1" data-testid="security-management-pagination">
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--modal-text-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={page <= 1}
+                      aria-label="上一页"
+                      data-testid="security-management-pagination-prev"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M11.5 5L6.5 10L11.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                      </svg>
+                    </button>
+
+                    {paginationItems.map((item, index) =>
+                      item === 'ellipsis' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-[14px] text-[var(--modal-text-subtle)]">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${
+                            item === page
+                              ? 'bg-[var(--modal-muted-surface)] text-[var(--modal-text)]'
+                              : 'text-[var(--modal-text-muted)] hover:bg-[var(--modal-muted-surface)]'
+                          }`}
+                          onClick={() => setPage(item)}
+                          data-testid={`security-management-pagination-page-${item}`}
+                        >
+                          {item}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--modal-text-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                      disabled={page >= totalPages}
+                      aria-label="下一页"
+                      data-testid="security-management-pagination-next"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M8.5 5L13.5 10L8.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })()
         ) : null}
       </div>
     );

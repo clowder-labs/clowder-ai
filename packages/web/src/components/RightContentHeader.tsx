@@ -99,86 +99,70 @@ type IssueOption = {
 const SATISFACTION_SCORES = Array.from({ length: 11 }, (_, index) => index);
 const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   {
-    id: 'feature_incomplete',
-    label: '产品功能不完善',
-  },
-  {
-    id: 'docs_unclear',
-    label: '帮助文档难懂不完善',
-  },
-  {
-    id: 'guidance_missing',
-    label: '缺少操作指引',
-  },
-  {
-    id: 'slow_or_error_prone',
-    label: '响应速度慢/报错多',
-  },
-  {
-    id: 'info_hard_to_find',
-    label: '找不到我关注的信息',
+    id: 'ai_output_inaccurate',
+    label: 'AI输出不准确',
   },
   {
     id: 'ui_unattractive',
     label: '界面不美观',
   },
   {
-    id: 'automation_weak',
-    label: '自动化能力不足',
+    id: 'ai_intent_understanding_weak',
+    label: 'AI意图理解不到位',
   },
   {
-    id: 'privacy_concern',
-    label: '数据权限不明确/隐私担忧',
+    id: 'operation_inconvenient',
+    label: '操作不便利',
   },
   {
-    id: 'generation_unstable',
-    label: '生成效果不稳定不可靠',
+    id: 'features_or_tools_limited',
+    label: '功能/工具不丰富',
+  },
+  {
+    id: 'security_reliability_low',
+    label: '安全可靠性低',
+  },
+  {
+    id: 'slow_and_laggy',
+    label: '运行缓慢卡顿',
   },
   {
     id: 'other_issue',
-    label: '其他原因',
+    label: '其他问题',
   },
 ];
 const HIGH_SCORE_ISSUE_OPTIONS: IssueOption[] = [
   {
-    id: 'feature_complete',
-    label: '产品功能完善',
-  },
-  {
-    id: 'docs_clear',
-    label: '帮助文档完善易懂',
-  },
-  {
-    id: 'guidance_clear',
-    label: '操作指引清晰',
-  },
-  {
-    id: 'fast_and_stable',
-    label: '响应速度快/无报错',
-  },
-  {
-    id: 'info_easy_to_find',
-    label: '我关注的信息易见',
+    id: 'ai_output_accurate',
+    label: 'AI输出准确无误',
   },
   {
     id: 'ui_beautiful',
     label: '界面美观',
   },
   {
-    id: 'automation_strong',
-    label: '自动化能力强',
+    id: 'ai_intent_understanding_strong',
+    label: 'AI意图理解能力强',
   },
   {
-    id: 'privacy_reassuring',
-    label: '数据权限明确/隐私安全有保障',
+    id: 'operation_convenient_and_smooth',
+    label: '操作便捷流畅',
   },
   {
-    id: 'generation_reliable',
-    label: '生成效果稳定可靠',
+    id: 'features_or_tools_rich',
+    label: '功能/工具丰富',
+  },
+  {
+    id: 'secure_and_reliable',
+    label: '安全可靠',
+  },
+  {
+    id: 'efficient_and_stable',
+    label: '运行高效稳定',
   },
   {
     id: 'other_issue',
-    label: '其他原因',
+    label: '其他问题',
   },
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';

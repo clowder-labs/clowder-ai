@@ -24,6 +24,7 @@ import {
   handleBackgroundAgentMessage,
 } from './useSocket-background';
 import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
+import { requestThreadLiveRefresh } from './thread-live-refresh';
 import { handleVoiceChunk, handleVoiceStreamEnd, handleVoiceStreamStart } from './useVoiceStream';
 
 interface AgentMessage {
@@ -83,6 +84,8 @@ type JoinRoomAwaitStatus = 'joined' | 'timed_out' | 'socket_unavailable';
 const ROOM_JOIN_ACK_TIMEOUT_MS = 500;
 const ROOM_JOIN_POLL_INTERVAL_MS = 25;
 const ROOM_JOIN_SETTLE_MS = 80;
+const MISSING_THREAD_ID_RECOVERY_THROTTLE_MS = 1200;
+const MISSING_THREAD_ID_BUFFER_TIMEOUT_MS = 700;
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
@@ -243,6 +246,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
   const threadIdRef = useRef(threadId);
+  const missingThreadRecoveryAtRef = useRef<Map<string, number>>(new Map());
+  const invocationThreadMapRef = useRef<Map<string, string>>(new Map());
+  const missingThreadBufferRef = useRef<Map<string, AgentMessage[]>>(new Map());
+  const missingThreadBufferTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   threadIdRef.current = threadId;
 
   // Use ref to avoid socket disconnect/reconnect on every callbacks change.
@@ -369,7 +376,51 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       reconcileInvocationStateOnReconnect(tid ?? null);
     });
 
-    socket.on('agent_message', (msg: AgentMessage) => {
+    const requestMissingThreadCatchUp = (reason: string, sourceMsg: AgentMessage) => {
+      const refreshThreadId = threadIdRef.current ?? useChatStore.getState().currentThreadId;
+      const now = Date.now();
+      recordInvocationEvent({
+        event: sourceMsg.type === 'done' ? 'done' : 'agent_message',
+        action: reason,
+        threadId: undefined,
+        isFinal: sourceMsg.isFinal === true,
+      });
+      if (refreshThreadId) {
+        const lastRecoveryAt = missingThreadRecoveryAtRef.current.get(refreshThreadId) ?? 0;
+        if (now - lastRecoveryAt >= MISSING_THREAD_ID_RECOVERY_THROTTLE_MS) {
+          missingThreadRecoveryAtRef.current.set(refreshThreadId, now);
+          requestThreadLiveRefresh(refreshThreadId, 'messages', reason);
+          useChatStore.getState().requestStreamCatchUp?.(refreshThreadId);
+        }
+      }
+      console.warn('[ws] Dropping agent_message without threadId to prevent cross-thread contamination', {
+        type: sourceMsg.type,
+        catId: sourceMsg.catId,
+        invocationId: sourceMsg.invocationId,
+        refreshThreadId: refreshThreadId ?? null,
+        reason,
+      });
+    };
+
+    const flushBufferedInvocationMessages = (invocationId: string, resolvedThreadId: string) => {
+      const buffered = missingThreadBufferRef.current.get(invocationId);
+      if (!buffered || buffered.length === 0) return;
+      const timer = missingThreadBufferTimerRef.current.get(invocationId);
+      if (timer) {
+        clearTimeout(timer);
+        missingThreadBufferTimerRef.current.delete(invocationId);
+      }
+      missingThreadBufferRef.current.delete(invocationId);
+      for (const bufferedMsg of buffered) {
+        routeAgentMessage({ ...bufferedMsg, threadId: resolvedThreadId }, bufferedMsg, true);
+      }
+    };
+
+    const routeAgentMessage = (routedMsg: AgentMessage, originalMsg: AgentMessage, recoveredFromBuffer = false) => {
+      if (routedMsg.threadId && routedMsg.invocationId) {
+        invocationThreadMapRef.current.set(routedMsg.invocationId, routedMsg.threadId);
+        flushBufferedInvocationMessages(routedMsg.invocationId, routedMsg.threadId);
+      }
       const routeThread = threadIdRef.current;
       const storeThread = useChatStore.getState().currentThreadId;
 
@@ -377,33 +428,76 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       // This blocks a switch-window race where route already points to thread-B
       // but flat store still belongs to thread-A.
       const isActiveThreadMessage = Boolean(
-        msg.threadId && routeThread && storeThread && msg.threadId === routeThread && msg.threadId === storeThread,
+        routedMsg.threadId &&
+          routeThread &&
+          storeThread &&
+          routedMsg.threadId === routeThread &&
+          routedMsg.threadId === storeThread,
       );
       // If either pointer is temporarily unavailable during thread switch,
       // route thread-tagged events to background to avoid mutating stale flat state.
       recordInvocationEvent({
-        event: msg.type === 'done' ? 'done' : 'agent_message',
-        threadId: msg.threadId,
-        action: msg.type,
-        isFinal: msg.isFinal === true,
+        event: routedMsg.type === 'done' ? 'done' : 'agent_message',
+        threadId: routedMsg.threadId,
+        action:
+          recoveredFromBuffer || routedMsg.threadId !== originalMsg.threadId
+            ? 'recover_missing_thread_id'
+            : routedMsg.type,
+        isFinal: routedMsg.isFinal === true,
       });
 
-      // Defensive fallback for malformed legacy payloads (threadId missing).
-      if (!msg.threadId) {
-        callbacksRef.current.onMessage(msg);
-        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
+      // Safety-first: never route threadless payloads to active chat state.
+      // Doing so can leak content into the wrong thread during rapid switches.
+      // We drop and rely on thread-scoped history refresh for eventual consistency.
+      if (!routedMsg.threadId) {
+        if (routedMsg.invocationId) {
+          const invocationId = routedMsg.invocationId;
+          const existing = missingThreadBufferRef.current.get(invocationId);
+          if (existing) {
+            existing.push(routedMsg);
+          } else {
+            missingThreadBufferRef.current.set(invocationId, [routedMsg]);
+            const timeoutId = setTimeout(() => {
+              const pending = missingThreadBufferRef.current.get(invocationId);
+              missingThreadBufferRef.current.delete(invocationId);
+              missingThreadBufferTimerRef.current.delete(invocationId);
+              if (!pending || pending.length === 0) return;
+              for (const pendingMsg of pending) {
+                requestMissingThreadCatchUp('drop_missing_thread_id_timeout', pendingMsg);
+              }
+            }, MISSING_THREAD_ID_BUFFER_TIMEOUT_MS);
+            missingThreadBufferTimerRef.current.set(invocationId, timeoutId);
+          }
+          recordInvocationEvent({
+            event: routedMsg.type === 'done' ? 'done' : 'agent_message',
+            action: 'buffer_missing_thread_id',
+            threadId: undefined,
+            isFinal: routedMsg.isFinal === true,
+          });
+          return;
+        }
+        requestMissingThreadCatchUp('drop_missing_thread_id', routedMsg);
         return;
       }
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (isActiveThreadMessage) {
-        callbacksRef.current.onMessage(msg);
-        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
+        callbacksRef.current.onMessage(routedMsg);
+        clearBackgroundStreamRefForActiveEvent(routedMsg, bgStreamRefsRef.current);
+        if (routedMsg.isFinal && routedMsg.invocationId) {
+          invocationThreadMapRef.current.delete(routedMsg.invocationId);
+          const timer = missingThreadBufferTimerRef.current.get(routedMsg.invocationId);
+          if (timer) {
+            clearTimeout(timer);
+            missingThreadBufferTimerRef.current.delete(routedMsg.invocationId);
+          }
+          missingThreadBufferRef.current.delete(routedMsg.invocationId);
+        }
         return;
       }
 
       // Background thread → delegated handler
-      handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
+      handleBackgroundAgentMessage(routedMsg as BackgroundAgentMessage, {
         store: useChatStore.getState(),
         bgStreamRefs: bgStreamRefsRef.current,
         finalizedBgRefs: bgFinalizedRefsRef.current,
@@ -414,6 +508,25 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         getThreadTitle: (threadId) => useChatStore.getState().threads.find((t) => t.id === threadId)?.title,
         clearDoneTimeout: callbacksRef.current.clearDoneTimeout,
       });
+      if (routedMsg.isFinal && routedMsg.invocationId) {
+        invocationThreadMapRef.current.delete(routedMsg.invocationId);
+        const timer = missingThreadBufferTimerRef.current.get(routedMsg.invocationId);
+        if (timer) {
+          clearTimeout(timer);
+          missingThreadBufferTimerRef.current.delete(routedMsg.invocationId);
+        }
+        missingThreadBufferRef.current.delete(routedMsg.invocationId);
+      }
+    };
+
+    socket.on('agent_message', (msg: AgentMessage) => {
+      let resolvedThreadId = msg.threadId;
+      if (!resolvedThreadId && msg.invocationId) {
+        resolvedThreadId = invocationThreadMapRef.current.get(msg.invocationId);
+      }
+      const routedMsg: AgentMessage =
+        resolvedThreadId && resolvedThreadId !== msg.threadId ? { ...msg, threadId: resolvedThreadId } : msg;
+      routeAgentMessage(routedMsg, msg);
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
@@ -433,6 +546,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
           threadId: data.threadId,
           mode: data.mode,
         });
+        if (data.threadId && data.invocationId) {
+          invocationThreadMapRef.current.set(data.invocationId, data.threadId);
+          flushBufferedInvocationMessages(data.invocationId, data.threadId);
+        }
 
         // Dual-pointer guard: both route and store must agree for active-thread processing.
         // Mirrors agent_message pattern — blocks switch-window race where route already
@@ -699,6 +816,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
     return () => {
       socket.disconnect();
       joinedRoomsRef.current.clear();
+      for (const timeoutId of missingThreadBufferTimerRef.current.values()) {
+        clearTimeout(timeoutId);
+      }
+      missingThreadBufferTimerRef.current.clear();
+      missingThreadBufferRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
   }, [persistJoinedRooms]);

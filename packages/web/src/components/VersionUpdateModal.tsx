@@ -66,6 +66,13 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel,
   useEffect(() => {
     if (!open || !versionInfo?.lastversion) return;
 
+    const hasNewVersion =
+      !!versionInfo?.lastversion &&
+      !!versionInfo?.curversion &&
+      compareVersions(versionInfo.lastversion, versionInfo.curversion) > 0;
+
+    if (!hasNewVersion) return;
+
     const checkDownloadStatus = async (taskId: string) => {
       try {
         const res = await apiFetch(`/api/download/status?taskId=${taskId}`);
@@ -81,7 +88,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel,
 
     const taskId = `version-${versionInfo.lastversion}`;
     checkDownloadStatus(taskId);
-  }, [open, versionInfo?.lastversion]);
+  }, [open, versionInfo?.lastversion, versionInfo?.curversion]);
 
   useEffect(() => {
     if (!open) {

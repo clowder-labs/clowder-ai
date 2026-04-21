@@ -53,6 +53,10 @@ const LOCAL_AGENT_OPENABLE_EXTS = new Set([
   '.pptx',
   '.doc',
   '.docx',
+  '.xls',
+  '.xlsx',
+  '.pdf',
+  '.txt',
   '.md',
   '.markdown',
 ]);
@@ -210,6 +214,54 @@ async function openInDefaultApp(resolvedPath: string): Promise<void> {
     }
 
     throw new Error(`All Windows open methods failed: ${errors.join(' | ')}`);
+  }
+  await execFileAsync('xdg-open', [resolvedPath], { timeout: 5000 });
+}
+
+async function openDirectoryInFileManager(resolvedPath: string): Promise<void> {
+  if (process.platform === 'darwin') {
+    await execFileAsync('open', [resolvedPath], { timeout: 5000 });
+    return;
+  }
+  if (process.platform === 'win32') {
+    const errors: string[] = [];
+    const opts = { timeout: 5000, windowsHide: true };
+
+    try {
+      await execFileAsync('explorer.exe', [resolvedPath], opts);
+      return;
+    } catch (e) {
+      errors.push(`explorer: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    try {
+      const escaped = resolvedPath.replaceAll("'", "''");
+      await execFileAsync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-Command',
+          `Start-Process explorer.exe -ArgumentList '${escaped}'`,
+        ],
+        opts,
+      );
+      return;
+    } catch (e) {
+      errors.push(`powershell: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    try {
+      const quotedPath = `"${resolvedPath}"`;
+      await execFileAsync('cmd.exe', ['/d', '/s', '/c', 'start', '""', quotedPath], opts);
+      return;
+    } catch (e) {
+      errors.push(`cmd: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    throw new Error(`All Windows folder-open methods failed: ${errors.join(' | ')}`);
   }
   await execFileAsync('xdg-open', [resolvedPath], { timeout: 5000 });
 }
@@ -873,7 +925,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Excel/PDF/TXT/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
@@ -907,6 +959,50 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
 
   app.post<{
     Body: { path?: string; projectPath?: string };
+  }>('/api/workspace/open-local-folder', async (request, reply) => {
+    const { path: folderPath, projectPath } = request.body ?? {};
+    if (!folderPath) {
+      reply.status(400);
+      return { error: 'path required' };
+    }
+    if (!isAbsolute(folderPath)) {
+      reply.status(400);
+      return { error: 'path must be an absolute path' };
+    }
+
+    const resolved = resolve(folderPath);
+    const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
+    if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
+      reply.status(403);
+      return { error: 'Only folders inside the local agent directory or a registered workspace can be opened' };
+    }
+
+    try {
+      const targetStat = await stat(resolved);
+      if (!targetStat.isDirectory()) {
+        reply.status(400);
+        return { error: 'path must point to a directory' };
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'Folder not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to open local folder' };
+    }
+
+    try {
+      await openDirectoryInFileManager(resolved);
+      return { ok: true };
+    } catch (e) {
+      reply.status(500);
+      return { error: 'Failed to open local folder', details: summarizeOpenError(e) };
+    }
+  });
+
+  app.post<{
+    Body: { path?: string; projectPath?: string };
   }>('/api/workspace/local-file-meta', async (request, reply) => {
     const { path: filePath, projectPath } = request.body ?? {};
     if (!filePath) {
@@ -922,7 +1018,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     const extension = extname(resolved).toLowerCase();
     if (!LOCAL_AGENT_OPENABLE_EXTS.has(extension)) {
       reply.status(400);
-      return { error: 'Only PPT/PPTX/Word/Markdown files are supported' };
+      return { error: 'Only PPT/PPTX/Word/Excel/PDF/TXT/Markdown files are supported' };
     }
     const allowedRoots = await getAllowedLocalOpenRoots(projectPath);
     if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
