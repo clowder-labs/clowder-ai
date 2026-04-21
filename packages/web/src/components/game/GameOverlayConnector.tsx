@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { GameView, SeatId } from '@office-claw/shared';
+import type { GameView, SeatId } from '@clowder/shared';
 import type { GodNightStep, GodSeat } from '@/stores/gameStore';
 import { GameOverlay } from './GameOverlay';
 

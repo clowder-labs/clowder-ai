@@ -18,7 +18,7 @@ import {
   catRegistry,
   type RosterEntry,
   resolveEmbeddedRuntimeKind,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';

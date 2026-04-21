@@ -4,7 +4,7 @@
  *
  */
 
-import type { ContextBudget } from '@office-claw/shared';
+import type { ContextBudget } from '@clowder/shared';
 
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 

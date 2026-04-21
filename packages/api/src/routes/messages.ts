@@ -20,8 +20,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@office-claw/shared';
-import type { SessionStore } from '@office-claw/shared/utils';
+import type { CatId, MessageContent } from '@clowder/shared';
+import type { SessionStore } from '@clowder/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';

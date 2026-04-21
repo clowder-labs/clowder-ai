@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict';
 import { before, beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import Fastify from 'fastify';
 
 // Ensure catRegistry is populated for catId validation tests

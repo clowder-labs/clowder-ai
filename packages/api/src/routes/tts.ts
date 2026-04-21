@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat as fsStat, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { TtsStreamEvent, TtsSynthesizeRequest } from '@office-claw/shared';
+import type { TtsStreamEvent, TtsSynthesizeRequest } from '@clowder/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { getCatVoice } from '../config/cat-voices.js';

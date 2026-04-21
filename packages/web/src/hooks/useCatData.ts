@@ -9,10 +9,10 @@
 /**
  * F32-b Phase 3: Central hook for dynamic cat data from /api/cats.
  * Fetches once per session, caches module-level. All consumers share same data.
- * Falls back to static CAT_CONFIGS from @office-claw/shared during initial load.
+ * Falls back to static CAT_CONFIGS from @clowder/shared during initial load.
  */
 
-import { CAT_CONFIGS } from '@office-claw/shared';
+import { CAT_CONFIGS } from '@clowder/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { refreshMentionData } from '@/lib/mention-highlight';
 import { apiFetch } from '@/utils/api-client';

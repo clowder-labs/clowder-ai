@@ -19,8 +19,8 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { ConnectorThreadBinding } from '@office-claw/shared';
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { ConnectorThreadBinding } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { ConnectorBindingKeys } from './connector-binding-keys.js';
 

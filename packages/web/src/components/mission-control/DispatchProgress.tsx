@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { DispatchExecutionDigest } from '@office-claw/shared';
+import type { DispatchExecutionDigest } from '@clowder/shared';
 
 interface DispatchProgressProps {
   digests: DispatchExecutionDigest[];

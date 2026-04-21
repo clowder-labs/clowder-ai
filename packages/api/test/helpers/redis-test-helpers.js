@@ -28,7 +28,7 @@ export function assertRedisIsolationOrThrow(redisUrl, suiteName) {
   if (process.env[ISOLATION_FLAG] !== '1') {
     throw new Error(
       `[${suiteName}] REDIS_URL is set without ${ISOLATION_FLAG}=1. ` +
-        'Run via: pnpm --filter @office-claw/api test:redis',
+        'Run via: pnpm --filter @clowder/api test:redis',
     );
   }
 

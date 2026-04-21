@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { CatId, ConnectorSource } from '@clowder/shared';
 import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
 
 export interface ConnectorDeliveryDeps {

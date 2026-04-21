@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbCapability } from '@office-claw/shared';
+import type { LimbCapability } from '@clowder/shared';
 
 export interface PairingRequest {
   requestId: string;

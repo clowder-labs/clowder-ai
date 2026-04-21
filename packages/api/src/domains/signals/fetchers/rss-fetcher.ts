@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@office-claw/shared';
+import type { SignalSource } from '@clowder/shared';
 import Parser from 'rss-parser';
 import type { FetchError, Fetcher, FetchResult, RawArticle } from './types.js';
 

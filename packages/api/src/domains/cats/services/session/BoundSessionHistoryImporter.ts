@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId, SessionRecord } from '@office-claw/shared';
+import type { CatId, SessionRecord } from '@clowder/shared';
 import type { AppendMessageInput, IMessageStore } from '../stores/ports/MessageStore.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { TranscriptEvent, TranscriptReader } from './TranscriptReader.js';

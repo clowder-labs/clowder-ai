@@ -4,7 +4,7 @@
  *
  */
 
-import type { BacklogLease, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@office-claw/shared';
+import type { BacklogLease, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
 
 export interface MutableBacklogSuggestion {
   catId: CatId;

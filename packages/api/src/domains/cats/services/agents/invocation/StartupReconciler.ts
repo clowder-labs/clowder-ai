@@ -18,7 +18,7 @@
  * (Intake from community PR #78 / Issue #77, with source field fix.)
  */
 
-import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { CatId, ConnectorSource } from '@clowder/shared';
 import type { IInvocationRecordStore, InvocationRecord } from '../../stores/ports/InvocationRecordStore.js';
 import type { AppendMessageInput } from '../../stores/ports/MessageStore.js';
 import type { AgentMessage } from '../../types.js';

@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

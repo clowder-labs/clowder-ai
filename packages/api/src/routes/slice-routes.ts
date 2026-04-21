@@ -8,7 +8,7 @@
  * F076: Slice routes — Stage 4 slice planning CRUD + reorder
  */
 
-import type { CreateSliceInput, SliceType, UpdateSliceInput } from '@office-claw/shared';
+import type { CreateSliceInput, SliceType, UpdateSliceInput } from '@clowder/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { SliceStore } from '../domains/projects/slice-store.js';

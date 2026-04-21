@@ -16,7 +16,7 @@ import {
   CAT_CONFIGS,
   catRegistry,
   createCatId,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -29,7 +29,7 @@ import type {
   MissionHubSelfClaimScope,
   ReviewPolicy,
   Roster,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
@@ -209,7 +209,7 @@ const reviewPolicySchema = z.object({
   excludeUnavailable: z.boolean(),
 });
 
-// Note: Roster, RosterEntry, ReviewPolicy types imported from @office-claw/shared above
+// Note: Roster, RosterEntry, ReviewPolicy types imported from @clowder/shared above
 
 /** F067: Owner config schema */
 const coCreatorConfigSchema = z.object({

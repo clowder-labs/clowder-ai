@@ -11,7 +11,7 @@
  * Coordinates GameEngine (logic) + GameStore (persistence) + Socket (broadcast).
  */
 
-import type { GameAction, GameConfig, GameDefinition, GameRuntime, PendingAction, Seat } from '@office-claw/shared';
+import type { GameAction, GameConfig, GameDefinition, GameRuntime, PendingAction, Seat } from '@clowder/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import type { IGameStore } from '../stores/ports/GameStore.js';
 import type { IMessageStore } from '../stores/ports/MessageStore.js';
@@ -204,7 +204,7 @@ export class GameOrchestrator {
 
     // Emit per-seat scoped views (information isolation at transport layer)
     for (const seat of runtime.seats) {
-      const view = GameViewBuilder.buildView(runtime, seat.seatId as import('@office-claw/shared').SeatId);
+      const view = GameViewBuilder.buildView(runtime, seat.seatId as import('@clowder/shared').SeatId);
       this.socket.emitToUser(seat.actorId, 'game:state_update', {
         gameId: runtime.gameId,
         view,
@@ -291,7 +291,7 @@ export class GameOrchestrator {
     Promise.resolve(
       this.messageStore.append({
         userId,
-        catId: catId as import('@office-claw/shared').CatId,
+        catId: catId as import('@clowder/shared').CatId,
         content,
         mentions: [],
         timestamp: Date.now(),
@@ -399,9 +399,9 @@ export class GameOrchestrator {
       const fallbackActionName = actionForSeat?.name ?? 'vote';
 
       const fallbackAction: PendingAction = {
-        seatId: seat.seatId as import('@office-claw/shared').SeatId,
+        seatId: seat.seatId as import('@clowder/shared').SeatId,
         actionName: fallbackActionName,
-        targetSeat: randomTarget as import('@office-claw/shared').SeatId,
+        targetSeat: randomTarget as import('@clowder/shared').SeatId,
         submittedAt: Date.now(),
         status: 'fallback',
         requestedAt: runtime.phaseStartedAt ?? runtime.updatedAt,
@@ -685,7 +685,7 @@ export class GameOrchestrator {
         round: runtime.round,
         phase: skipped,
         type: 'phase_skip',
-        scope: 'public' as import('@office-claw/shared').EventScope,
+        scope: 'public' as import('@clowder/shared').EventScope,
         payload: { skippedPhase: skipped, reason: 'no_actors_for_role' },
         timestamp: Date.now(),
       });

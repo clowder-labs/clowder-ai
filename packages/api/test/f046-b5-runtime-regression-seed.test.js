@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { catRegistry } from '@office-claw/shared';
+import { catRegistry } from '@clowder/shared';
 
 function createMockService(catId, text = 'hello') {
   return {

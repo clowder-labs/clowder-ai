@@ -12,9 +12,9 @@
  * progression can be enforced with string comparison.
  */
 
-import type { CatId } from '@office-claw/shared';
-import { catRegistry, createCatId } from '@office-claw/shared';
-import type { SessionStore } from '@office-claw/shared/utils';
+import type { CatId } from '@clowder/shared';
+import { catRegistry, createCatId } from '@clowder/shared';
+import type { SessionStore } from '@clowder/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('delivery-cursor-store');

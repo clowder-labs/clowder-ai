@@ -13,7 +13,7 @@
  * - RedisConnectorPermissionStore: for production (persists across restarts)
  */
 
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 
 export interface GroupEntry {
   readonly externalChatId: string;

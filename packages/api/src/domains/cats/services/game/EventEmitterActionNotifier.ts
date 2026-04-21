@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import type { SeatId } from '@office-claw/shared';
+import type { SeatId } from '@clowder/shared';
 import type { ActionNotifier } from './GameNarratorDriver.js';
 
 /**

@@ -11,7 +11,7 @@
  * 只存可序列化的 PendingRequestRecord，不存运行时 waiter。
  */
 
-import type { CatId, PendingRequestRecord, RespondScope } from '@office-claw/shared';
+import type { CatId, PendingRequestRecord, RespondScope } from '@clowder/shared';
 import { generateSortableId } from './MessageStore.js';
 
 export interface CreatePendingInput {

@@ -14,8 +14,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { A2AAgentConfig, A2AJsonRpcResponse, CatId } from '@office-claw/shared';
-import { createCatId } from '@office-claw/shared';
+import type { A2AAgentConfig, A2AJsonRpcResponse, CatId } from '@clowder/shared';
+import { createCatId } from '@clowder/shared';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import { transformA2ATaskToMessages } from './a2a-event-transform.js';
 

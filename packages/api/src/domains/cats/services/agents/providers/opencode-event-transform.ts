@@ -20,7 +20,7 @@
  *   Others     → null
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import type { AgentMessage } from '../../types.js';
 
 interface OpenCodeEvent {

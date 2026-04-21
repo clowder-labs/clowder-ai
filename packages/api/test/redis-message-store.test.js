@@ -27,7 +27,7 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisMessageStore.js');
     RedisMessageStore = storeModule.RedisMessageStore;
-    const redisModule = await import('@office-claw/shared/utils');
+    const redisModule = await import('@clowder/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

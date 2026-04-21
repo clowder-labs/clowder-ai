@@ -14,7 +14,7 @@
  * Usage: import './helpers/setup-cat-registry.js';
  */
 
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 
 async function registerAllCats() {
   try {

@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { NeedAuditFrame as NeedAuditFrameType } from '@office-claw/shared';
+import type { NeedAuditFrame as NeedAuditFrameType } from '@clowder/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

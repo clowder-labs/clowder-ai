@@ -9,7 +9,7 @@
  * Agent 服务的共享类型定义
  */
 
-import type { CatId, MessageContent, ErrorFallbackMetadata } from '@office-claw/shared';
+import type { CatId, MessageContent, ErrorFallbackMetadata } from '@clowder/shared';
 import type { RuntimeAcpModelProfile } from '../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../config/provider-profiles.js';
 import type { CliSpawnOptions } from '../../../utils/cli-types.js';

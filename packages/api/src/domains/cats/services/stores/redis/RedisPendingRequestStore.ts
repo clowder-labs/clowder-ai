@@ -16,8 +16,8 @@
  * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands.
  */
 
-import type { CatId, PendingRequestRecord, RespondScope } from '@office-claw/shared';
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { CatId, PendingRequestRecord, RespondScope } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { CreatePendingInput, IPendingRequestStore } from '../ports/PendingRequestStore.js';
 import { PendingReqKeys } from '../redis-keys/authorization-keys.js';

@@ -17,7 +17,7 @@
  * TTL: entries auto-expire after 15 minutes (stale invocations).
  */
 
-import type { RichBlock } from '@office-claw/shared';
+import type { RichBlock } from '@clowder/shared';
 
 const DEFAULT_TTL_MS = 15 * 60 * 1000; // 15 minutes
 

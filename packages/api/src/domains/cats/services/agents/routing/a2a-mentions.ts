@@ -17,8 +17,8 @@
  * 6. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
-import type { CatId } from '@office-claw/shared';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import { isCatAvailable } from '../../../../../config/cat-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 

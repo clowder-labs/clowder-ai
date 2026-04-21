@@ -6,7 +6,7 @@
 
 // F073 P2: WorkflowSopPanel unit tests
 
-import type { WorkflowSop } from '@office-claw/shared';
+import type { WorkflowSop } from '@clowder/shared';
 import React, { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

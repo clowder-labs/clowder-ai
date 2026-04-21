@@ -14,7 +14,7 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import { getConnectorDefinition } from '@office-claw/shared';
+import { getConnectorDefinition } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 export interface ConnectorWebhookHandler {

@@ -11,7 +11,7 @@
  * Phase 5.0 Step 2a: 发布门禁
  */
 
-import { catIdSchema } from '@office-claw/shared';
+import { catIdSchema } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';

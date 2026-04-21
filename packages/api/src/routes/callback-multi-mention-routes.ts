@@ -11,7 +11,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
+import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@clowder/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';

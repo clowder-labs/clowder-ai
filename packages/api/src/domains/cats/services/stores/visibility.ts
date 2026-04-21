@@ -9,7 +9,7 @@
  * Pure functions for determining whether a message is visible to a given viewer.
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import type { StoredMessage } from './ports/MessageStore.js';
 
 /**

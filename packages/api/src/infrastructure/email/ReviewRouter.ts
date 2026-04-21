@@ -19,7 +19,7 @@
  * BACKLOG #81
  */
 
-import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { CatId, ConnectorSource } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';

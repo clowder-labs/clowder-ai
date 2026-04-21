@@ -10,7 +10,7 @@
  * Persistence layer for game state. Enforces single active game per thread (KD-15).
  */
 
-import type { GameRuntime } from '@office-claw/shared';
+import type { GameRuntime } from '@clowder/shared';
 
 export interface IGameStore {
   /** Create a new game. Rejects if thread already has an active game (KD-15). */

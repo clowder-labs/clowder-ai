@@ -12,7 +12,7 @@
  * action 支持通配: 'git_*' 匹配 'git_commit'
  */
 
-import type { AuthorizationRule, CatId } from '@office-claw/shared';
+import type { AuthorizationRule, CatId } from '@clowder/shared';
 import { generateSortableId } from './MessageStore.js';
 
 export interface IAuthorizationRuleStore {

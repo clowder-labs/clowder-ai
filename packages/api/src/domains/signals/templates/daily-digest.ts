@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle } from '@office-claw/shared';
+import type { SignalArticle } from '@clowder/shared';
 
 export interface DailyDigestEmailInput {
   readonly date: string;

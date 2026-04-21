@@ -8,7 +8,7 @@
  * Callback task routes — MCP post_message 回传的任务更新端点
  */
 
-import { catRegistry } from '@office-claw/shared';
+import { catRegistry } from '@clowder/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';

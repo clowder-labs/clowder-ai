@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle } from '@office-claw/shared';
+import type { SignalArticle } from '@clowder/shared';
 import type { SignalNotificationConfig } from '../config/notifications-loader.js';
 
 export interface InAppPublishEvent {

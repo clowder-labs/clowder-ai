@@ -6,7 +6,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveEmbeddedRuntimeKind, type CatConfig } from '@office-claw/shared';
+import { resolveEmbeddedRuntimeKind, type CatConfig } from '@clowder/shared';
 import { loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { resolveBuiltinClientForProvider } from './provider-binding-compat.js';

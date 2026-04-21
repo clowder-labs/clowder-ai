@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { SignalArticle, SignalArticleStatus, SignalTier } from '@office-claw/shared';
+import type { SignalArticle, SignalArticleStatus, SignalTier } from '@clowder/shared';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createCollection,

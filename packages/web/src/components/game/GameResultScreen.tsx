@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { GameResultStats } from '@office-claw/shared';
+import type { GameResultStats } from '@clowder/shared';
 
 interface GameResultScreenProps {
   stats: GameResultStats;

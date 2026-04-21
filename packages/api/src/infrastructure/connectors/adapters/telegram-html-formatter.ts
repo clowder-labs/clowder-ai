@@ -4,7 +4,7 @@
  *
  */
 
-import type { RichBlock } from '@office-claw/shared';
+import type { RichBlock } from '@clowder/shared';
 
 const TELEGRAM_MAX = 4096;
 

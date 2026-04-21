@@ -30,8 +30,8 @@ import type {
   CatFamily,
   McpToolInfo,
   SkillHealthSummary,
-} from '@office-claw/shared';
-import { catRegistry } from '@office-claw/shared';
+} from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import {

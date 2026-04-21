@@ -15,7 +15,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import { isValidTransition } from './invocation-state-machine.js';
 
 /** InvocationRecord lifecycle statuses */

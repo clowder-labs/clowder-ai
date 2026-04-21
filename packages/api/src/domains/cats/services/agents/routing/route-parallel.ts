@@ -9,8 +9,8 @@
  * All cats respond independently to the same message.
  */
 
-import type { CatConfig, CatId } from '@office-claw/shared';
-import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@office-claw/shared';
+import type { CatConfig, CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@clowder/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -325,7 +325,7 @@ export async function* routeParallel(
   const catSawUserFacingSystemInfo = new Map<string, boolean>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   // F060: Collect inline rich blocks per cat from system_info stream
-  const catStreamRichBlocks = new Map<string, import('@office-claw/shared').RichBlock[]>();
+  const catStreamRichBlocks = new Map<string, import('@clowder/shared').RichBlock[]>();
   const catErrorText = new Map<string, string>();
   const catHadError = new Set<string>();
   const catErrorTransformed = new Set<string>(); // Track which cats had errors transformed

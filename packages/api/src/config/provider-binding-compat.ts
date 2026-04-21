@@ -4,8 +4,9 @@
  *
  */
 
-import type { CatProvider } from '@office-claw/shared';
+import type { CatProvider } from '@clowder/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
+import { getPluginRegistry } from './plugins/plugin-registry-singleton.js';
 import type {
   BuiltinAccountClient,
   ProviderProfileKind,
@@ -18,6 +19,11 @@ const log = createModuleLogger('provider-binding');
 const KNOWN_PROVIDERS = new Set(['anthropic', 'openai', 'google', 'dare', 'opencode', 'antigravity', 'a2a']);
 
 export function resolveBuiltinClientForProvider(provider: CatProvider): BuiltinAccountClient | null {
+  try {
+    return getPluginRegistry().resolveBuiltinClient(provider);
+  } catch {
+    // Registry not yet initialized. Fall through to the legacy map.
+  }
   switch (provider) {
     case 'anthropic':
       return 'anthropic';
@@ -38,7 +44,12 @@ export function resolveBuiltinClientForProvider(provider: CatProvider): BuiltinA
   }
 }
 
-function resolveExpectedProtocolForProvider(provider: CatProvider): ProviderProfileProtocol | null {
+export function resolveExpectedProtocolForProvider(provider: CatProvider): ProviderProfileProtocol | null {
+  try {
+    return getPluginRegistry().resolveExpectedProtocol(provider);
+  } catch {
+    // Registry not yet initialized. Fall through to the legacy map.
+  }
   switch (provider) {
     case 'anthropic':
     case 'opencode':
@@ -98,6 +109,15 @@ export function validateRuntimeProviderBinding(
   defaultModel?: string | null,
   options?: { embeddedAcpRuntime?: boolean },
 ): string | null {
+  try {
+    const plugin = getPluginRegistry().get(provider);
+    if (plugin?.validateBinding) {
+      return plugin.validateBinding(provider, profile, defaultModel, options);
+    }
+  } catch {
+    // Registry not yet initialized. Fall through to the legacy checks.
+  }
+
   if (provider === 'acp') {
     if (options?.embeddedAcpRuntime) {
       if (profile.authType !== 'api_key' || profile.protocol !== 'openai') {

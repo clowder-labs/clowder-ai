@@ -34,8 +34,8 @@
 
 ## Test Evidence
 
-pnpm --filter @office-claw/api test       # X passed, 0 failed
-pnpm --filter @office-claw/web test       # X passed, 0 failed
+pnpm --filter @clowder/api test       # X passed, 0 failed
+pnpm --filter @clowder/web test       # X passed, 0 failed
 pnpm -r --if-present run build         # 成功
 
 ## Open Questions

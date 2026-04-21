@@ -15,7 +15,7 @@ import type {
   TriageBucket,
   TriageIntentCardInput,
   TriageResult,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export function computeBucket(

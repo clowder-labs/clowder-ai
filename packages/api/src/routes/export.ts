@@ -9,7 +9,7 @@
  * GET /api/export/thread/:threadId?format=md|txt - 导出对话记录
  */
 
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { formatMessage } from '../domains/cats/services/context/ContextAssembler.js';
 import type { IMessageStore, StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';

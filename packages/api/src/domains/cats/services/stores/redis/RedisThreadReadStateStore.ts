@@ -9,7 +9,7 @@
  * Per-user/per-thread read cursor for unread badge persistence.
  */
 
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IMessageStore } from '../ports/MessageStore.js';
 import type { IThreadReadStateStore, ThreadReadState, ThreadUnreadSummary } from '../ports/ThreadReadStateStore.js';
 import { ReadStateKeys } from '../redis-keys/read-state-keys.js';

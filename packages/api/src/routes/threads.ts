@@ -13,8 +13,8 @@
  * DELETE /api/threads/:id  - 删除对话
  */
 
-import type { CatId } from '@office-claw/shared';
-import { catIdSchema } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
+import { catIdSchema } from '@clowder/shared';
 import { mkdir, realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';

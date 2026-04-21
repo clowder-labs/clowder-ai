@@ -12,7 +12,7 @@
  * creates a RemoteLimbNode to represent them in the LimbRegistry.
  */
 
-import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@office-claw/shared';
+import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@clowder/shared';
 
 export interface RemoteLimbNodeConfig {
   nodeId: string;

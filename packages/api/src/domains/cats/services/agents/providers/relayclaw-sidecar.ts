@@ -10,7 +10,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import type { CatId, RelayClawAgentConfig } from '@clowder/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';

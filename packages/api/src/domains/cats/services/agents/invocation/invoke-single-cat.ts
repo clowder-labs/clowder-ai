@@ -23,7 +23,7 @@ import {
   catRegistry,
   type MessageContent,
   resolveEmbeddedRuntimeKind,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
@@ -679,7 +679,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
-    let capturedMissionPack: import('@office-claw/shared').DispatchMissionPack | undefined;
+    let capturedMissionPack: import('@clowder/shared').DispatchMissionPack | undefined;
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
       try {
         const thread = await preflightRace(

@@ -8,7 +8,7 @@
  * F075 Phase C — Event ingestion route
  * POST /api/leaderboard/events — accepts LeaderboardEvent, routes to stores.
  */
-import type { LeaderboardEvent } from '@office-claw/shared';
+import type { LeaderboardEvent } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import type { AchievementStore } from '../domains/leaderboard/achievement-store.js';
 import type { GameStore } from '../domains/leaderboard/game-store.js';

@@ -4,8 +4,8 @@
  *
  */
 
-import type { GameEvent, GameRuntime, SeatId } from '@office-claw/shared';
-import { catRegistry } from '@office-claw/shared';
+import type { GameEvent, GameRuntime, SeatId } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 
 const ROLE_DISPLAY: Record<string, string> = {
   wolf: '狼人',

@@ -11,7 +11,7 @@
  * ID 使用 generateSortableId 保证天然有序。
  */
 
-import type { CreateTaskInput, TaskItem, UpdateTaskInput } from '@office-claw/shared';
+import type { CreateTaskInput, TaskItem, UpdateTaskInput } from '@clowder/shared';
 import { generateSortableId } from './MessageStore.js';
 
 const MAX_TASKS = 500;

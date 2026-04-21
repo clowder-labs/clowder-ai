@@ -4,7 +4,7 @@
  *
  */
 
-import type { RelayClawWsFrame } from '@office-claw/shared';
+import type { RelayClawWsFrame } from '@clowder/shared';
 import { WebSocket as NodeWebSocket } from 'ws';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 

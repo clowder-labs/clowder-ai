@@ -18,8 +18,9 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { relative, resolve, sep } from 'node:path';
-import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@office-claw/shared';
-import { catRegistry } from '@office-claw/shared';
+import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
+import { getPluginRegistry } from '../plugins/plugin-registry-singleton.js';
 import {
   readClaudeMcpConfig,
   readCodexMcpConfig,
@@ -65,12 +66,26 @@ export function comparePencilDirs(a: string, b: string): number {
   return 0;
 }
 
-/** Provider → CLI config writer mapping */
+/** Fallback provider → CLI config writer mapping */
 const PROVIDER_WRITERS = {
   anthropic: writeClaudeMcpConfig,
   openai: writeCodexMcpConfig,
   google: writeGeminiMcpConfig,
 } as const;
+
+function getProviderWriter(
+  provider: string,
+): ((filePath: string, servers: McpServerDescriptor[]) => Promise<void>) | undefined {
+  try {
+    const plugin = getPluginRegistry().get(provider);
+    if (plugin?.mcpConfigWriter) {
+      return plugin.mcpConfigWriter as unknown as (filePath: string, servers: McpServerDescriptor[]) => Promise<void>;
+    }
+  } catch {
+    // Registry not yet initialized. Fall through to the legacy map.
+  }
+  return PROVIDER_WRITERS[provider as keyof typeof PROVIDER_WRITERS];
+}
 
 /** Check if a descriptor has a usable transport (stdio command or streamableHttp URL). */
 function hasUsableTransport(desc: { command?: string; transport?: string; url?: string }): boolean {
@@ -523,7 +538,7 @@ export async function generateCliConfigs(config: CapabilitiesConfig, paths: CliC
 
   const writes: Promise<void>[] = [];
   for (const [provider, servers] of Object.entries(perProvider)) {
-    const writer = PROVIDER_WRITERS[provider as keyof typeof PROVIDER_WRITERS];
+    const writer = getProviderWriter(provider);
     const path = paths[provider as keyof CliConfigPaths];
     if (writer && path) {
       writes.push(writer(path, servers));

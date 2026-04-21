@@ -27,7 +27,7 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisThreadStore.js');
     RedisThreadStore = storeModule.RedisThreadStore;
-    const redisModule = await import('@office-claw/shared/utils');
+    const redisModule = await import('@clowder/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
@@ -282,7 +282,7 @@ describe('ThreadStoreFactory', () => {
         '../dist/domains/cats/services/stores/factories/ThreadStoreFactory.js'
       );
       const { RedisThreadStore } = await import('../dist/domains/cats/services/stores/redis/RedisThreadStore.js');
-      const { createRedisClient } = await import('@office-claw/shared/utils');
+      const { createRedisClient } = await import('@clowder/shared/utils');
       const redis = createRedisClient({ url: REDIS_URL });
       try {
         const store = createThreadStore(redis);

@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { TtsStreamRequest } from '@office-claw/shared';
+import type { TtsStreamRequest } from '@clowder/shared';
 import { useEffect, useRef } from 'react';
 import { useStreamingAudio } from '@/hooks/useStreamingAudio';
 

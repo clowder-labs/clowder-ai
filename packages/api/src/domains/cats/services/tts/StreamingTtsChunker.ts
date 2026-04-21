@@ -4,7 +4,7 @@
  *
  */
 
-import type { TtsSynthesizeRequest, VoiceChunkEvent, VoiceConfig } from '@office-claw/shared';
+import type { TtsSynthesizeRequest, VoiceChunkEvent, VoiceConfig } from '@clowder/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import type { TtsRegistry } from './TtsRegistry.js';
 

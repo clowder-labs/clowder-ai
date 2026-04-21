@@ -21,7 +21,7 @@ import { unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type { RichBlock } from '@office-claw/shared';
+import type { RichBlock } from '@clowder/shared';
 import { resolveFeishuOpenApiBaseUrl } from '../feishu-open-platform.js';
 
 const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();

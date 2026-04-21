@@ -976,7 +976,7 @@ export function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@office-claw/shared': 'file:../shared',
+    '@clowder/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -1351,7 +1351,7 @@ async function stageBundledMcpServerRuntime(targetRootDir) {
       `--banner:js=${banner}`,
       '--minify',
       '--log-level=error',
-      '--external:@office-claw/shared',
+      '--external:@clowder/shared',
       '--external:@modelcontextprotocol/sdk',
       '--external:zod',
     ]);
@@ -1689,10 +1689,10 @@ function ensureBuildArtifacts(options) {
     return;
   }
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@clowder/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }

@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { catRegistry, createCatId } from '@office-claw/shared';
+import { catRegistry, createCatId } from '@clowder/shared';
 
 const {
   loadCatConfig,

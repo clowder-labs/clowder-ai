@@ -20,8 +20,8 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource, MessageContent } from '@office-claw/shared';
-import { catRegistry, getConnectorDefinition } from '@office-claw/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@clowder/shared';
+import { catRegistry, getConnectorDefinition } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';

@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, CatId } from '@office-claw/shared';
+import type { BacklogItem, CatId } from '@clowder/shared';
 import Link from 'next/link';
 import { extractFeatureId } from './FeatureBirdEyePanel';
 

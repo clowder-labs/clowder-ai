@@ -17,7 +17,7 @@
  * - 10s timeout per call; fallback to null on failure (caller handles fallback).
  */
 
-import { catRegistry } from '@office-claw/shared';
+import { catRegistry } from '@clowder/shared';
 import { getCatModel } from '../../../../config/cat-models.js';
 import type { AIActionResponse, AIProvider } from '../game/werewolf/WerewolfAIPlayer.js';
 

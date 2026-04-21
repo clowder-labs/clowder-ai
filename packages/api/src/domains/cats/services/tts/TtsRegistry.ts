@@ -11,7 +11,7 @@
  * but for text-to-speech providers.
  */
 
-import type { ITtsProvider } from '@office-claw/shared';
+import type { ITtsProvider } from '@clowder/shared';
 
 export class TtsRegistry {
   private readonly providers = new Map<string, ITtsProvider>();

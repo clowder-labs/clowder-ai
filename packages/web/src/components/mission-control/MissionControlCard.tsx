@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem } from '@office-claw/shared';
+import type { BacklogItem } from '@clowder/shared';
 
 interface MissionControlCardProps {
   item: BacklogItem;

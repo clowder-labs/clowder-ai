@@ -21,7 +21,7 @@ import type {
   ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
   UpdateBacklogDispatchProgressInput,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
 import { generateSortableId } from './MessageStore.js';
 

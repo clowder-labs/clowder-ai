@@ -15,7 +15,7 @@
  * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
  */
 
-import { type CatId, catRegistry } from '@office-claw/shared';
+import { type CatId, catRegistry } from '@clowder/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';

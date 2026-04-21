@@ -17,7 +17,7 @@ const ctx = {
   userId: 'user1',
 };
 
-/** @type {import('@office-claw/shared').DispatchMissionPack} */
+/** @type {import('@clowder/shared').DispatchMissionPack} */
 const missionPack = {
   mission: 'Fix the login bug',
   workItem: 'BUG-42',

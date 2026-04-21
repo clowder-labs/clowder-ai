@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticleStatus, StudyMeta } from '@office-claw/shared';
+import type { SignalArticleStatus, StudyMeta } from '@clowder/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { apiFetch } from '@/utils/api-client';

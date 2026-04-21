@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { LeaderboardRange, LeaderboardStatsResponse } from '@office-claw/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@clowder/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CatHeroCard, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';

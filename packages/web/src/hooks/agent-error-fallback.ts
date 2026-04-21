@@ -15,7 +15,7 @@ import {
   isRateLimitError as isSharedRateLimitError,
   isSensitiveInputError as isSharedSensitiveInputError,
   type ErrorLike as SharedErrorLike,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 
 export { APIG_DAILY_QUOTA_EXHAUSTED_ERROR_CODE, MODEL_ARTS_RATE_LIMIT_ERROR_CODE, MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE };
 

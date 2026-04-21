@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { GameEvent } from '@office-claw/shared';
+import type { GameEvent } from '@clowder/shared';
 import { useEffect, useRef } from 'react';
 
 interface EventFlowProps {

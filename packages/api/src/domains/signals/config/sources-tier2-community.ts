@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@office-claw/shared';
+import type { SignalSource } from '@clowder/shared';
 
 // ── Signal Source Base URLs (信号源域名) ───────────────────────────
 const LANGCHAIN_BLOG_URL = process.env.LANGCHAIN_BLOG_URL!;

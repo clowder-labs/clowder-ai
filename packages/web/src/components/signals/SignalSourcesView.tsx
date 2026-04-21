@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { SignalSource } from '@office-claw/shared';
+import type { SignalSource } from '@clowder/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchSignalSources, triggerSourceFetch, updateSignalSource } from '@/utils/signals-api';
 import { groupSignalSourcesByTierAndCategory } from '@/utils/signals-view';

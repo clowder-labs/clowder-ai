@@ -4,8 +4,8 @@
  *
  */
 
-import type { SignalArticle, SignalArticleStatus, SignalTier } from '@office-claw/shared';
-import { SignalArticleSchema } from '@office-claw/shared';
+import type { SignalArticle, SignalArticleStatus, SignalTier } from '@clowder/shared';
+import { SignalArticleSchema } from '@clowder/shared';
 import type { SignalPaths } from '../config/signal-paths.js';
 import { resolveSignalPaths } from '../config/signal-paths.js';
 import {

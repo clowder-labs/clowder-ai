@@ -9,9 +9,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import {
   bootstrapCapabilities,
   buildCatCafeMcpDescriptor,
@@ -27,6 +27,8 @@ import {
   resolveServersForCat,
   writeCapabilitiesConfig,
 } from '../dist/config/capabilities/capability-orchestrator.js';
+import { ProviderPluginRegistry } from '../../core/dist/index.js';
+import { initPluginRegistry, resetPluginRegistry } from '../dist/config/plugins/plugin-registry-singleton.js';
 
 // Bootstrap catRegistry so provider-gated tests can resolve cat → provider.
 for (const [id, config] of Object.entries(CAT_CONFIGS)) {
@@ -61,6 +63,7 @@ describe('readCapabilitiesConfig', () => {
     dir = await makeTmpDir('cap-read');
   });
   afterEach(async () => {
+    resetPluginRegistry();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -892,6 +895,44 @@ describe('generateCliConfigs', () => {
     } finally {
       restoreCatRegistry(snapshot);
     }
+  });
+
+  it('prefers a plugin-registry MCP writer over the hardcoded provider writer map', async () => {
+    const registry = new ProviderPluginRegistry();
+    registry.register({
+      name: 'openai-test-plugin',
+      providers: ['openai'],
+      mcpConfigWriter: async (filePath, servers) => {
+        await mkdir(dirname(filePath), { recursive: true });
+        await writeFile(filePath, JSON.stringify({ writtenBy: 'plugin', serverCount: servers.length }));
+      },
+      createAgentService() {
+        throw new Error('not needed in this test');
+      },
+    });
+    initPluginRegistry(registry);
+
+    const config = makeConfig([
+      {
+        id: 'office-claw-collab',
+        type: 'mcp',
+        enabled: true,
+        source: 'builtin',
+        mcpServer: { command: 'node', args: ['collab.js'] },
+      },
+    ]);
+
+    const paths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+    };
+
+    await generateCliConfigs(config, paths);
+
+    const written = JSON.parse(await readFile(paths.openai, 'utf-8'));
+    assert.equal(written.writtenBy, 'plugin');
+    assert.equal(written.serverCount > 0, true);
   });
 });
 

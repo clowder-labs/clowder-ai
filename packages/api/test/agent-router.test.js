@@ -2213,7 +2213,7 @@ describe('F078: Group mentions', () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     // Register sonnet as a second ragdoll variant
-    const { catRegistry, createCatId } = await import('@office-claw/shared');
+    const { catRegistry, createCatId } = await import('@clowder/shared');
     if (!catRegistry.has('sonnet')) {
       catRegistry.register('sonnet', {
         id: createCatId('sonnet'),
@@ -2414,7 +2414,7 @@ describe('F078: Group mentions', () => {
   test('@all-ragdollish does NOT trigger @all-ragdoll (token boundary)', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
-    const { catRegistry, createCatId } = await import('@office-claw/shared');
+    const { catRegistry, createCatId } = await import('@clowder/shared');
     if (!catRegistry.has('sonnet')) {
       catRegistry.register('sonnet', {
         id: createCatId('sonnet'),
@@ -2586,7 +2586,7 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
     const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
 
     // Register sonnet as a second ragdoll variant (needed for breed group mention)
-    const { catRegistry, createCatId } = await import('@office-claw/shared');
+    const { catRegistry, createCatId } = await import('@clowder/shared');
     if (!catRegistry.has('sonnet')) {
       catRegistry.register('sonnet', {
         id: createCatId('sonnet'),
@@ -2680,7 +2680,7 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
   test('refreshFromRegistry updates routable service set after runtime catalog changes', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
     const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
-    const { catRegistry } = await import('@office-claw/shared');
+    const { catRegistry } = await import('@clowder/shared');
 
     const threadStore = createMockThreadStore();
     const agentRegistry = new AgentRegistry();

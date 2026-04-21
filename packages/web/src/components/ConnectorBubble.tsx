@@ -6,8 +6,8 @@
 
 'use client';
 
-import type { ConnectorTailwindTheme } from '@office-claw/shared';
-import { getConnectorDefinition } from '@office-claw/shared';
+import type { ConnectorTailwindTheme } from '@clowder/shared';
+import { getConnectorDefinition } from '@clowder/shared';
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { ConnectorImage, GitHubIcon, SettingsIcon, UsersIcon } from './icons/ConnectorIcons';

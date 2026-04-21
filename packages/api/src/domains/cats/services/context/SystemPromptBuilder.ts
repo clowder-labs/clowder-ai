@@ -11,8 +11,8 @@
  * 纯函数，无副作用。读取 CAT_CONFIGS 生成身份上下文。
  */
 
-import type { CatConfig, CatId } from '@office-claw/shared';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import type { CatConfig, CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import {
   catHasRole,
   getCoCreatorConfig,

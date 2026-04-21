@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameEvent, GameView, SeatView } from '@office-claw/shared';
+import type { GameEvent, GameView, SeatView } from '@clowder/shared';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';

@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameView } from '@office-claw/shared';
+import type { GameView } from '@clowder/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGameStore } from '../../stores/gameStore';
 

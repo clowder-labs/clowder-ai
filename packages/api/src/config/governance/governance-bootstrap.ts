@@ -14,7 +14,7 @@
 
 import { lstat, mkdir, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { BootstrapAction, BootstrapReport } from '@office-claw/shared';
+import type { BootstrapAction, BootstrapReport } from '@clowder/shared';
 import { pathsEqual } from '../../utils/project-path.js';
 import type { Provider } from './governance-pack.js';
 import {

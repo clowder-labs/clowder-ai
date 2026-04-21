@@ -23,7 +23,7 @@ describe('RedisConnectorThreadBindingStore', { skip: !REDIS_URL ? 'REDIS_URL not
 
     const storeModule = await import('../dist/infrastructure/connectors/RedisConnectorThreadBindingStore.js');
     RedisConnectorThreadBindingStore = storeModule.RedisConnectorThreadBindingStore;
-    const redisModule = await import('@office-claw/shared/utils');
+    const redisModule = await import('@clowder/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

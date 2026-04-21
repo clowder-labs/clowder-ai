@@ -4,7 +4,7 @@
  *
  */
 
-import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@office-claw/shared';
+import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@clowder/shared';
 
 export type PlaybackManagerState = 'idle' | 'playing' | 'paused';
 

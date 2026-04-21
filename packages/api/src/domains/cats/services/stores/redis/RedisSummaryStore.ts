@@ -15,8 +15,8 @@
  * TTL 默认 30 天。
  */
 
-import type { CreateSummaryInput, ThreadSummary } from '@office-claw/shared';
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { CreateSummaryInput, ThreadSummary } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { ISummaryStore } from '../ports/SummaryStore.js';
 import { SummaryKeys } from '../redis-keys/summary-keys.js';

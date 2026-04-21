@@ -8,7 +8,7 @@
  * GameStore Tests (F101 Task A4)
  * Tests RedisGameStore with optimistic concurrency + single-game-per-thread (KD-15).
  *
- * Run: pnpm --filter @office-claw/api test:redis
+ * Run: pnpm --filter @clowder/api test:redis
  */
 
 import assert from 'node:assert/strict';
@@ -61,7 +61,7 @@ describe('RedisGameStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisGameStore.js');
     RedisGameStore = storeModule.RedisGameStore;
-    const redisModule = await import('@office-claw/shared/utils');
+    const redisModule = await import('@clowder/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalArticleStatus } from '@office-claw/shared';
+import type { SignalArticle, SignalArticleStatus } from '@clowder/shared';
 import { SignalTierBadge } from './SignalTierBadge';
 
 interface SignalArticleListProps {

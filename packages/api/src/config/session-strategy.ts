@@ -19,8 +19,8 @@
  * Phase 3: Runtime override via Redis + settings UI.
  */
 
-import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@office-claw/shared';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveBreedId } from './breed-resolver.js';
 import { getConfigSessionStrategy } from './cat-config-loader.js';

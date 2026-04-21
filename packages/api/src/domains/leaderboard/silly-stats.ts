@@ -9,7 +9,7 @@
  * Keyword-based sentiment: distinguish 亲昵骂 (affectionate) from 真生气 (angry).
  * MVP: keyword matching + heuristics, no ML model.
  */
-import type { SillyCatEntry, SillyStats } from '@office-claw/shared';
+import type { SillyCatEntry, SillyStats } from '@clowder/shared';
 import type { MessageLike } from './mention-stats.js';
 
 /** Angry scolding patterns — 真生气 */

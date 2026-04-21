@@ -44,8 +44,8 @@
     "check": "pnpm biome check . --diagnostic-level=error && pnpm check:features && pnpm check:env-ports && pnpm check:start-profile-isolation",
     "check:fix": "pnpm biome check --write .",
     "test": "pnpm -r --if-present run test",
-    "test:api:redis": "pnpm --filter @office-claw/api run test:redis",
-    "test:api:redis:repeat": "pnpm --filter @office-claw/api run test:redis:repeat",
+    "test:api:redis": "pnpm --filter @clowder/api run test:redis",
+    "test:api:redis:repeat": "pnpm --filter @clowder/api run test:redis:repeat",
     "check:dir-size": "bash scripts/check-dir-size.sh",
     "check:deps": "depcruise packages/api/src packages/shared/src --config .dependency-cruiser.cjs",
     "check:lockfile": "pnpm install --frozen-lockfile",
@@ -62,6 +62,9 @@
     "package:windows:bundle": "node ./scripts/build-windows-installer.mjs --bundle-only",
     "package:macos": "node ./scripts/build-macos-installer.mjs",
     "package:macos:bundle": "node ./scripts/build-macos-installer.mjs --bundle-only",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm -r run build && changeset publish",
     "logs:health": "bash ./scripts/logs-health.sh",
     "clean": "pnpm -r run clean && rm -rf node_modules",
     "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs"
@@ -69,6 +72,7 @@
   "dependencies": {},
   "devDependencies": {
     "@biomejs/biome": "^2.4.1",
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^20.11.0",
     "dependency-cruiser": "^17.3.8",
     "typescript": "^5.3.3"

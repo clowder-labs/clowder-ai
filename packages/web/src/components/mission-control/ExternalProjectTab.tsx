@@ -15,7 +15,7 @@ import type {
   RefluxPattern,
   ResolutionItem,
   Slice,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useExternalProjectStore } from '@/stores/externalProjectStore';
 import { apiFetch } from '@/utils/api-client';

@@ -21,7 +21,7 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-vi.mock('@office-claw/shared', () => ({
+vi.mock('@clowder/shared', () => ({
   CAT_CONFIGS: {
     opus: {
       id: 'opus',

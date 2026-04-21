@@ -13,7 +13,7 @@
  * Phase B: invoke 升级为 pipeline — policy check → lease → action log → execute。
  */
 
-import type { ILimbNode, LimbAuthLevel, LimbInvokeResult, LimbNodeRecord, LimbNodeStatus } from '@office-claw/shared';
+import type { ILimbNode, LimbAuthLevel, LimbInvokeResult, LimbNodeRecord, LimbNodeStatus } from '@clowder/shared';
 import type { LimbAccessPolicy } from './LimbAccessPolicy.js';
 import type { LimbActionLog } from './LimbActionLog.js';
 import type { LimbLeaseManager } from './LimbLeaseManager.js';

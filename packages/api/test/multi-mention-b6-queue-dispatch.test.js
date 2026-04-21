@@ -14,7 +14,7 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import Fastify from 'fastify';
 import { InvocationQueue } from '../dist/domains/cats/services/agents/invocation/InvocationQueue.js';
 import {

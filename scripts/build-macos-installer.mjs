@@ -531,7 +531,7 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@office-claw/shared': 'file:../shared',
+    '@clowder/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
   const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
@@ -617,7 +617,7 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--sourcemap=external',
     '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
-    '--external:@office-claw/shared',
+    '--external:@clowder/shared',
   ]);
 
   writeJson(

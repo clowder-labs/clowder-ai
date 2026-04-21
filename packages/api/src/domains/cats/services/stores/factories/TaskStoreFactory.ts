@@ -9,7 +9,7 @@
  * Redis → RedisTaskStore, 无 → TaskStore (内存)
  */
 
-import type { RedisClient } from '@office-claw/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { ITaskStore } from '../ports/TaskStore.js';
 import { TaskStore } from '../ports/TaskStore.js';

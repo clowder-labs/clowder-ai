@@ -12,7 +12,7 @@
  * leaking game secrets (e.g. "你是狼人") into the thread chat flow.
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { InvocationQueue } from '../agents/invocation/InvocationQueue.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';

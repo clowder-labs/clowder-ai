@@ -13,7 +13,7 @@
  *   AntigravityAgentService       = CDP WebSocket 桥 (全自动, 无需 MCP callback)
  */
 
-import { type CatId, createCatId } from '@office-claw/shared';
+import { type CatId, createCatId } from '@clowder/shared';
 import { getCatModel } from '../../../../../../config/cat-models.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { AntigravityCdpClient, type PollResponseOptions, type PollResponseResult } from './AntigravityCdpClient.js';

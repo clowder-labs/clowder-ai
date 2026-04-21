@@ -12,7 +12,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import type { FileContent, ImageContent } from '@office-claw/shared';
+import type { FileContent, ImageContent } from '@clowder/shared';
 import { resolveWorkspacePath } from '../domains/workspace/workspace-security.js';
 
 const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);

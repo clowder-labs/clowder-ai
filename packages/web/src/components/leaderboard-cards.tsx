@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { RankedCat, StreakCat } from '@office-claw/shared';
+import type { RankedCat, StreakCat } from '@clowder/shared';
 import { type ReactNode } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { CatAvatar } from './CatAvatar';

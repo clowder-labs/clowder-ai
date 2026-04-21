@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { catRegistry } from '@office-claw/shared';
+import { catRegistry } from '@clowder/shared';
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build

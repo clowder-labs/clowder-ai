@@ -4,7 +4,7 @@
  *
  */
 
-import type { UpdateWorkflowSopInput, WorkflowSop } from '@office-claw/shared';
+import type { UpdateWorkflowSopInput, WorkflowSop } from '@clowder/shared';
 
 export class VersionConflictError extends Error {
   readonly currentState: WorkflowSop;

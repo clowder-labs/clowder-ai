@@ -7,7 +7,7 @@
 /**
  * F070 Phase 3: ExecutionDigestStore — in-memory store for dispatch execution digests
  */
-import type { DispatchExecutionDigest } from '@office-claw/shared';
+import type { DispatchExecutionDigest } from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export type CreateDigestInput = Omit<DispatchExecutionDigest, 'id'>;

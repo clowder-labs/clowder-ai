@@ -6,7 +6,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ArtifactJobState, StudyArtifact, StudyMeta, StudyThreadLink } from '@office-claw/shared';
+import type { ArtifactJobState, StudyArtifact, StudyMeta, StudyThreadLink } from '@clowder/shared';
 
 /**
  * StudyMetaService manages sidecar meta.json files for Signal articles.

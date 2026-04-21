@@ -361,8 +361,8 @@ function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@office-claw/shared']) {
-    dependencies['@office-claw/shared'] = 'file:../shared';
+  if (dependencies['@clowder/shared']) {
+    dependencies['@clowder/shared'] = 'file:../shared';
   }
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -513,10 +513,10 @@ function ensureBuildArtifacts(options) {
   }
 
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@clowder/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@clowder/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }

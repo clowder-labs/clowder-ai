@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { before, describe, it, mock, afterEach } from 'node:test';
 
-import { catRegistry } from '@office-claw/shared';
+import { catRegistry } from '@clowder/shared';
 
 const { resetLocalSecretBackendForTests, setLocalSecretBackendForTests } = await import(
   '../dist/config/local-secret-store.js'

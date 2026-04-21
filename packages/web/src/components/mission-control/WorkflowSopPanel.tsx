@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { CheckStatus, SopStage, WorkflowSop } from '@office-claw/shared';
+import type { CheckStatus, SopStage, WorkflowSop } from '@clowder/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

@@ -4,7 +4,7 @@
  *
  */
 
-import type { BacklogItem, BacklogStatus } from '@office-claw/shared';
+import type { BacklogItem, BacklogStatus } from '@clowder/shared';
 import dagre from '@dagrejs/dagre';
 import { type Edge, MarkerType, type Node } from '@xyflow/react';
 import { extractFeatureId } from './FeatureBirdEyePanel';

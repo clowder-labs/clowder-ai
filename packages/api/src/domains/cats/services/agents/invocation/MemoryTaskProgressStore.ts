@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 import type { TaskProgressSnapshot, TaskProgressStore } from './TaskProgressStore.js';
 
 export class MemoryTaskProgressStore implements TaskProgressStore {

@@ -13,7 +13,7 @@ import type {
   Slice,
   SourceTag,
   TriageBucket,
-} from '@office-claw/shared';
+} from '@clowder/shared';
 
 interface GovernanceHealthProps {
   cards: IntentCard[];

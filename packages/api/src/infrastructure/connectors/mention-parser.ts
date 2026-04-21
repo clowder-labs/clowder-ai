@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@office-claw/shared';
+import type { CatId } from '@clowder/shared';
 
 export interface ParsedMention {
   targetCatId: CatId;

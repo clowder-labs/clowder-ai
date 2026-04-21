@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@office-claw/shared';
+import type { SignalSource } from '@clowder/shared';
 
 // ── Signal Source Base URLs (信号源域名) ───────────────────────────
 const ANTHROPIC_WEB_URL = process.env.ANTHROPIC_WEB_URL!;

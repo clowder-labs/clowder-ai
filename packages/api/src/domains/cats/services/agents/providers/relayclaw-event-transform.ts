@@ -22,7 +22,7 @@
  *   todo.updated            → (skip)
  */
 
-import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@office-claw/shared';
+import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@clowder/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage } from '../../types.js';
 

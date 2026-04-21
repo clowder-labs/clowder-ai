@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@office-claw/shared';
+import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@clowder/shared';
 
 export class GameStore {
   private records: GameRecord[] = [];

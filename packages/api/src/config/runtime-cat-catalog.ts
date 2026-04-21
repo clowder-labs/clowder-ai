@@ -16,8 +16,8 @@ import type {
   CliConfig,
   CoCreatorConfig,
   ContextBudget,
-} from '@office-claw/shared';
-import { CAT_CONFIGS, createCatId } from '@office-claw/shared';
+} from '@clowder/shared';
+import { CAT_CONFIGS, createCatId } from '@clowder/shared';
 import { clearBudgetCache } from './cat-budgets.js';
 import { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } from './cat-catalog-store.js';
 import { _resetCachedConfig, loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';

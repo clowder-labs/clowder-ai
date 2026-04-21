@@ -11,14 +11,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 Object.assign(globalThis as Record<string, unknown>, { React });
 
 afterEach(() => {
-  vi.doUnmock('@office-claw/shared');
+  vi.doUnmock('@clowder/shared');
   vi.resetModules();
 });
 
 describe('MarkdownContent alias source', () => {
   it('follows CAT_CONFIGS mentionPatterns dynamically', async () => {
-    vi.doMock('@office-claw/shared', async () => {
-      const actual = await vi.importActual<typeof import('@office-claw/shared')>('@office-claw/shared');
+    vi.doMock('@clowder/shared', async () => {
+      const actual = await vi.importActual<typeof import('@clowder/shared')>('@clowder/shared');
       const opusPatterns = [...actual.CAT_CONFIGS.opus.mentionPatterns, '@测试布偶别名'];
       return {
         ...actual,

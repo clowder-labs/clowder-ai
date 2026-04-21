@@ -9,7 +9,7 @@
  * Uses Redis Hash for efficient per-thread storage.
  */
 
-import type { MemoryEntry, MemoryInput } from '@office-claw/shared';
+import type { MemoryEntry, MemoryInput } from '@clowder/shared';
 import type { Redis } from 'ioredis';
 import type { IMemoryStore } from '../ports/MemoryStore.js';
 import { MAX_KEYS_PER_THREAD } from '../ports/MemoryStore.js';

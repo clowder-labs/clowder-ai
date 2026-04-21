@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@office-claw/shared';
+import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
