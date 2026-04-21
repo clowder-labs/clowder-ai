@@ -344,8 +344,11 @@ if ($useExternalRedis) {
         Write-Ok "Redis binaries resolved ($redisSource): $($redisCommands.BinDir)"
     }
     # -- Redis auth (read-or-generate, consistent across sessions) ---
+    # Inject password when using local Redis without existing credentials.
+    # Covers: no URL set, or bare URL like redis://localhost:6399 from .env
     $localRedisPassword = $null
-    if (-not $configuredRedisUrl) {
+    $urlHasCredentials = $configuredRedisUrl -and (Get-RedisAuthArgs -RedisUrl $configuredRedisUrl).Count -gt 0
+    if (-not $urlHasCredentials) {
         try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
         if ($localRedisPassword) {
             Write-Ok "Redis auth: password loaded from Credential Manager"
