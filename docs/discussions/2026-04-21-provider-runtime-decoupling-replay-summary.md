@@ -31,6 +31,7 @@ created: 2026-04-21
 1. **先把边界切出来**，让后续继续拆 provider 时不需要再改一次主调用链。
 2. **把“provider 是什么”从 API 主流程里抽掉**，API 只关心“有没有 plugin、怎么创建 service、怎么校验 binding”。
 3. **保留兼容路径**，避免一次性大迁移把默认运行方式打爆。
+4. **明确当前只拆了 provider runtime，没有把 auth 本身一起拆掉**。
 
 ## 2. 为什么要拆
 
@@ -208,7 +209,36 @@ created: 2026-04-21
 1. **runtime 主链路解耦了**
 2. **默认产品预设还没有解耦**
 
-### 5.2 `.env` 还不能一键切换“是不是 jiuwenclaw / 用什么 auth”
+### 5.2 auth 本身还没有被抽成独立层
+
+这里要明确区分两种 auth：
+
+1. **平台登录 auth**
+   - 入口在 `packages/api/src/routes/auth.ts`
+   - 当前核心模式是 `CAS` 或 `CAT_CAFE_SKIP_AUTH`
+2. **模型调用 auth**
+   - builtin OAuth account
+   - api_key provider profile
+   - `authType: none`（主要用于 ACP）
+   - 保留模型源 `huawei-maas`
+
+这条分支解耦的是 provider runtime，不是 auth framework。
+
+当前 auth 仍然散在三层：
+
+1. 登录认证在 `routes/auth.ts`
+2. provider binding / account compatibility 在 provider plugin + compat layer
+3. `huawei-maas` 作为特殊 model source 走 invocation 特判
+
+所以当前系统的真实状态是：
+
+1. **provider 入口已经插件化**
+2. **auth 入口还没有正交化**
+3. **`relayclaw` 与 `huawei-maas` 的默认组合，仍然是产品预设，不是 auth plugin**
+
+这也是为什么“是不是 jiuwenclaw”和“用哪种 auth”现在还不能只靠一层开关描述清楚。
+
+### 5.3 `.env` 还不能一键切换“是不是 jiuwenclaw / 用什么 auth”
 
 现在 `.env` 能控制的主要是：
 
@@ -229,7 +259,7 @@ created: 2026-04-21
 2. runtime catalog
 3. model config source / provider profile 绑定
 
-### 5.3 `huawei-maas` 仍然是特殊模型源，不是普通 plugin
+### 5.4 `huawei-maas` 仍然是特殊模型源，不是普通 plugin
 
 `huawei-maas` 当前是 reserved model config source，不是一个和 `provider-a2a` 同级的普通 provider plugin。
 
@@ -240,7 +270,7 @@ created: 2026-04-21
 
 如果后续目标是完全正交化，这一层还要继续拆。
 
-### 5.4 多数 provider 实现仍在 `packages/api`
+### 5.5 多数 provider 实现仍在 `packages/api`
 
 当前真正外部化成独立 package 的 provider，主要是：
 
@@ -273,16 +303,21 @@ created: 2026-04-21
 
 建议按下面顺序继续，而不是并行乱拆。
 
-### 7.1 先拆“部署预设”
+### 7.1 先拆“auth + 部署预设”
 
-这是当前最大的结构混叠点。
+这是当前最大的结构混叠点，因为现在至少有三件事还绑在一起：
+
+1. 平台登录 auth（CAS / skip auth）
+2. 模型调用 auth（builtin / api_key / huawei-maas）
+3. 默认 provider preset（relayclaw / non-relayclaw）
 
 建议引入一层明确的 preset / bootstrap 开关，例如：
 
-1. `OFFICE_CLAW_AUTH_MODE=cas|skip`
-2. `OFFICE_CLAW_DEFAULT_PROVIDER=relayclaw|openai|anthropic|google|opencode|dare`
-3. `OFFICE_CLAW_DEFAULT_MODEL_SOURCE=huawei-maas|builtin|profile:<id>`
-4. `OFFICE_CLAW_ENABLE_RELAYCLAW=0|1`
+1. `OFFICE_CLAW_APP_AUTH_MODE=cas|skip`
+2. `OFFICE_CLAW_RUNTIME_AUTH_MODE=builtin|api_key|model_source`
+3. `OFFICE_CLAW_DEFAULT_PROVIDER=relayclaw|openai|anthropic|google|opencode|dare`
+4. `OFFICE_CLAW_DEFAULT_MODEL_SOURCE=huawei-maas|builtin|profile:<id>`
+5. `OFFICE_CLAW_ENABLE_RELAYCLAW=0|1`
 
 目标不是让 `.env` 直接改一切，而是让“默认模板如何生成 / 启动时如何 bootstrap”变成显式策略。
 
@@ -326,7 +361,7 @@ created: 2026-04-21
 
 ## 8. 建议的验证方式
 
-验证分两层：代码级验证 + 运行级验证。
+验证分三层：代码级验证 + 平台登录 auth 验证 + provider/runtime 验证。
 
 ### 8.1 代码级验证
 
@@ -347,7 +382,7 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 node --test test/server-entrypoint.tes
 
 ### 8.2 运行级验证：默认场景
 
-目标：验证“当前默认方式没有被解耦改坏”
+目标：验证“平台登录 auth 与默认 runtime preset 还保持当前行为”
 
 1. 不改默认 seed cats
 2. 正常走华为 CAS 登录
@@ -356,13 +391,14 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 node --test test/server-entrypoint.tes
 
 成功标准：
 
-1. 默认猫仍可用
-2. 不需要额外 console 配置
-3. `relayclaw + huawei-maas` 默认链路保持可用
+1. `CAS` 登录链路仍可用
+2. 默认猫仍可用
+3. 不需要额外 console 配置
+4. `relayclaw + huawei-maas` 默认链路保持可用
 
 ### 8.3 运行级验证：非默认场景
 
-目标：验证“主链路已能支持非 jiuwenclaw provider”
+目标：验证“平台登录 auth 可以跳过，且主链路已能支持非 jiuwenclaw provider”
 
 1. `CAT_CAFE_SKIP_AUTH=1`
 2. 如需简化 UI，可设置：
@@ -374,9 +410,10 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 node --test test/server-entrypoint.tes
 
 成功标准：
 
-1. 不再依赖 `relayclaw sidecar`
-2. 配置可以通过 console 正常保存
-3. 非默认 client 仍可工作
+1. `skip auth` 生效，不再进入 CAS 登录
+2. 不再依赖 `relayclaw sidecar`
+3. 配置可以通过 console 正常保存
+4. 非默认 client 仍可工作
 
 注意：
 
