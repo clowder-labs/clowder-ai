@@ -374,7 +374,7 @@ if ($useExternalRedis) {
             $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
             $cmUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
             $cmAuthArgs = Get-RedisAuthArgs -RedisUrl $cmUrl
-            $ping = & $redisCliPath -p $RedisPort @cmAuthArgs ping 2>$null
+            $ping = & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCliPath -p $RedisPort @cmAuthArgs ping 2>$null }
             if ($ping -eq "PONG") {
                 $probeSuccess = $true
                 $redisAuthFromCM = $true
@@ -385,7 +385,7 @@ if ($useExternalRedis) {
         # Probe with configured URL (user-set password or bare URL)
         if (-not $probeSuccess) {
             $cfgAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
-            $ping = & $redisCliPath -p $RedisPort @cfgAuthArgs ping 2>$null
+            $ping = & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCliPath -p $RedisPort @cfgAuthArgs ping 2>$null }
             if ($ping -eq "PONG") {
                 $probeSuccess = $true
                 Write-Ok "Redis auth: connected with configured URL"
@@ -443,7 +443,7 @@ if ($useExternalRedis) {
                 Write-Host "  Starting Redis on port $RedisPort ($redisSource)..."
                 Start-Process -FilePath $redisServerPath -ArgumentList $redisArgs -WindowStyle Hidden
                 Start-Sleep -Seconds 2
-                $redisPing = & $redisCliPath -p $RedisPort @redisAuthArgs ping 2>$null
+                $redisPing = & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCliPath -p $RedisPort @redisAuthArgs ping 2>$null }
                 if ($redisPing -eq "PONG") {
                     Write-Ok "Redis started on port $RedisPort"
                     $env:REDIS_URL = $configuredRedisUrl
@@ -745,7 +745,7 @@ $runtimeEnvOverrides = @{
 
     if ($startedRedis) {
         try {
-            & $redisCliPath -p $RedisPort @redisAuthArgs shutdown save 2>$null
+            & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCliPath -p $RedisPort @redisAuthArgs shutdown save 2>$null }
             Write-Ok "Redis stopped"
         } catch {
             Write-Warn "Could not stop Redis gracefully"

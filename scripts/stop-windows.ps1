@@ -218,9 +218,9 @@ if ($configuredRedisUrl -and -not (Test-LocalRedisUrl -RedisUrl $configuredRedis
             } else {
                 $redisCli = $redisCommands.CliPath
                 $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
-                $redisPing = & $redisCli -p $RedisPort @redisAuthArgs ping 2>$null
+                $redisPing = & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCli -p $RedisPort @redisAuthArgs ping 2>$null }
                 if ($redisPing -eq "PONG") {
-                    & $redisCli -p $RedisPort @redisAuthArgs shutdown save 2>$null
+                    & { $ErrorActionPreference = 'SilentlyContinue'; & $redisCli -p $RedisPort @redisAuthArgs shutdown save 2>$null }
                     Write-Ok "Redis stopped (port $RedisPort)"
                 } elseif ($redisStartedByLauncher -and $managedRedisPid) {
                     Stop-Process -Id $managedRedisPid -Force -ErrorAction SilentlyContinue
