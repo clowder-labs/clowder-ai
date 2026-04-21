@@ -354,6 +354,17 @@ if ($useExternalRedis) {
         Write-Ok "Redis port selected: $RedisPort (random)"
     }
 
+    # -- Preserve DB suffix (e.g. /5) from original configured URL ---
+    $originalDbSuffix = ""
+    if ($configuredRedisUrl) {
+        try {
+            $origUri = [System.Uri]::new($configuredRedisUrl)
+            if ($origUri.AbsolutePath -and $origUri.AbsolutePath -ne "/") {
+                $originalDbSuffix = $origUri.AbsolutePath
+            }
+        } catch {}
+    }
+
     # -- Phase 1: Probe existing Redis on target port ---
     $probeSuccess = $false
     $redisAuthFromCM = $false
@@ -367,17 +378,7 @@ if ($useExternalRedis) {
             if ($ping -eq "PONG") {
                 $probeSuccess = $true
                 $redisAuthFromCM = $true
-                # Inject CM password into original URL, preserving DB suffix (e.g. /5)
-                $dbSuffix = ""
-                if ($configuredRedisUrl) {
-                    try {
-                        $origUri = [System.Uri]::new($configuredRedisUrl)
-                        if ($origUri.AbsolutePath -and $origUri.AbsolutePath -ne "/") {
-                            $dbSuffix = $origUri.AbsolutePath
-                        }
-                    } catch {}
-                }
-                $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}${dbSuffix}"
+                $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}${originalDbSuffix}"
                 Write-Ok "Redis auth: connected with Credential Manager password"
             }
         }
@@ -424,7 +425,7 @@ if ($useExternalRedis) {
         }
         try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
         $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
-        $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
+        $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}${originalDbSuffix}"
         $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
         try {
             if ($redisServerPath) {
