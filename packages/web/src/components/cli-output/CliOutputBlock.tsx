@@ -1036,7 +1036,7 @@ function LocalFileAttachmentCard({
   }
 
   if (fileStatus === 'not-found' || fileStatus === 'error') {
-    return renderErrorState();
+    return null;
   }
 
   if (!isReady) return null;
