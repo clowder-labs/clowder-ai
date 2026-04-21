@@ -1,125 +1,234 @@
-/*
- * *
- *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
- *
- */
-
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { after, before, beforeEach, describe, it, mock } from 'node:test';
+import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
 
-async function importAuthRoutesFresh() {
-  const moduleUrl = `${pathToFileURL(resolve('dist/routes/auth.js')).href}?t=${Date.now()}-${Math.random()}`;
-  return import(moduleUrl);
+const { authRoutes } = await import('../dist/routes/auth.js');
+const { AuthProviderRegistry } = await import('../dist/auth/provider-registry.js');
+const { InMemoryAuthSessionStore } = await import('../dist/auth/session-store.js');
+const { registerAuthMiddleware } = await import('../dist/auth/middleware.js');
+
+function createProvider(overrides = {}) {
+  return {
+    id: 'test-provider',
+    displayName: 'Test Provider',
+    presentation: {
+      mode: 'form',
+      fields: [
+        { name: 'tenant', label: 'Tenant', type: 'text', required: true },
+        { name: 'secret', label: 'Secret', type: 'password', required: true },
+      ],
+      submitLabel: 'Sign in',
+    },
+    async authenticate(_input) {
+      return {
+        success: true,
+        principal: {
+          userId: 'tenant:alice',
+          displayName: 'Alice',
+          expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+        },
+      };
+    },
+    ...overrides,
+  };
+}
+
+async function createApp(provider) {
+  const registry = new AuthProviderRegistry();
+  registry.register(provider);
+  const sessionStore = new InMemoryAuthSessionStore();
+  const app = Fastify();
+  registerAuthMiddleware(app, sessionStore, { skipAuth: false });
+  await app.register(authRoutes, {
+    authModule: {
+      activeProviderId: provider.id,
+      providerRegistry: registry,
+      getActiveProvider() {
+        return registry.get(provider.id);
+      },
+    },
+    sessionStore,
+  });
+  return { app, sessionStore };
 }
 
 describe('auth routes', () => {
-  let app;
-  let sessions;
-  let configRoot = '';
-  const originalHome = process.env.HOME;
-  let refreshCount = 0;
-  const domainId = `domain-${randomUUID()}`;
-  const userName = `user-${randomUUID()}`;
-  const userId = `${domainId}:${userName}`;
-
-  before(async () => {
-    configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-routes-'));
-    process.env.HOME = configRoot;
-    const authModule = await importAuthRoutesFresh();
-    sessions = authModule.sessions;
-    app = Fastify();
-    app.get('/api/maas-models', async (request) => {
-      refreshCount += 1;
-      assert.equal(request.headers['x-office-claw-user'], userId);
-      assert.equal(request.headers['x-refresh'], 'true');
-      assert.ok(sessions.has(userId));
-      return { models: [] };
+  test('GET /api/islogin auto-authenticates when provider mode is auto', async () => {
+    let calls = 0;
+    const provider = createProvider({
+      id: 'no-auth',
+      displayName: 'No Auth',
+      presentation: { mode: 'auto', fields: [], submitLabel: 'Continue' },
+      async authenticate() {
+        calls += 1;
+        return {
+          success: true,
+          principal: { userId: 'guest-user', displayName: 'Guest', expiresAt: null },
+        };
+      },
     });
-    await app.register(authModule.authRoutes);
-    await app.ready();
+
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({ method: 'GET', url: '/api/islogin' });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(calls, 1);
+    assert.equal(sessionStore.getByUserId('guest-user')?.providerId, 'no-auth');
+
+    const body = response.json();
+    assert.equal(body.islogin, true);
+    assert.equal(body.userId, 'guest-user');
+    assert.equal(body.isskip, true);
+    assert.equal(body.provider.id, 'no-auth');
   });
 
-  beforeEach(async () => {
-    mock.restoreAll();
-    sessions.clear();
-    refreshCount = 0;
+  test('GET /api/islogin exposes active provider schema when login is required', async () => {
+    const provider = createProvider({
+      id: 'corp-oidc',
+      displayName: 'Corp SSO',
+      presentation: {
+        mode: 'form',
+        fields: [
+          { name: 'workspaceId', label: 'Workspace', type: 'text', required: true },
+          { name: 'apiToken', label: 'Token', type: 'password', required: true },
+        ],
+        submitLabel: 'Connect',
+      },
+    });
 
-    mock.method(globalThis, 'fetch', async (url) => {
-      if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
-        return new Response(
-          JSON.stringify({
-            access: 'ak-test',
-            domain_id: domainId,
-            domain_name: domainId,
-            project_id: 'project-001',
-            project_name: 'project-001',
-            secret: 'sk-test',
-            sts_token: 'sts-token-test',
-            user_id: userName,
-            user_name: userName,
-            model_info: {
-              model_api_url_base: 'https://maas.example.com',
-              model_auth_info: {
-                model_app_key: 'app-key',
-                model_app_secret: 'app-secret',
-              },
-            },
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
+    const { app } = await createApp(provider);
+    const response = await app.inject({ method: 'GET', url: '/api/islogin' });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.islogin, false);
+    assert.equal(body.provider.id, 'corp-oidc');
+    assert.equal(body.provider.mode, 'form');
+    assert.equal(body.provider.fields.length, 2);
+  });
+
+  test('POST /api/login delegates credentials to the active provider and stores session', async () => {
+    let receivedInput = null;
+    const provider = createProvider({
+      id: 'corp-oidc',
+      async authenticate(input) {
+        receivedInput = input;
+        return {
+          success: true,
+          principal: {
+            userId: 'corp:alice',
+            displayName: 'Alice',
+            expiresAt: new Date('2099-01-01T00:00:00.000Z'),
           },
-        );
-      }
-
-      throw new Error(`unexpected outbound fetch in auth-routes.test: ${url}`);
+        };
+      },
     });
 
-    const loginResponse = await app.inject({
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({
       method: 'POST',
-      url: '/api/login/callback',
-      payload: { ticket: 'ticket-auth-routes' },
+      url: '/api/login',
+      payload: { workspaceId: 'acme', apiToken: 'shh' },
     });
 
-    assert.equal(loginResponse.statusCode, 200);
-    assert.equal(loginResponse.json().success, true);
-    sessions.clear();
-    refreshCount = 0;
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(receivedInput.credentials, { workspaceId: 'acme', apiToken: 'shh' });
+    assert.ok(response.headers['x-session-id']);
+    assert.equal(sessionStore.getByUserId('corp:alice')?.providerId, 'corp-oidc');
+
+    const body = response.json();
+    assert.equal(body.success, true);
+    assert.equal(body.userId, 'corp:alice');
+    assert.equal(body.providerId, 'corp-oidc');
+    assert.ok(body.sessionId);
   });
 
-  after(async () => {
-    mock.restoreAll();
-    sessions.clear();
-    await app.close();
-    process.env.HOME = originalHome;
-    rmSync(configRoot, { recursive: true, force: true });
+  test('POST /api/login calls postLoginInit after session issuance', async () => {
+    let initCalled = false;
+    let initSessionInfo = null;
+    const provider = createProvider({
+      id: 'hook-test',
+      async authenticate() {
+        return {
+          success: true,
+          principal: { userId: 'hook-user', displayName: 'Hook', expiresAt: null },
+        };
+      },
+      async postLoginInit(session) {
+        initCalled = true;
+        initSessionInfo = session;
+      },
+    });
+
+    const { app } = await createApp(provider);
+    await app.inject({ method: 'POST', url: '/api/login', payload: {} });
+
+    assert.equal(initCalled, true);
+    assert.equal(initSessionInfo.userId, 'hook-user');
+    assert.equal(initSessionInfo.providerId, 'hook-test');
+    assert.ok(initSessionInfo.sessionId);
   });
 
-  it('refreshes maas models on the first islogin call for an already logged-in user', async () => {
-    const firstResponse = await app.inject({
-      method: 'GET',
-      url: '/api/islogin',
-      headers: { 'x-office-claw-user': userId },
+  test('POST /api/login does not fail when postLoginInit throws', async () => {
+    const provider = createProvider({
+      id: 'failing-hook',
+      async authenticate() {
+        return {
+          success: true,
+          principal: { userId: 'resilient-user', displayName: 'Res', expiresAt: null },
+        };
+      },
+      async postLoginInit() {
+        throw new Error('MaaS subscription exploded');
+      },
     });
 
-    assert.equal(firstResponse.statusCode, 200);
-    assert.equal(JSON.parse(firstResponse.body).islogin, true);
-    assert.equal(refreshCount, 1);
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({ method: 'POST', url: '/api/login', payload: {} });
 
-    const secondResponse = await app.inject({
-      method: 'GET',
-      url: '/api/islogin',
-      headers: { 'x-office-claw-user': userId },
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().success, true);
+    assert.ok(sessionStore.getByUserId('resilient-user'));
+  });
+
+  test('POST /api/logout clears the session and calls provider logout', async () => {
+    let logoutSession = null;
+    const provider = createProvider({
+      id: 'corp-oidc',
+      async logout(session) {
+        logoutSession = session;
+      },
+    });
+    const { app, sessionStore } = await createApp(provider);
+    const session = sessionStore.create(provider.id, {
+      userId: 'corp:alice',
+      displayName: 'Alice',
+      expiresAt: new Date('2099-01-01'),
     });
 
-    assert.equal(secondResponse.statusCode, 200);
-    assert.equal(JSON.parse(secondResponse.body).islogin, true);
-    assert.equal(refreshCount, 1);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/logout',
+      headers: { authorization: `Bearer ${session.sessionId}` },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(sessionStore.getByUserId('corp:alice'), null);
+    assert.equal(response.json().success, true);
+    assert.equal(logoutSession.userId, 'corp:alice');
+  });
+
+  test('session store cleans up old session when same user logs in again', async () => {
+    const provider = createProvider({ id: 'relogin-test' });
+    const { app, sessionStore } = await createApp(provider);
+
+    const res1 = await app.inject({ method: 'POST', url: '/api/login', payload: { tenant: 'a', secret: 'b' } });
+    const session1Id = res1.json().sessionId;
+
+    const res2 = await app.inject({ method: 'POST', url: '/api/login', payload: { tenant: 'a', secret: 'b' } });
+    const session2Id = res2.json().sessionId;
+
+    assert.equal(sessionStore.getBySessionId(session1Id), null);
+    assert.ok(sessionStore.getBySessionId(session2Id));
   });
 });

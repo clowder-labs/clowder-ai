@@ -1,25 +1,17 @@
-/*
- * *
- *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
- *
- */
-
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { clearAuthIdentity, setAuthIdentity, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 
-const mockRouterReplace = vi.fn();
-const mockLocationReplace = vi.fn();
+const mockReplace = vi.fn();
 
 vi.mock('next/image', () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => React.createElement('img', props),
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockRouterReplace }),
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
 vi.mock('@/utils/api-client', () => ({
@@ -27,18 +19,11 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
-  clearAuthIdentity: vi.fn(),
-  setAuthIdentity: vi.fn(),
-  setCanCreateModel: vi.fn(),
   setIsSkipAuth: vi.fn(),
+  setUserId: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
-const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
-const mockSetCanCreateModel = vi.mocked(setCanCreateModel);
-const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
-const originalLocation = window.location;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -53,7 +38,24 @@ async function flush() {
   });
 }
 
-describe('LoginPage', () => {
+async function changeInputValue(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+async function clickElement(element: HTMLElement) {
+  await act(async () => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+describe('LoginPage password visibility toggle', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -66,42 +68,50 @@ describe('LoginPage', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-
-    mockRouterReplace.mockReset();
-    mockLocationReplace.mockReset();
+    mockReplace.mockReset();
     mockApiFetch.mockReset();
-    mockClearAuthIdentity.mockReset();
-    mockSetAuthIdentity.mockReset();
-    mockSetCanCreateModel.mockReset();
-    mockSetIsSkipAuth.mockReset();
-
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: {
-        ...originalLocation,
-        href: 'http://localhost:3003/login',
-        replace: mockLocationReplace,
-      },
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/islogin') {
+        return Promise.resolve(
+          jsonResponse({
+            islogin: false,
+            isskip: false,
+            hascode: true,
+            provider: {
+              id: 'huawei-iam',
+              mode: 'form',
+              submitLabel: '登录',
+              description: 'Authenticate with Huawei IAM.',
+              fields: [
+                {
+                  name: 'userType',
+                  label: '账号类型',
+                  type: 'select',
+                  options: [
+                    { value: 'huawei', label: '华为云账号' },
+                    { value: 'iam', label: 'IAM 用户' },
+                  ],
+                },
+                { name: 'domainName', label: '租户 / 域名', type: 'text', required: true },
+                { name: 'userName', label: 'IAM 用户名', type: 'text' },
+                { name: 'password', label: '密码', type: 'password', required: true },
+                { name: 'promotionCode', label: '邀请码', type: 'text' },
+              ],
+            },
+          }),
+        );
+      }
+      if (url === '/api/login' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ success: false, message: '登录失败' }, 200));
+      }
+      return Promise.resolve(jsonResponse({}));
     });
-
-    mockApiFetch.mockResolvedValue(
-      jsonResponse({
-        islogin: false,
-        isskip: false,
-        canCreateModel: false,
-        pendingInvitation: false,
-        loginUrl: 'https://auth.example.com/login',
-      }),
-    );
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: originalLocation,
-    });
   });
 
   afterAll(() => {
@@ -109,70 +119,127 @@ describe('LoginPage', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders fallback login button and redirects to unified auth on click', async () => {
+  it('keeps password eye visible after login failure and additional typing', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
 
-    const loginButton = container.querySelector('button');
+    const domainInput = container.querySelector('#domainName') as HTMLInputElement | null;
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+    const form = container.querySelector('form');
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
-    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
-    expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
-    expect(mockSetCanCreateModel).toHaveBeenCalledWith(false);
-    expect(mockLocationReplace).not.toHaveBeenCalled();
-    expect(mockRouterReplace).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('立即登录');
-    expect(container.textContent).not.toContain('�');
-    expect(loginButton).not.toBeNull();
+    expect(domainInput).not.toBeNull();
+    expect(passwordInput).not.toBeNull();
+    expect(container.querySelector('[data-testid="login-password-visibility-toggle"]')).toBeNull();
+
+    await changeInputValue(domainInput!, 'example-domain');
+    await changeInputValue(passwordInput!, 'secret');
+
+    const toggle = container.querySelector(
+      '[data-testid="login-password-visibility-toggle"]',
+    ) as HTMLButtonElement | null;
+
+    expect(toggle).not.toBeNull();
+    expect(passwordInput?.type).toBe('password');
 
     await act(async () => {
-      loginButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
     });
+    await flush();
 
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockLocationReplace).toHaveBeenCalledWith('https://auth.example.com/login');
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/login',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(container.textContent).toContain('登录失败');
+
+    const passwordInputAfterFailure = container.querySelector('#password') as HTMLInputElement | null;
+    expect(passwordInputAfterFailure?.value).toBe('secret');
+
+    await changeInputValue(passwordInputAfterFailure!, 'secret-more');
+
+    expect(container.querySelector('[data-testid="login-password-visibility-toggle"]')).not.toBeNull();
   });
 
-  it('redirects to home when already logged in', async () => {
-    mockApiFetch.mockResolvedValueOnce(
-      jsonResponse({
-        islogin: true,
-        isskip: false,
-        canCreateModel: true,
-        userId: 'debug-user',
-        userName: 'debug-user',
-      }),
-    );
-
+  it('renders login copy without mojibake text', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
 
-    expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'debug-user', userName: 'debug-user' });
-    expect(mockSetCanCreateModel).toHaveBeenCalledWith(true);
-    expect(mockRouterReplace).toHaveBeenCalledWith('/?authSuccess=1');
-    expect(mockLocationReplace).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('欢迎使用 OfficeClaw');
+    expect(container.textContent).toContain('专家团思辨模式');
+    expect(container.textContent).toContain('登录');
+    expect(container.textContent).not.toContain('鍗');
+    expect(container.textContent).not.toContain('鐧');
   });
 
-  it('redirects to invitation page when subscription activation is pending', async () => {
-    mockApiFetch.mockResolvedValueOnce(
-      jsonResponse({
-        islogin: false,
-        isskip: false,
-        canCreateModel: false,
-        pendingInvitation: true,
-      }),
-    );
-
+  it('prevents copying and cutting password content', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
 
-    expect(mockRouterReplace).toHaveBeenCalledWith('/login/invitation');
-    expect(mockLocationReplace).not.toHaveBeenCalled();
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+    expect(passwordInput).not.toBeNull();
+
+    await changeInputValue(passwordInput!, 'secret');
+
+    const copyEvent = new Event('copy', { bubbles: true, cancelable: true });
+    const cutEvent = new Event('cut', { bubbles: true, cancelable: true });
+
+    expect(passwordInput?.dispatchEvent(copyEvent)).toBe(false);
+    expect(copyEvent.defaultPrevented).toBe(true);
+    expect(passwordInput?.dispatchEvent(cutEvent)).toBe(false);
+    expect(cutEvent.defaultPrevented).toBe(true);
+  });
+
+  it('applies the native password reveal suppression class to the login password input', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+    expect(passwordInput).not.toBeNull();
+    expect(passwordInput?.className).toContain('login-password-input');
+  });
+
+  it('clears the login error when switching account type', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const domainInput = container.querySelector('#domainName') as HTMLInputElement | null;
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+    const form = container.querySelector('form');
+
+    expect(domainInput).not.toBeNull();
+    expect(passwordInput).not.toBeNull();
+
+    await changeInputValue(domainInput!, 'example-domain');
+    await changeInputValue(passwordInput!, 'secret');
+
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(container.textContent).toContain('登录失败');
+
+    const switchButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '切换到 IAM',
+    );
+
+    expect(switchButton).toBeDefined();
+
+    await clickElement(switchButton!);
+    await flush();
+
+    expect(container.textContent).not.toContain('登录失败');
   });
 });
