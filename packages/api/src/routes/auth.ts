@@ -325,7 +325,7 @@ async function completeCasLogin(
     sessions.set(session.userId, { ...session });
     attachUserHeaders(reply, session.userId);
 
-    // Initialize AOM metrics from CAS credentials (async, non-blocking)
+    // Initialize AOM metrics from CAS credentials
     const casCredential = resolveCasCredential(session);
     if (
       casCredential.accessKey &&
@@ -333,7 +333,7 @@ async function completeCasLogin(
       casCredential.securityToken &&
       session.credential.project_id
     ) {
-      initMetricsServiceFromCredential(
+      const initResult = await initMetricsServiceFromCredential(
         {
           access: casCredential.accessKey,
           secret: casCredential.secretKey,
@@ -343,15 +343,16 @@ async function completeCasLogin(
         HUAWEI_CLAW_BASE_URL,
         process.env.AOM_INSTANCE_ID || 'officeclaw-instance',
         request.log,
-      )
-        .then((initialized) => {
-          if (initialized) startTokenUsageReporter(60_000);
-        })
-        .catch(() => {});
+      );
+      if (initResult.initialized) {
+        startTokenUsageReporter(60_000);
+        if (initResult.wasFirstInit) {
+          await reportMetric('agentarts_claw_user_login', 1, undefined, request.log);
+        }
+      }
     }
 
     await refreshMaaSModelsAfterLogin(request, session.userId);
-    reportMetric('agentarts_claw_user_login', 1).catch(() => {});
     return {
       success: true,
       userId: session.userId,

@@ -29,6 +29,23 @@ export interface AomAccessCodeResult {
   accessCodeId: string;
 }
 
+export interface PrometheusInstance {
+  prom_id: string;
+  prom_name: string;
+  project_id: string;
+  prom_type?: string;
+  enterprise_project_id?: string;
+  prom_create_timestamp?: number;
+  prom_update_timestamp?: number;
+  deleted_time?: number;
+  prom_spec_config?: {
+    prom_http_api_endpoint?: string;
+    region_id?: string;
+    remote_read_url?: string;
+    remote_write_url?: string;
+  };
+}
+
 // ─── Region extraction ──────────────────────────────────────────────────────
 
 /**
@@ -107,13 +124,15 @@ async function createAomAccessCode(
     if (!response.ok) {
       const errorBody = await response.text();
       log?.error(
-        { statusCode: response.status, body: errorBody, url },
+        { statusCode: response.status },
         '[AomAccessCodeClient] CreateAccessCode API failed',
       );
       return null;
     }
 
-    const data = (await response.json()) as {
+    const rawBody = await response.text();
+
+    const data = JSON.parse(rawBody) as {
       access_code?: string;
       access_code_id?: string;
       status?: string;
@@ -124,19 +143,95 @@ async function createAomAccessCode(
       return null;
     }
 
-    log?.info(
-      { accessCodeId: data.access_code_id },
-      '[AomAccessCodeClient] ✅ Created AOM access code successfully',
-    );
+    log?.info('[AomAccessCodeClient] Created AOM access code successfully');
 
     return {
       accessCode: data.access_code,
       accessCodeId: data.access_code_id ?? '',
     };
   } catch (error) {
-    log?.error({ error, url }, '[AomAccessCodeClient] Failed to create access code');
+    log?.error({ error }, '[AomAccessCodeClient] Failed to create access code');
     return null;
   }
+}
+
+// ─── ListPrometheus API ───────────────────────────────────────────────────────
+
+const PROMETHEUS_RETRY_INTERVAL_MS = 3000;
+const PROMETHEUS_MAX_RETRIES = 5;
+
+async function listPrometheusInstances(
+  credential: CasCredential,
+  region: string,
+  log?: FastifyBaseLogger,
+): Promise<PrometheusInstance[] | null> {
+  const host = `aom.${region}.myhuaweicloud.com`;
+  const url = `https://${host}/v1/${credential.project_id}/aom/prometheus`;
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Security-Token': credential.sts_token,
+      'Enterprise-Project-Id': 'all_granted_eps',
+      host,
+    };
+
+    const request = new signer.HttpRequest('GET', url, headers, '');
+    const sig = new signer.Signer();
+    sig.Key = credential.access;
+    sig.Secret = credential.secret;
+    const signedRequest = sig.Sign(request);
+
+    const response = await fetch(url, {
+      method: signedRequest.method,
+      headers: signedRequest.headers,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      log?.warn(
+        { statusCode: response.status },
+        '[AomAccessCodeClient] ListPrometheus API failed',
+      );
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      prometheus?: PrometheusInstance[];
+    };
+
+    return data.prometheus ?? [];
+  } catch (error) {
+    log?.error({ error }, '[AomAccessCodeClient] Failed to list prometheus instances');
+    return null;
+  }
+}
+
+export async function ensurePrometheusInstance(
+  credential: CasCredential,
+  region: string,
+  log?: FastifyBaseLogger,
+): Promise<PrometheusInstance[] | null> {
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= PROMETHEUS_MAX_RETRIES; attempt++) {
+    const instances = await listPrometheusInstances(credential, region, log);
+
+    if (instances && instances.length > 0) {
+      log?.info({ count: instances.length }, '[AomAccessCodeClient] Found Prometheus instances');
+      return instances;
+    }
+
+    lastError = `No Prometheus instances found (attempt ${attempt}/${PROMETHEUS_MAX_RETRIES})`;
+    log?.warn({ attempt, maxRetries: PROMETHEUS_MAX_RETRIES }, `[AomAccessCodeClient] ${lastError}`);
+
+    if (attempt < PROMETHEUS_MAX_RETRIES) {
+      await new Promise((resolve) => setTimeout(resolve, PROMETHEUS_RETRY_INTERVAL_MS));
+    }
+  }
+
+  log?.error({ retries: PROMETHEUS_MAX_RETRIES }, '[AomAccessCodeClient] ❌ Failed to find Prometheus instances after all retries, metrics disabled');
+  return null;
 }
 
 // ─── ListAccessCode API call ─────────────────────────────────────────────────
@@ -169,7 +264,7 @@ export async function fetchAomAccessCode(
     if (!response.ok) {
       const errorBody = await response.text();
       log?.error(
-        { statusCode: response.status, body: errorBody, url },
+        { statusCode: response.status },
         '[AomAccessCodeClient] ListAccessCode API failed',
       );
       return null;
@@ -185,16 +280,12 @@ export async function fetchAomAccessCode(
 
     const codes = data.access_codes?.filter((c) => c.status === 'enable');
     if (!codes || codes.length === 0) {
-      // No enabled access_code — auto-create one
       return createAomAccessCode(credential, effectiveRegion, log);
     }
 
-    const { access_code, access_code_id } = codes[0];
-    log?.info({ accessCodeId: access_code_id }, '[AomAccessCodeClient] Fetched AOM access code successfully');
-
-    return { accessCode: access_code, accessCodeId: access_code_id };
+    return { accessCode: codes[0].access_code, accessCodeId: codes[0].access_code_id };
   } catch (error) {
-    log?.error({ error, url }, '[AomAccessCodeClient] Failed to fetch access code');
+    log?.error({ error }, '[AomAccessCodeClient] Failed to fetch access code');
     return null;
   }
 }

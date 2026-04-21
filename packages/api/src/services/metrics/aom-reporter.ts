@@ -171,27 +171,3 @@ export class AomMetricsReporter {
 export function createAomMetricsReporter(config: AomMetricsReporterConfig): AomMetricsReporter {
   return new AomMetricsReporter(config);
 }
-
-export function createAomMetricsReporterFromEnv(): AomMetricsReporter | null {
-  const endpoint = process.env.AOM_METRICS_ENDPOINT;
-  const projectId = process.env.AOM_PROJECT_ID;
-  const token = process.env.AOM_TOKEN;
-  const instanceId = process.env.AOM_INSTANCE_ID;
-  const hostname = process.env.AOM_HOSTNAME;
-  const clawVersion = process.env.CLAW_VERSION;
-  const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
-
-  if (!endpoint || !projectId || !token) {
-    return null;
-  }
-
-  return new AomMetricsReporter({
-    endpoint,
-    projectId,
-    token,
-    instanceId,
-    hostname,
-    clawVersion,
-    timeout,
-  });
-}
