@@ -113,7 +113,7 @@ describe('AuthorizationCard', () => {
     );
   });
 
-  it('extracts params json block and shows command/workdir in structured fields', async () => {
+  it('extracts params json block and shows raw json in collapsible details', async () => {
     const paramsReasonRequest: AuthPendingRequest = {
       ...request,
       reason:
@@ -125,14 +125,11 @@ describe('AuthorizationCard', () => {
     });
 
     expect(container.querySelector('[data-testid="authorization-card-params"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="authorization-card-param-command"]')?.textContent).toContain(
-      'dir /b *.md2 2>nul || echo not_found',
-    );
-    expect(container.querySelector('[data-testid="authorization-card-param-workdir"]')?.textContent).toContain(
-      'D:\\CODE\\relay-claw-fml\\workspace',
-    );
     expect(container.querySelector('[data-testid="authorization-card-params-raw"]')?.textContent).toContain(
       '"command": "dir /b *.md2 2>nul || echo not_found"',
+    );
+    expect(container.querySelector('[data-testid="authorization-card-params-raw"]')?.textContent).toContain(
+      '"workdir": "D:\\\\CODE\\\\relay-claw-fml\\\\workspace"',
     );
   });
 
