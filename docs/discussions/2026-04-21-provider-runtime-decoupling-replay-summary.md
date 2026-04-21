@@ -42,6 +42,7 @@ created: 2026-04-21
    - AgentService 创建
    - account/client 绑定规则
    - protocol 期望值
+   - runtime auth 兼容性判断
    - MCP config 写入
    - startup wiring
 3. 这让“新增 provider”和“修改已有 provider”都变成对 API 主流程的侵入式修改。
@@ -49,7 +50,11 @@ created: 2026-04-21
    - 第三方 provider
    - 按部署裁剪 provider
    - 非默认 auth/runtime 组合
-5. 无法做渐进式外部化。要拆一个 provider，必须先动一圈主流程。
+5. 登录 auth、runtime auth、provider preset 之间没有清晰边界：
+   - `CAS / skip auth` 是一层
+   - builtin OAuth / api_key / `huawei-maas` 是另一层
+   - `relayclaw / non-relayclaw` 又是第三层
+6. 无法做渐进式外部化。要拆一个 provider，必须先动一圈主流程。
 
 从团队协作角度，问题更直接：
 
@@ -75,6 +80,10 @@ created: 2026-04-21
    - 找到对应 plugin
    - 调用 `createAgentService`
    - 在 invocation 阶段按绑定结果注入 env
+3. **auth** 在这里并不是“完全忽略”，而是变成 provider runtime 的相邻边界：
+   - plugin 负责声明 builtin client / expected protocol / binding validation
+   - account profile、model source、`CAS / skip auth` 继续由现有 auth 与 binding 层处理
+   - 这样可以先把 provider 主干抽象出来，而不要求同一批改完整个 auth framework
 
 换句话说，原来的系统已经是“逻辑上可分”，只是“物理上没分开”。
 
@@ -142,12 +151,26 @@ created: 2026-04-21
 
 后续继续拆 provider 时，可以一个一个外移，而不是再碰主调用链。
 
-### 4.4 兼容层继续保留
+### 4.4 provider binding / runtime auth 相关决策被收口到 plugin 边界
 
-`packages/api/src/config/provider-binding-compat.ts` 现在是：
+`packages/api/src/config/provider-binding-compat.ts` 现在不再只是一张硬编码表，而是：
 
-1. 先尝试从 plugin registry 读 mapping / validation
+1. 先尝试从 plugin registry 读取
+   - builtin client mapping
+   - expected protocol
+   - binding validation
 2. registry 未初始化时，再走 legacy fallback
+
+这一步虽然没有把 auth 单独插件化，但已经把“provider 认什么 binding / 认什么 protocol / 接不接受这种 runtime auth 组合”收口到了 plugin 边界。
+
+这意味着后续继续拆 auth 时，不需要再回头拆一次 provider 主链。
+
+### 4.5 兼容层继续保留
+
+兼容策略本身仍然保留：
+
+1. registry 优先
+2. legacy fallback 兜底
 
 这意味着：
 
@@ -156,7 +179,7 @@ created: 2026-04-21
 
 这是一个明确的渐进式迁移设计，不是临时补丁。
 
-### 4.5 A2A bootstrap 缺口已补
+### 4.6 A2A bootstrap 缺口已补
 
 `11b73a89` 之后原本还留了一个 P1：
 
@@ -173,7 +196,7 @@ created: 2026-04-21
 1. builtin 保证默认 provider 不掉线
 2. discovery 允许外部 plugin 真正生效
 
-### 4.6 测试补齐到“骨架级”
+### 4.7 测试补齐到“骨架级”
 
 当前和这次解耦直接相关的测试覆盖点：
 
@@ -209,36 +232,7 @@ created: 2026-04-21
 1. **runtime 主链路解耦了**
 2. **默认产品预设还没有解耦**
 
-### 5.2 auth 本身还没有被抽成独立层
-
-这里要明确区分两种 auth：
-
-1. **平台登录 auth**
-   - 入口在 `packages/api/src/routes/auth.ts`
-   - 当前核心模式是 `CAS` 或 `CAT_CAFE_SKIP_AUTH`
-2. **模型调用 auth**
-   - builtin OAuth account
-   - api_key provider profile
-   - `authType: none`（主要用于 ACP）
-   - 保留模型源 `huawei-maas`
-
-这条分支解耦的是 provider runtime，不是 auth framework。
-
-当前 auth 仍然散在三层：
-
-1. 登录认证在 `routes/auth.ts`
-2. provider binding / account compatibility 在 provider plugin + compat layer
-3. `huawei-maas` 作为特殊 model source 走 invocation 特判
-
-所以当前系统的真实状态是：
-
-1. **provider 入口已经插件化**
-2. **auth 入口还没有正交化**
-3. **`relayclaw` 与 `huawei-maas` 的默认组合，仍然是产品预设，不是 auth plugin**
-
-这也是为什么“是不是 jiuwenclaw”和“用哪种 auth”现在还不能只靠一层开关描述清楚。
-
-### 5.3 `.env` 还不能一键切换“是不是 jiuwenclaw / 用什么 auth”
+### 5.2 `.env` 还不能一键切换“是不是 jiuwenclaw / 用什么 auth”
 
 现在 `.env` 能控制的主要是：
 
@@ -259,7 +253,7 @@ created: 2026-04-21
 2. runtime catalog
 3. model config source / provider profile 绑定
 
-### 5.4 `huawei-maas` 仍然是特殊模型源，不是普通 plugin
+### 5.3 `huawei-maas` 仍然是特殊模型源，不是普通 plugin
 
 `huawei-maas` 当前是 reserved model config source，不是一个和 `provider-a2a` 同级的普通 provider plugin。
 
@@ -270,7 +264,7 @@ created: 2026-04-21
 
 如果后续目标是完全正交化，这一层还要继续拆。
 
-### 5.5 多数 provider 实现仍在 `packages/api`
+### 5.4 多数 provider 实现仍在 `packages/api`
 
 当前真正外部化成独立 package 的 provider，主要是：
 
