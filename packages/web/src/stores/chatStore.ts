@@ -584,8 +584,8 @@ interface ChatState {
   // ── Active-thread actions (operate on flat state) ──
   addMessage: (msg: ChatMessage) => void;
   removeMessage: (id: string) => void;
-  prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
-  replaceMessages: (msgs: ChatMessage[], hasMore: boolean) => void;
+  prependHistory: (msgs: ChatMessage[], hasMore: boolean, expectedThreadId?: string) => void;
+  replaceMessages: (msgs: ChatMessage[], hasMore: boolean, expectedThreadId?: string) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
   patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
@@ -1056,15 +1056,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: state.messages.filter((m) => m.id !== id),
     })),
 
-  prependHistory: (msgs, hasMore) =>
+  prependHistory: (msgs, hasMore, expectedThreadId) =>
     set((state) => {
+      if (expectedThreadId && state.currentThreadId !== expectedThreadId) {
+        console.warn('[prependHistory] stale response dropped', { currentThreadId: state.currentThreadId, expectedThreadId });
+        return state;
+      }
       const existingIds = new Set(state.messages.map((m) => m.id));
       const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
       return { messages: [...newMsgs, ...state.messages], hasMore };
     }),
 
-  replaceMessages: (msgs, hasMore) =>
+  replaceMessages: (msgs, hasMore, expectedThreadId) =>
     set((state) => {
+      if (expectedThreadId && state.currentThreadId !== expectedThreadId) {
+        console.warn('[replaceMessages] stale response dropped', { currentThreadId: state.currentThreadId, expectedThreadId });
+        return state;
+      }
       revokeRemovedBlobUrls(state.messages, msgs);
       return { messages: msgs, hasMore };
     }),
