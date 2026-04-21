@@ -17,6 +17,8 @@ import { createRedisClient, SessionStore } from '@clowder/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
+import { registerAuthMiddleware } from './auth/middleware.js';
+import { authSessionStore } from './auth/session-store.js';
 import { orchestrate } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
@@ -305,6 +307,10 @@ async function main(): Promise<void> {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
+
+  registerAuthMiddleware(app, authSessionStore, {
+    skipAuth: process.env.CAT_CAFE_SKIP_AUTH === '1',
+  });
 
   // Create invocation tracker for cancellation support
   const invocationTracker = new InvocationTracker();
@@ -1032,7 +1038,17 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
-  await app.register(authRoutes);
+  await app.register(authRoutes, {
+    onPostLogin: async (request, session) => {
+      await request.server.inject({
+        method: 'GET',
+        url: '/api/maas-models',
+        headers: {
+          authorization: `Bearer ${session.sessionId}`,
+        },
+      });
+    },
+  });
   await app.register(versionRoutes);
   await app.register(downloadRoutes);
   await app.register(maasModelsRoutes);

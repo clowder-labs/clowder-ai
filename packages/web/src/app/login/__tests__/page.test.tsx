@@ -1,5 +1,6 @@
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../page';
 import { apiFetch } from '@/utils/api-client';
@@ -20,6 +21,7 @@ vi.mock('@/utils/api-client', () => ({
 
 vi.mock('@/utils/userId', () => ({
   setIsSkipAuth: vi.fn(),
+  setSessionId: vi.fn(),
   setUserId: vi.fn(),
 }));
 
@@ -32,27 +34,45 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function flush() {
-  await act(async () => {
+async function flush(count = 3) {
+  for (let i = 0; i < count; i += 1) {
     await Promise.resolve();
-  });
+  }
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function getReactProps(element: Element): Record<string, unknown> | null {
+  for (const key of Object.keys(element)) {
+    if (key.startsWith('__reactProps$')) {
+      return (element as Record<string, unknown>)[key] as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
 async function changeInputValue(input: HTMLInputElement, value: string) {
-  await act(async () => {
-    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  flushSync(() => {
     valueSetter?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    await Promise.resolve();
+    const reactProps = getReactProps(input);
+    const syntheticEvent = { target: input, currentTarget: input };
+    if (typeof reactProps?.onInput === 'function') {
+      (reactProps.onInput as (event: unknown) => void)(syntheticEvent);
+    }
+    if (typeof reactProps?.onChange === 'function') {
+      (reactProps.onChange as (event: unknown) => void)(syntheticEvent);
+    }
   });
+  await flush();
 }
 
 async function clickElement(element: HTMLElement) {
-  await act(async () => {
+  flushSync(() => {
     element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await Promise.resolve();
   });
+  await flush();
 }
 
 describe('LoginPage password visibility toggle', () => {
@@ -110,7 +130,9 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   afterEach(() => {
-    act(() => root.unmount());
+    flushSync(() => {
+      root.unmount();
+    });
     container.remove();
   });
 
@@ -120,7 +142,7 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   it('keeps password eye visible after login failure and additional typing', async () => {
-    await act(async () => {
+    flushSync(() => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
@@ -143,9 +165,8 @@ describe('LoginPage password visibility toggle', () => {
     expect(toggle).not.toBeNull();
     expect(passwordInput?.type).toBe('password');
 
-    await act(async () => {
+    flushSync(() => {
       form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      await Promise.resolve();
     });
     await flush();
 
@@ -164,7 +185,7 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   it('renders login copy without mojibake text', async () => {
-    await act(async () => {
+    flushSync(() => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
@@ -177,7 +198,7 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   it('prevents copying and cutting password content', async () => {
-    await act(async () => {
+    flushSync(() => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
@@ -197,7 +218,7 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   it('applies the native password reveal suppression class to the login password input', async () => {
-    await act(async () => {
+    flushSync(() => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
@@ -208,7 +229,7 @@ describe('LoginPage password visibility toggle', () => {
   });
 
   it('clears the login error when switching account type', async () => {
-    await act(async () => {
+    flushSync(() => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
@@ -223,9 +244,8 @@ describe('LoginPage password visibility toggle', () => {
     await changeInputValue(domainInput!, 'example-domain');
     await changeInputValue(passwordInput!, 'secret');
 
-    await act(async () => {
+    flushSync(() => {
       form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      await Promise.resolve();
     });
     await flush();
 

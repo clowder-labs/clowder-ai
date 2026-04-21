@@ -8,12 +8,12 @@
  * Unified API client for Clowder AI frontend.
  *
  * - Auto-prepends NEXT_PUBLIC_API_URL
- * - Auto-injects X-Office-Claw-User identity header on every request
+ * - Auto-injects session credential on every request
  * - Replaces scattered raw fetch() calls across hooks/components
  * - Configurable request timeout (default: 1 hour to match backend CLI timeout)
  */
 
-import { getUserId } from './userId';
+import { getIsSkipAuth, getSessionId, getUserId } from './userId';
 
 /** Default API request timeout: 1 hour (matching backend CLI_TIMEOUT_MS) */
 const DEFAULT_API_TIMEOUT_MS = 60 * 60 * 1000;
@@ -65,13 +65,19 @@ export interface ApiFetchOptions extends RequestInit {
 }
 
 /**
- * Fetch wrapper that injects identity header and supports timeout.
+ * Fetch wrapper that injects auth/session headers and supports timeout.
  * @param path - API path starting with '/' (e.g. '/api/messages')
  * @param init - Standard RequestInit options plus optional timeoutMs
  */
 export async function apiFetch(path: string, init?: ApiFetchOptions): Promise<Response> {
   const headers = new Headers(init?.headers);
-  headers.set('X-Office-Claw-User', getUserId());
+  const sessionId = getSessionId();
+  if (sessionId) {
+    headers.set('Authorization', `Bearer ${sessionId}`);
+  } else if (getIsSkipAuth()) {
+    // Skip-auth remains header-based so local dev flows keep a stable identity.
+    headers.set('X-Office-Claw-User', getUserId());
+  }
 
   const timeoutMs = init?.timeoutMs ?? DEFAULT_API_TIMEOUT_MS;
 

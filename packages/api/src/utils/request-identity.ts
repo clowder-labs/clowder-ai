@@ -7,15 +7,18 @@
 /**
  * Unified request identity resolver.
  *
- * Priority: X-Office-Claw-User header > userId query > fallback > default
+ * Two tiers of identity resolution:
  *
- * Header-based identity is preferred because:
- * - Not logged in access logs / referer headers / browser history
- * - Single injection point in frontend api-client
- * - Easier to upgrade to JWT/session later
+ * 1. resolveHeaderUserId / resolveTrustedUserId — authenticated identity only.
+ *    Reads request.auth populated by auth middleware.
+ *
+ * 2. resolveUserId / resolveUserIdHint — compatibility helpers.
+ *    Prefer request.auth, then fall back to legacy header/query channels where
+ *    older internal flows still need an identity hint.
  */
 
 import type { FastifyRequest } from 'fastify';
+import type { AuthContext } from '../auth/types.js';
 
 export interface ResolveUserIdOptions {
   /** Optional explicit fallback (e.g., legacy body/form field). */
@@ -38,6 +41,10 @@ function resolveDefaultOwnerUserId(): string | null {
   return ownerUserId;
 }
 
+function getAuthContext(request: FastifyRequest): AuthContext | null {
+  return (request as FastifyRequest & { auth?: AuthContext }).auth ?? null;
+}
+
 export function resolveEffectiveUserId(value: unknown): string | null {
   const userId = nonEmptyString(value);
   if (!userId) return null;
@@ -48,20 +55,21 @@ export function resolveEffectiveUserId(value: unknown): string | null {
 }
 
 /**
- * Trusted request identity source for browser/API calls.
- *
- * Unlike resolveUserId(), this does not accept caller-controlled query params.
- * Reads only X-Office-Claw-User.
+ * Authenticated request identity source for browser/API calls.
  */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
-  return resolveEffectiveUserId(request.headers['x-office-claw-user']);
+  return resolveEffectiveUserId(getAuthContext(request)?.userId);
+}
+
+export function resolveSessionId(request: FastifyRequest): string | null {
+  return resolveEffectiveUserId(getAuthContext(request)?.sessionId);
 }
 
 /**
  * Trusted identity resolver for sensitive routes.
  *
- * Unlike resolveUserId(), this does NOT accept query params, so callers can
- * stop trusting URL-controlled identity without refactoring the entire app.
+ * This stays auth-only so sensitive routes do not silently accept weaker
+ * transport channels after the auth/provider replay.
  */
 export function resolveTrustedUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
   const fromHeader = resolveHeaderUserId(request);
@@ -74,8 +82,11 @@ export function resolveTrustedUserId(request: FastifyRequest, options?: ResolveU
 }
 
 export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
-  const fromHeader = resolveHeaderUserId(request);
-  if (fromHeader) return fromHeader;
+  const fromAuth = resolveHeaderUserId(request);
+  if (fromAuth) return fromAuth;
+
+  const fromHint = resolveUserIdHint(request);
+  if (fromHint) return fromHint;
 
   const query = request.query as Record<string, unknown>;
   const fromQuery = resolveEffectiveUserId(query.userId);
@@ -85,4 +96,20 @@ export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOp
   if (fromFallback) return fromFallback;
 
   return resolveEffectiveUserId(options?.defaultUserId);
+}
+
+/**
+ * Identity hint for internal callers that have not migrated to session auth
+ * yet. This must not be treated as proof of authentication.
+ */
+export function resolveUserIdHint(request: FastifyRequest): string | null {
+  const fromAuth = resolveHeaderUserId(request);
+  if (fromAuth) return fromAuth;
+
+  const fromHeader =
+    resolveEffectiveUserId(request.headers['x-office-claw-user']) ??
+    resolveEffectiveUserId(request.headers['x-cat-cafe-user']);
+  if (fromHeader) return fromHeader;
+
+  return null;
 }

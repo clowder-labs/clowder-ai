@@ -254,14 +254,7 @@ export function ChatContainer(props: ChatContainerProps) {
         } else {
           console.log('ChatContainer: auth failed, clearing cache');
           cachedIsLoggedIn = false;
-          if (data?.pendingInvitation) {
-            redirectTo('/login/invitation');
-          } else {
-            const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
-            if (loginUrl) {
-              redirectTo(loginUrl, true);
-            }
-          }
+          redirectTo('/login');
         }
       } catch (err) {
         if (!cancelled) {
@@ -279,12 +272,7 @@ export function ChatContainer(props: ChatContainerProps) {
           }
           // 重试耗尽：跳转 CAS 重新登录
           sessionStorage.removeItem('_chat_auth_retry');
-          const casUrl = sessionStorage.getItem('_cas_login_url');
-          if (casUrl) {
-            window.location.replace(casUrl);
-          } else {
-            window.location.reload();
-          }
+          redirectTo('/login');
           return;
         }
       } finally {

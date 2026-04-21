@@ -5,11 +5,14 @@
  */
 
 /**
- * Unified userId source for the frontend.
- * Priority: URL ?userId= > localStorage > 'default-user'
+ * Unified frontend identity store.
+ *
+ * `userId` is a display/legacy identifier.
+ * `sessionId` is the opaque auth credential used for API requests.
  */
 
 const STORAGE_KEY = 'cat-cafe-userId';
+const SESSION_KEY = 'cat-cafe-sessionId';
 const SKIP_AUTH_KEY = 'cat-cafe-isskip';
 const CAN_CREATE_MODEL_KEY = 'can-create-model';
 const USER_NAME_KEY = 'cat-cafe-userName';
@@ -31,6 +34,29 @@ export function getUserId(): string {
 export function setUserId(id: string): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, id);
+  }
+}
+
+export function clearUserId(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
+export function getSessionId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(SESSION_KEY);
+}
+
+export function setSessionId(id: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(SESSION_KEY, id);
+  }
+}
+
+export function clearSessionId(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(SESSION_KEY);
   }
 }
 
@@ -60,16 +86,28 @@ export function setUserName(name: string): void {
   }
 }
 
-export function setAuthIdentity({ userId, userName }: { userId: string; userName?: string }): void {
+export function setAuthIdentity({
+  userId,
+  userName,
+  sessionId,
+}: {
+  userId: string;
+  userName?: string;
+  sessionId?: string;
+}): void {
   setUserId(userId);
   if (typeof userName === 'string') {
     setUserName(userName);
+  }
+  if (typeof sessionId === 'string' && sessionId.trim()) {
+    setSessionId(sessionId);
   }
 }
 
 export function clearAuthIdentity(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(USER_NAME_KEY);
   }
 }

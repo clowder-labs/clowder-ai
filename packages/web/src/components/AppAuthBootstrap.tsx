@@ -34,12 +34,7 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
         }
 
         clearAuthIdentity();
-        const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
-        if (loginUrl) {
-          // 缓存 CAS 登录 URL，供 API 不可用时兜底跳转
-          sessionStorage.setItem('_cas_login_url', loginUrl);
-          window.location.replace(loginUrl);
-        }
+        window.location.replace('/login');
       } catch (error) {
         if (cancelled) return;
         console.error('检查登录状态失败:', error);
@@ -53,14 +48,9 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
             if (!cancelled) window.location.reload();
           }, 3000);
         } else {
-          // 重试耗尽：跳转 CAS 重新登录
+          // 重试耗尽：回到统一 provider 登录页
           sessionStorage.removeItem('_auth_retry');
-          const casUrl = sessionStorage.getItem('_cas_login_url');
-          if (casUrl) {
-            window.location.replace(casUrl);
-          } else {
-            window.location.reload();
-          }
+          window.location.replace('/login');
         }
       }
     })();
