@@ -221,7 +221,7 @@ export function ChatInputActionButton({
         <button
           onClick={onSend}
           disabled={isSendDisabled}
-          className="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[20px] bg-[rgba(20,118,255,1)] text-white transition-colors hover:bg-[rgba(20,118,255,0.9)] disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[20px] text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 chat-input-send-message"
           title="发送消息"
           aria-label="Send message"
         >

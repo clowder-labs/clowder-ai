@@ -11,14 +11,15 @@ export function RotatingBorderStopIcon({ className }: { className?: string }) {
         <path
           d="M10 1.5A8.5 8.5 0 0 1 18.5 10"
           fill="none"
-          stroke="rgba(20,118,255,1)"
+          stroke="currentColor"
           strokeWidth="1.8"
           strokeLinecap="round"
         />
         <path
           d="M18.5 10A8.5 8.5 0 1 1 10 1.5"
           fill="none"
-          stroke="rgba(20,118,255,0.24)"
+          stroke="currentColor"
+          strokeOpacity="0.24"
           strokeWidth="1.8"
           strokeLinecap="round"
         />
@@ -31,7 +32,7 @@ export function RotatingBorderStopIcon({ className }: { className?: string }) {
           repeatCount="indefinite"
         />
       </g>
-      <rect x="6.3" y="6.3" width="7.4" height="7.4" rx="1.5" fill="rgba(20,118,255,1)" />
+      <rect x="6.3" y="6.3" width="7.4" height="7.4" rx="1.5" fill="currentColor" />
     </svg>
   );
 }
