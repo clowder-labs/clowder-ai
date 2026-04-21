@@ -419,7 +419,9 @@ if ($useExternalRedis) {
         $redisAuthFromCM = $true
         if (-not $localRedisPassword) {
             $bytes = New-Object byte[] 24
-            [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+            $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+            $rng.GetBytes($bytes)
+            $rng.Dispose()
             $localRedisPassword = [Convert]::ToBase64String($bytes)
             Write-Ok "Redis auth: new password generated"
         }
