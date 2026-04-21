@@ -18,3 +18,12 @@ test('BUILTIN_PLUGINS register the relayclaw binding with openai compatibility',
   assert.equal(registry.resolveBuiltinClient('relayclaw'), 'openai');
   assert.equal(registry.resolveExpectedProtocol('relayclaw'), 'openai');
 });
+
+test('BUILTIN_PLUGINS include the a2a provider for runtime routing', () => {
+  const registry = new ProviderPluginRegistry();
+  for (const plugin of BUILTIN_PLUGINS) {
+    registry.register(plugin);
+  }
+
+  assert.ok(registry.has('a2a'));
+});

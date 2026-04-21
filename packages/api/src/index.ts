@@ -10,7 +10,7 @@
  */
 
 import { join } from 'node:path';
-import { ProviderPluginRegistry } from '@clowder/core';
+import type { ClowderProviderPlugin } from '@clowder/core';
 import { type CatConfig, type CatId, catRegistry } from '@clowder/shared';
 import type { RedisClient } from '@clowder/shared/utils';
 import { createRedisClient, SessionStore } from '@clowder/shared/utils';
@@ -32,7 +32,7 @@ import {
   resolveAnthropicRuntimeProfile,
   resolveRuntimeProviderProfileForClient,
 } from './config/provider-profiles.js';
-import { BUILTIN_PLUGINS } from './config/plugins/builtin-providers.js';
+import { createProviderPluginRegistry } from './config/plugins/builtin-providers.js';
 import { initPluginRegistry } from './config/plugins/plugin-registry-singleton.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
@@ -664,16 +664,13 @@ async function main(): Promise<void> {
     app.log.warn(`[api] F139: TaskRunnerV2 init failed (non-fatal): ${err}`);
   }
 
-  const pluginRegistry = new ProviderPluginRegistry();
-  for (const plugin of BUILTIN_PLUGINS) {
-    pluginRegistry.register(plugin);
-  }
   const extraPlugins = (globalThis as Record<string, unknown>).__clowder_extra_plugins;
-  if (Array.isArray(extraPlugins)) {
-    for (const plugin of extraPlugins) {
-      pluginRegistry.register(plugin as Parameters<typeof pluginRegistry.register>[0]);
-    }
-  }
+  const configuredExtraPlugins = Array.isArray(extraPlugins)
+    ? (extraPlugins as readonly ClowderProviderPlugin[])
+    : undefined;
+  const pluginRegistry = await createProviderPluginRegistry({
+    extraPlugins: configuredExtraPlugins,
+  });
   initPluginRegistry(pluginRegistry);
   app.log.info(`[api] PluginRegistry initialized: providers=[${pluginRegistry.getAllProviders().join(', ')}]`);
 

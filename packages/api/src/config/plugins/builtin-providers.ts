@@ -1,5 +1,12 @@
 import { join } from 'node:path';
-import type { AgentService, AgentServiceFactoryContext, ClowderProviderPlugin, McpConfigWriter } from '@clowder/core';
+import {
+  ProviderPluginRegistry,
+  type AgentService,
+  type AgentServiceFactoryContext,
+  type ClowderProviderPlugin,
+  type McpConfigWriter,
+} from '@clowder/core';
+import { A2AAgentService } from '../../domains/cats/services/agents/providers/A2AAgentService.js';
 import { AntigravityAgentService } from '../../domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { ClaudeAgentService } from '../../domains/cats/services/agents/providers/ClaudeAgentService.js';
 import { CodexAgentService } from '../../domains/cats/services/agents/providers/CodexAgentService.js';
@@ -182,6 +189,19 @@ export const acpPlugin: ClowderProviderPlugin = {
   },
 };
 
+export const a2aPlugin: ClowderProviderPlugin = {
+  name: 'a2a',
+  providers: ['a2a'],
+  createAgentService(ctx: AgentServiceFactoryContext): AgentService {
+    const envKey = `CAT_${ctx.catId.toUpperCase()}_A2A_URL`;
+    const a2aUrl = (ctx.env[envKey] ?? '').trim();
+    if (!a2aUrl) {
+      throw new Error(`A2A cat "${ctx.catId}" missing ${envKey} env var`);
+    }
+    return new A2AAgentService({ catId: ctx.catId, config: { url: a2aUrl } });
+  },
+};
+
 export const BUILTIN_PLUGINS: readonly ClowderProviderPlugin[] = [
   anthropicPlugin,
   openaiPlugin,
@@ -191,4 +211,28 @@ export const BUILTIN_PLUGINS: readonly ClowderProviderPlugin[] = [
   antigravityPlugin,
   relayclawPlugin,
   acpPlugin,
+  a2aPlugin,
 ];
+
+export interface CreateProviderPluginRegistryOptions {
+  extraPlugins?: readonly ClowderProviderPlugin[];
+  searchPaths?: string[];
+}
+
+export async function createProviderPluginRegistry(
+  options: CreateProviderPluginRegistryOptions = {},
+): Promise<ProviderPluginRegistry> {
+  const registry = new ProviderPluginRegistry();
+
+  for (const plugin of BUILTIN_PLUGINS) {
+    registry.register(plugin);
+  }
+
+  for (const plugin of options.extraPlugins ?? []) {
+    registry.register(plugin);
+  }
+
+  await registry.discoverFromNodeModules(options.searchPaths);
+
+  return registry;
+}
