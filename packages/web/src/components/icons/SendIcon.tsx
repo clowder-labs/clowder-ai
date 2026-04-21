@@ -8,7 +8,7 @@ export function SendIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="32.000000" height="32.000000" fill="none">
       <rect id="发送按钮" width="32.000000" height="32.000000" x="0.000000" y="0.000000" />
-      <rect id="Rectangle" width="32.000000" height="32.000000" x="0.000000" y="0.000000" rx="16.000000" fill="rgb(20,118,255)" />
+      <rect id="Rectangle" width="32.000000" height="32.000000" x="0.000000" y="0.000000" rx="16.000000" fill="currentColor" />
       <rect id="Rectangle" width="31.000000" height="31.000000" x="0.500000" y="0.500000" rx="15.500000" stroke="rgb(0,0,0)" strokeOpacity="0" strokeWidth="1" />
       <g id="编组 2">
         <rect id="矩形" width="20.000000" height="20.000000" x="6.000000" y="6.000000" fill="rgb(216,216,216)" fillOpacity="0" />

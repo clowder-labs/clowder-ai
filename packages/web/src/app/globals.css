@@ -282,6 +282,7 @@
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
   --accent-pill-bg: rgba(20, 118, 255, 0.08);
+  --accent-pill-text-hover: rgba(20, 118, 255, 0.9);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
 
   /* Alert semantic backgrounds */
@@ -498,6 +499,7 @@
 
   --accent-pill-text: rgba(204, 109, 26, 1);
   --accent-pill-bg: rgba(255, 241, 230, 1);
+  --accent-pill-text-hover: rgba(204, 109, 26, 0.9);
 }
 
 [data-ui-theme="business"] {
@@ -2458,6 +2460,14 @@ select:-webkit-autofill:focus {
 .chat-input-stop-generation {
   color: var(--accent-pill-text);
   background-color: var(--accent-pill-bg);
+}
+
+.chat-input-send-message {
+  color: var(--accent-pill-text);
+}
+
+.chat-input-send-message:hover {
+  color: var(--accent-pill-text-hover);
 }
 
 .overflow-tooltip {
