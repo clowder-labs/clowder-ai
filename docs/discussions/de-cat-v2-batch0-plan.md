@@ -31,6 +31,7 @@ revised: 2026-04-23
 
 ## Review 修订记录
 
+> v4 2026-04-23: 根据 Codex re-review (R3) 修订 1 个问题
 > v3 2026-04-23: 根据 Codex re-review (R2) 修订 3 个问题
 > v2 2026-04-23: 根据 Codex review 修订 5 个问题
 
@@ -44,6 +45,7 @@ revised: 2026-04-23
 | R2-P1a | R2 | `services/index.ts:106` 仍 export `RedisGameStore`，删文件后悬空编译失败 | **Task 1 Step 1.3 补充**：增加移除 line 106 `RedisGameStore` 导出 |
 | R2-P1b | R2 | `scripts/migrate-signals.ts` import `./migrate-signals/` 目录，删目录不删入口会断编译 | **Task 5 Step 5.8 补充**：同时删除 `migrate-signals.ts` 入口文件 |
 | R2-P2 | R2 | `package.json` 脚本 `fetch-signals`/`migrate-signals` 指向已删代码 | **Task 5 新增 Step 5.11**：移除 package.json 中两个脚本入口 |
+| R3-P1 | R3 | Task 5.10 测试清理只覆盖 `signal-*.test.js` glob，遗漏 14 个非该前缀但 import signals 域代码的 API 测试 + 1 个 Web 测试 (`signal-nav-back.test.ts`) | **Task 5 Step 5.10 扩展**：完整列举全部 34 个待删测试文件（Web 9 + API glob 11 + API 显式 14） |
 
 ---
 
@@ -357,16 +359,35 @@ pnpm build
 
 ### Step 5.10: 清测试
 
-**Delete:**
+**Delete (Web — 9 files):**
 - `packages/web/src/utils/__tests__/signals-api.test.ts`
 - `packages/web/src/utils/__tests__/signals-view.test.ts`
 - `packages/web/src/components/__tests__/signal-inbox-view.test.ts`
 - `packages/web/src/components/__tests__/signal-article-detail.test.ts`
 - `packages/web/src/components/__tests__/signal-article-list.test.ts`
 - `packages/web/src/components/__tests__/signal-nav.test.ts`
+- `packages/web/src/components/__tests__/signal-nav-back.test.ts`（Re-review R3 补充）
 - `packages/web/src/components/__tests__/signal-sources-view.test.ts`
 - `packages/web/src/components/__tests__/study-fold-nav.test.ts`
+
+**Delete (API — `signal-*.test.js` glob 覆盖, 11 files):**
 - `packages/api/test/signal-*.test.js` (全部)
+
+**Delete (API — 非 `signal-*` 前缀但 import signals 域代码, 14 files)（Re-review R3 补充）:**
+- `packages/api/test/signals-route.test.js`
+- `packages/api/test/api-fetcher.test.js`
+- `packages/api/test/article-query-service.test.js`
+- `packages/api/test/backfill-content.test.js`
+- `packages/api/test/inbox-records.test.js`
+- `packages/api/test/legacy-article-parser.test.js`
+- `packages/api/test/podcast-context-injection.test.js`
+- `packages/api/test/podcast-thread-generation.test.js`
+- `packages/api/test/rss-fetcher.test.js`
+- `packages/api/test/study-meta-collections.test.js`
+- `packages/api/test/study-meta-dedup.test.js`
+- `packages/api/test/webpage-fetcher.test.js`
+- `packages/api/test/webpage-fetcher-secondary.test.js`
+- `packages/api/test/webpage-fetcher-content.test.js`
 
 ### Step 5.11: 清理 package.json 脚本入口
 
