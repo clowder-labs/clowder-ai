@@ -475,10 +475,6 @@ describe('bootstrapCapabilities', () => {
     assert.ok(catCafeMemory);
     assert.equal(catCafeMemory.source, 'builtin');
 
-    const catCafeSignals = config.capabilities.find((c) => c.id === 'office-claw-signals');
-    assert.ok(catCafeSignals);
-    assert.equal(catCafeSignals.source, 'builtin');
-
     const fs = config.capabilities.find((c) => c.id === 'filesystem');
     assert.ok(fs);
     assert.equal(fs.source, 'external');
@@ -486,7 +482,7 @@ describe('bootstrapCapabilities', () => {
     // Also persisted to disk
     const persisted = await readCapabilitiesConfig(dir);
     assert.ok(persisted);
-    assert.equal(persisted.capabilities.length, 4);
+    assert.equal(persisted.capabilities.length, 3);
   });
 
   it('skips duplicate office-claw from external discovery', async () => {
@@ -511,7 +507,6 @@ describe('bootstrapCapabilities', () => {
     assert.equal(catCafeEntries.length, 0);
     assert.ok(config.capabilities.find((c) => c.id === 'office-claw-collab'));
     assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
   });
 
   it('uses officeClawRepoRoot for office-claw MCP descriptor when provided', async () => {
@@ -528,7 +523,7 @@ describe('bootstrapCapabilities', () => {
       { officeClawRepoRoot: '/host-repo' },
     );
 
-    const splitIds = ['office-claw-collab', 'office-claw-memory', 'office-claw-signals'];
+    const splitIds = ['office-claw-collab', 'office-claw-memory'];
     for (const splitId of splitIds) {
       const cap = config.capabilities.find((c) => c.id === splitId);
       assert.ok(cap, `${splitId} should exist after bootstrap`);
@@ -922,7 +917,6 @@ describe('orchestrate', () => {
     // At minimum, split office-claw MCP servers should be present
     assert.ok(config.capabilities.find((c) => c.id === 'office-claw-collab'));
     assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
   });
 
   it('uses existing capabilities.json on subsequent runs', async () => {

@@ -187,21 +187,17 @@ describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
     const claudeServers = await readClaudeMcpConfig(cliPaths.anthropic);
     assert.ok(claudeServers.find((s) => s.name === 'office-claw-collab'));
     assert.ok(claudeServers.find((s) => s.name === 'office-claw-memory'));
-    assert.ok(claudeServers.find((s) => s.name === 'office-claw-signals'));
 
     const codexServers = await readCodexMcpConfig(cliPaths.openai);
     assert.ok(codexServers.find((s) => s.name === 'office-claw-collab'));
     assert.ok(codexServers.find((s) => s.name === 'office-claw-memory'));
-    assert.ok(codexServers.find((s) => s.name === 'office-claw-signals'));
 
     const geminiServers = await readGeminiMcpConfig(cliPaths.google);
     const collab = geminiServers.find((s) => s.name === 'office-claw-collab');
     const memory = geminiServers.find((s) => s.name === 'office-claw-memory');
-    const signals = geminiServers.find((s) => s.name === 'office-claw-signals');
     assert.ok(collab);
     assert.ok(memory);
-    assert.ok(signals);
-    for (const server of [collab, memory, signals]) {
+    for (const server of [collab, memory]) {
       assert.deepEqual(server.env, {
         OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
         OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
@@ -430,14 +426,13 @@ describe('F041 Discovery Consistency', () => {
       geminiConfig: join(dir, 'nonexistent.json'),
     });
 
-    // Should have: office-claw split(3) + pencil + jetbrains (discovered)
-    assert.equal(config.capabilities.length, 5);
+    // Should have: office-claw split(2) + pencil + jetbrains (discovered)
+    assert.equal(config.capabilities.length, 4);
 
     const catCafeCollab = config.capabilities.find((c) => c.id === 'office-claw-collab');
     assert.ok(catCafeCollab);
     assert.equal(catCafeCollab.source, 'builtin');
     assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
 
     const pencil = config.capabilities.find((c) => c.id === 'pencil');
     assert.ok(pencil);
