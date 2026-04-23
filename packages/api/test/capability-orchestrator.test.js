@@ -463,8 +463,8 @@ describe('bootstrapCapabilities', () => {
     });
 
     assert.equal(config.version, 1);
-    // office-claw split(3) + filesystem
-    assert.equal(config.capabilities.length, 4);
+    // office-claw split(2) + filesystem
+    assert.equal(config.capabilities.length, 3);
 
     const catCafeCollab = config.capabilities.find((c) => c.id === 'office-claw-collab');
     assert.ok(catCafeCollab);
