@@ -8,11 +8,24 @@
 
 import { useMemo } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
+import type { CatInvocationInfo } from '@/stores/chatStore';
 import { CatTokenUsage } from './CatTokenUsage';
-import type { RightStatusPanelProps } from './RightStatusPanel';
-import { modeLabel, statusLabel, statusTone, truncateId } from './status-helpers';
+import { type CatStatus, type IntentMode, modeLabel, statusLabel, statusTone, truncateId } from './status-helpers';
 
-interface MobileStatusSheetProps extends RightStatusPanelProps {
+interface MobileStatusSheetProps {
+  intentMode: IntentMode;
+  targetCats: string[];
+  catStatuses: Record<string, CatStatus>;
+  catInvocations: Record<string, CatInvocationInfo>;
+  threadId: string;
+  messageSummary: {
+    total: number;
+    assistant: number;
+    system: number;
+    evidence: number;
+    followup: number;
+  };
+  width?: number;
   open: boolean;
   onClose: () => void;
 }
