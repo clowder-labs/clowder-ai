@@ -31,15 +31,19 @@ revised: 2026-04-23
 
 ## Review 修订记录
 
+> v3 2026-04-23: 根据 Codex re-review (R2) 修订 3 个问题
 > v2 2026-04-23: 根据 Codex review 修订 5 个问题
 
-| # | 问题 | 修订 |
-|---|------|------|
-| P1-1 | `callback-bootcamp-routes:19` 引用 `achievement-defs`（leaderboard），先删 leaderboard 会断编译 | **重排执行顺序**：Bootcamp(Task 3) 在 Leaderboard(Task 4) 之前执行 |
-| P1-2 | Signal 删除遗漏 `createSignalArticleLookup`（index.ts:90,798）、`AgentRouter` signalArticleLookup、`route-serial/parallel` signal 注入、`scripts/fetch-signals.ts`、`scripts/migrate-signals/` | **Task 5 补充**：增加 5 个断引用步骤 + 2 个额外删除目标 |
-| P1-3 | chatStore workspace 字段被 5 个 hooks + 3 个活跃组件使用，不能直接删 | **Task 8 降级**：只删面板组件文件，不动 chatStore/hooks/ChatContainer（移至 Batch 1） |
-| P2 | Game 在 index.ts 的引用不只 820-850，还有 877、1242、1359 | **Task 1 补充**：完整覆盖 index.ts 四段 game 引用 |
-| P3 | ChatEmptyState 已无 bootcamp 入口 | **Task 3 删除 Step 4.2**（不存在的改动） |
+| # | 轮次 | 问题 | 修订 |
+|---|------|------|------|
+| P1-1 | R1 | `callback-bootcamp-routes:19` 引用 `achievement-defs`（leaderboard），先删 leaderboard 会断编译 | **重排执行顺序**：Bootcamp(Task 3) 在 Leaderboard(Task 4) 之前执行 |
+| P1-2 | R1 | Signal 删除遗漏 `createSignalArticleLookup`（index.ts:90,798）、`AgentRouter` signalArticleLookup、`route-serial/parallel` signal 注入、`scripts/fetch-signals.ts`、`scripts/migrate-signals/` | **Task 5 补充**：增加 5 个断引用步骤 + 2 个额外删除目标 |
+| P1-3 | R1 | chatStore workspace 字段被 5 个 hooks + 3 个活跃组件使用，不能直接删 | **Task 8 降级**：只删面板组件文件，不动 chatStore/hooks/ChatContainer（移至 Batch 1） |
+| P2 | R1 | Game 在 index.ts 的引用不只 820-850，还有 877、1242、1359 | **Task 1 补充**：完整覆盖 index.ts 四段 game 引用 |
+| P3 | R1 | ChatEmptyState 已无 bootcamp 入口 | **Task 3 删除 Step 4.2**（不存在的改动） |
+| R2-P1a | R2 | `services/index.ts:106` 仍 export `RedisGameStore`，删文件后悬空编译失败 | **Task 1 Step 1.3 补充**：增加移除 line 106 `RedisGameStore` 导出 |
+| R2-P1b | R2 | `scripts/migrate-signals.ts` import `./migrate-signals/` 目录，删目录不删入口会断编译 | **Task 5 Step 5.8 补充**：同时删除 `migrate-signals.ts` 入口文件 |
+| R2-P2 | R2 | `package.json` 脚本 `fetch-signals`/`migrate-signals` 指向已删代码 | **Task 5 新增 Step 5.11**：移除 package.json 中两个脚本入口 |
 
 ---
 
@@ -91,6 +95,7 @@ revised: 2026-04-23
 
 **Modify:** `packages/api/src/domains/cats/services/index.ts`
 - 移除 lines 35-47 的全部 game 相关 export
+- 移除 line 106 的 `export { RedisGameStore } from './stores/redis/RedisGameStore.js'`（Re-review R2 P1 修复）
 
 ### Step 1.4: 断引用 — shared types
 
@@ -340,6 +345,7 @@ pnpm build
 - `packages/api/src/routes/signal-collection-routes.ts`
 - `packages/api/src/routes/signal-podcast-routes.ts`
 - `packages/api/src/scripts/fetch-signals.ts`（P1-2 修复）
+- `packages/api/src/scripts/migrate-signals.ts`（Re-review R2 P1 修复 — 入口文件 import 目录）
 - `packages/api/src/scripts/migrate-signals/` (整个目录)（P1-2 修复）
 
 ### Step 5.9: 删除前端文件
@@ -362,7 +368,13 @@ pnpm build
 - `packages/web/src/components/__tests__/study-fold-nav.test.ts`
 - `packages/api/test/signal-*.test.js` (全部)
 
-### Step 5.11: 验证
+### Step 5.11: 清理 package.json 脚本入口
+
+**Modify:** `packages/api/package.json`
+- 移除 line 26 `"fetch-signals": "node dist/scripts/fetch-signals.js"`（Re-review R2 P2 修复）
+- 移除 line 27 `"migrate-signals": "node dist/scripts/migrate-signals.js"`（Re-review R2 P2 修复）
+
+### Step 5.12: 验证
 
 ```bash
 pnpm build
