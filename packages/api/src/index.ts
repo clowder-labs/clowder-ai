@@ -812,48 +812,6 @@ async function main(): Promise<void> {
     log: app.log,
   });
 
-  // F101: Game engine store (created early so messages route can intercept /game commands)
-  const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
-  const f101GameStore = redis ? new RedisGameStore(redis) : undefined;
-
-  // F101 Phase I: Shared ActionNotifier + game driver (narrator or legacy).
-  // Created early so both messagesRoutes and gameRoutes use the same driver instance.
-  const { EventEmitterActionNotifier } = await import('./domains/cats/services/game/EventEmitterActionNotifier.js');
-  const sharedActionNotifier = new EventEmitterActionNotifier();
-  let f101SharedDriver: import('./domains/cats/services/game/GameDriver.js').GameDriver | undefined;
-  if (f101GameStore) {
-    const gameNarratorEnabled = process.env.GAME_NARRATOR_ENABLED === 'true';
-    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const sharedOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
-    const { createGameDriver } = await import('./domains/cats/services/game/createGameDriver.js');
-    if (gameNarratorEnabled) {
-      const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
-      const wakeCat = createWakeCatFn({
-        threadStore,
-        invocationQueue,
-        queueProcessor,
-        log: app.log,
-      });
-      f101SharedDriver = createGameDriver({
-        gameNarratorEnabled: true,
-        legacyDeps: { gameStore: f101GameStore, orchestrator: sharedOrchestrator, messageStore },
-        narratorDeps: {
-          gameStore: f101GameStore,
-          wakeCat,
-          actionNotifier: sharedActionNotifier,
-          orchestrator: sharedOrchestrator,
-        },
-      });
-      app.log.info('[api] F101 game driver: GameNarratorDriver (agent-driven)');
-    } else {
-      f101SharedDriver = createGameDriver({
-        gameNarratorEnabled: false,
-        legacyDeps: { gameStore: f101GameStore, orchestrator: sharedOrchestrator, messageStore },
-      });
-      app.log.info('[api] F101 game driver: LegacyAutoDriver');
-    }
-  }
-
   // F142: Resolve data dirs relative to monorepo root (not API cwd) so they land in PRESERVE zone
   const monoRoot = findMonorepoRoot(process.cwd());
   const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
@@ -874,8 +832,6 @@ async function main(): Promise<void> {
     draftStore,
     invocationQueue,
     queueProcessor,
-    ...(f101GameStore ? { gameStore: f101GameStore } : {}),
-    ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
     uploadDir,
   };
   await app.register(messagesRoutes, messagesOpts);
@@ -1237,13 +1193,6 @@ async function main(): Promise<void> {
     );
   }
 
-  // F101: register onClose hook BEFORE listen (Fastify forbids addHook after listen).
-  // The actual recovery player is assigned post-listen; stopAllLoops is a no-op if null.
-  let f101RecoveryPlayer: { stopAllLoops(): void } | null = null;
-  app.addHook('onClose', async () => {
-    f101RecoveryPlayer?.stopAllLoops();
-  });
-
   // Start listening
   let address: string;
   try {
@@ -1353,19 +1302,6 @@ async function main(): Promise<void> {
     app.log.info('[api] capabilities bootstrapped and CLI configs regenerated at startup');
   } catch (err) {
     app.log.warn(`[api] capability bootstrap / CLI config regeneration failed (best-effort): ${String(err)}`);
-  }
-
-  // F101 Phase G: Recover auto-play loops for active games after restart.
-  if (f101GameStore && socketManager && f101SharedDriver) {
-    f101RecoveryPlayer = f101SharedDriver;
-    try {
-      const recovered = await f101SharedDriver.recoverActiveGames();
-      if (recovered > 0) {
-        app.log.info(`[api] F101 auto-play recovery: restored ${recovered} active game loop(s)`);
-      }
-    } catch (err) {
-      app.log.warn(`[api] F101 auto-play recovery failed (best-effort): ${String(err)}`);
-    }
   }
 
   // F139 Phase 4b: late-bind invokeTrigger so scheduler templates can wake cats

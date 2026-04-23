@@ -25,23 +25,18 @@ import type { SessionStore } from '@office-claw/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getAllCatIdsFromConfig, getDefaultCatId } from '../config/office-claw-config-loader.js';
+import { getDefaultCatId } from '../config/office-claw-config-loader.js';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
-import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
-import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
-import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
-import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
-import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
@@ -83,7 +78,6 @@ interface StreamingHookLike {
 
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { parseMultipart } from './parse-multipart.js';
 
@@ -112,10 +106,6 @@ export interface MessagesRoutesOptions {
   invocationQueue?: InvocationQueue;
   /** F39: Queue processor for auto-dequeue on invocation complete */
   queueProcessor?: QueueProcessor;
-  /** F101: Game store for /game command interception */
-  gameStore?: IGameStore;
-  /** F101: Injectable auto-player for lifecycle-safe teardown in tests/routes */
-  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopAllLoops'>;
   /** F088 ISSUE-15: Outbound delivery hook for connector platforms (late-bound after gateway bootstrap) */
   outboundHook?: OutboundDeliveryHookLike;
   /** F088 ISSUE-15: Streaming hook for connector platforms (late-bound after gateway bootstrap) */
@@ -187,30 +177,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
   // Shared AgentRouter injected via opts (created in index.ts)
   const router = opts.router;
-  const gameOrchestrator = opts.gameStore
-    ? new GameOrchestrator({
-        gameStore: opts.gameStore,
-        socketManager: opts.socketManager,
-        messageStore: opts.messageStore,
-      })
-    : null;
-  const gameAutoPlayer = gameOrchestrator
-    ? (opts.autoPlayer ??
-      createGameDriver({
-        gameNarratorEnabled: false,
-        legacyDeps: {
-          gameStore: opts.gameStore!,
-          orchestrator: gameOrchestrator,
-          messageStore: opts.messageStore,
-        },
-      }))
-    : null;
-
-  if (gameAutoPlayer) {
-    app.addHook('onClose', async () => {
-      gameAutoPlayer.stopAllLoops();
-    });
-  }
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
@@ -311,95 +277,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         error: '对话正在删除中',
         detail: '请稍后重试，或新建一个对话继续',
         code: 'THREAD_DELETING',
-      };
-    }
-
-    // F101: /game command interception — start game directly, skip AI routing
-    const parsedGame = parseGameCommand(content);
-    if (parsedGame && opts.gameStore && opts.threadStore) {
-      if (!gameOrchestrator || !gameAutoPlayer) {
-        throw new Error('game auto-player is unavailable');
-      }
-
-      const DEFAULT_PLAYER_COUNT = 7;
-      const allCatIds = getAllCatIdsFromConfig();
-      const sanitized = parsedGame.catIds ? sanitizeCatIds(parsedGame.catIds, allCatIds) : [];
-      // Fallback to all cats if sanitize filtered everything out (or no catIds provided)
-      const catIds = sanitized.length > 0 ? sanitized : [...allCatIds];
-      const playerCount = parsedGame.playerCount ?? DEFAULT_PLAYER_COUNT;
-      const seats = buildGameSeats({
-        humanRole: parsedGame.humanRole,
-        userId,
-        catIds,
-        playerCount,
-      });
-
-      // Phase D: Create independent game thread with project categorization
-      const gameTitle = `狼人杀 — ${playerCount}人局`;
-      const gameThread = await opts.threadStore.create(userId, gameTitle, `games/${parsedGame.gameType}`);
-      const gameThreadId = gameThread.id;
-
-      // Notify source thread about the new game thread (include initiator for frontend guard)
-      opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'game:thread_created', {
-        gameThreadId,
-        gameTitle,
-        initiatorUserId: userId,
-        timestamp: Date.now(),
-      });
-
-      // Store user message in the game thread
-      const userMessage = await opts.messageStore.append({
-        userId,
-        catId: null,
-        content,
-        mentions: [],
-        timestamp: Date.now(),
-        threadId: gameThreadId,
-      });
-
-      // Use WerewolfLobby for role assignment, then orchestrator for persistence + broadcast
-      const lobby = new WerewolfLobby();
-      const lobbyRuntime = lobby.createLobby({
-        threadId: gameThreadId,
-        playerCount,
-        players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
-      });
-      lobby.startGame(lobbyRuntime);
-
-      let gameRuntime;
-      try {
-        gameRuntime = await gameOrchestrator.startGame({
-          threadId: gameThreadId,
-          definition: lobbyRuntime.definition,
-          seats: lobbyRuntime.seats,
-          config: {
-            timeoutMs: 30000,
-            voiceMode: parsedGame.voiceMode,
-            humanRole: parsedGame.humanRole,
-            ...(parsedGame.humanRole === 'player' ? { humanSeat: 'P1' } : {}),
-            observerUserId: userId, // H2 fix: messageStore dual-write needs userId for thread visibility
-          },
-        });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message.includes('already has an active game')) {
-          reply.status(409);
-          return { error: message };
-        }
-        throw err;
-      }
-
-      // Broadcast scoped views so frontend receives game:state_update
-      await gameOrchestrator.broadcastGameState(gameRuntime.gameId);
-
-      // AC-C3: Start AI auto-play loop — cats submit actions asynchronously
-      gameAutoPlayer.startLoop(gameRuntime.gameId);
-
-      return {
-        status: 'game_started',
-        gameId: gameRuntime.gameId,
-        gameThreadId,
-        userMessageId: userMessage.id,
       };
     }
 
