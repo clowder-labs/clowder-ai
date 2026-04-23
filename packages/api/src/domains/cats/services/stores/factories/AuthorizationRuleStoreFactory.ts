@@ -10,7 +10,7 @@
  * 无 → AuthorizationRuleStore (内存)
  */
 
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { IAuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
 import { AuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
 import { RedisAuthorizationRuleStore } from '../redis/RedisAuthorizationRuleStore.js';

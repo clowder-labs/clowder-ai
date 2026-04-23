@@ -6,7 +6,7 @@
 
 /**
  * Push Subscription Store
- * 管理 Web Push 订阅记录 — 铲屎官的设备订阅信息
+ * 管理 Web Push 订阅记录 — 用户的设备订阅信息
  */
 
 export interface PushSubscriptionRecord {

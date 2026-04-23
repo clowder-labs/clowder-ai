@@ -15,8 +15,8 @@
  * Redis SessionStore 可用时走 Redis，否则降级到内存 Map (LRU)。
  */
 
-import type { CatId } from '@clowder/shared';
-import type { SessionStore } from '@clowder/shared/utils';
+import type { CatId } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
 
 /** Maximum number of sessions to keep in memory (fallback mode only) */
 const MAX_SESSIONS = 1000;

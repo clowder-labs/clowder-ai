@@ -6,7 +6,7 @@
 
 /**
  * DARE Event Transformer
- * DARE headless envelope → Clowder AI AgentMessage 映射
+ * DARE headless envelope → OfficeClaw AgentMessage 映射
  *
  * DARE headless envelope (client-headless-event-envelope.v1):
  *   { schema_version, ts, session_id, run_id, seq, event, data }
@@ -23,7 +23,7 @@
  */
 
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 const DARE_SCHEMA = 'client-headless-event-envelope.v1';

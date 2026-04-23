@@ -12,7 +12,7 @@
  * 避免额外 CLI spawn 成本。
  */
 
-import type { ThreadSummary } from '@clowder/shared';
+import type { ThreadSummary } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import type { IMessageStore } from '../stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../stores/ports/SummaryStore.js';

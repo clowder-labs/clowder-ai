@@ -108,7 +108,7 @@ export function resolveUserIdHint(request: FastifyRequest): string | null {
 
   const fromHeader =
     resolveEffectiveUserId(request.headers['x-office-claw-user']) ??
-    resolveEffectiveUserId(request.headers['x-cat-cafe-user']);
+    resolveEffectiveUserId(request.headers['x-office-claw-user']);
   if (fromHeader) return fromHeader;
 
   return null;

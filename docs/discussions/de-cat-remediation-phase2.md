@@ -11,12 +11,12 @@ doc_kind: discussion
 created: 2026-04-11
 ---
 
-# Office Claw 第二轮去猫化实施计划（仅限最终打包暴露面）
+# Office Claw 第二轮术语收口实施计划（仅限最终打包暴露面）
 
-> 目标：本轮**不追求去除仓库中的所有猫元素**，只处理**最终打出来的安装包中会暴露给用户、运维使用者、前端界面或运行时日志/通知的猫元素**。  
+> 目标：本轮**不追求去除仓库中的所有历史命名**，只处理**最终打出来的安装包中会暴露给用户、运维使用者、前端界面或运行时日志/通知的旧术语**。  
 > 适用仓库：`D:\ai\jiuwen\relay-claw`  
 > 关联旧文档：`docs/discussions/de-cat-remediation.md`  
-> 暴露面参考：安装目录审查文档 `workspace/docs/discussions/cat-elements-audit.md`  
+> 暴露面参考：安装目录审查文档 `workspace/docs/discussions/branding-elements-audit.md`  
 > 日期：2026-04-11
 
 ---
@@ -29,30 +29,30 @@ created: 2026-04-11
 
 以下工作已经在 `feat/de-cat` 上完成，并已进入代码：
 
-1. 安装包配置模板文案去猫化
+1. 安装包配置模板文案中性化
 
 - `.env.example` 已将以下暴露文案改为中性表达：
-  - `Cat Cafe / Clowder AI` → `OfficeClaw / Clowder AI`
-  - `猫猫咖啡环境配置` → `OfficeClaw 环境配置`
+  - `OfficeClaw / OfficeClaw` → `OfficeClaw / OfficeClaw`
+  - `智能体咖啡环境配置` → `OfficeClaw 环境配置`
   - `cat invocation` / `猫调用` → `agent invocation` / `智能体调用`
   - `Chat with cats ...` → `Chat with agents ...`
   - `cats need your attention` → `agents need your attention`
 
-2. 安装包默认展示路径去猫化
+2. 安装包默认展示路径中性化
 
 - `.env.example` 中的用户可见路径已改为 `.office-claw`
 - `RELAY_TEAMS_CONFIG_DIR` 的默认展示值已改为 `~/.office-claw/.relay-teams`
 
-3. 前端用户可见 SVG 资源去猫化
+3. 前端用户可见 SVG 资源中性化
 
 - `packages/web/public/avatars/assistant.svg` 已替换为中性助手形象
 - `packages/web/public/avatars/office.svg` 已替换为中性办公图形
 - `packages/web/public/images/longcat.svg` 已替换为中性 `TaskList` 图标
 
-4. Worker 默认通知文案和默认 tag 去猫化
+4. Worker 默认通知文案和默认 tag 中性化
 
 - `packages/web/worker/index.ts` 已完成：
-  - `Cat Cafe Service Worker` → `OfficeClaw Service Worker`
+  - `OfficeClaw Service Worker` → `OfficeClaw Service Worker`
   - 默认标题改为 `新消息`
   - 默认 tag 改为 `office-claw-default`
   - 窗口注释文案同步改为 `OfficeClaw`
@@ -68,13 +68,13 @@ created: 2026-04-11
 - 这意味着新逻辑可以识别新旧 tag
 - 但不代表后端发送侧已经完全迁移到新前缀
 
-6. Windows 启动日志品牌文案去猫化
+6. Windows 启动日志品牌文案中性化
 
 - `scripts/start-windows.ps1` 已完成：
-  - `Cat Cafe - Windows Startup` → `OfficeClaw - Windows Startup`
-  - `Cat Cafe started!` → `OfficeClaw started!`
+  - `OfficeClaw - Windows Startup` → `OfficeClaw - Windows Startup`
+  - `OfficeClaw started!` → `OfficeClaw started!`
 
-7. legacy PNG 猫头像内容已批量替换为中性 `agent-avatar-*`
+7. legacy PNG 头像内容已批量替换为中性 `agent-avatar-*`
 
 当前已替换内容但保留原路径的文件包括：
 
@@ -126,7 +126,7 @@ created: 2026-04-11
 
 1. 全量 `catId` / `CatId` / `createCatId` 等内部模型重命名
 2. `/api/cats` → `/api/agents` 路径迁移
-3. `@cat-cafe/*` 包名迁移
+3. `@office-claw/*` 包名迁移
 4. 动态头像回退逻辑重构
 5. 游戏/狼人杀链路的系统性头像逻辑调整
 
@@ -173,7 +173,7 @@ created: 2026-04-11
 
 一句话概括：
 
-**当前 `feat/de-cat` 已经完成了“安装包用户可见猫头像与显性文案”的大部分低风险去猫化；剩余工作主要集中在构建验证、发送侧 tag 收口，以及少量 env 兼容链路继续排查。**
+**当前 `feat/de-cat` 已经完成了“安装包用户可见头像与显性文案”的大部分低风险中性化；剩余工作主要集中在构建验证、发送侧 tag 收口，以及少量 env 兼容链路继续排查。**
 
 ---
 
@@ -259,18 +259,18 @@ created: 2026-04-11
 
 安装包审查里已经确认，当前安装目录中的 `.env` 仍然暴露以下猫元素：
 
-- `Cat Cafe / Clowder AI — Environment Configuration`
-- `猫猫咖啡环境配置`
+- `OfficeClaw / OfficeClaw — Environment Configuration`
+- `智能体咖啡环境配置`
 - `blocks cat invocation`
 - `阻止猫调用`
-- `.cat-cafe/proxy-upstreams.json`
+- `.office-claw/proxy-upstreams.json`
 - `Chat with cats from Feishu/Lark`
-- `在飞书里和猫猫聊天`
+- `在飞书里和智能体聊天`
 - `Chat with cats from Telegram`
-- `在 Telegram 里和猫猫聊天`
+- `在 Telegram 里和智能体聊天`
 - `when cats need your attention`
-- `猫猫需要你关注时提醒`
-- `~/.cat-cafe/.relay-teams`
+- `智能体需要你关注时提醒`
+- `~/.office-claw/.relay-teams`
 
 这些内容明确进入最终包，并且属于安装包使用者可直接看到的显性暴露，必须纳入本轮。
 
@@ -362,7 +362,7 @@ created: 2026-04-11
 
 1. `packages/web/src/hooks/useCatData.ts`
 2. 优先请求 `/api/cats`
-3. 请求失败时 fallback 到 `@cat-cafe/shared` 的 `CAT_CONFIGS`
+3. 请求失败时 fallback 到 `@office-claw/shared` 的 `CAT_CONFIGS`
 4. 多个核心组件通过 `getCatById(catId)` 读取 `cat.avatar`
 5. 最终由 `CatAvatar.tsx` 渲染
 
@@ -610,7 +610,7 @@ avatar: resolveCatAvatar(cat.avatar)
 
 安装包审查已确认：
 
-- `cat-cafe-default`
+- `office-claw-default`
 - `cat-decision-`
 
 并且在源仓中还能看到其来源：
@@ -630,13 +630,13 @@ avatar: resolveCatAvatar(cat.avatar)
 
 安装包审查已确认运行日志中仍出现：
 
-- `Cat Cafe - Windows Startup`
-- `Cat Cafe started!`
+- `OfficeClaw - Windows Startup`
+- `OfficeClaw started!`
 - `/api/cats`
 
 其中要分开判断：
 
-- `Cat Cafe - Windows Startup` / `Cat Cafe started!` 属于明显对外暴露的品牌残留，本轮要处理。
+- `OfficeClaw - Windows Startup` / `OfficeClaw started!` 属于明显对外暴露的品牌残留，本轮要处理。
 - `/api/cats` 是否要处理，要看它是否会直接暴露给用户或外部运维使用者，以及改动风险是否可控。
 
 ## 3.5 安装包中的用户可见应用名与实际残留并存
@@ -648,8 +648,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 但同时仍保留：
 
-- `cat-cafe-default`
-- `.cat-cafe`
+- `office-claw-default`
+- `.office-claw`
 - 猫头像
 - `LongCat`
 
@@ -676,7 +676,7 @@ avatar: resolveCatAvatar(cat.avatar)
 整改目标：
 
 - 所有面向安装包使用者的说明文案去猫化
-- 所有默认路径从 `.cat-cafe` 迁移到新主路径，或至少文案不暴露猫
+- 所有默认路径从 `.office-claw` 迁移到新主路径，或至少文案不暴露猫
 
 ## 4.2 必改：前端公开资源
 
@@ -704,7 +704,7 @@ avatar: resolveCatAvatar(cat.avatar)
 整改目标：
 
 - 默认通知标题去猫化
-- `cat-cafe-default` 改为新默认 tag
+- `office-claw-default` 改为新默认 tag
 - `cat-decision-` 改为新前缀或中性前缀
 - 保留兼容识别，但不要继续写出旧值
 
@@ -714,7 +714,7 @@ avatar: resolveCatAvatar(cat.avatar)
 
 - 桌面启动器相关源码或脚本
 - 生成启动日志文案的源文件
-- 任何会输出 `Cat Cafe - Windows Startup` / `Cat Cafe started!` 的代码位置
+- 任何会输出 `OfficeClaw - Windows Startup` / `OfficeClaw started!` 的代码位置
 
 整改目标：
 
@@ -868,7 +868,7 @@ avatar: resolveCatAvatar(cat.avatar)
 
 当前问题：
 
-- 默认通知标题是 `猫猫来信`
+- 默认通知标题是 `智能体来信`
 
 建议改为：
 
@@ -891,7 +891,7 @@ avatar: resolveCatAvatar(cat.avatar)
 
 当前问题：
 
-- 默认 tag 是 `cat-cafe-default`
+- 默认 tag 是 `office-claw-default`
 
 建议改为：
 
@@ -900,7 +900,7 @@ avatar: resolveCatAvatar(cat.avatar)
 兼容策略：
 
 - 新通知只写 `office-claw-default`
-- 去重/策略判断仍接受 `cat-cafe-default`
+- 去重/策略判断仍接受 `office-claw-default`
 
 ### P2-C. 决策 tag 前缀去猫化
 
@@ -926,8 +926,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 验收标准：
 
-- 新构建出来的 worker 产物里不再默认写出 `cat-cafe-default`
-- 不再默认写出 `猫猫来信`
+- 新构建出来的 worker 产物里不再默认写出 `office-claw-default`
+- 不再默认写出 `智能体来信`
 
 ## Phase 3：安装包配置说明与默认路径清理
 
@@ -942,23 +942,23 @@ avatar: resolveCatAvatar(cat.avatar)
 
 | 当前 | → 改为 |
 |------|--------|
-| `Cat Cafe / Clowder AI — Environment Configuration` | `OfficeClaw / Clowder AI — Environment Configuration` 或 `OfficeClaw Environment Configuration` |
-| `猫猫咖啡环境配置` | `OfficeClaw 环境配置` |
+| `OfficeClaw / OfficeClaw — Environment Configuration` | `OfficeClaw / OfficeClaw — Environment Configuration` 或 `OfficeClaw Environment Configuration` |
+| `智能体咖啡环境配置` | `OfficeClaw 环境配置` |
 | `blocks cat invocation` | `blocks agent invocation` 或更中性表达 |
 | `阻止猫调用` | `阻止智能体调用` |
 | `Chat with cats from Feishu/Lark` | `Chat with agents from Feishu/Lark` |
-| `在飞书里和猫猫聊天` | `在飞书里和智能体聊天` |
+| `在飞书里和智能体聊天` | `在飞书里和智能体聊天` |
 | `Chat with cats from Telegram` | `Chat with agents from Telegram` |
-| `在 Telegram 里和猫猫聊天` | `在 Telegram 里和智能体聊天` |
+| `在 Telegram 里和智能体聊天` | `在 Telegram 里和智能体聊天` |
 | `when cats need your attention` | `when agents need your attention` |
-| `猫猫需要你关注时提醒` | `智能体需要你关注时提醒` |
+| `智能体需要你关注时提醒` | `智能体需要你关注时提醒` |
 
-### P3-B. `.cat-cafe` 路径的安装包暴露清理
+### P3-B. `.office-claw` 路径的安装包暴露清理
 
 根据安装包审查，当前暴露出的路径包括：
 
-- `.cat-cafe/proxy-upstreams.json`
-- `~/.cat-cafe/.relay-teams`
+- `.office-claw/proxy-upstreams.json`
+- `~/.office-claw/.relay-teams`
 
 本轮处理原则：
 
@@ -977,7 +977,7 @@ avatar: resolveCatAvatar(cat.avatar)
 
 验收标准：
 
-- 新安装包中的 `.env` 和相关设置说明不再出现 `.cat-cafe`
+- 新安装包中的 `.env` 和相关设置说明不再出现 `.office-claw`
 
 ## Phase 4：启动文案和运行日志品牌残留清理
 
@@ -985,8 +985,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 根据安装包审查，运行日志中仍出现：
 
-- `Cat Cafe - Windows Startup`
-- `Cat Cafe started!`
+- `OfficeClaw - Windows Startup`
+- `OfficeClaw started!`
 
 本轮目标：
 
@@ -1022,11 +1022,11 @@ avatar: resolveCatAvatar(cat.avatar)
 - 本轮不把全量 API 路由改名作为必须项
 - 除非你已经明确希望连运行日志和接口资源名一起去猫化
 
-## 7.2 包名 `@cat-cafe/*`
+## 7.2 包名 `@office-claw/*`
 
 当前状态：
 
-- 审查文档中确实发现了 `@cat-cafe/web`、`@cat-cafe/api`、`@cat-cafe/mcp-server`
+- 审查文档中确实发现了 `@office-claw/web`、`@office-claw/api`、`@office-claw/mcp-server`
 
 本轮判断：
 
@@ -1048,7 +1048,7 @@ avatar: resolveCatAvatar(cat.avatar)
 操作：
 
 - 全面检查所有会被拷贝进最终安装包的配置说明文案
-- 把用户可见的“猫/猫猫/cat invocation/Chat with cats”改为“智能体/agent”体系
+- 把用户可见的“猫/智能体/cat invocation/Chat with cats”改为“智能体/agent”体系
 
 重点替换：
 
@@ -1136,8 +1136,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 操作：
 
-- `猫猫来信` → `新消息`
-- `cat-cafe-default` → `office-claw-default`
+- `智能体来信` → `新消息`
+- `office-claw-default` → `office-claw-default`
 
 ### F-WORKER-2
 
@@ -1154,8 +1154,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 - 重新构建前端后，检查生成的 `public/worker-*.js`
 - 确认其中不再默认写出：
-  - `猫猫来信`
-  - `cat-cafe-default`
+  - `智能体来信`
+  - `office-claw-default`
 
 ## 8.4 启动文案
 
@@ -1163,8 +1163,8 @@ avatar: resolveCatAvatar(cat.avatar)
 
 目标：找到生成以下日志的源码位置并替换：
 
-- `Cat Cafe - Windows Startup`
-- `Cat Cafe started!`
+- `OfficeClaw - Windows Startup`
+- `OfficeClaw started!`
 
 操作要求：
 
@@ -1207,12 +1207,12 @@ avatar: resolveCatAvatar(cat.avatar)
 
 包含：
 
-- 启动器/脚本的 `Cat Cafe` 日志文案源头
+- 启动器/脚本的 `OfficeClaw` 日志文案源头
 - 低风险、显性暴露的运行时文案
 
 收益：
 
-- 解决“OfficeClaw 已改名，但日志还叫 Cat Cafe”的割裂问题
+- 解决“OfficeClaw 已改名，但日志还叫 OfficeClaw”的割裂问题
 
 ---
 
@@ -1227,19 +1227,19 @@ avatar: resolveCatAvatar(cat.avatar)
 
 ### 10.2 通知系统
 
-- 默认通知标题不再是 `猫猫来信`
-- 默认通知 tag 不再是 `cat-cafe-default`
+- 默认通知标题不再是 `智能体来信`
+- 默认通知 tag 不再是 `office-claw-default`
 - 新通知决策 tag 不再使用 `cat-decision-`
 
 ### 10.3 安装包配置与说明
 
-- `.env` 或安装模板中不再出现“和猫聊天”“猫调用”“猫猫咖啡环境配置”等文案
-- 默认展示路径不再出现 `.cat-cafe`
+- `.env` 或安装模板中不再出现“和猫聊天”“猫调用”“智能体咖啡环境配置”等文案
+- 默认展示路径不再出现 `.office-claw`
 
 ### 10.4 启动与运行文案
 
-- 启动日志不再出现 `Cat Cafe - Windows Startup`
-- 启动日志不再出现 `Cat Cafe started!`
+- 启动日志不再出现 `OfficeClaw - Windows Startup`
+- 启动日志不再出现 `OfficeClaw started!`
 
 ---
 
@@ -1248,7 +1248,7 @@ avatar: resolveCatAvatar(cat.avatar)
 为了避免范围失控，以下内容在本轮结束后仍允许保留：
 
 - 内部 `catId` / `CatId` / `createCatId`
-- `@cat-cafe/*` 包名
+- `@office-claw/*` 包名
 - 仅存在于源码但不进包的开发文档中的猫词汇
 - 仅存在于测试中的猫词汇
 - 纯内部 API/存储语义，只要不会显性暴露给最终用户

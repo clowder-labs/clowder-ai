@@ -9,7 +9,7 @@
  * Agent 服务的共享类型定义
  */
 
-import type { CatId, MessageContent, ErrorFallbackMetadata } from '@clowder/shared';
+import type { CatId, MessageContent, ErrorFallbackMetadata } from '@office-claw/shared';
 import type { RuntimeAcpModelProfile } from '../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../config/provider-profiles.js';
 import type { CliSpawnOptions } from '../../../utils/cli-types.js';
@@ -149,7 +149,7 @@ export interface AgentMessage {
   replyTo?: string;
   /** F121: Hydrated preview of the replied-to message */
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
-  /** F061: Whether this message mentions the co-creator (@user/@铲屎官/configured patterns) */
+  /** F061: Whether this message mentions the co-creator (@user/@用户/configured patterns) */
   mentionsUser?: boolean;
   /** F108: Invocation ID — allows frontend to distinguish messages from concurrent invocations */
   invocationId?: string;

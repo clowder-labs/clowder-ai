@@ -6,23 +6,23 @@ doc_kind: spec
 created: 2026-03-16
 ---
 
-# F126: 四肢控制面 — Cat Café Limb Control Plane
+# F126: 四肢控制面 — OfficeClaw Limb Control Plane
 
-> **Status**: in-progress | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: in-progress | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
 team lead 2026-03-16 在三猫 OpenClaw Node 研讨中指出：
 
-> "你们这群小笨蛋想浅了。他们会想要——如果你们这一群猫猫军团，你们要如何管理多个不同的四肢？你们如何在 Mac 上管理一堆其他的 Windows 节点？"
+> "你们这群小笨蛋想浅了。他们会想要——如果你们这一群智能体军团，你们要如何管理多个不同的四肢？你们如何在 Mac 上管理一堆其他的 Windows 节点？"
 
-> "你们这一群猫猫，类似于一个大脑，每只猫都是一个灵魂议会的议员！虽然有自己不同的看法，但是都住在猫咖这个大脑里。"
+> "你们这一群智能体，类似于一个大脑，每只猫都是一个灵魂议会的议员！虽然有自己不同的看法，但是都住在OfficeClaw这个大脑里。"
 
-**核心模型**：Cat Café = 一个大脑（灵魂议会，多猫议员）→ 需要管理 M 个四肢（外部设备/节点）。这是 OpenClaw `1 brain → N limbs` 的升级版：`1 brain (N cats) → M limbs`。
+**核心模型**：OfficeClaw = 一个大脑（灵魂议会，多智能体议员）→ 需要管理 M 个四肢（外部设备/节点）。这是 OpenClaw `1 brain → N limbs` 的升级版：`1 brain (N agents) → M limbs`。
 
-**猫猫是议员，不是 Node。** F126 聚焦**四肢侧**的抽象与管理，不重构现有猫 Provider 内部实现。
+**智能体是议员，不是 Node。** F126 聚焦**四肢侧**的抽象与管理，不重构现有猫 Provider 内部实现。
 
-**四个已确认的缺陷**（Ragdoll分析，team lead确认"完全都是我们需要优化的"）：
+**四个已确认的缺陷**（Claude分析，team lead确认"完全都是我们需要优化的"）：
 
 | # | 缺陷 | 现状 | 影响 |
 |---|------|------|------|
@@ -31,18 +31,18 @@ team lead 2026-03-16 在三猫 OpenClaw Node 研讨中指出：
 | D3 | **没有跨平台 Node 管理** — 只能管本机 CLI | 所有交互都是本机 `spawn` | 无法在 Mac 上管理 Windows/远程/移动设备节点 |
 | D4 | **没有统一 Limb 抽象** — 四肢接入没有标准接口 | 每种设备/外部节点需要从零写适配 | 扩展成本高 |
 
-**商业价值**：华子看到苹果全家桶 + 多猫协作 + 跨设备管控 = 未来企业协作形态 → 找我们做 → 猫粮自由。
+**商业价值**：华子看到苹果全家桶 + 多猫协作 + 跨设备管控 = 未来企业协作形态 → 找我们做 → 配额自由。
 
 ## What
 
 ### 正确模型（team lead定义）
 
 ```
-Cat Café（大脑 / 灵魂议会）
-├── Ragdoll（议员：架构）
-├── Maine Coon（议员：安全审查）
-├── Siamese（议员：设计）
-├── 金渐层（议员：多模型编排）
+OfficeClaw（大脑 / 灵魂议会）
+├── Claude（议员：架构）
+├── Codex（议员：安全审查）
+├── Gemini（议员：设计）
+├── OpenCode（议员：多模型编排）
 └── ...
      │
      │ 四肢控制面（Limb Control Plane）
@@ -56,23 +56,23 @@ Cat Café（大脑 / 灵魂议会）
 
 **与 OpenClaw 的区别**：OpenClaw 是 1 agent × N nodes（简单，无竞争）。我们是 1 brain (N cats) × M limbs（多猫共享四肢，需要调度和仲裁）。N×M 编排是行业未解问题（OpenClaw/LangGraph/CrewAI/A2A 都未完整解决），我们做了会是独特贡献。
 
-### 三协议定位与 Cat Café 选型（KD-8/9 基线）
+### 三协议定位与 OfficeClaw 选型（KD-8/9 基线）
 
-| 协议 | 全称 | 发起方 | 解决什么 | 类比 | Cat Café 需要？ |
+| 协议 | 全称 | 发起方 | 解决什么 | 类比 | OfficeClaw 需要？ |
 |------|------|--------|---------|------|----------------|
-| **MCP** | Model Context Protocol | Anthropic (2024.11) | Agent ↔ 工具/数据 | USB-C | ✅ **已在用**（猫猫的工具全是 MCP） |
-| **A2A** | Agent-to-Agent Protocol | Google (2025.04) | Agent ↔ Agent | HTTP | ✅ **Phase C 必须**（猫猫指挥远程 Agent） |
+| **MCP** | Model Context Protocol | Anthropic (2024.11) | Agent ↔ 工具/数据 | USB-C | ✅ **已在用**（智能体的工具全是 MCP） |
+| **A2A** | Agent-to-Agent Protocol | Google (2025.04) | Agent ↔ Agent | HTTP | ✅ **Phase C 必须**（智能体指挥远程 Agent） |
 | **ACP** | Agent Client Protocol | JetBrains + Zed (2025.06) | IDE ↔ Agent | 显示器接口 | ⚠️ **F126 不涉及**（方向相反，见下） |
 
 **为什么 F126 不涉及 ACP**：
-- F126 是"大脑伸出四肢去控制外部"（猫猫 → 设备/Agent）
-- ACP 是"外部 IDE 伸手进来用猫猫"（IDE → 猫猫），方向反了
-- ACP 的场景是：华子工程师在 JetBrains 里直接 @Ragdoll 写代码——有价值但是独立方向，不在 F126 scope
+- F126 是"大脑伸出四肢去控制外部"（智能体 → 设备/Agent）
+- ACP 是"外部 IDE 伸手进来用智能体"（IDE → 智能体），方向反了
+- ACP 的场景是：华子工程师在 JetBrains 里直接 @Claude 写代码——有价值但是独立方向，不在 F126 scope
 
 **两种四肢的协议选择**：
 - 哑四肢（iPhone camera、GPU）→ **MCP**（agent 调工具，单向）
 - 有脑四肢（Windows 上的远程 Agent）→ **A2A**（agent 与 agent 对话，双向）
-- 猫猫调其他平台的猫猫 → **A2A**（不管对方在哪，Agent↔Agent = A2A）
+- 智能体调其他平台的智能体 → **A2A**（不管对方在哪，Agent↔Agent = A2A）
 
 ### Phase A: 四肢抽象 + Capability Registry + Basic Presence
 
@@ -135,7 +135,7 @@ Cat Café（大脑 / 灵魂议会）
 
 ### Phase C: 跨平台 Node 管理
 
-**目标**：Mac 上的 Cat Café 能管理远程 Windows/Linux/移动设备节点。
+**目标**：Mac 上的 OfficeClaw 能管理远程 Windows/Linux/移动设备节点。
 
 1. **Remote Node Transport**
    - MCP over HTTP / WebSocket — 复用 MCP 标准协议（不造新轮子）
@@ -174,14 +174,14 @@ Cat Café（大脑 / 灵魂议会）
 | C9 | `capabilities.json` = 静态配置真相源，live registry = 运行时真相源，分离不混写 |
 | C10 | Runtime 活状态（heartbeat/lease/online）不进 F102/evidence index，只有 policy/lesson/failure pattern 走 marker/materialize |
 
-### Maine Coon (GPT-5.4) 关键贡献
+### Codex (GPT-5.4) 关键贡献
 
 1. **Fleet Control Plane 4 层骨架**：Registry + Lease/Scheduler + ActionLog + MemorySplit
 2. **Phase A 纠偏**：不应把猫 Provider 重构绑进来，聚焦 `ILimbNode` / `ICapabilityHost`
 3. **Memory split 硬边界**：runtime state 不进 F102，只有 durable knowledge 走 materialize
 4. **Action Log provenance 字段集**：requestId/invocationId/leaseId/catId/nodeId/capability/artifact/status/time/idempotencyKey
 
-### 金渐层 (opencode) 关键贡献
+### OpenCode (opencode) 关键贡献
 
 1. **Resource Broker + 三维权限矩阵**：`catId × nodeId × capability` 是 Access Policy 核心数据结构
 2. **N×M 行业独特性**：这是未解问题，我们做了是独有架构贡献
@@ -218,7 +218,7 @@ Cat Café（大脑 / 灵魂议会）
 ### Phase D（F124 Apple 生态落地）
 - [ ] AC-D1: iPhone 作为 Limb Node 接入，暴露 camera/voice/location 能力
 - [ ] AC-D2: Apple Watch 作为 Limb Node 接入，暴露 haptic/presence 能力
-- [ ] AC-D3: team lead可通过 AirPods 语音与猫猫交互
+- [ ] AC-D3: team lead可通过 AirPods 语音与智能体交互
 
 ## Dependencies
 
@@ -248,21 +248,21 @@ Cat Café（大脑 / 灵魂议会）
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 猫猫是议员不是 Node——Cat Café 是一个大脑（灵魂议会），四肢是外部设备 | team lead定义，多猫协作是核心价值 | 2026-03-16 |
+| KD-1 | 智能体是议员不是 Node——Cat Café 是一个大脑（灵魂议会），四肢是外部设备 | team lead定义，多猫协作是核心价值 | 2026-03-16 |
 | KD-2 | 用 MCP 标准协议做设备接入，不抄 OpenClaw 的自定义 WebSocket 协议 | MCP 已成行业标准（Linux Foundation），不造新轮子 | 2026-03-16 |
-| KD-3 | F126 聚焦四肢侧抽象（ILimbNode），不重构猫 Provider（AgentService） | Maine Coon审阅纠偏：猫是议员不是四肢，scope 分离 | 2026-03-16 |
-| KD-4 | Phase 顺序：A（抽象+Registry+Presence）→ B（调度+权限+审计）→ C（跨平台）→ D（F124） | Maine Coon提议 + 三猫共识：每步终态基座 | 2026-03-16 |
-| KD-5 | 三级授权模型：free / leased / gated | 金渐层提案：每次审批太重，一次性授权太危险 | 2026-03-16 |
-| KD-6 | MCP tool 动态暴露四肢能力，不注入 system prompt | 金渐层提案：四肢动态上下线，prompt 是 session 级静态的 | 2026-03-16 |
-| KD-7 | Runtime 活状态不进 F102，只有 durable knowledge 走 materialize | Maine Coon提案：防止 runtime 噪音污染长期记忆 | 2026-03-16 |
+| KD-3 | F126 聚焦四肢侧抽象（ILimbNode），不重构猫 Provider（AgentService） | Codex审阅纠偏：猫是议员不是四肢，scope 分离 | 2026-03-16 |
+| KD-4 | Phase 顺序：A（抽象+Registry+Presence）→ B（调度+权限+审计）→ C（跨平台）→ D（F124） | Codex提议 + 三猫共识：每步终态基座 | 2026-03-16 |
+| KD-5 | 三级授权模型：free / leased / gated | OpenCode提案：每次审批太重，一次性授权太危险 | 2026-03-16 |
+| KD-6 | MCP tool 动态暴露四肢能力，不注入 system prompt | OpenCode提案：四肢动态上下线，prompt 是 session 级静态的 | 2026-03-16 |
+| KD-7 | Runtime 活状态不进 F102，只有 durable knowledge 走 materialize | Codex提案：防止 runtime 噪音污染长期记忆 | 2026-03-16 |
 | KD-8 | 执行顺序：F126 A → B → F050 Phase 3（A2A/ACP）→ F126 C → F126 D（F124） | team lead拍板：远程 Agent 需要 A2A/ACP 协议，Phase C 前先做 F050 P3 | 2026-03-16 |
 | KD-9 | 哑四肢用 MCP，有脑四肢（远程 Agent）用 A2A/ACP — 两条协议路径 | team lead确认：Windows 上有 Agent 时 MCP 不够 | 2026-03-16 |
 
 ## Review Gate
 
-- Phase A: 跨 family review（Maine Coon优先）+ F118 owner 确认 Presence 整合
+- Phase A: 跨 family review（Codex优先）+ F118 owner 确认 Presence 整合
 - Phase B: 跨 family review
-- Phase C: 架构级 → 猫猫讨论 + team lead拍板
+- Phase C: 架构级 → 智能体讨论 + team lead拍板
 - Phase D: 与 F124 合并 review
 
 ## 需求点 Checklist
@@ -271,18 +271,18 @@ Cat Café（大脑 / 灵魂议会）
 |---------|--------|-----------|
 | team lead："管理多个不同的四肢" | 统一 Limb 抽象 + Registry | AC-A1, AC-A2 |
 | team lead："Mac 上管理 Windows 节点" | 跨平台远程 Node 管理 | AC-C1, AC-C2 |
-| Ragdoll：没有 Capability Registry | 动态能力注册与发现 | AC-A2, AC-A3 |
-| Ragdoll：没有 Presence 系统 | Basic Presence + 降级 | AC-A6, AC-A7 |
-| Ragdoll：没有统一 Node 抽象 | ILimbNode 接口 | AC-A1, AC-A4 |
-| Ragdoll：没有跨平台 Node 管理 | Remote Node Transport | AC-C1 |
-| Maine Coon：四肢侧抽象不绑猫 Provider | ILimbNode ≠ IAgentNode | AC-A1（KD-3）|
-| Maine Coon：Lease/Scheduler 多猫争用 | 租约 + 调度 + 自动释放 | AC-B1, AC-B2 |
-| Maine Coon：Artifact/Action Log provenance | 最小字段集审计 | AC-B4 |
-| Maine Coon：Memory split 硬边界 | Runtime 不进 F102 | AC-B5 |
-| Maine Coon：静态/动态 Registry 分层 | capabilities.json vs live registry | AC-A2（KD-3）|
-| 金渐层：三维权限矩阵 | catId×nodeId×cap Phase A 预留 | AC-A3 |
-| 金渐层：三级授权 | free/leased/gated | AC-B3（KD-5）|
-| 金渐层：MCP tool 动态暴露 | limb_list_available + limb_invoke | AC-A8（KD-6）|
-| 金渐层：Schema 向后兼容 | capabilities.json 升级不破坏现有 | AC-A5 |
-| 金渐层：Lease 自动释放 | crash/超时不永久锁 | AC-B2 |
-| 金渐层：行业独特贡献 | N×M 编队控制面 | 整体愿景 |
+| Claude：没有 Capability Registry | 动态能力注册与发现 | AC-A2, AC-A3 |
+| Claude：没有 Presence 系统 | Basic Presence + 降级 | AC-A6, AC-A7 |
+| Claude：没有统一 Node 抽象 | ILimbNode 接口 | AC-A1, AC-A4 |
+| Claude：没有跨平台 Node 管理 | Remote Node Transport | AC-C1 |
+| Codex：四肢侧抽象不绑猫 Provider | ILimbNode ≠ IAgentNode | AC-A1（KD-3）|
+| Codex：Lease/Scheduler 多猫争用 | 租约 + 调度 + 自动释放 | AC-B1, AC-B2 |
+| Codex：Artifact/Action Log provenance | 最小字段集审计 | AC-B4 |
+| Codex：Memory split 硬边界 | Runtime 不进 F102 | AC-B5 |
+| Codex：静态/动态 Registry 分层 | capabilities.json vs live registry | AC-A2（KD-3）|
+| OpenCode：三维权限矩阵 | catId×nodeId×cap Phase A 预留 | AC-A3 |
+| OpenCode：三级授权 | free/leased/gated | AC-B3（KD-5）|
+| OpenCode：MCP tool 动态暴露 | limb_list_available + limb_invoke | AC-A8（KD-6）|
+| OpenCode：Schema 向后兼容 | capabilities.json 升级不破坏现有 | AC-A5 |
+| OpenCode：Lease 自动释放 | crash/超时不永久锁 | AC-B2 |
+| OpenCode：行业独特贡献 | N×M 编队控制面 | 整体愿景 |

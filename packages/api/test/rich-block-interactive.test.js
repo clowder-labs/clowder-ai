@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeRichBlock } from '@clowder/shared';
+import { normalizeRichBlock } from '@office-claw/shared';
 
 describe('F096: normalizeRichBlock — interactive kind', () => {
   it('T1: type→kind alias works for interactive', () => {
@@ -361,7 +361,7 @@ describe('F096: extractRichFromText — interactive', () => {
         },
       ],
     });
-    const text = `选猫猫：\n\`\`\`cc_rich\n${container}\n\`\`\``;
+    const text = `选智能体：\n\`\`\`cc_rich\n${container}\n\`\`\``;
     const { blocks } = extractRichFromText(text);
     assert.strictEqual(blocks.length, 1);
     assert.strictEqual(blocks[0].kind, 'interactive');

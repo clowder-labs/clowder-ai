@@ -60,7 +60,7 @@ describe('signals routes', () => {
   let today;
 
   beforeEach(async () => {
-    tempRoot = mkdtempSync('/tmp/cat-cafe-signals-route-');
+    tempRoot = mkdtempSync('/tmp/office-claw-signals-route-');
     prevSignalsRoot = process.env.SIGNALS_ROOT_DIR;
     process.env.SIGNALS_ROOT_DIR = tempRoot;
 

@@ -6,7 +6,7 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from './office-claw-root.js';
 
 function mergePathSegments(...values: Array<string | undefined>): string {
   const seen = new Set<string>();
@@ -27,7 +27,7 @@ function mergePathSegments(...values: Array<string | undefined>): string {
   return segments.join(';');
 }
 
-export function resolveBundledPythonPaths(projectRoot = resolveCatCafeHostRoot(process.cwd())): {
+export function resolveBundledPythonPaths(projectRoot = resolveOfficeClawHostRoot(process.cwd())): {
   pythonDir: string;
   scriptsDir: string;
   pythonBin: string;
@@ -44,7 +44,7 @@ export function resolveBundledPythonPaths(projectRoot = resolveCatCafeHostRoot(p
 
 export function withBundledPythonPath<T extends Record<string, string | null | undefined>>(
   env: T,
-  projectRoot = resolveCatCafeHostRoot(process.cwd()),
+  projectRoot = resolveOfficeClawHostRoot(process.cwd()),
 ): T {
   if (process.platform !== 'win32') return env;
 

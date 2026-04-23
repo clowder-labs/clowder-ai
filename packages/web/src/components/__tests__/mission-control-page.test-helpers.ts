@@ -4,7 +4,7 @@
  *
  */
 
-import type { BacklogLease, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
+import type { BacklogLease, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@office-claw/shared';
 
 export interface MutableBacklogSuggestion {
   catId: CatId;
@@ -163,7 +163,7 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
         cats: [
           {
             id: 'codex',
-            displayName: '缅因猫',
+            displayName: 'Codex',
             nickname: '砚砚',
             color: { primary: '#4B5563', secondary: '#E5E7EB' },
             mentionPatterns: ['@codex'],
@@ -480,7 +480,7 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
       return mockResponse(200, {
         featureId: featureId.toUpperCase(),
         status: 'in-progress',
-        owner: '布偶猫',
+        owner: 'Claude',
         phases: [
           {
             id: 'A',

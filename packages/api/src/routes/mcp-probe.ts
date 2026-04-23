@@ -11,7 +11,7 @@
  * connection + tool metadata for the Capability Center UI.
  */
 
-import type { CapabilityEntry, McpToolInfo } from '@clowder/shared';
+import type { CapabilityEntry, McpToolInfo } from '@office-claw/shared';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -123,7 +123,7 @@ export async function probeMcpCapability(
   if (env && Object.keys(env).length > 0) serverParams.env = env;
 
   const transport = new StdioClientTransport(serverParams);
-  const client = new Client({ name: 'cat-cafe-capability-probe', version: '0.1.0' }, { capabilities: {} });
+  const client = new Client({ name: 'office-claw-capability-probe', version: '0.1.0' }, { capabilities: {} });
 
   try {
     await withTimeout(client.connect(transport), remainingTimeout(deadlineMs));

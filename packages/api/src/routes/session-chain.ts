@@ -15,7 +15,7 @@
  * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
  */
 
-import { type CatId, catRegistry } from '@clowder/shared';
+import { type CatId, officeClawRegistry } from '@office-claw/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
@@ -288,7 +288,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
   });
 
   // PATCH /api/threads/:threadId/sessions/:catId/bind — Manual bind (#72)
-  // Allows 铲屎官 to bind a known-good CLI session ID to a cat's thread session.
+  // Allows 用户 to bind a known-good CLI session ID to a cat's thread session.
   // If active session exists → update cliSessionId; otherwise → create new session.
   app.patch<{
     Params: { threadId: string; catId: string };
@@ -302,9 +302,9 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const { threadId, catId } = request.params;
 
     // Validate catId against runtime registry
-    if (!catRegistry.has(catId)) {
+    if (!officeClawRegistry.has(catId)) {
       reply.status(400);
-      return { error: `Invalid catId: ${catId}. Must be one of: ${catRegistry.getAllIds().join(', ')}` };
+      return { error: `Invalid catId: ${catId}. Must be one of: ${officeClawRegistry.getAllIds().join(', ')}` };
     }
 
     // Validate body

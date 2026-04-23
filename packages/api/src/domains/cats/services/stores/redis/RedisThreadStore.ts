@@ -16,9 +16,9 @@
  * TTL 默认 30 天。
  */
 
-import type { CatId, ThreadPhase } from '@clowder/shared';
-import { generateThreadId } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { CatId, ThreadPhase } from '@office-claw/shared';
+import { generateThreadId } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type {
   BootcampStateV1,
   ConnectorHubStateV1,

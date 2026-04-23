@@ -14,7 +14,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { getDefaultCatId } from '../config/office-claw-config-loader.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 
 const log = createModuleLogger('routes/invocations');

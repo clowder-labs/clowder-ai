@@ -4,8 +4,8 @@
  *
  */
 
-import type { GameEvent, GameRuntime, SeatId } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { GameEvent, GameRuntime, SeatId } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 
 const ROLE_DISPLAY: Record<string, string> = {
   wolf: '狼人',
@@ -28,7 +28,7 @@ const PHASE_ACTION_MAP: Record<string, { action: string; verb: string; targetReq
 };
 
 function displayName(actorId: string): string {
-  const entry = catRegistry.tryGet(actorId);
+  const entry = officeClawRegistry.tryGet(actorId);
   if (!entry) return actorId;
   const breed = entry.config.breedDisplayName ?? entry.config.displayName;
   return breed ? `${breed}(${actorId})` : actorId;

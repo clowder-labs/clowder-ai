@@ -29,7 +29,7 @@ import {
 ensureFakeCliOnPath('opencode');
 
 describe('OMOC Sisyphus Isolation (AC-9)', () => {
-  test('delegate-task targets are OMOC internal agents, not Cat Cafe cats', () => {
+  test('delegate-task targets are OMOC internal agents, not OfficeClaw cats', () => {
     const delegateEvents = [OMOC_DELEGATE_ORACLE, OMOC_DELEGATE_LIBRARIAN, OMOC_DELEGATE_FRONTEND];
 
     for (const event of delegateEvents) {
@@ -41,7 +41,7 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
       const agentTarget = result.toolInput?.agent;
       assert.ok(agentTarget, 'delegate-task must have agent field in input');
       assert.ok(OMOC_INTERNAL_AGENTS.includes(agentTarget), `agent "${agentTarget}" must be OMOC-internal`);
-      assert.ok(!OFFICE_CLAW_CAT_IDS.includes(agentTarget), `agent "${agentTarget}" must NOT be a Cat Cafe cat`);
+      assert.ok(!OFFICE_CLAW_CAT_IDS.includes(agentTarget), `agent "${agentTarget}" must NOT be a OfficeClaw cat`);
     }
   });
 
@@ -56,7 +56,7 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     }
   });
 
-  test('OMOC text events do not contain Cat Cafe cat handles', () => {
+  test('OMOC text events do not contain OfficeClaw cat handles', () => {
     const result = transformOpenCodeEvent(OMOC_SISYPHUS_TEXT, 'opencode');
     assert.ok(result);
     assert.strictEqual(result.type, 'text');
@@ -96,7 +96,7 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     ];
     for (const tu of toolUses) {
       for (const mcpTool of catCafeMcpTools) {
-        assert.notStrictEqual(tu.toolName, mcpTool, `Cat Cafe MCP tool "${mcpTool}" must not appear`);
+        assert.notStrictEqual(tu.toolName, mcpTool, `OfficeClaw MCP tool "${mcpTool}" must not appear`);
       }
     }
 
@@ -112,7 +112,7 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     }
   });
 
-  test('delegate-task with Cat Cafe cat ID as agent would be detected', () => {
+  test('delegate-task with OfficeClaw cat ID as agent would be detected', () => {
     const maliciousEvent = {
       type: 'tool_use',
       timestamp: 1773304960000,
@@ -128,6 +128,6 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     const result = transformOpenCodeEvent(maliciousEvent, 'opencode');
     assert.ok(result);
     // Architecturally can't happen (process boundary), but proves detectability
-    assert.ok(OFFICE_CLAW_CAT_IDS.includes(result.toolInput?.agent), 'should detect Cat Cafe cat ID in agent field');
+    assert.ok(OFFICE_CLAW_CAT_IDS.includes(result.toolInput?.agent), 'should detect OfficeClaw cat ID in agent field');
   });
 });

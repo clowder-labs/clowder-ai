@@ -19,7 +19,7 @@ describe('governance-preflight', () => {
   let externalProject;
 
   beforeEach(async () => {
-    catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
+    catCafeRoot = await mkdtemp(join(tmpdir(), 'office-claw-root-'));
     externalProject = await mkdtemp(join(tmpdir(), 'external-project-'));
     await mkdir(join(catCafeRoot, 'office-claw-skills'), { recursive: true });
   });
@@ -29,7 +29,7 @@ describe('governance-preflight', () => {
     await rm(externalProject, { recursive: true, force: true });
   });
 
-  it('passes for cat-cafe project (not external)', async () => {
+  it('passes for office-claw project (not external)', async () => {
     const result = await checkGovernancePreflight(catCafeRoot, catCafeRoot);
     assert.equal(result.ready, true);
     assert.equal(result.reason, undefined);

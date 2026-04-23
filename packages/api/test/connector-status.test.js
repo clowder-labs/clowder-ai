@@ -74,7 +74,7 @@ describe('buildConnectorStatus', () => {
   it('treats secret refs as configured and masked for sensitive connector fields', () => {
     const result = buildConnectorStatus({
       DINGTALK_APP_KEY: 'ding-app-key',
-      DINGTALK_APP_SECRET_REF: 'wincred://Clowder/env/DINGTALK_APP_SECRET',
+      DINGTALK_APP_SECRET_REF: 'wincred://OfficeClaw/env/DINGTALK_APP_SECRET',
     });
     const dingtalk = result.find((p) => p.id === 'dingtalk');
     assert.ok(dingtalk);

@@ -9,18 +9,18 @@
  * 优先级: 环境变量 > office-claw-config.json > 硬编码默认值
  *
  * 环境变量 (最高优先级, 覆盖单个字段):
- *   CAT_OPUS_MAX_PROMPT_TOKENS   → 布偶猫 prompt token 上限
- *   CAT_CODEX_MAX_PROMPT_TOKENS  → 缅因猫 prompt token 上限
- *   CAT_GEMINI_MAX_PROMPT_TOKENS → 暹罗猫 prompt token 上限
+ *   CAT_OPUS_MAX_PROMPT_TOKENS   → Claude prompt token 上限
+ *   CAT_CODEX_MAX_PROMPT_TOKENS  → Codex prompt token 上限
+ *   CAT_GEMINI_MAX_PROMPT_TOKENS → Gemini prompt token 上限
  *   MAX_PROMPT_TOKENS            → 全局默认 token (fallback)
  *
  * 或直接修改项目根目录的 office-claw-config.json
  */
 
-import type { ContextBudget } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { ContextBudget } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { resolveBreedId } from './breed-resolver.js';
-import { getAllCatIdsFromConfig, getDefaultVariant, loadCatConfig } from './cat-config-loader.js';
+import { getAllCatIdsFromConfig, getDefaultVariant, loadCatConfig } from './office-claw-config-loader.js';
 
 const BUDGET_ENV_KEYS = {
   opus: 'CAT_OPUS_MAX_PROMPT_TOKENS',
@@ -138,8 +138,8 @@ export function getCatContextBudget(catName: string): ContextBudget {
  */
 export function getAllCatBudgets(): Record<string, ContextBudget> {
   const result: Record<string, ContextBudget> = {};
-  // F32-a: iterate catRegistry (includes dynamic cats), F032 P2: use config fallback
-  const registryIds = catRegistry.getAllIds();
+  // F32-a: iterate officeClawRegistry (includes dynamic cats), F032 P2: use config fallback
+  const registryIds = officeClawRegistry.getAllIds();
   const allIds = registryIds.length > 0 ? registryIds.map(String) : getAllCatIdsFromConfig();
   for (const catName of allIds) {
     result[catName] = getCatContextBudget(catName);

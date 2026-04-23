@@ -10,7 +10,7 @@
  *
  * 设计原则：
  * - 不存储完整 prompt（隐私 + 体积）
- * - 默认只记录 length + hash（缅因猫 review P2-1）
+ * - 默认只记录 length + hash（Codex review P2-1）
  * - 可选开关 AUDIT_LOG_INCLUDE_PROMPT_SNIPPETS=true 启用首尾片段
  * - hash 可用于比对是否同一 prompt
  */
@@ -41,7 +41,7 @@ function includeSnippets(): boolean {
 export function createPromptDigest(prompt: string): PromptDigest {
   const hash = createHash('sha256').update(prompt).digest('hex').slice(0, 16);
 
-  // 默认不落 snippets，避免敏感信息泄露 (缅因猫 review P2-1)
+  // 默认不落 snippets，避免敏感信息泄露 (Codex review P2-1)
   if (!includeSnippets()) {
     return { length: prompt.length, hash };
   }

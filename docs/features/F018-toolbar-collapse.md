@@ -14,7 +14,7 @@ created: 2026-02-26
 ## Why
 
 ## What
-- **F18**: 可收起/展开，收起时 2s 滚动 + fade-in 动画。Maine Coon review 通过。
+- **F18**: 可收起/展开，收起时 2s 滚动 + fade-in 动画。Codex review 通过。
 
 ## Acceptance Criteria
 - [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。

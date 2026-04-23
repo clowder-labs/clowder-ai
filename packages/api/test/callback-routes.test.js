@@ -1002,7 +1002,7 @@ describe('Callback Routes', () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');
 
-    await threadStore.create('user-1', 'Clowder AI Design');
+    await threadStore.create('user-1', 'OfficeClaw Design');
     await threadStore.create('user-1', 'Redis Debugging');
 
     const response = await app.inject({
@@ -1013,7 +1013,7 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 200);
     const body = JSON.parse(response.body);
     assert.equal(body.threads.length, 1);
-    assert.equal(body.threads[0].title, 'Clowder AI Design');
+    assert.equal(body.threads[0].title, 'OfficeClaw Design');
   });
 
   test('GET list-threads validates query params', async () => {
@@ -1623,7 +1623,7 @@ describe('Callback Routes', () => {
     assert.equal(body.degradeReason, 'marker_queue_error');
   });
 
-  // --- Stale callback freshness guard (cloud Codex P1 + 缅因猫 R3) ---
+  // --- Stale callback freshness guard (cloud Codex P1 + Codex R3) ---
 
   test('POST post-message returns stale_ignored for superseded invocation', async () => {
     const app = await createApp();
@@ -2049,7 +2049,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2061,7 +2061,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 99,
         catId: 'opus',
       },
@@ -2071,14 +2071,14 @@ describe('Callback Routes', () => {
     const body = JSON.parse(response.body);
     assert.equal(body.status, 'ok');
     assert.equal(body.threadId, 'thread-pr', 'server must resolve threadId from invocation');
-    assert.equal(body.entry.repoFullName, 'zts212653/cat-cafe');
+    assert.equal(body.entry.repoFullName, 'zts212653/office-claw');
     assert.equal(body.entry.prNumber, 99);
     assert.equal(body.entry.catId, 'opus');
     assert.equal(body.entry.threadId, 'thread-pr');
     assert.ok(body.entry.registeredAt > 0);
 
     // Verify stored in prTrackingStore
-    const found = prTrackingStore.get('zts212653/cat-cafe', 99);
+    const found = prTrackingStore.get('zts212653/office-claw', 99);
     assert.ok(found, 'entry must be stored');
     assert.equal(found.threadId, 'thread-pr');
   });
@@ -2094,7 +2094,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2104,7 +2104,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId: 'bogus',
         callbackToken: 'bogus',
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 1,
         catId: 'opus',
       },
@@ -2124,7 +2124,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2137,7 +2137,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 1,
         catId: 'nonexistent-cat', // bogus — should be ignored
       },
@@ -2159,7 +2159,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2171,7 +2171,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId: userA.invocationId,
         callbackToken: userA.callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
       },
@@ -2186,7 +2186,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId: userB.invocationId,
         callbackToken: userB.callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'codex',
       },
@@ -2194,7 +2194,7 @@ describe('Callback Routes', () => {
     assert.equal(regB.statusCode, 409, 'must reject overwrite from different user');
 
     // Original entry should be unchanged
-    const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+    const entry = prTrackingStore.get('zts212653/office-claw', 42);
     assert.equal(entry.userId, 'user-A', 'original owner must be preserved');
     assert.equal(entry.threadId, 'thread-A');
   });
@@ -2210,7 +2210,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2222,7 +2222,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId: inv1.invocationId,
         callbackToken: inv1.callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
       },
@@ -2236,14 +2236,14 @@ describe('Callback Routes', () => {
       payload: {
         invocationId: inv2.invocationId,
         callbackToken: inv2.callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
       },
     });
     assert.equal(res.statusCode, 200);
 
-    const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+    const entry = prTrackingStore.get('zts212653/office-claw', 42);
     assert.equal(entry.threadId, 'thread-2', 'same user can update their own registration');
   });
 
@@ -2258,7 +2258,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 1,
         catId: 'opus',
       },
@@ -2280,7 +2280,7 @@ describe('Callback Routes', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       prTrackingStore,
     });
 
@@ -2293,7 +2293,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 832,
         catId: 'opus', // ← LLM passed wrong catId
       },
@@ -2305,7 +2305,7 @@ describe('Callback Routes', () => {
     // Server must use the authoritative catId from invocation record, not the payload
     assert.equal(body.entry.catId, 'opencode', 'must use invocation catId, not payload catId');
 
-    const stored = prTrackingStore.get('zts212653/cat-cafe', 832);
+    const stored = prTrackingStore.get('zts212653/office-claw', 832);
     assert.equal(stored.catId, 'opencode', 'stored entry must have authoritative catId');
   });
 

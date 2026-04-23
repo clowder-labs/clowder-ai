@@ -39,8 +39,8 @@ describe('extractVoteFromText', () => {
 
   test('handles Chinese option names', async () => {
     const { extractVoteFromText } = await import('../dist/domains/cats/services/agents/routing/vote-intercept.js');
-    const result = extractVoteFromText('我选 [VOTE:布偶猫]');
-    assert.equal(result, '布偶猫');
+    const result = extractVoteFromText('我选 [VOTE:Claude]');
+    assert.equal(result, 'Claude');
   });
 });
 

@@ -77,7 +77,7 @@ export class ConnectorMessageFormatter {
   /** Format a system/command response (no cat identity, lightweight envelope). */
   formatCommand(body: string): MessageEnvelope {
     return {
-      header: 'Clowder AI',
+      header: 'OfficeClaw',
       subtitle: '',
       body,
       footer: '',

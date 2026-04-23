@@ -6,7 +6,7 @@
 
 /**
  * Skills Route
- * GET  /api/skills          — Clowder AI 共享 Skills 看板数据
+ * GET  /api/skills          — OfficeClaw 共享 Skills 看板数据
  * GET  /api/skills/search   — 搜索 SkillHub 远程 skill
  * GET  /api/skills/trending — 获取热门 skill
  * GET  /api/skills/preview  — 预览远程 skill SKILL.md 内容
@@ -25,7 +25,6 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
-import { ensureSkillStorageMigrated } from '../domains/cats/services/skillhub/SkillStorageMigration.js';
 import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import {
   fetchSkillContent,
@@ -40,7 +39,7 @@ import {
   SkillInstallError,
   uninstallSkill,
 } from '../domains/cats/services/skillhub/SkillInstallManager.js';
-import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../utils/office-claw-root.js';
 import { pathsEqual } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -155,9 +154,9 @@ function guessMime(filepath: string): string {
 // Max file size for preview (1MB)
 const MAX_PREVIEW_SIZE = 1024 * 1024;
 
-const CAT_CAFE_ROOT = resolveCatCafeHostRoot(process.cwd());
-const CAT_CAFE_SKILLS_SRC = resolveOfficialSkillsRoot(CAT_CAFE_ROOT);
-const USER_SKILLS_SRC = resolveUserSkillsRoot(CAT_CAFE_ROOT);
+const OFFICE_CLAW_ROOT = resolveOfficeClawHostRoot(process.cwd());
+const OFFICE_CLAW_SKILLS_SRC = resolveOfficialSkillsRoot(OFFICE_CLAW_ROOT);
+const USER_SKILLS_SRC = resolveUserSkillsRoot(OFFICE_CLAW_ROOT);
 
 function normalizeInstalledSkillKey(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -336,7 +335,7 @@ async function listSkillDirs(skillsSrc: string): Promise<string[]> {
 
 async function listInstalledLocalSkillNames(): Promise<string[]> {
   const [officialSkillNames, userSkillNames] = await Promise.all([
-    listSkillDirs(CAT_CAFE_SKILLS_SRC),
+    listSkillDirs(OFFICE_CLAW_SKILLS_SRC),
     listSkillDirs(USER_SKILLS_SRC),
   ]);
   return [...new Set([...officialSkillNames, ...userSkillNames])];
@@ -344,7 +343,7 @@ async function listInstalledLocalSkillNames(): Promise<string[]> {
 
 async function listAllInstalledSkillNames(): Promise<string[]> {
   const [officialSkillNames, userSkillNames] = await Promise.all([
-    listSkillDirs(CAT_CAFE_SKILLS_SRC),
+    listSkillDirs(OFFICE_CLAW_SKILLS_SRC),
     listSkillDirs(USER_SKILLS_SRC),
   ]);
   const officialSkillNameSet = new Set(officialSkillNames);
@@ -352,7 +351,7 @@ async function listAllInstalledSkillNames(): Promise<string[]> {
 }
 
 function resolveExistingSkillDir(skillName: string): string | null {
-  const officialSkillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
+  const officialSkillDir = join(OFFICE_CLAW_SKILLS_SRC, skillName);
   if (existsSync(officialSkillDir)) return officialSkillDir;
 
   const userSkillDir = join(USER_SKILLS_SRC, skillName);
@@ -482,7 +481,6 @@ async function buildSkillFileTree(skillDir: string, maxDepth: number = 3): Promi
 }
 
 export const skillsRoutes: FastifyPluginAsync = async (app) => {
-  await ensureSkillStorageMigrated(CAT_CAFE_ROOT);
   // ────────────────────────────────────────────────────────
   // GET /api/skills
   // ────────────────────────────────────────────────────────
@@ -495,9 +493,9 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     const [sourceSkills, bootstrapEntries, manifestMeta, installedRecords] = await Promise.all([
       listAllInstalledSkillNames(),
-      parseBootstrap(join(CAT_CAFE_SKILLS_SRC, 'BOOTSTRAP.md')),
-      parseManifestSkillMeta(CAT_CAFE_SKILLS_SRC),
-      getInstalledRecords(CAT_CAFE_ROOT),
+      parseBootstrap(join(OFFICE_CLAW_SKILLS_SRC, 'BOOTSTRAP.md')),
+      parseManifestSkillMeta(OFFICE_CLAW_SKILLS_SRC),
+      getInstalledRecords(OFFICE_CLAW_ROOT),
     ]);
 
     const installedNameSet = new Set(installedRecords.map((r) => r.name));
@@ -594,7 +592,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     try {
       const result = await searchSkills(query, { page, limit, category });
       const [installedRecords, localSkillNames] = await Promise.all([
-        getInstalledRecords(CAT_CAFE_ROOT),
+        getInstalledRecords(OFFICE_CLAW_ROOT),
         listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
@@ -623,7 +621,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     try {
       const result = await trendingSkills();
       const [installedRecords, localSkillNames] = await Promise.all([
-        getInstalledRecords(CAT_CAFE_ROOT),
+        getInstalledRecords(OFFICE_CLAW_ROOT),
         listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
@@ -657,7 +655,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     try {
       const result = await listAllSkills({ page, limit, category });
       const [installedRecords, localSkillNames] = await Promise.all([
-        getInstalledRecords(CAT_CAFE_ROOT),
+        getInstalledRecords(OFFICE_CLAW_ROOT),
         listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
@@ -741,7 +739,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      return await installSkill(CAT_CAFE_ROOT, {
+      return await installSkill(OFFICE_CLAW_ROOT, {
         owner: body.owner,
         repo: body.repo,
         skill: body.skill,
@@ -786,8 +784,8 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      const bootstrapNames = await getBootstrapNames(CAT_CAFE_SKILLS_SRC);
-      await uninstallSkill(CAT_CAFE_ROOT, body.name, bootstrapNames);
+      const bootstrapNames = await getBootstrapNames(OFFICE_CLAW_SKILLS_SRC);
+      await uninstallSkill(OFFICE_CLAW_ROOT, body.name, bootstrapNames);
       return { success: true, name: body.name };
     } catch (err) {
       if (err instanceof SkillInstallError) {
@@ -837,7 +835,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const skillDir = resolveExistingSkillDir(skillName);
     const skillDirExists = !!skillDir;
 
-    // For cat-cafe skills, require SKILL.md to exist
+    // For office-claw skills, require SKILL.md to exist
     // For external skills (from capabilities.json), allow missing files
     if (skillDir && !existsSync(join(skillDir, 'SKILL.md'))) {
       // Directory exists but no SKILL.md - still allow for external skills
@@ -847,11 +845,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     try {
       // Parallel fetch all data sources
       const [bootstrapEntries, manifestMeta, installedRecords, fileTree, capabilitiesConfig] = await Promise.all([
-        parseBootstrap(join(CAT_CAFE_SKILLS_SRC, 'BOOTSTRAP.md')),
-        parseManifestSkillMeta(CAT_CAFE_SKILLS_SRC),
-        getInstalledRecords(CAT_CAFE_ROOT),
+        parseBootstrap(join(OFFICE_CLAW_SKILLS_SRC, 'BOOTSTRAP.md')),
+        parseManifestSkillMeta(OFFICE_CLAW_SKILLS_SRC),
+        getInstalledRecords(OFFICE_CLAW_ROOT),
         skillDir ? buildSkillFileTree(skillDir) : Promise.resolve([]),
-        readCapabilitiesConfig(CAT_CAFE_ROOT),
+        readCapabilitiesConfig(OFFICE_CLAW_ROOT),
       ]);
 
       // Check if skill exists in capabilities.json
@@ -899,7 +897,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
       // Check mount status (symlinks)
       const home = homedir();
-      const expectedTarget = skillDir ?? join(CAT_CAFE_SKILLS_SRC, skillName);
+      const expectedTarget = skillDir ?? join(OFFICE_CLAW_SKILLS_SRC, skillName);
       const [claude, codex, gemini] = await Promise.all([
         isCorrectSymlink(join(home, '.claude', 'skills', skillName), expectedTarget),
         isCorrectSymlink(join(home, '.codex', 'skills', skillName), expectedTarget),
@@ -1128,7 +1126,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
       // Register in installed-skills.json
       const { addInstalledSkill } = await import('../domains/cats/services/skillhub/InstalledSkillRegistry.js');
-      await addInstalledSkill(CAT_CAFE_ROOT, {
+      await addInstalledSkill(OFFICE_CLAW_ROOT, {
         name: skillName,
         source: 'local',
         skillhubUrl: '',

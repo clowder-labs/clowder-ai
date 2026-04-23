@@ -35,7 +35,7 @@ describe('estimateTokens', () => {
   });
 
   it('handles mixed Chinese-English text', () => {
-    const mixed = 'Clowder AI 猫咖啡馆 is great!';
+    const mixed = 'OfficeClaw OfficeClaw啡馆 is great!';
     const count = estimateTokens(mixed);
     assert.ok(count > 0, 'should be positive');
     assert.ok(count < 30, `expected < 30, got ${count}`);

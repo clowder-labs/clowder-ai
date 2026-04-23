@@ -6,7 +6,7 @@
 
 /**
  * Redis Pending Request Store
- * Redis-backed pending queue — 铲屎官离线时请求不丢失
+ * Redis-backed pending queue — 用户离线时请求不丢失
  *
  * Data structures:
  * - Hash pending-req:{requestId} — request details
@@ -16,8 +16,8 @@
  * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands.
  */
 
-import type { CatId, PendingRequestRecord, RespondScope } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { CatId, PendingRequestRecord, RespondScope } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { CreatePendingInput, IPendingRequestStore } from '../ports/PendingRequestStore.js';
 import { PendingReqKeys } from '../redis-keys/authorization-keys.js';

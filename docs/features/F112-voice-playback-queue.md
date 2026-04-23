@@ -8,14 +8,14 @@ created: 2026-03-12
 
 # F112: Voice Playback Queue — 语音播放队列 + 播放器统一
 
-> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1 | **Completed**: 2026-03-18
+> **Status**: done | **Owner**: OpenCode (OpenCode, claude-opus-4-6) | **Priority**: P1 | **Completed**: 2026-03-18
 
 ## Why
 
-现在猫猫的语音播放是"发一段播一段"，没有排队、打断、暂停机制。这带来两个问题：
+现在智能体的语音播放是"发一段播一段"，没有排队、打断、暂停机制。这带来两个问题：
 
 1. **双猫播客不协调**：F021 Signal Study 的播客功能需要两只猫交替发言，目前只能靠前端 setTimeout 硬编排，没有真正的播放队列
-2. **用户无法打断**：猫猫正在说话时，用户想说话或切换话题，没有 interrupt 机制
+2. **用户无法打断**：智能体正在说话时，用户想说话或切换话题，没有 interrupt 机制
 
 **Phase A 重定义（2026-03-17）**：F111 Phase B 引入了 `voice_chunk` WebSocket 实时推送，PlaybackManager 的主要输入源从"audio rich block" 变为"实时 voice_chunk 事件"。Rich block 退为持久化/回放载体。
 
@@ -27,7 +27,7 @@ created: 2026-03-12
 
 ### Phase A: PlaybackManager for Realtime Chunks（第一刀）
 
-> Scope 收紧（Maine Coon GPT-5.4 review 2026-03-17）：只做 queue + interrupt + pause/resume + priority skeleton。replace + intent + podcast orchestration 后置。
+> Scope 收紧（Codex GPT-5.4 review 2026-03-17）：只做 queue + interrupt + pause/resume + priority skeleton。replace + intent + podcast orchestration 后置。
 
 1. **PlaybackManager 核心（前端 class）**
    - 消费 WebSocket `voice_chunk` 事件 → base64 解码 → blob URL → 排队播放
@@ -96,7 +96,7 @@ created: 2026-03-12
 
 1. **VAD 检测 → PlaybackManager interrupt**
    - 使用 `@ricky0123/vad-web` 的 `MicVAD` 接入麦克风
-   - `onSpeechStart` 回调 → `getPlaybackManager().interrupt()` → 猫猫立刻停嘴
+   - `onSpeechStart` 回调 → `getPlaybackManager().interrupt()` → 智能体立刻停嘴
    - `onSpeechEnd` 回调 → 可选：恢复播放 / 不恢复（取决于 UX 决策）
 
 2. **与现有麦克风接入共存**

@@ -2,7 +2,7 @@
  * Port drift guard — ensures .env.example.opensource ports stay consistent
  * with sync-to-opensource.sh transforms.
  *
- * Root cause of clowder-ai#87 / #55 / #56: the .env.example.opensource had
+ * Root cause of office-claw#87 / #55 / #56: the .env.example.opensource had
  * API_SERVER_PORT and FRONTEND_PORT swapped relative to the code defaults
  * that sync-to-opensource.sh produces. This test prevents that from recurring.
  *
@@ -166,7 +166,7 @@ describe('.env.example.opensource port consistency', {
 });
 
 // In the home repo (OfficeClaw), code defaults are API=3002 / Frontend=3001.
-// In the open-source repo (clowder-ai), sync transforms them to Frontend=3003 / API=3004.
+// In the open-source repo (office-claw), sync transforms them to Frontend=3003 / API=3004.
 const expectedApiPort = isHomeRepo ? '3002' : '3004';
 const expectedFrontendPort = isHomeRepo ? '3001' : '3003';
 const repoLabel = isHomeRepo ? 'home' : 'open-source';
@@ -485,7 +485,7 @@ excluded:
     for (const scriptPath of requiredScripts) {
       assert.ok(
         managedScripts.includes(scriptPath),
-        `sync-manifest should export ${scriptPath} instead of deleting it from clowder-ai`,
+        `sync-manifest should export ${scriptPath} instead of deleting it from office-claw`,
       );
     }
   });
@@ -543,8 +543,8 @@ excluded:
     );
     assert.match(
       publishScript,
-      /ensure_tag_points_to "\$TARGET_DIR" "clowder-ai" "\$TARGET_SHA"/,
-      'post-merge lane should advance the matching clowder-ai tag too',
+      /ensure_tag_points_to "\$TARGET_DIR" "office-claw" "\$TARGET_SHA"/,
+      'post-merge lane should advance the matching office-claw tag too',
     );
   });
 
@@ -577,7 +577,7 @@ excluded:
     );
     assert.match(
       content,
-      /git -C "\$SOURCE_DIR" tag -a "\$tag" "\$sha" -m "source snapshot for clowder-ai \$release_tag"/,
+      /git -C "\$SOURCE_DIR" tag -a "\$tag" "\$sha" -m "source snapshot for office-claw \$release_tag"/,
       'release-intended sync should create an annotated source snapshot tag',
     );
     assert.match(
@@ -597,42 +597,42 @@ excluded:
     assert.match(
       hotfix,
       /git -C "\$TARGET_DIR" fetch --quiet origin main/,
-      'hotfix lane should refresh clowder-ai origin\\/main before auto-selecting the baseline',
+      'hotfix lane should refresh office-claw origin\\/main before auto-selecting the baseline',
     );
     assert.match(
       hotfix,
       /TARGET_SYNC_TAG_REFS="refs\/office-claw-hotfix-sync-tags"/,
-      'hotfix lane should mirror clowder-ai sync tags into a dedicated local ref namespace',
+      'hotfix lane should mirror office-claw sync tags into a dedicated local ref namespace',
     );
     assert.doesNotMatch(
       hotfix,
       /git -C "\$TARGET_DIR" fetch --quiet --force origin[\s\\]+"\+refs\/tags\/sync\/\*:refs\/tags\/sync\/\*"/,
-      'hotfix lane should not mirror sync tags into clowder-ai local tag refs during baseline selection',
+      'hotfix lane should not mirror sync tags into office-claw local tag refs during baseline selection',
     );
     assert.match(
       hotfix,
       /git -C "\$TARGET_DIR" fetch --quiet --force --prune origin[\s\\]+"\+refs\/tags\/sync\/\*:\$TARGET_SYNC_TAG_REFS\/\*"/,
-      'hotfix lane should force-refresh the mirrored clowder-ai sync tag namespace',
+      'hotfix lane should force-refresh the mirrored office-claw sync tag namespace',
     );
     assert.match(
       hotfix,
       /merge-base --is-ancestor[\s\\]+"\$TARGET_SYNC_TAG_REFS\/\$tag\^\{commit\}" refs\/remotes\/origin\/main/,
-      'hotfix lane should ignore mirrored target sync tags that are no longer reachable from clowder-ai origin/main',
+      'hotfix lane should ignore mirrored target sync tags that are no longer reachable from office-claw origin/main',
     );
     assert.match(
       hotfix,
       /show -s --format=%ct "\$TARGET_SYNC_TAG_REFS\/\$tag\^\{commit\}"/,
-      'hotfix lane should compare mirrored clowder-ai tag commit times when choosing the latest sync baseline',
+      'hotfix lane should compare mirrored office-claw tag commit times when choosing the latest sync baseline',
     );
     assert.match(
       hotfix,
       /rev-parse --verify "\$TARGET_SYNC_TAG_REFS\/\$SYNC_TAG\^\{commit\}"/,
-      'hotfix lane should require explicit --tag baselines to exist in the mirrored clowder-ai origin tag namespace',
+      'hotfix lane should require explicit --tag baselines to exist in the mirrored office-claw origin tag namespace',
     );
     assert.match(
       hotfix,
       /merge-base --is-ancestor[\s\\]+"\$TARGET_SYNC_TAG_REFS\/\$SYNC_TAG\^\{commit\}" refs\/remotes\/origin\/main/,
-      'hotfix lane should reject explicit --tag baselines that are no longer on clowder-ai origin/main',
+      'hotfix lane should reject explicit --tag baselines that are no longer on office-claw origin/main',
     );
     assert.doesNotMatch(
       hotfix,

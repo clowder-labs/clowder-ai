@@ -1,4 +1,4 @@
-import type { AuthProvider } from '@clowder/plugin-api/auth';
+import type { AuthProvider } from '@office-claw/plugin-api/auth';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

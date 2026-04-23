@@ -12,13 +12,13 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import Fastify from 'fastify';
 import { resetMultiMentionOrchestrator } from '../dist/routes/callback-multi-mention-routes.js';
 
-// Bootstrap catRegistry from CAT_CONFIGS (same as server startup)
-for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-  if (!catRegistry.has(id)) catRegistry.register(id, config);
+// Bootstrap officeClawRegistry from OFFICE_CLAW_CONFIGS (same as server startup)
+for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+  if (!officeClawRegistry.has(id)) officeClawRegistry.register(id, config);
 }
 
 // ── Mocks ──────────────────────────────────────────────────────────────
@@ -547,7 +547,7 @@ describe('Multi-Mention Routes', () => {
     // Manually set up orchestrator state: opus created a multi-mention targeting codex
     const { getMultiMentionOrchestrator } = await import('../dist/routes/callback-multi-mention-routes.js');
     const orch = getMultiMentionOrchestrator();
-    const { createCatId } = await import('@clowder/shared');
+    const { createCatId } = await import('@office-claw/shared');
     const req = orch.create({
       threadId: 'thread-1',
       initiator: createCatId('opus'),

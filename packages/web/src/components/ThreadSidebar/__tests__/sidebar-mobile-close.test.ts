@@ -75,7 +75,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    window.sessionStorage.removeItem('cat-cafe:sidebar-scroll:v1');
+    window.sessionStorage.removeItem('office-claw:sidebar-scroll:v1');
     mockApiFetch.mockReset();
     mockPush.mockReset();
     mockStore.threads = [];

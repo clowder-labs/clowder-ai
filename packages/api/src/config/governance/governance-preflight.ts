@@ -10,7 +10,7 @@
  * Checks if an external project is ready for cat dispatch.
  * Returns actionable state (needsBootstrap / needsConfirmation)
  * so the caller can surface instructions instead of silently blocking.
- * Fixes: clowder-ai#123 (preflight blocks new projects without guidance)
+ * Fixes: office-claw#123 (preflight blocks new projects without guidance)
  */
 import { lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';

@@ -6,7 +6,7 @@
 
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from './office-claw-root.js';
 
 const LEGACY_JIUWENCLAW_APP_DIR = '/usr/code/relay-claw';
 
@@ -15,7 +15,7 @@ function hasJiuwenClawAppEntry(appDir: string): boolean {
 }
 
 function resolveRepoRoot(): string {
-  return resolveCatCafeHostRoot(process.cwd());
+  return resolveOfficeClawHostRoot(process.cwd());
 }
 
 export function resolveVendoredJiuwenClawAppDir(): string {

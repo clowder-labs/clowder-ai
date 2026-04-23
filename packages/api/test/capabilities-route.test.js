@@ -49,7 +49,7 @@ describe('PATCH capabilities logic', () => {
       version: 1,
       capabilities: [
         {
-          id: 'cat-cafe',
+          id: 'office-claw',
           type: 'mcp',
           enabled: true,
           source: 'builtin',
@@ -104,7 +104,7 @@ describe('PATCH capabilities logic', () => {
       version: 1,
       capabilities: [
         {
-          id: 'cat-cafe',
+          id: 'office-claw',
           type: 'mcp',
           enabled: true,
           source: 'builtin',

@@ -7,20 +7,20 @@ created: 2026-03-24
 updated: 2026-03-25
 ---
 
-# F138: Cat Café Video Studio — AI 视频制作管线
+# F138: OfficeClaw Video Studio — AI 视频制作管线
 
-> **Status**: spec | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: spec | **Owner**: OpenCode | **Priority**: P1
 
 ## Why
 
-> "来吧猫猫 立项吧！link waoowaoo 和 Remotion，我们的第一个目标就是把我们的做出我们的 bilibili 的视频？比如先把我们的教程做成视频？"
+> "来吧智能体 立项吧！link waoowaoo 和 Remotion，我们的第一个目标就是把我们的做出我们的 bilibili 的视频？比如先把我们的教程做成视频？"
 > — team lead，2026-03-24
 
-Cat Café 需要**系统化的视频制作能力**，不再是一次性手搓 Remotion 代码。目标：
+OfficeClaw 需要**系统化的视频制作能力**，不再是一次性手搓 Remotion 代码。目标：
 
-1. **把教程做成 B 站视频**——Cat Café 的 setup guide、bootcamp 流程、功能演示都应该有视频版
+1. **把教程做成 B 站视频**——OfficeClaw 的 setup guide、bootcamp 流程、功能演示都应该有视频版
 2. **重构现有介绍视频**——V4.8 是手动分镜 + 手写代码，学习 waoowaoo 后应该能更自动化
-3. **建立可复用的视频制作管线**——team lead给素材+脚本，猫猫自动排版渲染
+3. **建立可复用的视频制作管线**——team lead给素材+脚本，智能体自动排版渲染
 
 ### 核心原则（GPT Pro 设计审阅 2026-03-25）
 
@@ -29,8 +29,8 @@ Cat Café 需要**系统化的视频制作能力**，不再是一次性手搓 Re
 ### 现状
 
 - **已有**：`/home/user/` — 2,182 行 Remotion 代码，15+ 轮迭代经验
-- **已有**：`docs/videos/cat-cafe-intro/` — 分镜脚本 + 素材索引 + 制作复盘
-- **已有**：猫猫 TTS 声线（Ragdoll/Maine Coon/Siamese，F066/F103）
+- **已有**：`docs/videos/office-claw-intro/` — 分镜脚本 + 素材索引 + 制作复盘
+- **已有**：智能体 TTS 声线（Claude/Codex/Gemini，F066/F103）
 - **缺失**：没有 canonical video spec（事实散在聊天/代码/旁白/字幕里）
 - **缺失**：没有自动化流水线，每次做视频都是从零手写场景组件
 - **缺失**：没有 AI 辅助分镜/图片生成/角色一致性
@@ -75,8 +75,8 @@ brief → asset ingest → video-spec → voice-script → preview render → re
 ```
 
 1. **确定教程选题**（需team lead拍板）
-   - Cat Café 安装教程（macOS/Linux）
-   - 猫猫训练营流程演示
+   - OfficeClaw 安装教程（macOS/Linux）
+   - 智能体训练营流程演示
    - 功能亮点 showcase（语音、狼人杀、协作编码等）
 2. **Remotion 模板库重构** — 从一次性 demo 重构为 schema 驱动的模板库
 3. **验证 schema + review loop 的复用性** — 同一套 contract 能跑 2 支不同视频
@@ -145,7 +145,7 @@ brief → asset ingest → video-spec → voice-script → preview render → re
 ## Dependencies
 
 - **Evolved from**: F054（HCI 预热基础设施 — B 站 MCP 调研在 F054 Phase 1）
-- **Related**: F093（Cats & U 世界引擎 — 介绍视频的创意方向）
+- **Related**: F093（OfficeClaw 世界引擎 — 介绍视频的创意方向）
 - **Related**: F066/F103（Voice Pipeline / Per-Cat Voice Identity — TTS 配音能力）
 - **External**: [waoowaoo](https://github.com/saturndec/waoowaoo)（参考架构，无 License，仅学习）
 

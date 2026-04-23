@@ -282,7 +282,7 @@ commit body 补一行 `Why:` 说明决策理由。
 
 | # | 证据 | 示例 |
 |---|------|------|
-| 1 | **命令** | `pnpm test`（全量）或 `pnpm --filter @clowder/api test`（指明 scope） |
+| 1 | **命令** | `pnpm test`（全量）或 `pnpm --filter @office-claw/api test`（指明 scope） |
 | 2 | **SHA** | `基于 abc1234` |
 | 3 | **是否 rebase 到最新 main** | `已 rebase origin/main` 或 `未 rebase（基于 3 天前的 main）` |
 

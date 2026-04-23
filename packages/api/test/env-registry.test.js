@@ -222,7 +222,7 @@ describe('buildEnvSummary', () => {
 describe('GET /api/config/env-summary (route)', () => {
   it('projectRoot follows CAT_TEMPLATE_PATH directory when set', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-summary-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-summary-'));
     const templatePath = resolve(tempRoot, 'office-claw-template.json');
     writeFileSync(templatePath, '{}', 'utf8');
     setEnv('CAT_TEMPLATE_PATH', templatePath);
@@ -267,7 +267,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('rejects channel env writes when the whitelist env is missing', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'DINGTALK_APP_KEY=ding-old\n', 'utf8');
 
@@ -300,7 +300,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('writes runtime-editable env vars back to the configured .env file', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     const auditEvents = [];
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'DINGTALK_APP_KEY');
@@ -343,7 +343,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('triggers connector runtime reconcile and reports immediate apply for connector env vars', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'DINGTALK_APP_KEY');
     writeFileSync(envFilePath, 'DINGTALK_APP_KEY=old-key\n', 'utf8');
@@ -377,7 +377,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'DINGTALK_APP_KEY', value: 'new-key' }],
         },
@@ -398,7 +398,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('trims connector credentials before persisting them to .env', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'DINGTALK_APP_KEY;DINGTALK_APP_SECRET');
     const reconcileCalls = [];
@@ -453,7 +453,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('escapes shell substitution characters when persisting .env values', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     const literal = 'https://proxy.example/$HOME/$(whoami)/`whoami`';
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'DINGTALK_APP_KEY');
@@ -493,7 +493,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('escapes CR/LF characters to avoid multiline env injection', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     const literal = 'line1\r\nline2\nline3';
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'DINGTALK_APP_KEY');
@@ -534,7 +534,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('rejects sensitive env vars from hub writes', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'OPENAI_API_KEY=sk-old\n', 'utf8');
 
@@ -568,7 +568,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('rejects client-bundled NEXT_PUBLIC vars from hub writes because the browser reads them at build time', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(
       envFilePath,
@@ -615,7 +615,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('rejects internal runtime budget env vars from hub writes', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'CAT_OPUS_MAX_PROMPT_CHARS=150000\n', 'utf8');
 
@@ -649,7 +649,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('applies the env whitelist before evaluating runtime-editable status', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     setEnv(HUB_ENV_PATCH_WHITELIST_ENV_NAME, 'PREVIEW_GATEWAY_PORT');
     writeFileSync(envFilePath, 'API_SERVER_PORT=3003\nPREVIEW_GATEWAY_PORT=4100\n', 'utf8');
@@ -695,7 +695,7 @@ describe('PATCH /api/config/env (route)', () => {
 
   it('rejects REDIS_URL from hub writes because runtime redis clients are bootstrapped at startup', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
-    const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
+    const tempRoot = mkdtempSync(resolve(tmpdir(), 'office-claw-env-'));
     const envFilePath = resolve(tempRoot, '.env');
     writeFileSync(envFilePath, 'REDIS_URL=redis://localhost:6399/15\n', 'utf8');
 

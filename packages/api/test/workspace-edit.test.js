@@ -43,7 +43,7 @@ describe('workspace edit endpoints (integration)', () => {
     const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
 
     const worktrees = await listWorktrees();
-    const thisWt = worktrees.find((w) => w.root.endsWith('cat-cafe-f063p2b5'));
+    const thisWt = worktrees.find((w) => w.root.endsWith('office-claw-f063p2b5'));
     const wt = thisWt ?? worktrees[0];
     worktreeId = wt.id;
     wtRoot = wt.root;
@@ -66,7 +66,7 @@ describe('workspace edit endpoints (integration)', () => {
     await app?.close();
     const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
     const worktrees = await listWorktrees();
-    const thisWt = worktrees.find((w) => w.root.endsWith('cat-cafe-f063p2b5'));
+    const thisWt = worktrees.find((w) => w.root.endsWith('office-claw-f063p2b5'));
     const wt = thisWt ?? worktrees[0];
     await rm(join(wt.root, TEST_DIR), { recursive: true, force: true });
   });

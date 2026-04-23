@@ -8,7 +8,7 @@
 
 import { create } from 'zustand';
 
-const STORAGE_KEY = 'cat-cafe-voice-settings';
+const STORAGE_KEY = 'office-claw-voice-settings';
 
 export interface CustomTerm {
   from: string;

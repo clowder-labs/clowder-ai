@@ -66,7 +66,7 @@ export async function collect(iterable) {
   return messages;
 }
 
-// ── Cat Cafe identifiers ──
+// ── OfficeClaw identifiers ──
 
 export const CAT_CAFE_HANDLES = ['@opus', '@codex', '@gemini', '@sonnet', '@gpt52', '@opencode'];
 export const OFFICE_CLAW_CAT_IDS = ['opus', 'codex', 'gemini', 'sonnet', 'gpt52'];

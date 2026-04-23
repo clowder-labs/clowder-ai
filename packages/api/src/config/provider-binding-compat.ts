@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatProvider } from '@clowder/shared';
+import type { CatProvider } from '@office-claw/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { getPluginRegistry } from './plugins/plugin-registry-singleton.js';
 import type {

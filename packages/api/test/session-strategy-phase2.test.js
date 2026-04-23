@@ -17,7 +17,7 @@ async function loadStrategyModule() {
 }
 
 async function loadConfigModule() {
-  return import('../dist/config/cat-config-loader.js');
+  return import('../dist/config/office-claw-config-loader.js');
 }
 
 describe('session-strategy Phase 2', () => {
@@ -62,7 +62,7 @@ describe('session-strategy Phase 2', () => {
   // ── Config override priority (getConfigSessionStrategy) ──
 
   describe('config override priority (getConfigSessionStrategy)', () => {
-    // Minimal mock CatCafeConfig with sessionStrategy configured
+    // Minimal mock OfficeClawConfig with sessionStrategy configured
     function mockConfig(sessionStrategy) {
       return {
         version: 1,

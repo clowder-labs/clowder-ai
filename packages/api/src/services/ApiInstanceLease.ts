@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { hostname as getHostname } from 'node:os';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 
 export const API_INSTANCE_LEASE_KEY = 'runtime:api-instance-lease:v1';
 

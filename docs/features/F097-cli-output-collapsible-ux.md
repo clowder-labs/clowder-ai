@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F097: CLI Output Collapsible UX — 聊天气泡折叠式重构
 
-> **Status**: done | **Owner**: Ragdoll | **Priority**: P1 | **Completed**: 2026-03-11
+> **Status**: done | **Owner**: Claude | **Priority**: P1 | **Completed**: 2026-03-11
 
 ## Why
 
@@ -146,12 +146,12 @@ Before:                              After:
 
 **状态枚举**：`进行中 | 已完成 | 失败 | 已中断`（摘要行、active row 高亮、auto-collapse 条件共用）
 
-**可见性 chip**（遵循 F056 猫猫设计语言）：
+**可见性 chip**（遵循 F056 智能体设计语言）：
 - 来源：thread `thinkingMode`（不是 `message.whisper`）
 - 规则：
   - `thinkingMode = shared` → `共享给其他猫` + 猫爪 SVG icon（表示"其他猫能看到"）
   - `thinkingMode = private`（或未设置）→ `不共享给其他猫`（低调灰文本，无特殊 icon）
-- **图标规范**：全部使用 SVG icon，禁止 emoji（F056 KD-8 + 四大宪章"猫咖隐喻：不堆砌猫 emoji"）
+- **图标规范**：全部使用 SVG icon，禁止 emoji（F056 KD-8 + 四大宪章"OfficeClaw隐喻：不堆砌猫 emoji"）
   - Tool 行前缀：Lucide `wrench` SVG（替代 🔧 emoji）
   - 状态完成：Lucide `check` SVG（替代 ✓/✅ 文本）
   - 折叠箭头：Lucide `chevron-right` / `chevron-down`（替代 ▶/▼ 文本）
@@ -197,7 +197,7 @@ Before:                              After:
 ## Dependencies
 
 - **Evolved from**: F009（tool_use/tool_result 显示）、F081（气泡连续性）
-- **Related**: F056（猫猫设计语言 — icon/token 规范）、F071（UX debt batch）、F096（Interactive Rich Blocks）
+- **Related**: F056（智能体设计语言 — icon/token 规范）、F071（UX debt batch）、F096（Interactive Rich Blocks）
 
 ## Risk
 
@@ -221,7 +221,7 @@ Before:                              After:
 | KD-7 | 可见性来源 thinkingMode 不是 whisper | whisper 消息级 vs thinkingMode thread 级，层级不同 | 2026-03-11 |
 | KD-8 | Phase A 不做时序穿插，不合并 callback+stream | 后端数据模型不支持，Phase B 再补 | 2026-03-11 |
 | KD-9 | CliOutputBlock 接口面向终态（统一 CliEvent[] 时序流） | 家规 P1：终态基座不是脚手架。Phase A 前端适配，Phase B 零组件改动 | 2026-03-11 |
-| KD-10 | 全部 SVG icon，禁止 emoji | F056 四大宪章"猫咖隐喻：不堆砌猫 emoji" + KD-8 禁硬编码。共享可见性用猫爪 SVG | 2026-03-11 |
+| KD-10 | 全部 SVG icon，禁止 emoji | F056 四大宪章"OfficeClaw隐喻：不堆砌猫 emoji" + KD-8 禁硬编码。共享可见性用猫爪 SVG | 2026-03-11 |
 
 ## team lead反馈 + 反思（2026-03-11 Phase A 后）
 
@@ -234,7 +234,7 @@ Before:                              After:
 5. **Tools 独立折叠** — 收起全部 tools 调用但保留 CLI 输出时体验不闭环
 6. **CLI 输出语言** — stdout 全是英文，team lead要过一下脑子才知道做到哪了
 
-### Ragdoll反思
+### Claude反思
 
 **根本问题：没对照设计稿就交差。**
 
@@ -347,7 +347,7 @@ Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pe
 | 5 | 气泡"乌漆嘛黑"看不出品种色 | `#283548` 固定深蓝灰 | `hexToRgba(accent, 0.10)` 品种色混合 | `791b381d` |
 | 6 | 气泡浅紫色文字不可见 | rgba 透明度在浅色主题上太淡 | `tintedDark(accent, 0.25)` 混入深色基底 | `1537a942` |
 | 7 | Markdown 表头白色看不见 | 没考虑深色气泡内的 md 样式 | `.cli-output-md` scoped CSS overrides | `f2e28f0d` |
-| 8 | 两只孟加拉猫不区分 | config 里没 variantLabel | 加 `"variantLabel": "Gemini"` | `1537a942` |
+| 8 | 两只Antigravity不区分 | config 里没 variantLabel | 加 `"variantLabel": "Gemini"` | `1537a942` |
 
 **根因分析——为什么team lead要抓耳朵：**
 
@@ -359,7 +359,7 @@ Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pe
 
 4. **防御性编码不足** — 文字溢出 bug 的代码逻辑（`!isStreamOrigin`）理论上是对的，但实际存在边缘情况。正确做法是 belt-and-suspenders：`hasCliBlock` 为真时绝对不渲染外部内容。
 
-5. **config 细节忽视** — Bengal 猫两个 variant 没区分，说明改完代码后没验证周边影响。
+5. **config 细节忽视** — Antigravity 两个 variant 没区分，说明改完代码后没验证周边影响。
 
 **以后遇到同类问题的正确流程：**
 

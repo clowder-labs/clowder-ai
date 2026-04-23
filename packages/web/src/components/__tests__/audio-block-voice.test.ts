@@ -62,7 +62,7 @@ describe('AudioBlock voice message detection', () => {
       kind: 'audio',
       v: 1,
       url: '/api/tts/audio/abc.wav',
-      text: '喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵',
+      text: '啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
     });
 
     // Long transcript should wrap and keep full content visible.

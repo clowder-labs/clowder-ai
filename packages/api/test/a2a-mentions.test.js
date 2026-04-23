@@ -10,30 +10,30 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 
 describe('parseA2AMentions', () => {
   it('detects line-start @mention (Chinese name)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@缅因猫 请 review 这段代码', 'opus');
+    const result = parseA2AMentions('@assistant 请 review 这段代码', 'opus');
     assert.deepEqual(result, ['codex']);
   });
 
   it('accepts line-start @mention without a separating space (Chinese handle)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@缅因猫请 review 这段代码', 'opus');
+    const result = parseA2AMentions('@assistant请 review 这段代码', 'opus');
     assert.deepEqual(result, ['codex']);
   });
 
   it('detects line-start @mention with leading whitespace when action words exist', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('  @布偶猫 请确认这个修复', 'codex');
+    const result = parseA2AMentions('  @claude 请确认这个修复', 'codex');
     assert.deepEqual(result, ['opus']);
   });
 
   it('routes when action words are in next line of same paragraph', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n请 review 这个 PR';
+    const text = '@claude\n请 review 这个 PR';
     const result = parseA2AMentions(text, 'codex');
     assert.deepEqual(result, ['opus']);
   });
@@ -56,31 +56,31 @@ describe('parseA2AMentions', () => {
 
   it('routes @mention across paragraph boundary (blank line between mention and content)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n这是交接文档 blah blah';
+    const text = '@claude\n\n这是交接文档 blah blah';
     const result = parseA2AMentions(text, 'codex');
     assert.deepEqual(result, ['opus']);
   });
 
   it('routes bare @mention (no other content in message)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@布偶猫', 'codex');
+    const result = parseA2AMentions('@claude', 'codex');
     assert.deepEqual(result, ['opus']);
   });
 
   it('routes @mention with arbitrary text on same line (no keyword match)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@布偶猫 prefix typo', 'codex');
+    const result = parseA2AMentions('@claude prefix typo', 'codex');
     assert.deepEqual(result, ['opus']);
   });
 
   it('routes multiple @mentions across paragraphs', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n@缅因猫\n\n这是交接给你们的';
+    const text = '@claude\n@assistant\n\n这是交接给你们的';
     const result = parseA2AMentions(text, 'gpt52');
     assert.deepEqual(result, ['opus', 'codex']);
   });
 
-  // === Content-before-mention: 上文写内容，最后一行 @ (缅因猫习惯) ===
+  // === Content-before-mention: 上文写内容，最后一行 @ (Codex习惯) ===
 
   it('routes when content comes before @mention (content-before-mention pattern)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
@@ -91,7 +91,7 @@ describe('parseA2AMentions', () => {
 
   it('analyzeA2AMentions returns empty suppressed (no suppression system)', async () => {
     const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = analyzeA2AMentions('@布偶猫', 'codex');
+    const result = analyzeA2AMentions('@claude', 'codex');
     assert.deepEqual(result.mentions, ['opus']);
     assert.deepEqual(result.suppressed, []);
   });
@@ -100,7 +100,7 @@ describe('parseA2AMentions', () => {
 
   it('mode option is accepted but does not affect routing (backward compat)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n这是交接文档';
+    const text = '@claude\n\n这是交接文档';
     const strict = parseA2AMentions(text, 'codex', { mode: 'strict' });
     const relaxed = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
     assert.deepEqual(strict, ['opus']);
@@ -109,27 +109,27 @@ describe('parseA2AMentions', () => {
 
   it('does NOT trigger for non-line-start @mention', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('之前布偶猫说的 @布偶猫 方案不错', 'codex');
+    const result = parseA2AMentions('之前Claude说的 @claude 方案不错', 'codex');
     assert.deepEqual(result, []);
   });
 
   it('ignores @mention inside fenced code blocks', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '看看这段代码：\n```\n@缅因猫 请review\n```\n没问题';
+    const text = '看看这段代码：\n```\n@assistant 请review\n```\n没问题';
     const result = parseA2AMentions(text, 'opus');
     assert.deepEqual(result, []);
   });
 
   it('filters self-mention', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@布偶猫 我自己说的', 'opus');
+    const result = parseA2AMentions('@claude 我自己说的', 'opus');
     assert.deepEqual(result, []);
   });
 
   it('F27: returns all matches (multi-mention, up to 2)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     // Both on separate lines — F27 returns both
-    const text = '@缅因猫 先review\n@暹罗猫 再看看设计';
+    const text = '@assistant 先review\n@design 再看看设计';
     const result = parseA2AMentions(text, 'opus');
     assert.equal(result.length, 2);
     assert.ok(result.includes('codex'));
@@ -155,89 +155,89 @@ describe('parseA2AMentions', () => {
 
   it('matches gpt52 variant alias @gpt5.2 from runtime cat-config', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const result = parseA2AMentions('@gpt5.2 帮忙看下', 'codex');
       assert.deepEqual(result, ['gpt52']);
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   it('matches stable @gpt alias for gpt52 from runtime cat-config', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const result = parseA2AMentions('@gpt 帮忙看下', 'codex');
       assert.deepEqual(result, ['gpt52']);
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   it('does not prefix-match variant handles (@opus-45 should not match @opus)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const result = parseA2AMentions('@opus-45 请看', 'gpt52');
       assert.deepEqual(result, ['opus-45']);
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   it('keeps true first two targets without prefix collision side effects', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const text = '@opus-45 请看一下\n@gemini25 please review';
       const result = parseA2AMentions(text, 'gpt52');
       assert.deepEqual(result, ['opus-45', 'gemini25']);
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
@@ -303,8 +303,8 @@ describe('SystemPromptBuilder A2A injection', () => {
       a2aEnabled: true,
     });
     assert.ok(prompt.includes('协作'), 'should include 协作 even with empty teammates');
-    assert.ok(prompt.includes('@缅因猫'), 'should list codex as callable');
-    assert.ok(prompt.includes('@暹罗猫'), 'should list gemini as callable');
-    assert.ok(!prompt.includes('@布偶猫'), 'should NOT list self as callable');
+    assert.ok(prompt.includes('@assistant'), 'should list codex as callable');
+    assert.ok(prompt.includes('@design'), 'should list gemini as callable');
+    assert.ok(!prompt.includes('@claude'), 'should NOT list self as callable');
   });
 });

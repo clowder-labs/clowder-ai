@@ -20,8 +20,8 @@
  *   error       → error
  */
 
-import { type CatId, createCatId } from '@clowder/shared';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { type CatId, createCatId } from '@office-claw/shared';
+import { getCatModel } from '../../../../../config/office-claw-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';

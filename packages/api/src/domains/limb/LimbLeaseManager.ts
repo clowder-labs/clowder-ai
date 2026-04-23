@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbLease } from '@clowder/shared';
+import type { LimbLease } from '@office-claw/shared';
 
 export interface LeaseManagerOptions {
   defaultTtlMs: number;

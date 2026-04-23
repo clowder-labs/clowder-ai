@@ -6,7 +6,7 @@
 
 /**
  * opencode Event Transformer
- * opencode JSON event stream → Clowder AI AgentMessage 映射
+ * opencode JSON event stream → OfficeClaw AgentMessage 映射
  *
  * opencode `run --format json` NDJSON 事件格式:
  *   { type, timestamp, sessionID, part: { type, ... } }
@@ -20,7 +20,7 @@
  *   Others     → null
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 interface OpenCodeEvent {

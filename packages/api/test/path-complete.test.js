@@ -26,7 +26,7 @@ describe('GET /api/projects/complete', () => {
 
   before(async () => {
     // Create test directory structure under /tmp (allowed root)
-    testDir = mkdtempSync('/tmp/cat-cafe-test-complete-');
+    testDir = mkdtempSync('/tmp/office-claw-test-complete-');
     mkdirSync(join(testDir, 'src'));
     mkdirSync(join(testDir, 'src', 'components'));
     mkdirSync(join(testDir, 'src', 'utils'));

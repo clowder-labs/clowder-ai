@@ -4,7 +4,7 @@
  *
  */
 
-import { CAT_CONFIGS } from '@clowder/shared';
+import { CAT_CONFIGS } from '@office-claw/shared';
 import { create } from 'zustand';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type {

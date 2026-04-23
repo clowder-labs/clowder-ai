@@ -142,7 +142,7 @@ describe('GET /api/messages', () => {
       method: 'GET',
       url: '/api/messages?threadId=thread-scheduler',
       headers: {
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
     });
     const body = JSON.parse(res.body);
@@ -176,7 +176,7 @@ describe('GET /api/messages', () => {
       method: 'GET',
       url: '/api/messages?threadId=thread-sched-agent',
       headers: {
-        'x-cat-cafe-user': 'real-logged-in-user',
+        'x-office-claw-user': 'real-logged-in-user',
       },
     });
     const body = JSON.parse(res.body);
@@ -320,7 +320,7 @@ describe('GET /api/messages', () => {
     assert.equal(new Set(allIds).size, 4, 'All 4 messages should be unique across pages');
   });
 
-  it('returns toolEvents when message has them (缅因猫 R2 P1-2)', async () => {
+  it('returns toolEvents when message has them (Codex R2 P1-2)', async () => {
     messageStore.append({
       userId: 'default-user',
       catId: 'opus',

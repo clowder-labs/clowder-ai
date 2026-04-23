@@ -37,7 +37,7 @@ import {
   isLocalSecretStorageEnabled,
   persistConnectorEnvSecret,
 } from '../config/local-secret-store.js';
-import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
+import { updateRuntimeCoCreator } from '../config/runtime-office-claw-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import {
   createRelayClawSecurityClient,
@@ -171,7 +171,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -224,7 +224,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -270,7 +270,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
   });
 
   app.get('/api/config/relayclaw/security', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -291,7 +291,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -334,7 +334,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };

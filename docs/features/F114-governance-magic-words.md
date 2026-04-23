@@ -8,15 +8,15 @@ created: 2026-03-13
 
 # F114: Magic Words + 愿景守护 Gate
 
-> **Status**: done | **Owner**: Ragdoll | **Priority**: P1 | **Completed**: 2026-03-13
+> **Status**: done | **Owner**: Claude | **Priority**: P1 | **Completed**: 2026-03-13
 
 ## Why
 
 ### team experience
 
-> "我感觉做愿景守护的喵，要么他没有认真的看我的愿景，要么你们两只猫的人类意图理解能力有问题。但是这个问题在于，按照你跟Maine Coon的智力水平，这句话不应该理解错。" — team lead 2026-03-13
+> "我感觉做愿景守护的人，没有认真看我的愿景，或者你们的人类意图理解能力有问题。但是按你跟 Codex 的智力水平，这句话不应该理解错。" — team lead 2026-03-13
 
-> "我们的家规或者喵约里面很多很重要的该怎么办？" — team lead 2026-03-13
+> "我们的家规或者公约里面很多很重要的该怎么办？" — team lead 2026-03-13
 
 > "如果一天就能写完，你还要做那些先搞一个垃圾版本……可能又搞了一周都没干完" — team lead 2026-03-13
 
@@ -36,8 +36,8 @@ created: 2026-03-13
 
 ### 不做什么（v1 讨论后明确排除）
 
-- ~~喵约瘦身到 5 条~~ — team lead指出：从系统提示词移走 = 注意率从 70% 降到 1%，是开倒车
-- ~~四层架构（喵约/MagicWord/Skill/Gate）~~ — 以前就是分层的（F042），效果不好才膨胀回来的
+- ~~公约瘦身到 5 条~~ — team lead指出：从系统提示词移走 = 注意率从 70% 降到 1%，是开倒车
+- ~~四层架构（公约/MagicWord/Skill/Gate）~~ — 以前就是分层的（F042），效果不好才膨胀回来的
 - ~~场景化动态注入~~ — 小模型匹配需要完整上下文，成本等于再跑一次大模型
 - ~~Skill 内联规则本体~~ — 散弹式修改问题，与 F042 单一真相源冲突
 
@@ -51,7 +51,7 @@ created: 2026-03-13
 |--------|------|---------|
 | **「脚手架」** | 你在偷懒写临时方案 | 停，审视产物是否终态，不是→重写 |
 | **「绕路了」** | 局部最优但全局绕路 | 停，画出直线路径，丢掉绕路部分 |
-| **「喵约」** | 你忘了我们的约定 | 重读 GOVERNANCE_L0_DIGEST，逐条对照当前行为 |
+| **「公约」** | 你忘了我们的约定 | 重读 GOVERNANCE_L0_DIGEST，逐条对照当前行为 |
 | **「星星罐子」** | P0 不可逆风险 | 停止新增副作用（不发新命令、不写新文件、不 push），等team lead指示 |
 
 > **定位**：Magic Words 是注意力锚点（team lead手动拉闸），不是最终安全机制。最终约束以 Gate 为准。
@@ -82,7 +82,7 @@ created: 2026-03-13
 - [x] AC-2: team lead发送「星星罐子」时，猫停止新增副作用并等待指示
 - [x] AC-3: `feat-lifecycle` 愿景守护步骤包含 BLOCKED 条件（缺对照表 = 不放行）
 - [x] AC-4: 愿景守护输出包含"team experience vs 实际状态"对照表格式
-- [x] AC-5: SystemPromptBuilder 测试通过（`pnpm --filter @cat-cafe/api test`）
+- [x] AC-5: SystemPromptBuilder 测试通过（`pnpm --filter @office-claw/api test`）
 
 ## Dependencies
 
@@ -106,9 +106,9 @@ created: 2026-03-13
 | KD-3 | Magic words 存入 GOVERNANCE_L0_DIGEST | 必须对所有 session/thread 生效 | 2026-03-13 |
 | KD-4 | 「星星罐子」= 最高级停机词 | 源自 2026-03-12 repo visibility 事故 | 2026-03-13 |
 | KD-5 | Gate > Magic Words（本体 vs 辅助） | Codex/Gemini 有 prompt 补注空窗，纯 prompt 方案不 100% 可靠 | 2026-03-13 |
-| KD-6 | 现有 shared-rules 17 条结构不动 | team lead + Ragdoll + Maine Coon三方共识：当前结构是最优折中 | 2026-03-13 |
+| KD-6 | 现有 shared-rules 17 条结构不动 | team lead + Claude + Codex三方共识：当前结构是最优折中 | 2026-03-13 |
 
 ## Review Gate
 
-- 跨家族 review（Maine Coon review SystemPromptBuilder + feat-lifecycle 改动）
+- 跨家族 review（Codex review SystemPromptBuilder + feat-lifecycle 改动）
 - team lead亲自验收（用真实 magic word 测试猫的反应）

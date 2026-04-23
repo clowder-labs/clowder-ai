@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { McpServerDescriptor } from '@clowder/shared';
+import type { McpServerDescriptor } from '@office-claw/shared';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { JSONRPCMessage, JSONRPCRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -20,7 +20,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { AgentServiceOptions } from '../../types.js';
 import { ACPRequestError, ACPStdioClient } from './acp-transport.js';
-import { buildCatCafeMcpRequestConfig } from './relayclaw-catcafe-mcp.js';
+import { buildOfficeClawMcpRequestConfig } from './relayclaw-office-claw-mcp.js';
 
 export type ACPMcpTransport = 'acp' | 'stdio';
 
@@ -51,21 +51,21 @@ export function buildAcpMcpServers(
   if (transport === 'acp') {
     return [
       {
-        id: 'cat-cafe',
-        name: 'cat-cafe',
+        id: 'office-claw',
+        name: 'office-claw',
         transport: 'acp',
-        acpId: 'cat-cafe',
+        acpId: 'office-claw',
       },
     ];
   }
   const servers = readProjectMcpServers(options?.workingDirectory);
-  const catCafeMcp = buildCatCafeMcpRequestConfig(options);
-  if (catCafeMcp) {
+  const officeClawMcp = buildOfficeClawMcpRequestConfig(options);
+  if (officeClawMcp) {
     servers.unshift({
-      id: 'cat-cafe',
-      name: 'cat-cafe',
+      id: 'office-claw',
+      name: 'office-claw',
       transport: 'stdio',
-      ...catCafeMcp,
+      ...officeClawMcp,
     });
   }
   return servers;
@@ -97,7 +97,7 @@ function toLocalAcpMcpServer(name: string, cfg: Record<string, unknown>): Record
   const descriptor = toClaudeDescriptor(name, cfg);
   if (descriptor.transport === 'streamableHttp') return null;
   if (!descriptor.command.trim()) return null;
-  if (descriptor.name === 'cat-cafe') return null;
+  if (descriptor.name === 'office-claw') return null;
   return {
     id: descriptor.name,
     name: descriptor.name,
@@ -393,7 +393,7 @@ export class ACPMcpBridge {
           ? params.serverId.trim()
           : '';
     if (!serverId) throw new ACPRequestError(-32602, 'ACP MCP connect requires acpId or serverId');
-    if (serverId !== 'cat-cafe') throw new ACPRequestError(-32602, `Unknown ACP MCP serverId: ${serverId}`);
+    if (serverId !== 'office-claw') throw new ACPRequestError(-32602, `Unknown ACP MCP serverId: ${serverId}`);
 
     const connectionId = randomUUID();
     await this.createLocalConnection(sessionId, serverId, connectionId);
@@ -454,7 +454,7 @@ export class ACPMcpBridge {
   }
 
   private async createLocalConnection(sessionId: string, serverId: string, connectionId: string): Promise<void> {
-    const resolved = buildCatCafeMcpRequestConfig(this.options);
+    const resolved = buildOfficeClawMcpRequestConfig(this.options);
     if (!resolved) throw new ACPRequestError(-32602, 'OfficeClaw MCP server is unavailable');
 
     const existingConnectionId = this.sessionServers.get(sessionId)?.get(serverId);

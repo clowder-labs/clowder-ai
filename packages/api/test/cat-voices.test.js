@@ -11,7 +11,7 @@
 
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { clearVoiceCache, getAllCatVoices, getCatVoice } from '../dist/config/cat-voices.js';
+import { clearVoiceCache, getAllCatVoices, getCatVoice } from '../dist/config/office-claw-voices.js';
 
 describe('getCatVoice', () => {
   beforeEach(() => {

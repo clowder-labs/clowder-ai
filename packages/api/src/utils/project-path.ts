@@ -11,7 +11,7 @@
  * Default mode: **denylist** — block known system directories, allow everything else.
  * Legacy mode: if PROJECT_ALLOWED_ROOTS is set, uses allowlist (backward compat).
  *
- * See: https://github.com/zts212653/clowder-ai/issues/228
+ * See: https://github.com/zts212653/office-claw/issues/228
  */
 
 import { realpath, stat } from 'node:fs/promises';

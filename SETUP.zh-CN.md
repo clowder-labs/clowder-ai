@@ -17,8 +17,8 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/zts212653/clowder-ai.git
-cd clowder-ai
+git clone https://github.com/zts212653/office-claw.git
+cd office-claw
 
 # 2. 安装依赖
 pnpm install
@@ -36,9 +36,9 @@ pnpm start
 #   pnpm start:direct
 ```
 
-`pnpm start` 使用**运行时 worktree** 架构：首次运行时自动创建隔离的 `../cat-cafe-runtime` worktree，同步到 `origin/main`，构建，启动 Redis，然后启动前端（端口 3003）+ API（端口 3004）。这样你的开发目录保持干净。
+`pnpm start` 使用**运行时 worktree** 架构：首次运行时自动创建隔离的 `../office-claw-runtime` worktree，同步到 `origin/main`，构建，启动 Redis，然后启动前端（端口 3003）+ API（端口 3004）。这样你的开发目录保持干净。
 
-> **提示：** 如果 `pnpm start` 因为 `../cat-cafe-runtime` 已存在而失败，改用 `pnpm start:direct` — 直接在当前目录启动，不创建 worktree。也可以自定义路径：`CAT_CAFE_RUNTIME_DIR=../my-runtime pnpm start`。
+> **提示：** 如果 `pnpm start` 因为 `../office-claw-runtime` 已存在而失败，改用 `pnpm start:direct` — 直接在当前目录启动，不创建 worktree。也可以自定义路径：`CAT_CAFE_RUNTIME_DIR=../my-runtime pnpm start`。
 
 打开 `http://localhost:3003`，开始和你的团队对话。
 
@@ -46,12 +46,12 @@ pnpm start
 
 ## `pnpm start` 的工作原理（运行时 Worktree）
 
-Clowder 使用**运行时 worktree** 保持开发目录干净：
+OfficeClaw 使用**运行时 worktree** 保持开发目录干净：
 
 ```
 your-projects/
-├── clowder-ai/             # 你的开发目录（feature 分支、编辑）
-└── cat-cafe-runtime/       # 自动创建的运行时 worktree（跟踪 origin/main）
+├── office-claw/             # 你的开发目录（feature 分支、编辑）
+└── office-claw-runtime/       # 自动创建的运行时 worktree（跟踪 origin/main）
 ```
 
 | 命令 | 作用 |
@@ -64,7 +64,7 @@ your-projects/
 | `pnpm runtime:sync` | 只同步 worktree 到 origin/main（不启动） |
 | `pnpm runtime:status` | 显示 worktree 路径、分支、HEAD、ahead/behind |
 
-首次运行自动创建 `../cat-cafe-runtime`。后续运行做 fast-forward 同步后启动。
+首次运行自动创建 `../office-claw-runtime`。后续运行做 fast-forward 同步后启动。
 
 > **自定义运行时路径：** 设置 `CAT_CAFE_RUNTIME_DIR` 使用不同位置：`CAT_CAFE_RUNTIME_DIR=../my-clowder-runtime pnpm start`
 
@@ -77,13 +77,13 @@ your-projects/
 > **用 CLI 认证？** 如果你已经通过 `claude`、`codex` 或 `gemini` CLI 工具登录认证，可以跳过 API key — CLI 订阅会处理认证。API key 只在直接调用 API 时需要。
 
 ```bash
-# Claude（布偶猫/宪宪）— 推荐作为主力
+# Claude（Claude/宪宪）— 推荐作为主力
 ANTHROPIC_API_KEY=your-anthropic-api-key
 
-# GPT / Codex（缅因猫/砚砚）— 代码审查专家
+# GPT / Codex（Codex/砚砚）— 代码审查专家
 OPENAI_API_KEY=your-openai-api-key
 
-# Gemini（暹罗猫/烁烁）— 视觉设计
+# Gemini（Gemini/烁烁）— 视觉设计
 GOOGLE_API_KEY=...
 ```
 
@@ -107,11 +107,11 @@ NEXT_PUBLIC_API_URL=http://localhost:3004
 
 ## 可选功能
 
-只要有模型访问（API key 或 CLI 认证）+ Redis（或 `--memory` 模式），Clowder 就能开箱即用。以下功能全是可选的。
+只要有模型访问（API key 或 CLI 认证）+ Redis（或 `--memory` 模式），OfficeClaw 就能开箱即用。以下功能全是可选的。
 
 ### 语音输入 / 输出
 
-解放双手跟猫猫对话。需要本地 ASR/TTS 服务。
+解放双手跟智能体对话。需要本地 ASR/TTS 服务。
 
 ```bash
 ASR_ENABLED=1
@@ -161,7 +161,7 @@ ANTHROPIC_PROXY_PORT=9877          # 代理监听端口
 
 ### 飞书接入
 
-在飞书里直接跟猫猫团队聊天。需要创建一个飞书自建应用。
+在飞书里直接跟智能体团队聊天。需要创建一个飞书自建应用。
 
 **第 1 步 — 创建飞书应用：**
 前往 [飞书开放平台](https://open.feishu.cn/app) → 创建自建应用。
@@ -197,7 +197,7 @@ FEISHU_VERIFICATION_TOKEN=xxx    # 在事件订阅页面获取
 
 > **状态：进行中** — 适配器代码已存在，但尚未在生产环境部署/验证。
 
-在 Telegram 里跟猫猫聊天。需要通过 @BotFather 创建一个 bot。
+在 Telegram 里跟智能体聊天。需要通过 @BotFather 创建一个 bot。
 
 ```bash
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
@@ -231,7 +231,7 @@ GITHUB_MCP_PAT=ghp_...
 ```
 
 **路由机制（三层）：**
-1. **PR 注册**（首选）：猫猫在开 PR 时通过 `register_pr_tracking` MCP 工具注册。收到 review 邮件后，直接路由到该猫的线程。
+1. **PR 注册**（首选）：智能体在开 PR 时通过 `register_pr_tracking` MCP 工具注册。收到 review 邮件后，直接路由到该猫的线程。
 2. **标题标签**（备选）：如果没有注册记录，系统从 PR 标题中查找猫名标签（如 `[宪宪🐾]`），路由到该猫的 Review 收件箱。
 3. **分诊**（兜底）：如果无法识别猫，review 进入分诊线程等待手动分配。
 
@@ -239,7 +239,7 @@ Review 内容通过 GitHub API（使用 `GITHUB_MCP_PAT`）获取，自动提取
 
 ### Web Push 通知
 
-浏览器推送通知 — 猫猫需要你注意时会提醒。
+浏览器推送通知 — 智能体需要你注意时会提醒。
 
 ```bash
 VAPID_PUBLIC_KEY=...
@@ -255,11 +255,11 @@ VAPID_SUBJECT=mailto:you@example.com
 
 每个项目有自己的 `evidence.sqlite` 文件（首次启动自动创建），支持 FTS5 全文检索。数据留在你的机器上。
 
-猫猫通过 `search_evidence` 和 `reflect` MCP 工具查询这个存储。开箱即用，无需配置。
+智能体通过 `search_evidence` 和 `reflect` MCP 工具查询这个存储。开箱即用，无需配置。
 
 ## Agent CLI 配置
 
-每个 Agent CLI（Claude Code、Codex、Gemini CLI）有自己的配置。Clowder 提供项目级 MCP server 配置，将 agent 连接到平台：
+每个 Agent CLI（Claude Code、Codex、Gemini CLI）有自己的配置。OfficeClaw 提供项目级 MCP server 配置，将 agent 连接到平台：
 
 - **Claude Code**：读取 `.mcp.json` 获取 MCP 服务器，`CLAUDE.md` 获取项目指令
 - **Codex CLI**：读取 `.codex/config.toml` 获取 MCP 服务器，`AGENTS.md` 获取项目指令
@@ -267,7 +267,7 @@ VAPID_SUBJECT=mailto:you@example.com
 
 ### Codex CLI — "困在箱子里"修复
 
-如果 Codex（缅因猫/砚砚）报告无法访问文件或工具，可能是因为在沙箱模式中运行。在**用户级** Codex 配置（`~/.codex/config.toml`）中添加以下设置：
+如果 Codex（Codex/砚砚）报告无法访问文件或工具，可能是因为在沙箱模式中运行。在**用户级** Codex 配置（`~/.codex/config.toml`）中添加以下设置：
 
 ```toml
 approval_policy = "on-request"         # 危险操作前询问
@@ -363,7 +363,7 @@ pnpm threads:autosave:status           # 查看自动保存状态
 pnpm threads:autosave:uninstall        # 移除自动保存定时任务
 
 # === Alpha Worktree（预发布测试）===
-pnpm alpha:init         # 创建 alpha worktree（../cat-cafe-alpha）
+pnpm alpha:init         # 创建 alpha worktree（../office-claw-alpha）
 pnpm alpha:sync         # 同步 alpha worktree 到 origin/main
 pnpm alpha:start        # 启动 alpha 环境（端口 3011/3012）
 pnpm alpha:status       # 查看 alpha worktree 状态
@@ -373,7 +373,7 @@ pnpm alpha:test         # 运行 alpha 集成测试
 ## 常见问题
 
 **`pnpm start` 报 "target path exists" 错误？**
-- 运行时 worktree 路径 `../cat-cafe-runtime` 已被其他项目或目录占用
+- 运行时 worktree 路径 `../office-claw-runtime` 已被其他项目或目录占用
 - **快速解决：** 改用 `pnpm start:direct`，跳过 worktree 直接在当前目录启动
 - **替代方案：** 自定义运行时路径：`CAT_CAFE_RUNTIME_DIR=../my-clowder-runtime pnpm start`
 - 不需要 Redis 的话：`pnpm start:direct -- --memory`

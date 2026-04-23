@@ -6,7 +6,7 @@
 
 /**
  * InvocationQueue
- * Per-thread, per-user FIFO 队列，用于猫猫在跑时排队用户/connector 消息。
+ * Per-thread, per-user FIFO 队列，用于智能体在跑时排队用户/connector 消息。
  *
  * 与 InvocationTracker（互斥锁，跟踪活跃调用）互补：
  * - InvocationTracker: "谁在跑"
@@ -17,7 +17,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 export interface QueueEntry {

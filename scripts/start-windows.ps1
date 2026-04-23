@@ -96,7 +96,7 @@ if (Test-Path $envFile) {
     Write-Warn ".env not found - using defaults"
 }
 
-$bundledRelease = Test-ClowderBundledRelease -ProjectRoot $ProjectRoot
+$bundledRelease = Test-OfficeClawBundledRelease -ProjectRoot $ProjectRoot
 $nodeCommand = Resolve-BundledNodeCommand -ProjectRoot $ProjectRoot
 if (-not $nodeCommand) {
     $nodeCommand = Resolve-ToolCommand -Name "node"
@@ -189,7 +189,7 @@ function Get-ProcessCommandLine {
     }
 }
 
-function Test-ClowderOwnedProcess {
+function Test-OfficeClawOwnedProcess {
     param([int]$ProcessId, [string]$ProjectRoot)
     $commandLine = Get-ProcessCommandLine -ProcessId $ProcessId
     if (-not $commandLine) {
@@ -210,10 +210,10 @@ function Stop-PortProcess {
         $managedPid = Get-ManagedProcessId -PidFile $PidFile
         foreach ($conn in $connections) {
             $isManagedPid = $managedPid -and ($conn.OwningProcess -eq $managedPid)
-            $isClowderOwned = $isManagedPid -or (Test-ClowderOwnedProcess -ProcessId $conn.OwningProcess -ProjectRoot $ProjectRoot)
-            if (-not $isClowderOwned) {
-                Write-Err "Port $Port ($Name) is in use by non-Clowder PID $($conn.OwningProcess). Stop it manually or change the configured port."
-                throw "Port $Port ($Name) is in use by a non-Clowder process"
+            $isOfficeClawOwned = $isManagedPid -or (Test-OfficeClawOwnedProcess -ProcessId $conn.OwningProcess -ProjectRoot $ProjectRoot)
+            if (-not $isOfficeClawOwned) {
+                Write-Err "Port $Port ($Name) is in use by non-OfficeClaw PID $($conn.OwningProcess). Stop it manually or change the configured port."
+                throw "Port $Port ($Name) is in use by a non-OfficeClaw process"
             }
             Write-Warn "Port $Port ($Name) in use by PID $($conn.OwningProcess) - stopping"
             Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
@@ -345,7 +345,7 @@ if ($useExternalRedis) {
     }
     # -- Read stored password from Credential Manager (best-effort) ---
     $localRedisPassword = $null
-    try { $localRedisPassword = Read-ClowderCredential -Path "redis/password" } catch {}
+    try { $localRedisPassword = Read-OfficeClawCredential -Path "redis/password" } catch {}
 
     if ($UseRandomRedisPort) {
         $RedisPort = Find-AvailableTcpPort -ExcludePorts @([int]$ApiPort, [int]$WebPort, $ConfiguredRedisPort)
@@ -400,9 +400,9 @@ if ($useExternalRedis) {
             $managedRedisPid = Get-ManagedProcessId -PidFile $redisPidFile
             foreach ($conn in $redisConnections) {
                 $isManagedPid = $managedRedisPid -and ($conn.OwningProcess -eq $managedRedisPid)
-                $isClowderOwned = $isManagedPid -or (Test-ClowderOwnedProcess -ProcessId $conn.OwningProcess -ProjectRoot $ProjectRoot)
-                if (-not $isClowderOwned) {
-                    Write-Warn "Redis port $RedisPort is in use by non-Clowder PID $($conn.OwningProcess) - reusing existing local Redis"
+                $isOfficeClawOwned = $isManagedPid -or (Test-OfficeClawOwnedProcess -ProcessId $conn.OwningProcess -ProjectRoot $ProjectRoot)
+                if (-not $isOfficeClawOwned) {
+                    Write-Warn "Redis port $RedisPort is in use by non-OfficeClaw PID $($conn.OwningProcess) - reusing existing local Redis"
                 }
             }
         }
@@ -425,7 +425,7 @@ if ($useExternalRedis) {
             $localRedisPassword = [Convert]::ToBase64String($bytes)
             Write-Ok "Redis auth: new password generated"
         }
-        try { Write-ClowderCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
+        try { Write-OfficeClawCredential -Path "redis/password" -Secret $localRedisPassword } catch {}
         $escapedPwd = [System.Uri]::EscapeDataString($localRedisPassword)
         $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}${originalDbSuffix}"
         $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl

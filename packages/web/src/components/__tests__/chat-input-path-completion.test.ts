@@ -35,9 +35,9 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-        mentionPatterns: ['布偶猫'],
+        mentionPatterns: ['Claude'],
         provider: 'anthropic',
         defaultModel: 'opus',
         avatar: '/a.png',

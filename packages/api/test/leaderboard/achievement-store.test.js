@@ -51,7 +51,7 @@ describe('AchievementStore', () => {
     const store = new AchievementStore();
     const lvl = store.getCvoLevel('user1');
     assert.equal(lvl.level, 1);
-    assert.equal(lvl.title, '实习猫猫');
+    assert.equal(lvl.title, '实习智能体');
     assert.ok(lvl.nextTitle);
     assert.ok(lvl.needed);
   });

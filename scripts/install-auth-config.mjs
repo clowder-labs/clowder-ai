@@ -378,13 +378,13 @@ function normalizeSecretsFile(raw) {
  * Runtime reads from ~/.office-claw/ (or OFFICE_CLAW_GLOBAL_CONFIG_ROOT), so the
  * installer must write to the same location.
  */
-function resolveGlobalCatCafeDir() {
+function resolveGlobalOfficeClawDir() {
   const root = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT || homedir();
   return path.join(root, '.office-claw');
 }
 
 function ensureStorage(_projectDir) {
-  const profileDir = resolveGlobalCatCafeDir();
+  const profileDir = resolveGlobalOfficeClawDir();
   mkdirSync(profileDir, { recursive: true });
   return {
     profileFile: path.join(profileDir, 'provider-profiles.json'),
@@ -591,7 +591,7 @@ function applyModelartsPreset(projectDir, apiKey) {
     writeFileSync(pf, `${JSON.stringify(raw, null, 2)}\n`);
 
     // 2. Create ACP model profile pointing to modelarts-shared credentials
-    const globalDir = resolveGlobalCatCafeDir();
+    const globalDir = resolveGlobalOfficeClawDir();
     const acpModelMetaFile = path.join(globalDir, 'acp-model-profiles.json');
     const acpModelSecretsFile = path.join(globalDir, 'acp-model-profiles.secrets.local.json');
     const acpModelMeta = readJson(acpModelMetaFile, null) || { version: 1, profiles: [] };
@@ -636,7 +636,7 @@ function setClientOauthBinding(projectDir, client) {
 }
 
 function removeInstallerApiKeyAccount(projectDir, client, profileId) {
-  const globalDir = resolveGlobalCatCafeDir();
+  const globalDir = resolveGlobalOfficeClawDir();
   if (!existsSync(globalDir)) return;
 
   const profileFile = path.join(globalDir, 'provider-profiles.json');

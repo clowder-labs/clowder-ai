@@ -12,8 +12,8 @@
  * Used for cats without MCP (Codex, Gemini) that embed rich blocks in text.
  */
 
-import type { RichBlock } from '@clowder/shared';
-import { normalizeRichBlock } from '@clowder/shared';
+import type { RichBlock } from '@office-claw/shared';
+import { normalizeRichBlock } from '@office-claw/shared';
 
 // Re-export for backward compat (tests import from here)
 export { normalizeRichBlock };

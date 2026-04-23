@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cat Cafe 启动脚本（底层实现）
+# OfficeClaw 启动脚本（底层实现）
 # 用户入口:
 #   pnpm start                        — runtime worktree 稳定启动（由 runtime-worktree.sh 注入 --prod-web）
 #   pnpm start:direct                 — 当前目录稳定启动（package.json 注入 --prod-web + --profile=opensource + 非 watch API + 优先当前 .env 端口）
@@ -47,7 +47,7 @@ source "$SCRIPT_DIR/download-source-overrides.sh"
 cd "$PROJECT_DIR"
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$PROJECT_DIR/office-claw-skills/.playwright-browsers}"
 
-echo "🐱 Cat Café 启动"
+echo "OfficeClaw 开发环境启动"
 echo "================"
 
 # 颜色定义
@@ -97,7 +97,7 @@ clear_inherited_profile_env() {
     [ -n "$PROFILE" ] || return 0
 
     # Public direct-launch wrappers should honor the requested profile rather
-    # than ambient Cat Cafe shell exports leaked from another checkout.
+    # than ambient OfficeClaw shell exports leaked from another checkout.
     unset ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED EMBED_ENABLED
     unset MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS
     unset REDIS_PROFILE
@@ -759,7 +759,7 @@ run_logged_step() {
     shift 2
 
     local log_file rc
-    log_file=$(mktemp "${TMPDIR:-/tmp}/cat-cafe-build-XXXXXX")
+    log_file=$(mktemp "${TMPDIR:-/tmp}/office-claw-build-XXXXXX")
 
     if "$@" >"$log_file" 2>&1; then
         tail -n "$success_tail_lines" "$log_file"
@@ -806,7 +806,7 @@ configure_mcp_server_path() {
         echo -e "${GREEN}  ✓ MCP callback path: $OFFICE_CLAW_MCP_SERVER_PATH${NC}"
     else
         echo -e "${YELLOW}  ⚠ MCP callback path 不存在: $OFFICE_CLAW_MCP_SERVER_PATH${NC}"
-        echo -e "${YELLOW}    布偶猫将无法使用 cat_cafe_* MCP 工具（含权限申请）${NC}"
+        echo -e "${YELLOW}    Claude 侧将无法使用 office_claw_* MCP 工具（含权限申请）${NC}"
     fi
 }
 
@@ -911,7 +911,7 @@ guard_main_branch_start() {
         return
     fi
 
-    if [ "$repo_name" = "cat-cafe" ] && [ "$branch" = "main" ]; then
+    if [ "$repo_name" = "office-claw" ] && [ "$branch" = "main" ]; then
         echo ""
         echo -e "${RED}✗ 检测到当前在 main 分支启动开发服务，已阻止。${NC}"
         echo "  目的：避免热更新重启中断会话。"
@@ -1136,7 +1136,7 @@ main() {
 
     echo ""
     echo "========================"
-    echo -e "${GREEN}🎉 Cat Café 已启动！${NC}"
+    echo -e "${GREEN}OfficeClaw 已启动${NC}"
     [ -n "$PROFILE" ] && echo -e "  Profile: ${CYAN}${PROFILE}${NC}"
     echo ""
     print_config_summary

@@ -1,7 +1,7 @@
-import type { AuthProvider } from '@clowder/plugin-api/auth';
+import type { AuthProvider } from '@office-claw/plugin-api/auth';
 
 function resolveNoAuthUserId(env: NodeJS.ProcessEnv): string {
-  const configured = env.CAT_CAFE_NO_AUTH_USER_ID?.trim();
+  const configured = env.OFFICE_CLAW_NO_AUTH_USER_ID?.trim();
   return configured && configured.length > 0 ? configured : 'default-user';
 }
 

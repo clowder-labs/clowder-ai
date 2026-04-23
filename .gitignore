@@ -43,11 +43,10 @@ packages/web/public/worker-*.js
 # MCP config (personal, contains local URLs)
 .mcp.json
 
-# F041 capabilities local state (bootstrapped per-machine)
-.cat-cafe/
+# F041 capabilities local state (bootstrapped per machine)
 .office-claw/
 
-# Claude Code skills — cat-cafe symlinks are tracked; plugin-generated ones are not
+# Claude Code skills — tracked symlinks stay in repo; plugin-generated ones do not
 .claude/skills/pencil-renderer
 .claude/skills/pencil-to-code
 
@@ -113,10 +112,10 @@ docs/bug-report/werewolf-investigation/poster-screenshot.png
 # Raw avatar source images (large, pre-sliced originals)
 assets/avatars/raw/
 
-# Logo candidates (铲屎官还没决定用哪张)
+# Logo candidates (user has not finalized one yet)
 assets/logos/
 
-# External consulting notes (local only, not for cat-cafe repo)
+# External consulting notes (local only, not for this repo)
 docs/discussions/2026-02-26-huawei-agent-spec-review/
 
 # Private/confidential documents (contracts, legal, etc.)
@@ -144,4 +143,3 @@ forzadata-*.txt
 __pycache__/
 *.pyc
 *.egg-info/
-

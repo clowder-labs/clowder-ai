@@ -9,7 +9,7 @@
  * GET /api/export/thread/:threadId?format=md|txt - 导出对话记录
  */
 
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { formatMessage } from '../domains/cats/services/context/ContextAssembler.js';
 import type { IMessageStore, StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -49,8 +49,8 @@ export function formatThreadAsMarkdown(thread: Thread, messages: StoredMessage[]
   }
   if (thread.participants.length > 0) {
     const names = thread.participants.map((id) => {
-      const entry = catRegistry.tryGet(id);
-      return entry?.config.displayName ?? CAT_CONFIGS[id]?.displayName ?? id;
+      const entry = officeClawRegistry.tryGet(id);
+      return entry?.config.displayName ?? OFFICE_CLAW_CONFIGS[id]?.displayName ?? id;
     });
     lines.push(`- **参与者**: ${names.join(', ')}`);
   }
@@ -93,8 +93,8 @@ export function formatThreadAsText(thread: Thread, messages: StoredMessage[]): s
   }
   if (thread.participants.length > 0) {
     const names = thread.participants.map((id) => {
-      const entry = catRegistry.tryGet(id);
-      return entry?.config.displayName ?? CAT_CONFIGS[id]?.displayName ?? id;
+      const entry = officeClawRegistry.tryGet(id);
+      return entry?.config.displayName ?? OFFICE_CLAW_CONFIGS[id]?.displayName ?? id;
     });
     lines.push(`参与者: ${names.join(', ')}`);
   }

@@ -159,7 +159,7 @@ describe('runtime-worktree.sh', () => {
     const projectDir = createTempProject('runtime-non-git-sibling-runtime');
     seedRuntimeDependencyMarkers(projectDir);
 
-    const siblingRuntimeDir = join(projectDir, '..', 'cat-cafe-runtime');
+    const siblingRuntimeDir = join(projectDir, '..', 'office-claw-runtime');
     mkdirSync(siblingRuntimeDir, { recursive: true });
     writeFileSync(join(siblingRuntimeDir, '.env'), 'API_SERVER_PORT=3010\n');
 

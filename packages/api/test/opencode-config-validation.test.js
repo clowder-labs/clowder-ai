@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const configPath = resolve(__dirname, '..', '..', '..', 'office-claw-template.json');
 
-describe('office-claw-template.json — 金渐层 (opencode) validation', () => {
+describe('office-claw-template.json — OpenCode (opencode) validation', () => {
   let config;
 
   test('office-claw-template.json is valid JSON', () => {
@@ -33,9 +33,9 @@ describe('office-claw-template.json — 金渐层 (opencode) validation', () => 
     const breed = config.breeds.find((b) => b.id === 'golden-chinchilla');
     assert.ok(breed, 'golden-chinchilla breed should exist');
     assert.strictEqual(breed.catId, 'opencode');
-    assert.strictEqual(breed.name, '金渐层');
+    assert.strictEqual(breed.name, 'OpenCode');
     assert.ok(breed.mentionPatterns.includes('@opencode'));
-    assert.ok(breed.mentionPatterns.includes('@金渐层'));
+    assert.ok(breed.mentionPatterns.includes('@opencode'));
   });
 
   test('opencode-default variant has correct provider and model', () => {
@@ -54,7 +54,7 @@ describe('office-claw-template.json — 金渐层 (opencode) validation', () => 
   });
 
   test('cat-config-loader can parse the config without errors', async () => {
-    const { loadCatConfig } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig } = await import('../dist/config/office-claw-config-loader.js');
     // loadCatConfig reads from the repo root's office-claw-template.json
     const result = loadCatConfig(configPath);
     assert.ok(result.breeds.length > 0);

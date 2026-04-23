@@ -8,7 +8,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import type { AuthProvider, AuthSessionInfo } from '@clowder/plugin-api/auth';
+import type { AuthProvider, AuthSessionInfo } from '@office-claw/plugin-api/auth';
 import { createAuthModule, type AuthModule } from '../auth/module.js';
 import type { AuthSessionRecord } from '../auth/types.js';
 import { authSessionStore, InMemoryAuthSessionStore } from '../auth/session-store.js';

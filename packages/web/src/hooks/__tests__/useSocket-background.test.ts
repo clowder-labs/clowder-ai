@@ -70,7 +70,7 @@ function simulateBackgroundMessage(msg: {
 describe('background thread socket handling', () => {
   beforeEach(() => {
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
     useChatStore.setState({
       messages: [],
       isLoading: false,
@@ -976,7 +976,7 @@ describe('background thread socket handling', () => {
         threadId: 'thread-bg',
         content: JSON.stringify({
           type: 'mode_switch_proposal',
-          proposedBy: '缅因猫',
+          proposedBy: 'Codex',
           proposedMode: 'execute',
         }),
         timestamp: now,
@@ -1001,7 +1001,7 @@ describe('background thread socket handling', () => {
         threadId: 'thread-bg',
         content: JSON.stringify({
           type: 'a2a_followup_available',
-          mentions: [{ catId: 'opus', mentionedBy: '缅因猫' }],
+          mentions: [{ catId: 'opus', mentionedBy: 'Codex' }],
         }),
         timestamp: now + 2,
       });
@@ -1011,7 +1011,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.variant).toBe('info');
       expect(ts.messages[1]?.variant).toBe('info');
       expect(ts.messages[2]?.variant).toBe('a2a_followup');
-      expect(ts.messages[2]?.content).toContain('缅因猫 @了 opus');
+      expect(ts.messages[2]?.content).toContain('Codex @了 opus');
     });
 
     it('consumes processing_status system_info silently and updates background cat status', () => {
@@ -1355,9 +1355,9 @@ describe('background thread socket handling', () => {
 
       const debugApi = (
         window as typeof window & {
-          __catCafeDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
+          __officeClawDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
         }
-      ).__catCafeDebug;
+      ).__officeClawDebug;
       const dump = JSON.parse(debugApi!.dumpBubbleTimeline!({ rawThreadId: true })) as {
         events: Array<Record<string, unknown>>;
       };

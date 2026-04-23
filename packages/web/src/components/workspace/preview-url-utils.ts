@@ -5,11 +5,11 @@
  */
 
 /**
- * F120: Preview URL parsing + Clowder AI Hub URL detection.
+ * F120: Preview URL parsing + OfficeClaw Hub URL detection.
  * Extracted as pure function for testability.
  */
 
-/** Paths that indicate a Clowder AI Hub page (not a dev server app) */
+/** Paths that indicate a OfficeClaw Hub page (not a dev server app) */
 const HUB_PATH_PATTERNS = [/^\/thread\//, /^\/api\//, /^\/settings\/?/];
 
 export interface ParsedPreviewUrl {
@@ -17,7 +17,7 @@ export interface ParsedPreviewUrl {
   port?: number;
   path?: string;
   error?: string;
-  /** Non-blocking warning: URL looks like a Clowder AI Hub page */
+  /** Non-blocking warning: URL looks like a OfficeClaw Hub page */
   warning?: string;
 }
 

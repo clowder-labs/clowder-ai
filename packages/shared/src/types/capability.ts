@@ -7,8 +7,8 @@
 /**
  * Capability Types — F041 统一能力模型
  *
- * 三猫的 MCP server 配置归一为统一内部表示。
- * 配置编排器从此格式生成三种 CLI 配置 (.mcp.json / .codex/config.toml / .gemini/settings.json)。
+ * 多智能体的 MCP server 配置归一为统一内部表示。
+ * 配置编排器从此格式生成不同 CLI 的配置 (.mcp.json / .codex/config.toml / .gemini/settings.json)。
  */
 
 /** MCP transport type — stdio (default) or remote HTTP (TD104) */
@@ -16,7 +16,7 @@ export type McpTransport = 'stdio' | 'streamableHttp';
 
 /** MCP server descriptor — 统一内部模型 */
 export interface McpServerDescriptor {
-  /** MCP server name (e.g. 'cat-cafe', 'filesystem') */
+  /** MCP server name (e.g. 'office-claw', 'filesystem') */
   name: string;
   /** Transport type (default: 'stdio'). TD104: 'streamableHttp' for URL-based servers. */
   transport?: McpTransport;
@@ -84,7 +84,7 @@ export interface CapabilityBoardItem {
   description?: string;
   /** Skill trigger keywords (from SKILL.md frontmatter) */
   triggers?: string[];
-  /** Skill category (from BOOTSTRAP.md, e.g. '三猫协作规则') */
+  /** Skill category (from BOOTSTRAP.md, e.g. '多智能体协作规则') */
   category?: string;
   /** Skill mount status per provider (symlink correctness check) */
   mounts?: Record<string, boolean>;
@@ -106,7 +106,7 @@ export interface McpToolInfo {
 export interface CatFamily {
   /** Breed ID (e.g. 'ragdoll') */
   id: string;
-  /** Display name (e.g. '布偶猫') */
+  /** Display name (e.g. 'Claude') */
   name: string;
   /** All catIds belonging to this family */
   catIds: string[];
@@ -114,7 +114,7 @@ export interface CatFamily {
 
 /** Skill mount health summary */
 export interface SkillHealthSummary {
-  /** All Cat Cafe skills correctly symlinked to all providers */
+  /** All OfficeClaw skills correctly symlinked to all providers */
   allMounted: boolean;
   /** No orphaned skills or phantom BOOTSTRAP entries */
   registrationConsistent: boolean;
@@ -130,7 +130,7 @@ export interface CapabilityBoardResponse {
   catFamilies: CatFamily[];
   /** The resolved project path this response pertains to */
   projectPath: string;
-  /** Skill mount health (only for cat-cafe skills) */
+  /** Skill mount health (only for office-claw skills) */
   skillHealth?: SkillHealthSummary;
   /** F070: Governance health for this project */
   governanceHealth?: GovernanceHealthSummary;

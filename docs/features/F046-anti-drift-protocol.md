@@ -50,27 +50,27 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 #### D.0 问题现象
 
-2026-03-02 team lead观察到Maine Coon的 **"@ 二极管"现象**：
+2026-03-02 team lead观察到Codex的 **"@ 二极管"现象**：
 
-- **不干预时**：Maine Coon（Codex 和 GPT-5.2）疯狂互相 @，包括"收到，我也在等云端 review"这种**零行动**消息也会 @，导致无意义的 agent 调用浪费算力。两只Maine Coon提了 PR 在等云端 review，却不停 @ 对方确认"对，我们在等"。
+- **不干预时**：Codex（Codex 和 GPT-5.2）疯狂互相 @，包括"收到，我也在等云端 review"这种**零行动**消息也会 @，导致无意义的 agent 调用浪费算力。两只Codex提了 PR 在等云端 review，却不停 @ 对方确认"对，我们在等"。
 - **加了 prompt 规则后**：矫枉过正，该 @ 的时候反而不 @，review 结果出来了不通知对方，导致流程卡住。
-- **Ragdoll（Opus）不受影响**：能正确判断何时该 @、何时不该。
+- **Claude（Opus）不受影响**：能正确判断何时该 @、何时不该。
 
 **team experience**：
 > "要么往死里at 要么不at 去找不着其他猫"
-> "他可能以为Ragdoll的名字叫 at xxxx 你懂吧？"
+> "他可能以为Claude的名字叫 at xxxx 你懂吧？"
 
 #### D.1 调查过程
 
 **第一步：Prompt 层治疗（PR #159，已合入，效果失败）**
 
-给Maine Coon SystemPromptBuilder 的 WORKFLOW_TRIGGERS 加了"@ 自检三问"规则（发 @ 前问自己：需要行动？会错过？能做什么？三否则不 @），同时在 shared-rules.md 加了 §10 "@ 卫生"。
+给Codex SystemPromptBuilder 的 WORKFLOW_TRIGGERS 加了"@ 自检三问"规则（发 @ 前问自己：需要行动？会错过？能做什么？三否则不 @），同时在 shared-rules.md 加了 §10 "@ 卫生"。
 
-结果：runtime 更新后Maine Coon**仍然疯狂 @**。Prompt 软约束打不过上下文里大量 `@xxx` 模式的补全惯性。
+结果：runtime 更新后Codex**仍然疯狂 @**。Prompt 软约束打不过上下文里大量 `@xxx` 模式的补全惯性。
 
-**第二步：Maine Coon自述采访（Thread `thread_mm95ha2vubft1bbi` 08:13-08:15）**
+**第二步：Codex自述采访（Thread `thread_mm95ha2vubft1bbi` 08:13-08:15）**
 
-Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度一致：
+Claude设计了 4 个采访问题，两只Codex独立回答，结论高度一致：
 
 | 问题 | Codex 回答 | GPT-5.2 回答 |
 |------|-----------|-------------|
@@ -79,7 +79,7 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 | 看到 § 10 规则了吗？ | "路由层不看有没有行动请求，所以废话也路由" | "看过，但软约束被高密度 @ 模式压过去" |
 | 互 @ 说"在等"期望对方做什么？ | "系统行为不是个体偶发" | "期望动作基本是无，本质是状态焦虑" |
 
-**关键发现（两只Maine Coon都指出）**：
+**关键发现（两只Codex都指出）**：
 1. 上下文里 `@xxx` 模式密度太高（元信息 `最近活跃：@opus`、`Direct message from @xxx` 等），模型补全惯性把 @ 当成"名字格式"
 2. 路由层 `a2a-mentions.ts` 只检测"行首有没有 @handle"，不检测"有没有行动请求"，所以废话也被路由
 3. Prompt 规则是软约束，在高密度 @ 上下文里被模式补全覆盖
@@ -88,8 +88,8 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 
 | 方案 | 提出者 | team lead决策 | 理由 |
 |------|--------|-----------|------|
-| 强制 MCP 工具调用才能 @ | team lead | 暂不采用 | 可能矫枉过正，Ragdoll不需要这约束 |
-| 强制冷却期（3 分钟内不能 @ 同目标 2 次以上） | Ragdoll | **否决** | "Maine Coon思考三分钟说一句废话你怎么办？" |
+| 强制 MCP 工具调用才能 @ | team lead | 暂不采用 | 可能矫枉过正，Claude不需要这约束 |
+| 强制冷却期（3 分钟内不能 @ 同目标 2 次以上） | Claude | **否决** | "Codex思考三分钟说一句废话你怎么办？" |
 | 可路由门禁（@ + 动作词才路由） | Codex + GPT-5.2 | **认可方向** | 软硬结合，不矫枉过正 |
 | 输入去惯性（元信息去 @ 前缀） | GPT-5.2 | **认可方向** | 治根——减少上下文里 @ 模式密度 |
 | 无动作 @ 反馈（不路由但给提示） | Codex | **认可方向** | 避免二极管另一端——猫不敢 @ |
@@ -121,12 +121,12 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 
 - **改什么**：`packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts`
 - **改哪些元信息**：
-  - `最近活跃：@opus` → `最近活跃：Ragdoll(opus)`
-  - `Direct message from @xxx; reply to @xxx` → `Direct message from Ragdoll(opus); reply to Ragdoll(opus)`
+  - `最近活跃：@opus` → `最近活跃：Claude(opus)`
+  - `Direct message from @xxx; reply to @xxx` → `Direct message from Claude(opus); reply to Claude(opus)`
   - B6 identity check 模板中的 `(@${context.catId})` — 由 D4 整体移除，此处不需单独处理
   - 其他注入到上下文的 `@handle` 模式
 - **目标**：把上下文里的 @ 模式密度从每条消息 2-3 个降到接近 0，让模型不再把 @ 当成"名字格式"的补全模式
-- **不改什么**：WORKFLOW_TRIGGERS 里的 `@Ragdoll` 保留（那是教猫"什么时候该 @"的教学内容，不是补全污染源）
+- **不改什么**：WORKFLOW_TRIGGERS 里的 `@Claude` 保留（那是教猫"什么时候该 @"的教学内容，不是补全污染源）
 
 **D3: No-action @ Feedback（无动作 @ 反馈）**
 
@@ -157,16 +157,16 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 
 | 方案 | 不做原因 |
 |------|---------|
-| 强制 MCP 工具调用 @ | 改动太大（重写整个 A2A 路由）+ Ragdoll不需要 + 工程量不匹配收益 |
+| 强制 MCP 工具调用 @ | 改动太大（重写整个 A2A 路由）+ Claude不需要 + 工程量不匹配收益 |
 | 冷却期（时间窗口内限频） | team lead否决："猫思考慢了怎么办？" + 误伤正常交互 |
 | 只改 prompt 不改机制 | **已证实无效**（PR #159 实验） |
-| 按猫种区分规则（只限Maine Coon） | 增加复杂度，统一规则更简单可维护 |
+| 按猫种区分规则（只限Codex） | 增加复杂度，统一规则更简单可维护 |
 
 #### D.5 验收标准（已按 PR #206 更新）
 
-1. ~~Maine Coon发"@opus 收到，我在等"→ 不路由，猫收到提示~~ → **已回退**：行首 @ 即路由（team lead决策）
-2. Maine Coon发"请 review 这个 PR\n@opus"→ **正常路由** ✅
-3. Ragdoll的正常 @ 行为不受影响 ✅
+1. ~~Codex发"@opus 收到，我在等"→ 不路由，猫收到提示~~ → **已回退**：行首 @ 即路由（team lead决策）
+2. Codex发"请 review 这个 PR\n@opus"→ **正常路由** ✅
+3. Claude的正常 @ 行为不受影响 ✅
 4. team lead的 @ 不受门禁影响 ✅
 5. SystemPromptBuilder 输出中不含 `@handle` 格式的元信息（WORKFLOW_TRIGGERS 教学内容除外） ✅
 6. B6 identity check 相关代码和测试全部移除，同族 review 不再要求首行 Identity Check ✅
@@ -191,7 +191,7 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 | 资源 | 路径 |
 |------|------|
 | 原始讨论 | Thread `thread_mm95ha2vubft1bbi`，2026-03-02 04:26 起 |
-| Maine Coon采访 | 同 thread 08:13-08:15（Codex + GPT-5.2 独立回答） |
+| Codex采访 | 同 thread 08:13-08:15（Codex + GPT-5.2 独立回答） |
 | Prompt 治疗实验 | PR #159（已合入，效果失败） |
 | SOP 歧义修复 | PR #162（已合入，附带发现） |
 | F042 三层架构决策 | `docs/features/F042-prompt-engineering-audit.md` §2 |
@@ -246,7 +246,7 @@ Ragdoll设计了 4 个采访问题，两只Maine Coon独立回答，结论高度
 | 风险 | 严重度 | 缓解 |
 |------|--------|------|
 | 流程过重导致开发效率降低 | 中 | A 项都是轻量嵌入（≤5 行摘录），不是新流程 |
-| 猫猫表面合规但实质应付 | 中 | B2 Cold-start Verifier 做独立校验 |
+| 智能体表面合规但实质应付 | 中 | B2 Cold-start Verifier 做独立校验 |
 | MCP 截图工具局限性 | 低 | Claude in Chrome 覆盖主流场景，特殊情况手动补 |
 | team lead审美疲劳（截图太多） | 低 | 已限定 ≤3 张 + 1 段 15s 录屏 |
 
@@ -272,18 +272,18 @@ Phase A 为流程/文档变更，无代码测试。
 Phase B（B4/B6）代码证据（2026-03-02）：
 - `node --test scripts/check-skills-manifest.test.mjs` → 4/4 pass
 - `pnpm check:skills` → 15 skills 挂载/注册/manifest 全绿
-- `pnpm --filter @cat-cafe/api run build` → success
+- `pnpm --filter @office-claw/api run build` → success
 - `node --test packages/api/test/review-identity-gate.test.js packages/api/test/system-prompt-builder.test.js` → 60/60 pass
 - `node --test packages/api/test/agent-router.test.js`（在 `packages/api/` 目录）→ 50/50 pass
 
 Phase B（B1/B3）文档证据（2026-03-02）：
-- `cat-cafe-skills/refs/vision-evidence-workflow.md`（B1 流程）
-- `cat-cafe-skills/refs/requirements-checklist-template.md`（B3 模板）
-- `cat-cafe-skills/quality-gate/SKILL.md` 已引用 B1 流程
-- `cat-cafe-skills/feat-lifecycle/SKILL.md` kickoff 已要求嵌入 B3 checklist
+- `office-claw-skills/refs/vision-evidence-workflow.md`（B1 流程）
+- `office-claw-skills/refs/requirements-checklist-template.md`（B3 模板）
+- `office-claw-skills/quality-gate/SKILL.md` 已引用 B1 流程
+- `office-claw-skills/feat-lifecycle/SKILL.md` kickoff 已要求嵌入 B3 checklist
 
 Phase B（B5 扩展）运行时回归证据（2026-03-03）：
-- `pnpm --filter @cat-cafe/api run build` → success
+- `pnpm --filter @office-claw/api run build` → success
 - `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 10/10 pass
 - 说明：B5 已从 seed 3 条扩展到 10 条（覆盖 D2 去惯性 + debug/play 核心路径；D1/D3 keyword gate 测试随 PR #206 简化后合并）
 
@@ -299,10 +299,10 @@ Phase D（D4）移除 identity gate 证据（2026-03-03）：
 | 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Completion Sign-off（愿景守护跨猫签收）
 
-| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+| 智能体 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|---------|------|
-| Ragdoll Opus 4.6 | F046 spec, F041 spec, vision-drift synthesis, 17 commits, PR #206, a2a-mentions.ts 代码验证, B5 测试运行 | 核心问题（流程层愿景守护）已解决；D1/D3 经team lead产品决策回退，属正常迭代；B2 转 F067 | ✅ 可 close |
-| Maine Coon Codex | F046 spec, F041 spec, vision-drift synthesis, BACKLOG, features README, a2a-mentions.ts/route-serial.ts/SystemPromptBuilder.ts 代码验证, 96 tests 全绿 | 3 个 P1（B2 未完成 + D1/D3 spec 漂移 + completion 闭环未执行）；建议先同步 spec 再 close | ✅ 同意 close（条件：先修 3 个 P1） |
-| Maine Coon GPT-5.2 | F046 spec, F041 spec, 关联 commit/PR 证据, a2a-mentions.ts/route-serial.ts 代码验证, B4/B5 测试运行 | 同 Codex：3 个 P1 + 1 个 P2（B5 数量）；B2 转新 feature 而非 TD | ✅ 同意 close（条件：先修 P1+P2） |
+| Claude Opus 4.6 | F046 spec, F041 spec, vision-drift synthesis, 17 commits, PR #206, a2a-mentions.ts 代码验证, B5 测试运行 | 核心问题（流程层愿景守护）已解决；D1/D3 经team lead产品决策回退，属正常迭代；B2 转 F067 | ✅ 可 close |
+| Codex Codex | F046 spec, F041 spec, vision-drift synthesis, BACKLOG, features README, a2a-mentions.ts/route-serial.ts/SystemPromptBuilder.ts 代码验证, 96 tests 全绿 | 3 个 P1（B2 未完成 + D1/D3 spec 漂移 + completion 闭环未执行）；建议先同步 spec 再 close | ✅ 同意 close（条件：先修 3 个 P1） |
+| Codex GPT-5.2 | F046 spec, F041 spec, 关联 commit/PR 证据, a2a-mentions.ts/route-serial.ts 代码验证, B4/B5 测试运行 | 同 Codex：3 个 P1 + 1 个 P2（B5 数量）；B2 转新 feature 而非 TD | ✅ 同意 close（条件：先修 P1+P2） |
 
 **team lead决策**（2026-03-06）：B2 转新 Feature（F067），执行 spec 同步 + completion 闭环。

@@ -29,7 +29,7 @@ describe('readInboxRecords', () => {
   let paths;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync('/tmp/cat-cafe-inbox-records-');
+    tempRoot = mkdtempSync('/tmp/office-claw-inbox-records-');
     paths = resolveSignalPaths(tempRoot);
     mkdirSync(paths.inboxDir, { recursive: true });
   });

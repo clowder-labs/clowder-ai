@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ExternalPrincipal } from '@clowder/plugin-api/auth';
+import type { ExternalPrincipal } from '@office-claw/plugin-api/auth';
 import type { AuthSessionRecord } from './types.js';
 
 export class InMemoryAuthSessionStore {

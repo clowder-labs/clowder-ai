@@ -53,7 +53,7 @@ describe('Callback Bootcamp State', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       ...opts,
     });
     // Register leaderboard events route for achievement pipeline (P2 fix)
@@ -441,7 +441,7 @@ describe('Callback Bootcamp State', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
     });
     // Deliberately NOT registering leaderboardEventsRoutes
 

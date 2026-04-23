@@ -16,7 +16,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { McpServerDescriptor } from '@clowder/shared';
+import type { McpServerDescriptor } from '@office-claw/shared';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
@@ -28,7 +28,7 @@ const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
 };
 
 function isBuiltinServer(name: string): boolean {
-  return name === 'cat-cafe' || name.startsWith('cat-cafe-') || name.startsWith('office-claw-');
+  return name === 'office-claw' || name.startsWith('office-claw-') || name.startsWith('office-claw-');
 }
 
 function ensureGeminiCatCafeEnv(name: string, env?: Record<string, string>): Record<string, string> | undefined {
@@ -217,7 +217,7 @@ export async function writeGeminiMcpConfig(filePath: string, servers: McpServerD
     }
   }
 
-  // Keep legacy cat-cafe entries functional even when they are preserved as
+  // Keep legacy office-claw entries functional even when they are preserved as
   // non-managed servers (e.g. migration leftovers in user's settings).
   for (const [name, value] of Object.entries(existingMcp)) {
     if (!isBuiltinServer(name)) continue;

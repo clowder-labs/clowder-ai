@@ -14,7 +14,7 @@
  * GET  /api/sessions/sop-bookmark  — Read SOP stage bookmark (F073 P4)
  *
  * Both endpoints use `cliSessionId` (Claude Code's session_id) to look up the
- * corresponding Cat Cafe SessionRecord via `getByCliSessionId()`.
+ * corresponding OfficeClaw SessionRecord via `getByCliSessionId()`.
  */
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
@@ -53,7 +53,7 @@ export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHook
       reply.send({ error: 'Hook authentication not configured (set OFFICE_CLAW_HOOK_TOKEN)' });
       return;
     }
-    const provided = request.headers['x-cat-cafe-hook-token'];
+    const provided = request.headers['x-office-claw-hook-token'];
     if (provided !== hookToken) {
       reply.status(401);
       reply.send({ error: 'Invalid or missing hook token' });
@@ -71,7 +71,7 @@ export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHook
 
     const { cliSessionId, reason } = parseResult.data;
 
-    // Look up Cat Cafe session by CLI session ID
+    // Look up OfficeClaw session by CLI session ID
     const record = await sessionChainStore.getByCliSessionId(cliSessionId);
     if (!record) {
       reply.status(404);

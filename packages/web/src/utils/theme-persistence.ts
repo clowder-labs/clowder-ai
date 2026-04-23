@@ -7,7 +7,7 @@
 export type ThemeType = 'warm' | 'business' | 'dark';
 
 export const DEFAULT_THEME: ThemeType = 'business';
-export const THEME_STORAGE_KEY = 'clowder-ai-theme';
+export const THEME_STORAGE_KEY = 'office-claw-theme';
 const THEME_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 function normalizeThemeValue(value: string | null | undefined): ThemeType | null {

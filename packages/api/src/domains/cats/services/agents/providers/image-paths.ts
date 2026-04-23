@@ -10,7 +10,7 @@
  */
 
 import { isAbsolute, relative, resolve } from 'node:path';
-import type { MessageContent } from '@clowder/shared';
+import type { MessageContent } from '@office-claw/shared';
 import { getRegisteredWorktreeRoot } from '../../../../workspace/workspace-security.js';
 
 import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';

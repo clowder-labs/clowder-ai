@@ -115,7 +115,7 @@ describe('POST /api/threads/:threadId/export-image', () => {
   });
 
   it('uses FRONTEND_URL when present (higher priority than FRONTEND_PORT)', async () => {
-    process.env.FRONTEND_URL = 'https://cat-cafe.example.com';
+    process.env.FRONTEND_URL = 'https://office-claw.example.com';
     process.env.FRONTEND_PORT = '4999';
 
     const app = await buildApp();
@@ -128,7 +128,7 @@ describe('POST /api/threads/:threadId/export-image', () => {
 
     assert.equal(res.statusCode, 200);
     assert.equal(captures.length, 1);
-    assert.equal(captures[0].url, 'https://cat-cafe.example.com/thread/thread-1');
+    assert.equal(captures[0].url, 'https://office-claw.example.com/thread/thread-1');
   });
 
   it('closes ImageExporter browser when app.close() fires (BACKLOG #86)', async () => {
@@ -205,8 +205,8 @@ describe('resolveFrontendCorsOrigins', () => {
   });
 
   it('includes FRONTEND_URL origin when configured', () => {
-    const origins = resolveFrontendCorsOrigins({ FRONTEND_URL: 'https://cat-cafe.example.com/path' });
-    assert.ok(origins.includes('https://cat-cafe.example.com'));
+    const origins = resolveFrontendCorsOrigins({ FRONTEND_URL: 'https://office-claw.example.com/path' });
+    assert.ok(origins.includes('https://office-claw.example.com'));
   });
 
   it('allows RFC1918 private network origins only when explicitly opted in', () => {

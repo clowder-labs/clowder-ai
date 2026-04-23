@@ -18,7 +18,7 @@ describe('governance confirm flow', () => {
   let externalProject;
 
   beforeEach(async () => {
-    catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
+    catCafeRoot = await mkdtemp(join(tmpdir(), 'office-claw-root-'));
     externalProject = await mkdtemp(join(tmpdir(), 'external-project-'));
     await mkdir(join(catCafeRoot, 'office-claw-skills'), { recursive: true });
   });

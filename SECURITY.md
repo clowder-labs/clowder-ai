@@ -2,11 +2,11 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Clowder AI, please report it responsibly.
+If you discover a security vulnerability in OfficeClaw, please report it responsibly.
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email: **security@clowder.ai** (or open a private security advisory on GitHub)
+Instead, please email: **security@office-claw.ai** (or open a private security advisory on GitHub)
 
 We will acknowledge your report within 48 hours and provide a timeline for a fix.
 
@@ -19,7 +19,7 @@ We will acknowledge your report within 48 hours and provide a timeline for a fix
 
 ## Security Model
 
-Clowder AI orchestrates AI agents that have access to code, files, and external services. Our security model is built around **Iron Laws** — non-negotiable constraints enforced in code, not just prompts.
+OfficeClaw orchestrates AI agents that have access to code, files, and external services. Our security model is built around **Iron Laws** — non-negotiable constraints enforced in code, not just prompts.
 
 ### Iron Laws
 
@@ -91,5 +91,5 @@ We monitor dependencies for known vulnerabilities using:
 
 ## Contact
 
-- Security reports: **security@clowder.ai**
-- General questions: [GitHub Discussions](https://github.com/zts212653/clowder-ai/discussions)
+- Security reports: **security@office-claw.ai**
+- General questions: [GitHub Discussions](https://github.com/zts212653/office-claw/discussions)

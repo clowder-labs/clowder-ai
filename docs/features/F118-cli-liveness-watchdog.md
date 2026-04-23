@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done | **Owner**: Ragdoll + Maine Coon | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)
+> **Status**: done | **Owner**: Claude + Codex | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)
 
 ## Why
 
@@ -20,7 +20,7 @@ created: 2026-03-14
 
 ### 观察到的现象
 
-**现象 1 — Maine Coon 1800s 静默超时（Cat Café 内部）**
+**现象 1 — Codex 1800s 静默超时（Cat Café 内部）**
 
 - Thread: `thread_mmq8de3e0o4p1407` / session `019cec11-32cf-74b2-af27-469c43644c37`
 - 表现：Codex CLI 吐出 `thread.started` 后 30 分钟完全静默，被 watchdog 杀掉
@@ -28,7 +28,7 @@ created: 2026-03-14
 - **硬证据**：同一 `cliSessionId` 在挂住期间被另一颗 invocation 成功 resume 使用（审计日志 04:46:16–04:48:02 PDT）
 - Invocation: `6c521978-b5ea-439d-b03b-52444ac4f1e5`（04:41:55 → 05:11:57 PDT / 11:41:55 → 12:11:57 UTC）
 
-**现象 2 — Maine Coon半初始化失败（Cat Café 内部）** ⚠️ 高度一致，非独立证明并发 resume
+**现象 2 — Codex半初始化失败（Cat Café 内部）** ⚠️ 高度一致，非独立证明并发 resume
 
 - Thread: `thread_mmq9wjiiht3k5vb3` / session `019cec37-8def-75e3-951e-bbc04c1febf9`
 - 表现：session chain 登记了 `cliSessionId`，raw archive 收到 `thread.started`，但 Codex 本地 `~/.codex/sessions/` 无 rollout 文件
@@ -117,7 +117,7 @@ created: 2026-03-14
 
 **C1 — 沉默状态指示器**
 
-在猫猫消息气泡区域显示当前 CLI 进程状态：
+在智能体消息气泡区域显示当前 CLI 进程状态：
 
 - 正常工作：现有的 thinking/typing 动画（不变）
 - `alive_but_silent`：显示"工具执行中，静默等待…"+ 经过时间
@@ -169,11 +169,11 @@ created: 2026-03-14
 > **Triage 报告**：`docs/ops/2026-03-14-community-issue-triage-tokenfelix.md`
 > **贡献者**：TokenFelix (whutzefengxie-ops)
 
-| clowder-ai Issue | 问题 | 与 F118 的关系 | 社区已有修复 |
+| office-claw Issue | 问题 | 与 F118 的关系 | 社区已有修复 |
 |------------------|------|---------------|-------------|
-| [#86](https://github.com/zts212653/clowder-ai/issues/86) | Session 上下文溢出死循环 — resume 无熔断器 | **主线**：直接对应 liveness + overflow circuit breaker | — |
-| [#98](https://github.com/zts212653/clowder-ai/issues/98) | 有毒 session 绑定无自愈 — active record 无健康检查 | **主线**：resume health check + auto-seal | — |
-| [#99](https://github.com/zts212653/clowder-ai/issues/99) | `finally` 块审计缺失 — generator `.return()` 不写 `CAT_ERROR` | **伴生**：liveness 链的审计闭环 | fork commit `465f64d` |
+| [#86](https://github.com/zts212653/office-claw/issues/86) | Session 上下文溢出死循环 — resume 无熔断器 | **主线**：直接对应 liveness + overflow circuit breaker | — |
+| [#98](https://github.com/zts212653/office-claw/issues/98) | 有毒 session 绑定无自愈 — active record 无健康检查 | **主线**：resume health check + auto-seal | — |
+| [#99](https://github.com/zts212653/office-claw/issues/99) | `finally` 块审计缺失 — generator `.return()` 不写 `CAT_ERROR` | **伴生**：liveness 链的审计闭环 | fork commit `465f64d` |
 
 ### 扩展后的因果链
 
@@ -223,7 +223,7 @@ CLI 挂了 (liveness, Phase A+B ✅)
 
 ### GAP-1: 跨猫交接时的初始上下文注入溢出（2026-03-16）✅ Fixed
 
-**现象**：在 F118 hardening review 过程中，Maine Coon因为首次被 @mention 加入讨论时注入了过多上下文（完整 thread 历史 + 审计报告 + 代码 diff），导致 Codex CLI context window 溢出崩溃。
+**现象**：在 F118 hardening review 过程中，Codex因为首次被 @mention 加入讨论时注入了过多上下文（完整 thread 历史 + 审计报告 + 代码 diff），导致 Codex CLI context window 溢出崩溃。
 
 **根因**：`assembleIncrementalContext()` 在 `route-helpers.ts` 中没有总消息数或 token 预算守卫。当 `cursor=undefined`（首次参与的猫）或 cursor 过期时，`fetchAfterCursor()` 返回全部 thread 消息，无截断地注入。
 
@@ -241,8 +241,8 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | KD-1 | Bug + Enhancement 合并为一个 Feature | team lead："拆的越复杂，实现出来距离愿景越远" | 2026-03-14 |
 | KD-2 | Session mutex 放在会话复用层，不修改 InvocationTracker | InvocationTracker 是 threadId:catId slot guard，不是 session 级串行化 | 2026-03-14 |
 | KD-3 | 进程活性用 CPU 时间采样而不是单纯 kill -0 | kill -0 只能检测 PID 存在，不能检测假死 | 2026-03-14 |
-| KD-4 | SessionMutex 默认 queue/fail-fast，不默认抢占旧请求 | 防止后来的 thread 杀掉健康请求（Maine Coon review P1） | 2026-03-14 |
-| KD-5 | CPU 增长只影响状态判定，不无限重置 timer；需 bounded extension + hard cap | 防 busy-loop/livelock 永不超时（Maine Coon review P1） | 2026-03-14 |
+| KD-4 | SessionMutex 默认 queue/fail-fast，不默认抢占旧请求 | 防止后来的 thread 杀掉健康请求（Codex review P1） | 2026-03-14 |
+| KD-5 | CPU 增长只影响状态判定，不无限重置 timer；需 bounded extension + hard cap | 防 busy-loop/livelock 永不超时（Codex review P1） | 2026-03-14 |
 | KD-6 | 社区 #86/#98/#99 归入 F118，扩展 scope 为 liveness + recovery + audit closure，不开 F121 | 一条因果链不拆两个 feature，管理成本 > 边界清晰收益（三猫 + team lead共识） | 2026-03-14 |
 
 ## Review Gate

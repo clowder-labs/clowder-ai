@@ -30,9 +30,9 @@ test('buildAcpMcpServers includes project Claude MCP servers for stdio ACP agent
             type: 'http',
             url: 'https://example.com/mcp',
           },
-          'cat-cafe': {
+          'office-claw': {
             command: 'node',
-            args: ['local-cat-cafe.js'],
+            args: ['local-office-claw.js'],
           },
         },
       }),
@@ -50,7 +50,7 @@ test('buildAcpMcpServers includes project Claude MCP servers for stdio ACP agent
     });
 
     assert.equal(servers.length, 2);
-    assert.equal(servers[0].name, 'cat-cafe');
+    assert.equal(servers[0].name, 'office-claw');
     assert.equal(servers[0].transport, 'stdio');
     assert.equal(servers[1].name, 'filesystem');
     assert.equal(servers[1].transport, 'stdio');
@@ -68,10 +68,10 @@ test('buildAcpMcpServers ignores project MCP config for ACP-native transport', (
 
   assert.deepEqual(servers, [
     {
-      id: 'cat-cafe',
-      name: 'cat-cafe',
+      id: 'office-claw',
+      name: 'office-claw',
       transport: 'acp',
-      acpId: 'cat-cafe',
+      acpId: 'office-claw',
     },
   ]);
 });

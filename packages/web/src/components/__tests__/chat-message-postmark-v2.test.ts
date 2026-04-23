@@ -79,7 +79,7 @@ describe('ChatMessage Postmark v2 source pill', () => {
 
     const getCatById = vi.fn(() => ({
       id: 'gpt52',
-      displayName: '缅因猫',
+      displayName: 'Codex',
       variantLabel: 'GPT-5.2',
       breedId: 'maine-coon',
       provider: 'openai',
@@ -100,8 +100,8 @@ describe('ChatMessage Postmark v2 source pill', () => {
     );
     expect(pill).toBeTruthy();
     expect(pill?.textContent).toContain('📮');
-    // sender label: variantLabel is 'GPT-5.2', so catStyle.label = '缅因猫（GPT-5.2）'
-    expect(pill?.textContent).toContain('缅因猫（GPT-5.2）');
+    // sender label: variantLabel is 'GPT-5.2', so catStyle.label = 'Codex（GPT-5.2）'
+    expect(pill?.textContent).toContain('Codex（GPT-5.2）');
     expect(pill?.getAttribute('title')).toBe(sourceThreadId);
     expect(pill?.className).toContain('bg-[#FDF6ED]');
     expect(pill?.className).toContain('border-[#E8DCCF]');

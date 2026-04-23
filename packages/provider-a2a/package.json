@@ -1,5 +1,5 @@
 {
-  "name": "@clowder/provider-a2a",
+  "name": "@office-claw/provider-a2a",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -25,20 +25,20 @@
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@clowder/core": ">=0.1.0",
-    "@clowder/shared": ">=0.1.0"
+    "@office-claw/core": ">=0.1.0",
+    "@office-claw/shared": ">=0.1.0"
   },
   "peerDependenciesMeta": {
-    "@clowder/core": {
+    "@office-claw/core": {
       "optional": true
     },
-    "@clowder/shared": {
+    "@office-claw/shared": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@clowder/core": "workspace:*",
-    "@clowder/shared": "workspace:*",
+    "@office-claw/core": "workspace:*",
+    "@office-claw/shared": "workspace:*",
     "typescript": "^5.3.3"
   }
 }

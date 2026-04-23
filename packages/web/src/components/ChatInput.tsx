@@ -1522,7 +1522,7 @@ export function ChatInput({
                                 e.preventDefault();
                                 closeMenus();
                                 window.dispatchEvent(
-                                  new CustomEvent('cat-cafe:open-sidebar-menu', { detail: { menu: 'skills' } }),
+                                  new CustomEvent('office-claw:open-sidebar-menu', { detail: { menu: 'skills' } }),
                                 );
                               }}
                             >

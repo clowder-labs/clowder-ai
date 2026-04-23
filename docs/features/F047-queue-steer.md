@@ -8,7 +8,7 @@ created: 2026-02-28
 
 # F047: Queue Steer（队列消息一键“立即执行 / 提到队首”）
 
-> **Status**: done | **Owner**: Maine Coon/Maine Coon（Codex）
+> **Status**: done | **Owner**: Codex/Codex（Codex）
 > **Created**: 2026-02-28
 > **Completed**: 2026-02-28
 > **Priority**: P1
@@ -71,12 +71,12 @@ team lead在 Codex 原生体验中使用 **Steer**：当消息在队列里等待
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| R1 | Ragdoll/Opus-46 | 0 P1 / 1 P2 | 2026-02-28 |
-| R2 | Ragdoll/Opus-46 | 0 P1 / 0 P2 ✅ | 2026-02-28 |
+| R1 | Claude/Opus-46 | 0 P1 / 1 P2 | 2026-02-28 |
+| R2 | Claude/Opus-46 | 0 P1 / 0 P2 ✅ | 2026-02-28 |
 | Cloud | chatgpt-codex-connector | 0 P1 / 0 P2 ✅ | 2026-02-28 |
 
 ### 愿景交叉验证签收
-| 猫猫 | 读了哪些原始文档 | 三个问题结论 | 签收 |
+| 智能体 | 读了哪些原始文档 | 三个问题结论 | 签收 |
 |------|------------------|-------------|------|
 
 ## Dependencies

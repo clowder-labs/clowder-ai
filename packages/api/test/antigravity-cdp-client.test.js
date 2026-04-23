@@ -17,7 +17,7 @@ describe('findEditorTarget', () => {
   test('picks editor page, skips Launchpad', () => {
     const targets = [
       { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: 'vscode-file://vscode-app' },
-      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://b', url: 'vscode-file://vscode-app' },
+      { type: 'page', title: 'office-claw — main.ts', webSocketDebuggerUrl: 'ws://b', url: 'vscode-file://vscode-app' },
       { type: 'iframe', title: 'webview', webSocketDebuggerUrl: 'ws://c', url: 'vscode-webview://ext' },
     ];
     const result = findEditorTarget(targets);
@@ -49,9 +49,9 @@ describe('findEditorTarget with titleHint', () => {
   test('filters by titleHint when provided', () => {
     const targets = [
       { type: 'page', title: 'other-project — index.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
-      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://b', url: '' },
+      { type: 'page', title: 'office-claw — main.ts', webSocketDebuggerUrl: 'ws://b', url: '' },
     ];
-    const result = findEditorTarget(targets, { titleHint: 'cat-cafe' });
+    const result = findEditorTarget(targets, { titleHint: 'office-claw' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://b');
   });
 
@@ -73,12 +73,12 @@ describe('findEditorTarget with titleHint', () => {
 
 describe('normaliseHint', () => {
   test('strips worktree feature suffix', () => {
-    assert.equal(normaliseHint('cat-cafe-f061-send-fix'), 'cat-cafe');
-    assert.equal(normaliseHint('cat-cafe-f061'), 'cat-cafe');
+    assert.equal(normaliseHint('office-claw-f061-send-fix'), 'office-claw');
+    assert.equal(normaliseHint('office-claw-f061'), 'office-claw');
   });
 
   test('preserves non-worktree names', () => {
-    assert.equal(normaliseHint('cat-cafe'), 'cat-cafe');
+    assert.equal(normaliseHint('office-claw'), 'office-claw');
     assert.equal(normaliseHint('my-project'), 'my-project');
   });
 });
@@ -95,7 +95,7 @@ describe('findEditorTarget enhanced filtering', () => {
 
   test('prefers workbench.html URL over plain page', () => {
     const targets = [
-      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
+      { type: 'page', title: 'office-claw — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
       { type: 'page', title: 'other', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
     ];
     const result = findEditorTarget(targets);
@@ -104,13 +104,13 @@ describe('findEditorTarget enhanced filtering', () => {
 
   test('case-insensitive titleHint matching', () => {
     const targets = [{ type: 'page', title: 'Cat-Cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
-    const result = findEditorTarget(targets, { titleHint: 'cat-cafe' });
+    const result = findEditorTarget(targets, { titleHint: 'office-claw' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
   });
 
   test('titleHint normalises worktree suffix', () => {
-    const targets = [{ type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
-    const result = findEditorTarget(targets, { titleHint: 'cat-cafe-f061-fix' });
+    const targets = [{ type: 'page', title: 'office-claw — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
+    const result = findEditorTarget(targets, { titleHint: 'office-claw-f061-fix' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
   });
 });
@@ -119,10 +119,10 @@ describe('rankEditorTargets', () => {
   test('returns all viable targets sorted by score', () => {
     const targets = [
       { type: 'page', title: 'plain', webSocketDebuggerUrl: 'ws://a', url: '' },
-      { type: 'page', title: 'cat-cafe', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
+      { type: 'page', title: 'office-claw', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
       { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://c', url: '' },
     ];
-    const ranked = rankEditorTargets(targets, { titleHint: 'cat-cafe' });
+    const ranked = rankEditorTargets(targets, { titleHint: 'office-claw' });
     assert.equal(ranked.length, 2); // Launchpad excluded
     assert.equal(ranked[0].webSocketDebuggerUrl, 'ws://b'); // workbench + titleHint = score 3
     assert.equal(ranked[1].webSocketDebuggerUrl, 'ws://a'); // score 0
@@ -141,7 +141,7 @@ describe('AntigravityCdpClient', () => {
   });
 
   test('constructor with custom port and titleHint', () => {
-    const client = new AntigravityCdpClient({ port: 9222, titleHint: 'cat-cafe' });
+    const client = new AntigravityCdpClient({ port: 9222, titleHint: 'office-claw' });
     assert.equal(client.connected, false);
     // titleHint is stored internally and used in connect() → findEditorTarget()
   });
@@ -223,7 +223,7 @@ describe('AntigravityCdpClient', () => {
     const savedWebSocket = global.WebSocket;
 
     global.fetch = async () => ({
-      json: async () => [{ type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://fake', url: '' }],
+      json: async () => [{ type: 'page', title: 'office-claw — main.ts', webSocketDebuggerUrl: 'ws://fake', url: '' }],
     });
 
     class FakeWebSocket {
@@ -662,13 +662,13 @@ describe('AntigravityCdpClient', () => {
       1,
       JSON.stringify({
         userMsgCount: 1,
-        responseText: 'Hello! I am the Bengal cat!',
+        responseText: 'Hello! I am Antigravity.',
         thinkingText: 'Let me think about how to respond...',
         hasInlineLoading: false,
       }),
       JSON.stringify({
         userMsgCount: 1,
-        responseText: 'Hello! I am the Bengal cat!',
+        responseText: 'Hello! I am Antigravity.',
         thinkingText: 'Let me think about how to respond...',
         hasInlineLoading: false,
       }),
@@ -687,7 +687,7 @@ describe('AntigravityCdpClient', () => {
 
     // pollResponse should return an object with both text and thinking
     assert.equal(typeof result, 'object');
-    assert.equal(result.text, 'Hello! I am the Bengal cat!');
+    assert.equal(result.text, 'Hello! I am Antigravity.');
     assert.equal(result.thinking, 'Let me think about how to respond...');
   });
 

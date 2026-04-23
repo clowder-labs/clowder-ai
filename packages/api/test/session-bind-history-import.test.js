@@ -117,7 +117,7 @@ describe('Session bind history import', () => {
             invocationId: 'inv-1',
             event: {
               type: 'assistant',
-              content: [{ type: 'text', text: '历史里的布偶猫回答' }],
+              content: [{ type: 'text', text: '历史里的Claude回答' }],
             },
           },
         ],
@@ -140,7 +140,7 @@ describe('Session bind history import', () => {
       const stored = await messageStore.getByThread(thread.id, 20, 'user-1');
       assert.equal(stored.length, 1);
       assert.equal(stored[0]?.catId, 'opus');
-      assert.equal(stored[0]?.content, '历史里的布偶猫回答');
+      assert.equal(stored[0]?.content, '历史里的Claude回答');
       assert.deepEqual(stored[0]?.extra?.stream, { invocationId: 'inv-1' });
 
       const historyRes = await app.inject({
@@ -151,7 +151,7 @@ describe('Session bind history import', () => {
       assert.equal(historyRes.statusCode, 200);
       const historyBody = JSON.parse(historyRes.body);
       assert.equal(historyBody.messages.length, 1);
-      assert.equal(historyBody.messages[0].content, '历史里的布偶猫回答');
+      assert.equal(historyBody.messages[0].content, '历史里的Claude回答');
     } finally {
       await app.close();
     }

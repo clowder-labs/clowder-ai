@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Whisper ASR server for Cat Cafe voice input (MLX backend, Apple Silicon native).
+Whisper ASR server for local voice input (MLX backend, Apple Silicon native).
 OpenAI-compatible endpoint: POST /v1/audio/transcriptions
 
 Usage:
@@ -29,7 +29,7 @@ MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MB (matches OpenAI limit)
 
 log = logging.getLogger("whisper-api")
 
-app = FastAPI(title="Cat Cafe Whisper Server")
+app = FastAPI(title="OfficeClaw Whisper Server")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -105,7 +105,7 @@ async def health():
 def main():
     global model_path, model_loaded
 
-    parser = argparse.ArgumentParser(description="Cat Cafe Whisper Server (MLX)")
+    parser = argparse.ArgumentParser(description="OfficeClaw Whisper Server (MLX)")
     parser.add_argument(
         "--model",
         default="mlx-community/whisper-large-v3-turbo",
@@ -122,7 +122,7 @@ def main():
     signal.signal(signal.SIGTERM, handle_sigterm)
 
     model_path = args.model
-    log.info("=== Cat Cafe Whisper Server (MLX) ===")
+    log.info("=== OfficeClaw Whisper Server (MLX) ===")
     log.info("Model: %s | Port: %d", model_path, args.port)
     log.info("Loading model (first run downloads from HuggingFace)...")
 

@@ -19,9 +19,9 @@ async function seedTemplate(projectRoot, mutateTemplate) {
 
 describe('cat account binding', () => {
   it('treats bootstrapped seed cats as inheriting the active bootstrap binding', async () => {
-    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
+    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/office-claw-catalog-store.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
+    const { resolveBoundAccountRefForCat } = await import('../dist/config/office-claw-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-inherited-'));
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
@@ -40,9 +40,9 @@ describe('cat account binding', () => {
   });
 
   it('returns explicit seed providerProfileId markers after bootstrap', async () => {
-    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
+    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/office-claw-catalog-store.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
+    const { resolveBoundAccountRefForCat } = await import('../dist/config/office-claw-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-explicit-'));
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
@@ -66,10 +66,10 @@ describe('cat account binding', () => {
 
   it('backfills legacy accountRef-only seed bindings before suppressing inherited bootstrap refs', async () => {
     const { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } = await import(
-      '../dist/config/cat-catalog-store.js'
+      '../dist/config/office-claw-catalog-store.js'
     );
-    const { toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
+    const { toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
+    const { resolveBoundAccountRefForCat } = await import('../dist/config/office-claw-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-legacy-seed-'));
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
@@ -116,10 +116,10 @@ describe('cat account binding', () => {
 
   it('keeps untouched seed siblings inherited after bootstrap switches to a new account', async () => {
     const { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } = await import(
-      '../dist/config/cat-catalog-store.js'
+      '../dist/config/office-claw-catalog-store.js'
     );
-    const { toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
+    const { toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
+    const { resolveBoundAccountRefForCat } = await import('../dist/config/office-claw-account-binding.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-sibling-inherited-'));
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;

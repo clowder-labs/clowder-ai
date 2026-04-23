@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue
 
-> **Status**: done | **Owner**: Ragdoll | **Priority**: P1 | **Completed**: 2026-03-18
+> **Status**: done | **Owner**: Claude | **Priority**: P1 | **Completed**: 2026-03-18
 
 ## Why
 
@@ -23,7 +23,7 @@ team experience（2026-03-14 19:25）：
 2. **callback A2A**（post_message + targetCats/@mention）走 `WorklistRegistry` 自动推进，不受 steer 管控
 3. **multi_mention** 有自己的 dispatch 系统（`MultiMentionOrchestrator`），热修前连 `InvocationTracker` 都没接
 
-team lead期望的行为很简单：**猫猫在忙（不管怎么忙起来的），我发的消息就排队，只有我点 steer 才能强推。** 这要求所有执行路径都接入统一的 active/queue 状态语义。
+team lead期望的行为很简单：**智能体在忙（不管怎么忙起来的），我发的消息就排队，只有我点 steer 才能强推。** 这要求所有执行路径都接入统一的 active/queue 状态语义。
 
 ## 现状分析（基于代码审查 2026-03-14）
 
@@ -50,7 +50,7 @@ team lead期望的行为很简单：**猫猫在忙（不管怎么忙起来的）
 
 callback A2A（③）和 multi_mention（④）虽然热修后接了 InvocationTracker，但执行本身不走 InvocationQueue，steer 管不到。
 
-**用户视角的影响**：猫猫 A2A 自动接力时，你只能看着等，不能 steer 插队。如果你要的是"猫猫之间 handoff 也能被我 steer 管到"，当前做不到。
+**用户视角的影响**：智能体 A2A 自动接力时，你只能看着等，不能 steer 插队。如果你要的是"智能体之间 handoff 也能被我 steer 管到"，当前做不到。
 
 #### P1: pushToWorklist 返回空时无结构化 reason
 
@@ -62,9 +62,9 @@ callback A2A（③）和 multi_mention（④）虽然热修后接了 InvocationT
 
 #### P1: multi_mention target 崩溃导致 caller slot 不释放
 
-**现象**（team lead 2026-03-14 22:54 截图）：Maine Coon干完活用 multi_mention @ opencode，opencode 上下文超限崩溃（`prompt token count of 158302 exceeds the limit of 128000`），但Maine Coon的 InvocationTracker slot 没有释放 → 系统一直显示"猫猫正在回复中"→ team lead发的消息只能排队，除非手动 steer 强推。
+**现象**（team lead 2026-03-14 22:54 截图）：Codex干完活用 multi_mention @ opencode，opencode 上下文超限崩溃（`prompt token count of 158302 exceeds the limit of 128000`），但Codex的 InvocationTracker slot 没有释放 → 系统一直显示"智能体正在回复中"→ team lead发的消息只能排队，除非手动 steer 强推。
 
-**根因推测**：`callback-multi-mention-routes.ts` 的 `dispatchToTarget` 在 target 执行失败时，caller 的 tracker slot 没有正确 complete。热修加的 `tracker.start()` / `tracker.complete()` 只管 target 自己的 slot，但 caller（Maine Coon）的 slot 可能在等 multi_mention 完成才释放——target 崩了就永远等。
+**根因推测**：`callback-multi-mention-routes.ts` 的 `dispatchToTarget` 在 target 执行失败时，caller 的 tracker slot 没有正确 complete。热修加的 `tracker.start()` / `tracker.complete()` 只管 target 自己的 slot，但 caller（Codex）的 slot 可能在等 multi_mention 完成才释放——target 崩了就永远等。
 
 **用户视角的影响**：猫 @ 了一个挂掉的猫后，team lead被锁死在排队状态，只能手动 steer。
 
@@ -84,10 +84,10 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 ### team lead期望的行为
 
-1. **猫猫在忙时（不论原因），我发的消息必须排队** — 已实现 ✅
+1. **智能体在忙时（不论原因），我发的消息必须排队** — 已实现 ✅
 2. **只有 steer 才能强推** — 对用户/connector 消息已实现 ✅；A2A/multi_mention 是否也需要被 steer 管控待决策（见 OQ-1）
 3. **前端必须正确显示"忙/排队"状态** — 热修后基本 OK，QueuePanel processing 可见性待改善
-4. **Connector 来的消息和用户消息一样可靠** — ⚠️ 部分实现：同 cat slot 活跃时走 queue ✅，但判忙是 slot 级（`has(threadId, catId)`）而非 thread 级，与"猫猫在忙就排队"的全局语义可能不一致（见 OQ-4）
+4. **Connector 来的消息和用户消息一样可靠** — ⚠️ 部分实现：同 cat slot 活跃时走 queue ✅，但判忙是 slot 级（`has(threadId, catId)`）而非 thread 级，与"智能体在忙就排队"的全局语义可能不一致（见 OQ-4）
 
 ### Phase A: 可靠性加固（最小闭环）
 
@@ -118,7 +118,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 **如果产品确认 A2A 是自动接力、用户只管自己的消息**：
 
 1. Phase A 就是终态
-2. UI 明确区分"猫猫自动接力中"和"有排队消息"两种状态
+2. UI 明确区分"智能体自动接力中"和"有排队消息"两种状态
 3. steer 只管用户/connector 消息，A2A 继续走 worklist
 
 ## Acceptance Criteria
@@ -179,7 +179,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 > team lead 2026-03-17 00:00 报告（runtime 环境，非最新 main）：
 > "小金 at 了缅因，消息进入队列。小金早干完了，但队列里的消息永远到不了。"
 
-**现象**：opencode @ codex 的 A2A agent entry 在 QueuePanel 里排队，"猫猫正在回复中" 持续显示，但实际上 opencode 已完成执行。entry 不会被自动出队。
+**现象**：opencode @ codex 的 A2A agent entry 在 QueuePanel 里排队，"智能体正在回复中" 持续显示，但实际上 opencode 已完成执行。entry 不会被自动出队。
 
 **可能根因**（待新 session 用 debugging skill 验证）：
 1. `tryAutoExecute` 在 enqueue 时调了一次，目标猫 slot 忙 → 跳过。之后没有重试机制
@@ -220,7 +220,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 ## Roadmap（F108 × F122 统一执行计划）
 
 > 三猫（opus+gpt52+opencode）独立分析后的共识 + team lead 2026-03-14 拍板。
-> 负责：Ragdoll主写 + Maine Coon review，同一 thread 按节奏推进。
+> 负责：Claude主写 + Codex review，同一 thread 按节奏推进。
 
 ### 关系定位
 
@@ -280,7 +280,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 | 风险 | 缓解 |
 |------|------|
-| Phase B 如果把 A2A 入 queue，猫猫自动接力会变慢（每步要过 queue） | 可以给 agent-source entry 设置 auto-execute（跳过排队，但在 queue 里有记录） |
+| Phase B 如果把 A2A 入 queue，智能体自动接力会变慢（每步要过 queue） | 可以给 agent-source entry 设置 auto-execute（跳过排队，但在 queue 里有记录） |
 | pushToWorklist API 变更影响现有调用方 | 返回值做 backward-compatible 扩展（`{ added, reason }` 兼容原 `CatId[]`） |
 | multi_mention parentInvocationId 引入新的 worklist key 冲突 | 用 multi_mention 自己的 invocationId 作为 parentInvocationId，和主 invocation 的 worklist 天然隔离 |
 
@@ -289,12 +289,12 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 热修优先，架构统一后做 | team lead现场 bug 需要立即止血 | 2026-03-14 |
-| KD-2 | Connector 消息走 slot 级条件入队，Phase A 需评估是否改为 thread 级 | `ConnectorInvokeTrigger` 用 `has(threadId, catId)` 判忙，只对同 cat slot 入队（Maine Coon review 指出） | 2026-03-14 |
+| KD-2 | Connector 消息走 slot 级条件入队，Phase A 需评估是否改为 thread 级 | `ConnectorInvokeTrigger` 用 `has(threadId, catId)` 判忙，只对同 cat slot 入队（Codex review 指出） | 2026-03-14 |
 | KD-3 | Phase A 不改 A2A 调度模型，只补漏洞 | 降低风险，先稳后收敛 | 2026-03-14 |
 
 ## Review Gate
 
-- Phase A: 跨家族 review（Maine Coon优先，codex 或 gpt52）✅
+- Phase A: 跨家族 review（Codex优先，codex 或 gpt52）✅
 - Phase A.1: 跨家族 review（codex 或 gpt52）✅
 - Phase B: 跨家族 review（codex R5→R6 放行）✅
 - Phase B.1 (B6): 跨家族 review（codex R3→R4→R5 放行）✅

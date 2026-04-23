@@ -20,7 +20,7 @@ type SavedScrollState = {
   anchor: 'bottom' | 'offset';
 };
 
-// clowder-ai#27: route navigation remounts the page, so scroll memory must live
+// office-claw#27: route navigation remounts the page, so scroll memory must live
 // outside React refs to survive /thread/A → /thread/B → /thread/A.
 const scrollPositionsByThread = new Map<string, SavedScrollState>();
 const SCROLL_BOTTOM_THRESHOLD_PX = 24;
@@ -875,7 +875,7 @@ export function useChatHistory(threadId: string) {
 
     if (messages.length === 0) return;
 
-    // clowder-ai#27: wait for store to sync before acting on scroll.
+    // office-claw#27: wait for store to sync before acting on scroll.
     // On remount, threadId (prop) updates immediately but store.currentThreadId
     // is still the OLD thread until ChatContainer's useEffect calls setCurrentThread().
     // If we act now, we'd restore scroll on the wrong DOM content, then the store
@@ -893,7 +893,7 @@ export function useChatHistory(threadId: string) {
     prevFirstIdRef.current = currentFirstId;
 
     // Initial load (includes remount after thread switch — prevCountRef resets to 0).
-    // clowder-ai#27: check module-level Map for a saved position before scrolling to bottom.
+    // office-claw#27: check module-level Map for a saved position before scrolling to bottom.
     if (prevCount === 0) {
       scheduleRestore(scrollPositionsByThread.get(threadId) ?? { top: 0, anchor: 'bottom' });
       return;
@@ -947,12 +947,12 @@ export function useChatHistory(threadId: string) {
     };
   }, [cancelLiveRefresh]);
 
-  // Load more when scrolled to top + clowder-ai#27 continuous scroll save
+  // Load more when scrolled to top + office-claw#27 continuous scroll save
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
 
-    // clowder-ai#27: continuously save scroll position for this thread.
+    // office-claw#27: continuously save scroll position for this thread.
     // Guard: don't save during store swap (DOM content may not match threadId,
     // and browser may fire scroll events with scrollTop=0 during content swap).
     if (useChatStore.getState().currentThreadId === threadIdRef.current) {

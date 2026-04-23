@@ -9,7 +9,7 @@
  * Used by GET /api/config/env-summary to report current values to the frontend.
  *
  * ⚠️  ALL CATS: 新增 process.env.XXX → 必须在下方 ENV_VARS 数组注册！
- *    不注册 = 前端「环境 & 文件」页面看不到 = 铲屎官不知道 = 不存在。
+ *    不注册 = 前端「环境 & 文件」页面看不到 = 用户不知道 = 不存在。
  *    SOP.md「环境变量注册」章节有说明。
  *
  * To add a new env var:
@@ -67,7 +67,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   proxy: 'Anthropic 代理网关',
   connector: '平台接入 (Telegram/飞书)',
   codex: 'Codex',
-  dare: '狸花猫 (Dare)',
+  dare: 'DARE',
   gemini: 'Gemini',
   tts: '语音合成 (TTS)',
   stt: '语音识别 (STT)',
@@ -698,7 +698,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
 
   // --- dare ---
-  { name: 'DARE_ADAPTER', defaultValue: 'openrouter', description: '狸花猫适配器', category: 'dare', sensitive: false },
+  { name: 'DARE_ADAPTER', defaultValue: 'openrouter', description: 'DARE 适配器', category: 'dare', sensitive: false },
   { name: 'DARE_PATH', defaultValue: '(未设置)', description: 'Dare CLI 路径', category: 'dare', sensitive: false },
 
   // --- gemini ---
@@ -996,59 +996,4 @@ export function isEditableEnvVarName(name: string): boolean {
 /** Returns true when the env var requires a service restart to take effect. */
 export function requiresRestartEnvVar(name: string): boolean {
   return ENV_VARS.some((def) => def.name === name && isConnectorSensitiveEditable(def));
-}
-
-/**
- * Legacy CAT_CAFE_* → OFFICE_CLAW_* migration map.
- * At startup, copies old env name to new name if the new name isn't already set.
- */
-const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
-  ['CAT_CAFE_USER_ID', 'OFFICE_CLAW_USER_ID'],
-  ['CAT_CAFE_HOOK_TOKEN', 'OFFICE_CLAW_HOOK_TOKEN'],
-  ['CAT_CAFE_MCP_SERVER_PATH', 'OFFICE_CLAW_MCP_SERVER_PATH'],
-  ['CAT_CAFE_TMUX_AGENT', 'OFFICE_CLAW_TMUX_AGENT'],
-  ['CAT_CAFE_TMUX_PATH', 'OFFICE_CLAW_TMUX_PATH'],
-  ['CAT_CAFE_DATA_DIR', 'OFFICE_CLAW_DATA_DIR'],
-  ['CAT_CAFE_CALLBACK_TOKEN', 'OFFICE_CLAW_CALLBACK_TOKEN'],
-  ['CAT_CAFE_CALLBACK_OUTBOX_ENABLED', 'OFFICE_CLAW_CALLBACK_OUTBOX_ENABLED'],
-  ['CAT_CAFE_CALLBACK_OUTBOX_DIR', 'OFFICE_CLAW_CALLBACK_OUTBOX_DIR'],
-  ['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_ATTEMPTS'],
-  ['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH'],
-  ['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS', 'OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS'],
-  ['CAT_CAFE_SIGNAL_USER', 'OFFICE_CLAW_SIGNAL_USER'],
-  ['CAT_CAFE_CONFIG_ROOT', 'OFFICE_CLAW_CONFIG_ROOT'],
-  ['CAT_CAFE_GLOBAL_CONFIG_ROOT', 'OFFICE_CLAW_GLOBAL_CONFIG_ROOT'],
-  ['CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED'],
-  ['CAT_CAFE_ALLOWED_CLIENTS', 'OFFICE_CLAW_ALLOWED_CLIENTS'],
-  ['CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS', 'OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS'],
-  ['CAT_CAFE_CLIENT_LABELS', 'OFFICE_CLAW_CLIENT_LABELS'],
-  ['CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT', 'OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT'],
-  ['CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED', 'OFFICE_CLAW_MODEL_CONFIG_FALLBACK_ENABLED'],
-  ['CAT_CAFE_RELAYCLAW_APP_DIR', 'OFFICE_CLAW_RELAYCLAW_APP_DIR'],
-  ['CAT_CAFE_RELAYCLAW_EXE', 'OFFICE_CLAW_RELAYCLAW_EXE'],
-  ['CAT_CAFE_RELAYCLAW_PYTHON', 'OFFICE_CLAW_RELAYCLAW_PYTHON'],
-  ['CAT_CAFE_DARE_DIAG_LOG', 'OFFICE_CLAW_DARE_DIAG_LOG'],
-  ['CAT_CAFE_DARE_MODEL_OVERRIDE', 'OFFICE_CLAW_DARE_MODEL_OVERRIDE'],
-  ['CAT_CAFE_API_URL', 'OFFICE_CLAW_API_URL'],
-  ['CAT_CAFE_INVOCATION_ID', 'OFFICE_CLAW_INVOCATION_ID'],
-  ['CAT_CAFE_CAT_ID', 'OFFICE_CLAW_CAT_ID'],
-  ['CAT_CAFE_PREFLIGHT_TIMEOUT_MS', 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS'],
-];
-
-/**
- * Migrate deprecated CAT_CAFE_* env vars to OFFICE_CLAW_* equivalents.
- * Call once at startup before any env var reads.
- * New name takes precedence; old name is only copied when new name is unset.
- *
- * Keys removed from OfficeClaw's public configuration surface should not stay
- * here indefinitely; keep this map limited to transitional runtime aliases.
- */
-export function migrateDeprecatedEnvVars(): void {
-  for (const [oldName, newName] of LEGACY_ENV_MAP) {
-    const oldVal = process.env[oldName];
-    if (oldVal != null && oldVal !== '' && !process.env[newName]) {
-      process.env[newName] = oldVal;
-      console.warn(`[env-registry] deprecated env var: ${oldName} → use ${newName}`);
-    }
-  }
 }

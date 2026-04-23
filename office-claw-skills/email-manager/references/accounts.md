@@ -20,11 +20,11 @@ email-manager/
   "imap_host": "imap.qq.com",
   "imap_port": 993,
   "imap_user": "user@qq.com",
-  "imap_pass_ref": "wincred://Clowder/email-manager/imap/user%40qq.com",
+  "imap_pass_ref": "wincred://OfficeClaw/email-manager/imap/user%40qq.com",
   "smtp_host": "smtp.qq.com",
   "smtp_port": 587,
   "smtp_user": "user@qq.com",
-  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/user%40qq.com",
+  "smtp_pass_ref": "wincred://OfficeClaw/email-manager/smtp/user%40qq.com",
   "smtp_from": "user@qq.com"
 }
 ```
@@ -36,11 +36,11 @@ email-manager/
   "imap_host": "imap.gmail.com",
   "imap_port": 993,
   "imap_user": "user@gmail.com",
-  "imap_pass_ref": "wincred://Clowder/email-manager/imap/user%40gmail.com",
+  "imap_pass_ref": "wincred://OfficeClaw/email-manager/imap/user%40gmail.com",
   "smtp_host": "smtp.gmail.com",
   "smtp_port": 587,
   "smtp_user": "user@gmail.com",
-  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/user%40gmail.com",
+  "smtp_pass_ref": "wincred://OfficeClaw/email-manager/smtp/user%40gmail.com",
   "smtp_from": "user@gmail.com"
 }
 ```

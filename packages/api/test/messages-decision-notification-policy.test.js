@@ -17,6 +17,6 @@ describe('messages decision notification policy', () => {
 
   it('does not mark generic chat contexts', () => {
     assert.equal(shouldMarkDecisionNotification('今天我们把这个功能做完'), false);
-    assert.equal(shouldMarkDecisionNotification('猫猫回复了日志结果'), false);
+    assert.equal(shouldMarkDecisionNotification('智能体回复了日志结果'), false);
   });
 });

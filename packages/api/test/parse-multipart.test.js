@@ -14,7 +14,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { parseMultipart } from '../dist/routes/parse-multipart.js';
 
 test('parseMultipart drains file stream before waiting for remaining parts and rejects image uploads', async () => {
-  const uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-parse-multipart-'));
+  const uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-parse-multipart-'));
   let fileConsumed = false;
   let releaseIterator = false;
 
@@ -59,7 +59,7 @@ test('parseMultipart drains file stream before waiting for remaining parts and r
 });
 
 test('parseMultipart returns file contentBlocks for attachments', async () => {
-  const uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-parse-multipart-files-'));
+  const uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-parse-multipart-files-'));
 
   const request = {
     parts: async function* () {
@@ -89,8 +89,8 @@ test('parseMultipart returns file contentBlocks for attachments', async () => {
 });
 
 test('parseMultipart stores attachments in the resolved workspace target when available', async () => {
-  const uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-parse-multipart-workspace-'));
-  const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-parse-workspace-root-'));
+  const uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-parse-multipart-workspace-'));
+  const workspaceRoot = await mkdtemp(join(tmpdir(), 'office-claw-parse-workspace-root-'));
 
   const request = {
     parts: async function* () {

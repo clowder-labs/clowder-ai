@@ -77,7 +77,7 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
 
   const getCatById = vi.fn(() => ({
     id: 'opus',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
     breedId: 'ragdoll',
     provider: 'anthropic',

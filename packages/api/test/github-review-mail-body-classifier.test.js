@@ -19,9 +19,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F045): hardDelete clears thinking (PR #97)',
+      'Subject: Re: [zts212653/office-claw] fix(F045): hardDelete clears thinking (PR #97)',
       '',
-      'chatgpt-codex-connector[bot] reviewed (zts212653/cat-cafe#97)',
+      'chatgpt-codex-connector[bot] reviewed (zts212653/office-claw#97)',
       "Codex Review: Didn't find any major issues.",
     ].join('\n');
 
@@ -35,9 +35,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks (PR #96)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): queue contentBlocks (PR #96)',
       '',
-      'chatgpt-codex-connector[bot] left a comment (zts212653/cat-cafe#96)',
+      'chatgpt-codex-connector[bot] left a comment (zts212653/office-claw#96)',
     ].join('\n');
 
     const result = inferReviewActionFromEmailSource(source);
@@ -50,9 +50,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] docs(F048): ghost branch audit (PR #108)',
+      'Subject: Re: [zts212653/office-claw] docs(F048): ghost branch audit (PR #108)',
       '',
-      'octocat approved (zts212653/cat-cafe#108)',
+      'octocat approved (zts212653/office-claw#108)',
     ].join('\n');
 
     const result = inferReviewActionFromEmailSource(source);
@@ -65,9 +65,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks (PR #96)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): queue contentBlocks (PR #96)',
       '',
-      'octocat requested changes (zts212653/cat-cafe#96)',
+      'octocat requested changes (zts212653/office-claw#96)',
     ].join('\n');
 
     const result = inferReviewActionFromEmailSource(source);
@@ -80,9 +80,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks (PR #96)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): queue contentBlocks (PR #96)',
       '',
-      'octocat left a comment (zts212653/cat-cafe#96)',
+      'octocat left a comment (zts212653/office-claw#96)',
       '',
       'Quoting a previous bot message for context:',
       'To use Codex here, create an environment for this repo.',
@@ -113,7 +113,7 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks (PR #96)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): queue contentBlocks (PR #96)',
       '',
       'To use Codex here, create an environment for this repo.',
     ].join('\n');
@@ -127,9 +127,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(email): classify Codex template (PR #117)',
+      'Subject: Re: [zts212653/office-claw] fix(email): classify Codex template (PR #117)',
       '',
-      'chatgpt-codex-connector[bot] left a comment (zts212653/cat-cafe#117)',
+      'chatgpt-codex-connector[bot] left a comment (zts212653/office-claw#117)',
       '',
       'To use Codex here, [create an environment for this repo](https://chatgpt.com/codex/settings/environments).',
     ].join('\n');
@@ -143,9 +143,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
       '',
-      'chatgpt-codex-connector[bot] reviewed (zts212653/cat-cafe#116)',
+      'chatgpt-codex-connector[bot] reviewed (zts212653/office-claw#116)',
       '',
       '### 💡 Codex Review',
       '',
@@ -169,7 +169,7 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(email): classify Codex template (PR #117)',
+      'Subject: Re: [zts212653/office-claw] fix(email): classify Codex template (PR #117)',
       '',
       '### 💡 Codex Review',
       '',
@@ -188,7 +188,7 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] chore: trigger review (PR #1)',
+      'Subject: Re: [zts212653/office-claw] chore: trigger review (PR #1)',
       '',
       '@codex review',
       '',
@@ -205,9 +205,9 @@ describe('GitHub review mail body classifier', () => {
 
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
+      'Subject: Re: [zts212653/office-claw] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
       '',
-      'zts212653 left a comment (zts212653/cat-cafe#116)',
+      'zts212653 left a comment (zts212653/office-claw#116)',
       '',
       '@codex review',
       '',

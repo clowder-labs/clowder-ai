@@ -14,7 +14,7 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import Fastify from 'fastify';
 import { InvocationQueue } from '../dist/domains/cats/services/agents/invocation/InvocationQueue.js';
 import {
@@ -22,8 +22,8 @@ import {
   resetMultiMentionOrchestrator,
 } from '../dist/routes/callback-multi-mention-routes.js';
 
-for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-  if (!catRegistry.has(id)) catRegistry.register(id, config);
+for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+  if (!officeClawRegistry.has(id)) officeClawRegistry.register(id, config);
 }
 
 // ── Mocks ──────────────────────────────────────────────────────────────

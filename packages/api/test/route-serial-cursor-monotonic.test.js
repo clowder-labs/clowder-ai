@@ -58,7 +58,7 @@ test('routeSerial keeps newest cursor boundary when same cat re-enters in one ch
         yield {
           type: 'text',
           catId: 'opus',
-          content: '初稿完成\n@缅因猫 请看',
+          content: '初稿完成\n@assistant 请看',
           timestamp: Date.now(),
         };
       } else {
@@ -77,7 +77,7 @@ test('routeSerial keeps newest cursor boundary when same cat re-enters in one ch
       yield {
         type: 'text',
         catId: 'codex',
-        content: '给出建议\n@布偶猫 回看',
+        content: '给出建议\n@claude 回看',
         timestamp: Date.now(),
       };
       yield { type: 'done', catId: 'codex', timestamp: Date.now() };

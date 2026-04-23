@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 
 function createMockService(catId, text = 'hello') {
   return {
@@ -85,7 +85,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
-      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      opus: createMockService('opus', '代码完成\n@assistant 请review'),
       codex: codexService,
     });
 
@@ -100,7 +100,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
-      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      opus: createMockService('opus', '代码完成\n@assistant 请review'),
       codex: codexService,
     });
 
@@ -113,14 +113,14 @@ describe('F046 B5 runtime regression scenarios', () => {
 
   it('same-family review chain no longer injects invalid identity marker in debug mode', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const opusService = createCapturingService('opus', '收到，继续处理');
@@ -145,9 +145,9 @@ describe('F046 B5 runtime regression scenarios', () => {
         'downstream prompt should not contain deprecated identity invalid marker',
       );
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
@@ -155,7 +155,7 @@ describe('F046 B5 runtime regression scenarios', () => {
   it('line-start @mention always routes (no keyword gate)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '@缅因猫 收到，我在等'),
+      opus: createMockService('opus', '@assistant 收到，我在等'),
       codex: createMockService('codex', '收到'),
     });
 
@@ -173,7 +173,7 @@ describe('F046 B5 runtime regression scenarios', () => {
   it('D1 actionable mention in same paragraph: should route', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '@缅因猫 请 review 这个改动'),
+      opus: createMockService('opus', '@assistant 请 review 这个改动'),
       codex: createMockService('codex', '收到，开始 review'),
     });
 
@@ -193,7 +193,7 @@ describe('F046 B5 runtime regression scenarios', () => {
   it('D1 CJK actionable mention: should route', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '@缅因猫 请确认这个变更'),
+      opus: createMockService('opus', '@assistant 请确认这个变更'),
       codex: createMockService('codex', '已确认'),
     });
 
@@ -213,7 +213,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     const thread = threadStore.create('user1', 'no keyword gate');
     const deps = createMockDeps(
       {
-        opus: createMockService('opus', '@缅因猫\n\n这是交接文档'),
+        opus: createMockService('opus', '@assistant\n\n这是交接文档'),
         codex: createMockService('codex', '收到，开始 review'),
       },
       threadStore,
@@ -235,7 +235,7 @@ describe('F046 B5 runtime regression scenarios', () => {
   it('line-start @mention with arbitrary text routes (no keyword matching)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '@缅因猫 prefix issue'),
+      opus: createMockService('opus', '@assistant prefix issue'),
       codex: createMockService('codex', '收到'),
     });
 
@@ -261,8 +261,8 @@ describe('F046 B5 runtime regression scenarios', () => {
       activeParticipants: [{ catId: 'opus', lastMessageAt: 1710000000000, messageCount: 3 }],
     });
 
-    assert.match(ctx, /^Direct message from 布偶猫\(opus\)/m);
-    assert.match(ctx, /最近活跃：布偶猫\(opus\)/);
+    assert.match(ctx, /^Direct message from Claude\(opus\)/m);
+    assert.match(ctx, /最近活跃：Claude\(opus\)/);
     assert.ok(!ctx.includes('Direct message from @opus'), 'metadata should not use @handle');
     assert.ok(!ctx.includes('最近活跃：@opus'), 'activity should not use @handle');
   });
@@ -273,7 +273,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     const threadStore = new ThreadStore();
     const thread = threadStore.create('user1', 'no suppression');
     const opusService = createCapturingService('opus', '收到');
-    const codexService = createSequentialCapturingService('codex', ['@布偶猫', '第二次调用']);
+    const codexService = createSequentialCapturingService('codex', ['@claude', '第二次调用']);
     const deps = createMockDeps({ codex: codexService, opus: opusService }, threadStore);
 
     for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {
@@ -281,7 +281,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {
     }
 
-    // Bare @布偶猫 now routes, and no feedback is injected
+    // Bare @claude now routes, and no feedback is injected
     assert.ok(
       !codexService.calls[1].includes('Routing feedback(one-shot):'),
       'routing suppression feedback should never appear (system removed)',

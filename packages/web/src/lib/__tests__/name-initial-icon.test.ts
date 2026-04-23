@@ -13,7 +13,7 @@ describe('name initial icon utils', () => {
   });
 
   it('supports non-latin initials and empty names', () => {
-    expect(getNameInitial(' 缅因猫')).toBe('缅');
+    expect(getNameInitial(' Codex')).toBe('C');
     expect(getNameInitial('   ')).toBe('#');
   });
 

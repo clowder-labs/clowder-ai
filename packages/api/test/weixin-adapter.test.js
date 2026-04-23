@@ -33,7 +33,7 @@ describe('WeixinAdapter', () => {
             message_id: 1001,
             from_user_id: 'user-wx-123',
             context_token: 'ctx-token-abc',
-            item_list: [{ type: 1, text_item: { text: '你好猫猫' } }],
+            item_list: [{ type: 1, text_item: { text: '你好智能体' } }],
           },
         ],
       };
@@ -45,7 +45,7 @@ describe('WeixinAdapter', () => {
 
       const msg = result.messages[0];
       assert.equal(msg.chatId, 'user-wx-123');
-      assert.equal(msg.text, '你好猫猫');
+      assert.equal(msg.text, '你好智能体');
       assert.equal(msg.messageId, '1001');
       assert.equal(msg.senderId, 'user-wx-123');
       assert.equal(msg.contextToken, 'ctx-token-abc');
@@ -302,7 +302,7 @@ describe('WeixinAdapter', () => {
         return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
-      await sendAndFlush(adapter, 'user-1', 'Hello from Clowder AI!');
+      await sendAndFlush(adapter, 'user-1', 'Hello from OfficeClaw!');
 
       assert.ok(capturedUrl.includes('/ilink/bot/sendmessage'));
       assert.ok(capturedBody.msg, 'body must have msg wrapper');
@@ -311,7 +311,7 @@ describe('WeixinAdapter', () => {
       assert.equal(capturedBody.msg.message_state, 2);
       assert.equal(capturedBody.msg.item_list.length, 1);
       assert.equal(capturedBody.msg.item_list[0].type, 1);
-      assert.equal(capturedBody.msg.item_list[0].text_item.text, 'Hello from Clowder AI!');
+      assert.equal(capturedBody.msg.item_list[0].text_item.text, 'Hello from OfficeClaw!');
       assert.ok(capturedBody.base_info, 'body must include base_info');
     });
 
@@ -595,8 +595,8 @@ describe('WeixinAdapter', () => {
         return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
-      await sendAndFlush(adapter, 'user-1', '**Hello** from [Clowder AI](https://example.com)!');
-      assert.equal(capturedText, 'Hello from Clowder AI!');
+      await sendAndFlush(adapter, 'user-1', '**Hello** from [OfficeClaw](https://example.com)!');
+      assert.equal(capturedText, 'Hello from OfficeClaw!');
     });
 
     it('sends official sendmessage fields expected by openclaw protocol', async () => {
@@ -617,7 +617,7 @@ describe('WeixinAdapter', () => {
       assert.equal(capturedMsg.message_type, 2);
       assert.equal(capturedMsg.message_state, 2);
       assert.equal(capturedMsg.context_token, 'ctx-1');
-      assert.match(capturedMsg.client_id, /^cat-cafe-weixin-/);
+      assert.match(capturedMsg.client_id, /^office-claw-weixin-/);
     });
 
     it('parses raw text sendmessage responses without requiring res.json()', async () => {

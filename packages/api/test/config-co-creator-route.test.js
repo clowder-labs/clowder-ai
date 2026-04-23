@@ -22,11 +22,11 @@ function makeTemplate() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫'],
+        mentionPatterns: ['@opus', '@claude'],
         roleDescription: '主架构师',
         defaultVariantId: 'opus-default',
         variants: [

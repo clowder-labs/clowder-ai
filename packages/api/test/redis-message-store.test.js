@@ -27,7 +27,7 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisMessageStore.js');
     RedisMessageStore = storeModule.RedisMessageStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
@@ -320,7 +320,7 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     const msg = await store.append({
       userId: 'u',
       catId: 'opus',
-      content: '@铲屎官 看看这个',
+      content: '@用户 看看这个',
       mentions: ['opus'],
       timestamp: Date.now(),
       threadId: 'thread-mention-user',

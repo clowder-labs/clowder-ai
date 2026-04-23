@@ -6,7 +6,7 @@
 
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
-import type { SignalArticleStatus, SignalTier } from '@clowder/shared';
+import type { SignalArticleStatus, SignalTier } from '@office-claw/shared';
 import { parse as parseYaml } from 'yaml';
 import { asRecord, exists, normalizeDate, pickNumber, pickString } from './shared.js';
 

@@ -1,4 +1,4 @@
-# Contributing to Clowder AI
+# Contributing to OfficeClaw
 
 [English](#english) | [中文](#中文)
 
@@ -16,8 +16,8 @@ You have **Write** access to this repo, but `main` is protected — all changes 
 
 ```bash
 # 1. Fork this repo (click "Fork" button on GitHub, or use gh cli)
-gh repo fork zts212653/clowder-ai --clone
-cd clowder-ai
+gh repo fork zts212653/office-claw --clone
+cd office-claw
 
 # 2. Create a feature branch
 git checkout -b feat/your-feature-name
@@ -30,21 +30,21 @@ pnpm check
 # 4. Make your changes, then run checks
 pnpm check          # Biome lint
 pnpm lint           # TypeScript type check
-pnpm --filter @clowder/api run test:public  # Public test suite
+pnpm --filter @office-claw/api run test:public  # Public test suite
 
 # 5. Commit and push to YOUR fork
 git add -A
 git commit -m "feat(scope): description of your change"
 git push origin feat/your-feature-name
 
-# 6. Open a PR from your fork → zts212653/clowder-ai main
-gh pr create --repo zts212653/clowder-ai
+# 6. Open a PR from your fork → zts212653/office-claw main
+gh pr create --repo zts212653/office-claw
 ```
 
 ### Report bugs or suggest features
 
-- Open an [Issue](https://github.com/zts212653/clowder-ai/issues) — please include reproduction steps for bugs
-- Check [pinned issues](https://github.com/zts212653/clowder-ai/issues) for current focus areas
+- Open an [Issue](https://github.com/zts212653/office-claw/issues) — please include reproduction steps for bugs
+- Check [pinned issues](https://github.com/zts212653/office-claw/issues) for current focus areas
 
 ### Feature numbering
 
@@ -67,11 +67,11 @@ The default ports are `3003` (API) and `3004` (Frontend). See [SETUP.md](SETUP.m
 
 ## How Contributing Works Here
 
-Most open source projects say: "write code, open a PR." Clowder works differently.
+Most open source projects say: "write code, open a PR." OfficeClaw works differently.
 
 In the age of AI-assisted development, **code is cheap. Alignment is expensive.** Your AI team can generate thousands of lines in minutes — but if the intent is wrong, all that code is waste.
 
-> Clowder is not a code-only repository.
+> OfficeClaw is not a code-only repository.
 > For non-trivial changes, the primary contribution is the **intent**: the feature note, protocol update, or design decision that explains what should change and why. Code, tests, and references are how that intent becomes real.
 
 ### The Contribution Flow
@@ -192,7 +192,7 @@ Every contribution should respect these:
 
 ### Getting Started
 
-1. Read the [README](README.md) to understand what Clowder is
+1. Read the [README](README.md) to understand what OfficeClaw is
 2. Browse `docs/features/` to see existing Feature Docs
 3. Check `docs/ROADMAP.md` for the active feature list
 4. Look at `docs/decisions/` for past architectural decisions
@@ -214,13 +214,13 @@ Every contribution should respect these:
 
 > **Maintainer / Triager**：分类、标签、认领、审查指南请看 [MAINTAINERS.md](MAINTAINERS.md)。
 
-## 如何为 Clowder 贡献
+## 如何为 OfficeClaw 贡献
 
-大多数开源项目说："写代码，提 PR。" Clowder 不一样。
+大多数开源项目说："写代码，提 PR。" OfficeClaw 不一样。
 
 在 AI 辅助开发的时代，**代码不值钱，对齐才值钱。** AI 团队几分钟能生成上千行代码 — 但如果意图错了，这些代码就全是废品。
 
-> Clowder 不是一个纯代码仓库。
+> OfficeClaw 不是一个纯代码仓库。
 > 对于非 trivial 的改动，贡献的主体是**意图**：解释应该改什么、为什么改的功能文档、协议更新或设计决策。代码、测试和参考文档是让意图变成现实的手段。
 
 ### Feature 编号规则
@@ -354,7 +354,7 @@ Review PR 时的优先级：
 
 ### 从哪开始
 
-1. 读 [README](README.md) 了解 Clowder 是什么
+1. 读 [README](README.md) 了解 OfficeClaw 是什么
 2. 浏览 `docs/features/` 看看现有的 Feature Doc
 3. 看 `docs/ROADMAP.md` 了解当前活跃的功能列表
 4. 翻翻 `docs/decisions/` 看看过去的架构决策

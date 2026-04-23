@@ -21,14 +21,14 @@ describe('invocationEventDebug', () => {
     vi.useFakeTimers();
     clearDebugEvents();
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
   });
 
   afterEach(() => {
     vi.useRealTimers();
     clearDebugEvents();
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
   });
 
   it('is fully disabled by default and does not mount window API', () => {
@@ -37,7 +37,7 @@ describe('invocationEventDebug', () => {
     recordDebugEvent({ event: 'queue_updated', threadId: 'thread-a', timestamp: 1 });
 
     expect(dumpDebugEvents()).toMatchObject({ meta: { count: 0 } });
-    expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeUndefined();
+    expect((window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug).toBeUndefined();
   });
 
   it('enables recording and mounts window API explicitly', () => {
@@ -48,7 +48,7 @@ describe('invocationEventDebug', () => {
 
     const dump = dumpDebugEvents();
     expect(dump.meta.count).toBe(1);
-    expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeTruthy();
+    expect((window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug).toBeTruthy();
   });
 
   it('exposes dumpBubbleTimeline() and returns only bubble lifecycle events', () => {
@@ -75,9 +75,9 @@ describe('invocationEventDebug', () => {
 
     const debugApi = (
       window as typeof window & {
-        __catCafeDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
+        __officeClawDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
       }
-    ).__catCafeDebug;
+    ).__officeClawDebug;
 
     expect(debugApi?.dumpBubbleTimeline).toBeTypeOf('function');
 
@@ -317,7 +317,7 @@ describe('invocationEventDebug', () => {
     try {
       bootstrapDebugFromStorage();
       expect(getDebugStatus().enabled).toBe(false);
-      expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeUndefined();
+      expect((window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug).toBeUndefined();
     } finally {
       if (originalLocalDescriptor) Object.defineProperty(window, 'localStorage', originalLocalDescriptor);
       if (originalSessionDescriptor) Object.defineProperty(window, 'sessionStorage', originalSessionDescriptor);

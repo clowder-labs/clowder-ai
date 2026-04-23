@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Cat Cafe 初始化脚本
+# OfficeClaw 初始化脚本
 # 用于首次设置项目环境
 
 set -e
 
-echo "🐱 Cat Café 初始化脚本"
+echo "OfficeClaw 初始化脚本"
 echo "======================"
 
 # 颜色定义
@@ -151,7 +151,7 @@ main() {
 
     echo ""
     echo "========================"
-    echo -e "${GREEN}🎉 Cat Café 初始化完成！${NC}"
+    echo -e "${GREEN}🎉 OfficeClaw 初始化完成！${NC}"
     echo ""
     echo "下一步："
     echo "  1. 编辑 .env 文件，填入 API Keys"

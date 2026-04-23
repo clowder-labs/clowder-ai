@@ -10,7 +10,7 @@ export interface PreviewGatewayConfig {
   port: number;
   /** 允许的目标端口范围 */
   allowedPortRange: [number, number];
-  /** 排除的端口列表（Clowder AI 自身服务） */
+  /** 排除的端口列表（OfficeClaw 自身服务） */
   excludedPorts: number[];
 }
 

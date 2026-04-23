@@ -15,7 +15,7 @@
  * with @co-creator/@用户 always included as fallback defaults.
  */
 
-import { getCoCreatorMentionPatterns } from '../config/cat-config-loader.js';
+import { getCoCreatorMentionPatterns } from '../config/office-claw-config-loader.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 
 const log = createModuleLogger('user-mention');

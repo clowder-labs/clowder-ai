@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clowder AI — Linux Repo-Local Install Helper (F113)
+# OfficeClaw — Linux Repo-Local Install Helper (F113)
 # Usage: bash scripts/install.sh [--start] [--memory] [--registry=URL]
 # Supported: Debian/Ubuntu, CentOS/RHEL/Fedora
 
@@ -277,11 +277,11 @@ resolve_project_dir_from() {
 resolve_project_dir() {
     local script_source="${BASH_SOURCE[0]:-}"
     [[ -n "$script_source" ]] || {
-        fail "This helper must run from a clowder-ai source tree. Clone or download first, then run: bash scripts/install.sh"
+        fail "This helper must run from a office-claw source tree. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_DIR="$(resolve_project_dir_from "$script_source")" || {
-        fail "Could not locate the clowder-ai source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
+        fail "Could not locate the office-claw source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_HAS_GIT_METADATA=false
@@ -683,7 +683,7 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
     done; ok "Skills linked"
 else fail "office-claw-skills/ not found"; exit 1; fi
 
-# F135: DARE CLI (狸花猫) — clone + venv setup
+# F135: DARE CLI — clone + venv setup
 # Pin to a known-good commit for reproducible installs (bump via PR when upgrading DARE).
 DARE_CLI_REF="${DARE_CLI_REF:-6654255f003b2be58c1c75160607b7d7bf0eb957}"
 DARE_VENDOR_DIR="$PROJECT_DIR/vendor/dare-cli"
@@ -697,7 +697,7 @@ else
        git -C "$DARE_VENDOR_DIR" checkout "$DARE_CLI_REF" 2>&1; then
         ok "DARE CLI cloned at ${DARE_CLI_REF:0:7}"
     else
-        warn "DARE clone failed — 狸花猫 will not be available"
+        warn "DARE clone failed — DARE CLI will not be available"
         rm -rf "$DARE_VENDOR_DIR" 2>/dev/null || true
         DARE_VENDOR_DIR=""
     fi
@@ -711,7 +711,7 @@ if [[ -n "$DARE_VENDOR_DIR" && -f "$DARE_VENDOR_DIR/client/__main__.py" ]]; then
                    -r "$DARE_VENDOR_DIR/requirements.txt" "httpx[socks]" 2>&1; then
                 ok "DARE venv ready"
             else
-                warn "DARE venv setup failed (uv) — 狸花猫 will not be available"
+                warn "DARE venv setup failed (uv) — DARE CLI will not be available"
                 DARE_VENDOR_DIR=""
             fi
         elif command -v python3 &>/dev/null; then
@@ -720,7 +720,7 @@ if [[ -n "$DARE_VENDOR_DIR" && -f "$DARE_VENDOR_DIR/client/__main__.py" ]]; then
                    -r "$DARE_VENDOR_DIR/requirements.txt" "httpx[socks]" 2>&1; then
                 ok "DARE venv ready"
             else
-                warn "DARE venv setup failed (python3) — 狸花猫 will not be available"
+                warn "DARE venv setup failed (python3) — DARE CLI will not be available"
                 DARE_VENDOR_DIR=""
             fi
         else
@@ -792,7 +792,7 @@ chmod 600 .env 2>/dev/null || true
 
 # ── [9/9] Done ──────────────────────────────────────────────
 step "[9/9] Installation complete! / 安装完成！"
-echo -e "\n  ${GREEN}══ Clowder AI is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
+echo -e "\n  ${GREEN}══ OfficeClaw is ready! 智能体咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
 START_CMD="cd $PROJECT_DIR && pnpm start"; [[ "$MEMORY_MODE" == true ]] && START_CMD+=" --memory"
 echo -e "  Start: $START_CMD\n  Open:  $(default_frontend_url)\n"
 if [[ "$AUTO_START" == true ]]; then

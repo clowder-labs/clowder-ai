@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
-import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../utils/office-claw-root.js';
 
 export type SoulTemplatesRoutesOptions = {};
 
@@ -55,7 +55,7 @@ interface SoulTemplatesConfig {
 
 function loadTemplatesFromFile(): SoulTemplate[] {
   try {
-    const configPath = resolve(resolveCatCafeHostRoot(process.cwd()), 'soul-templates.json');
+    const configPath = resolve(resolveOfficeClawHostRoot(process.cwd()), 'soul-templates.json');
     const content = readFileSync(configPath, 'utf-8');
     const config: SoulTemplatesConfig = JSON.parse(content);
     return config.templates || [];

@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbActionLogEntry } from '@clowder/shared';
+import type { LimbActionLogEntry } from '@office-claw/shared';
 
 export class LimbActionLog {
   private readonly entries = new Map<string, LimbActionLogEntry>();

@@ -72,7 +72,7 @@ describe('normalizePickedDirectoryPath()', () => {
   });
 
   it('trims trailing separators from non-root directories', () => {
-    assert.equal(mod.normalizePickedDirectoryPath('C:\\workspace\\clowder-ai\\'), 'C:\\workspace\\clowder-ai');
+    assert.equal(mod.normalizePickedDirectoryPath('C:\\workspace\\office-claw\\'), 'C:\\workspace\\office-claw');
     assert.equal(mod.normalizePickedDirectoryPath('/tmp/demo/'), '/tmp/demo');
   });
 });

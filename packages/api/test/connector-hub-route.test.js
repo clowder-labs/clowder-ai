@@ -15,7 +15,13 @@ const { connectorHubRoutes } = await import('../dist/routes/connector-hub.js');
 
 const AUTH_HEADERS = { 'x-office-claw-user': 'owner-1' };
 
-async function buildApp(overrides = {}) {
+function attachAuth(app, userId = 'owner-1') {
+  app.addHook('onRequest', async (request) => {
+    request.auth = { userId, sessionId: `${userId}-session` };
+  });
+}
+
+async function buildApp(overrides = {}, { authenticated = true } = {}) {
   const listCalls = [];
   const threadStore = {
     async list(userId) {
@@ -43,6 +49,7 @@ async function buildApp(overrides = {}) {
   };
 
   const app = Fastify();
+  if (authenticated) attachAuth(app);
   await app.register(connectorHubRoutes, { threadStore });
   await app.ready();
   return { app, listCalls };
@@ -59,6 +66,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     }));
 
     const app = Fastify();
+    attachAuth(app);
     // Register with weixinAdapter deliberately missing (simulates gateway not started)
     await app.register(connectorHubRoutes, {
       threadStore: {
@@ -113,6 +121,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     };
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -153,6 +162,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     const activated = [];
     const owners = [];
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -195,6 +205,7 @@ describe('POST /api/connector/weixin/disconnect', () => {
     const owners = [];
     let pollingStarted = false;
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -239,6 +250,7 @@ describe('POST /api/connector/weixin/disconnect', () => {
 
   it('returns 503 when disconnect handler is unavailable', async () => {
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -271,6 +283,7 @@ describe('POST /api/connector/weixin/disconnect', () => {
     let connected = true;
     let disconnectCalls = 0;
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -309,7 +322,7 @@ describe('POST /api/connector/weixin/disconnect', () => {
 
 describe('Feishu QR-only connector flow', () => {
   it('forces websocket mode and clears verification token after QR confirmation', async () => {
-    const envDir = mkdtempSync(join(tmpdir(), 'cat-cafe-feishu-qr-'));
+    const envDir = mkdtempSync(join(tmpdir(), 'office-claw-feishu-qr-'));
     const envFilePath = join(envDir, '.env');
     writeFileSync(envFilePath, 'FEISHU_VERIFICATION_TOKEN=legacy-token\n', 'utf8');
     process.env.FEISHU_VERIFICATION_TOKEN = 'legacy-token';
@@ -318,6 +331,7 @@ describe('Feishu QR-only connector flow', () => {
     delete process.env.FEISHU_CONNECTION_MODE;
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -370,7 +384,7 @@ describe('Feishu QR-only connector flow', () => {
   });
 
   it('disconnect clears all persisted Feishu QR connector settings', async () => {
-    const envDir = mkdtempSync(join(tmpdir(), 'cat-cafe-feishu-disconnect-'));
+    const envDir = mkdtempSync(join(tmpdir(), 'office-claw-feishu-disconnect-'));
     const envFilePath = join(envDir, '.env');
     writeFileSync(
       envFilePath,
@@ -390,6 +404,7 @@ describe('Feishu QR-only connector flow', () => {
     process.env.FEISHU_BOT_OPEN_ID = 'ou_bot_123';
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, {
       threadStore: {
         async list() {
@@ -435,13 +450,13 @@ describe('Feishu QR-only connector flow', () => {
 
 describe('GET /api/connector/hub-threads', () => {
   it('returns 401 when only a spoofed userId query param is provided', async () => {
-    const { app } = await buildApp();
+    const { app } = await buildApp({}, { authenticated: false });
     const res = await app.inject({
       method: 'GET',
       url: '/api/connector/hub-threads?userId=spoofed',
     });
     assert.equal(res.statusCode, 401);
-    assert.equal(JSON.parse(res.body).error, '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头');
+    assert.equal(JSON.parse(res.body).error, '缺少用户身份，请先登录或携带 X-Office-Claw-User 请求头');
   });
 
   it('uses the trusted header identity and returns hub threads sorted by createdAt desc', async () => {

@@ -6,7 +6,7 @@
 
 /**
  * S1 Review Fix Tests
- * 缅因猫 review 发现的 3 个问题的回归测试
+ * Codex review 发现的 3 个问题的回归测试
  *
  * P1-1: duplicate 请求不应 abort 活跃调用
  * P1-2: 新流程需要持久化 @mentions 到 participants

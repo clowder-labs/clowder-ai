@@ -205,7 +205,7 @@ describe('schedule routes logging', () => {
       url: '/api/schedule/tasks',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'repo-activity',
@@ -248,7 +248,7 @@ describe('schedule routes logging', () => {
       method: 'POST',
       url: '/api/schedule/tasks/dyn-trigger/trigger',
       headers: {
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
     });
 
@@ -294,7 +294,7 @@ describe('schedule routes logging', () => {
       method: 'DELETE',
       url: '/api/schedule/tasks/dyn-delete',
       headers: {
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
     });
 
@@ -344,7 +344,7 @@ describe('schedule routes logging', () => {
       url: '/api/schedule/tasks/dyn-toggle',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: { enabled: false },
     });
@@ -365,7 +365,7 @@ describe('schedule routes logging', () => {
       url: '/api/schedule/tasks/dyn-toggle',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: { enabled: true },
     });

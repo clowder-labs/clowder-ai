@@ -11,7 +11,7 @@ import { buildDeps, mockMsg } from './helpers/incremental-context-helpers.js';
 const { assembleIncrementalContext } = await import('../dist/domains/cats/services/agents/routing/route-helpers.js');
 const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 const { DeliveryCursorStore } = await import('../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js');
-const { getCatContextBudget } = await import('../dist/config/cat-budgets.js');
+const { getCatContextBudget } = await import('../dist/config/office-claw-budgets.js');
 
 function seedLongMessages(messageStore, count, threadId = 'thread-1') {
   const stored = [];

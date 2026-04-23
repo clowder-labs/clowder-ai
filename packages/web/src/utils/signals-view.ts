@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@clowder/shared';
+import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@office-claw/shared';
 
 export type SignalArticleStatusFilter = SignalArticleStatus | 'all';
 export type SignalArticleTierFilter = `${SignalTier}` | 'all';

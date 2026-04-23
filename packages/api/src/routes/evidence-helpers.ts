@@ -21,7 +21,7 @@ export interface EvidenceResult {
 }
 
 export function normalizeTags(input: string | string[] | undefined, defaultOrigin = 'origin:git'): string[] {
-  const defaults = ['project:cat-cafe', defaultOrigin];
+  const defaults = ['project:office-claw', defaultOrigin];
   if (input == null) return defaults;
 
   const tags = (Array.isArray(input) ? input : [input])
@@ -31,9 +31,9 @@ export function normalizeTags(input: string | string[] | undefined, defaultOrigi
 
   if (tags.length === 0) return defaults;
 
-  // project:cat-cafe is always present (P0 governance constraint)
-  if (!tags.includes('project:cat-cafe')) {
-    tags.unshift('project:cat-cafe');
+  // project:office-claw is always present (P0 governance constraint)
+  if (!tags.includes('project:office-claw')) {
+    tags.unshift('project:office-claw');
   }
 
   return tags;

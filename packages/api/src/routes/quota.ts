@@ -5,7 +5,7 @@
  */
 
 /**
- * Quota Route — F051 真实猫粮额度 API
+ * Quota Route — F051 真实配额度 API
  *
  * 数据源（v3 对齐 ClaudeBar）：
  * 1. Claude: Anthropic OAuth API（/api/oauth/usage）+ ccusage CLI fallback

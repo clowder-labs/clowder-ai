@@ -13,7 +13,7 @@ import Fastify from 'fastify';
 import { versionRoutes } from '../dist/routes/version.js';
 
 function createTempProjectRoot() {
-  return mkdtempSync(join(tmpdir(), 'cat-cafe-version-'));
+  return mkdtempSync(join(tmpdir(), 'office-claw-version-'));
 }
 
 async function buildApp(projectRoot) {
@@ -32,10 +32,10 @@ describe('versionRoutes current version fallback order', () => {
     }
   });
 
-  it('falls back to .clowder-release.json when package.json is missing', async () => {
+  it('falls back to .office-claw-release.json when package.json is missing', async () => {
     const projectRoot = createTempProjectRoot();
     tempDirs.push(projectRoot);
-    writeFileSync(join(projectRoot, '.clowder-release.json'), JSON.stringify({ version: '3.4.5' }), 'utf8');
+    writeFileSync(join(projectRoot, '.office-claw-release.json'), JSON.stringify({ version: '3.4.5' }), 'utf8');
 
     const app = await buildApp(projectRoot);
     const response = await app.inject({ method: 'GET', url: '/api/lastversion' });

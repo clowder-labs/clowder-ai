@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { SeatId, SeatView } from '@clowder/shared';
+import type { SeatId, SeatView } from '@office-claw/shared';
 
 interface NightActionCardProps {
   roleName: string;

@@ -14,7 +14,7 @@
 
 import { lstat, mkdir, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { BootstrapAction, BootstrapReport } from '@clowder/shared';
+import type { BootstrapAction, BootstrapReport } from '@office-claw/shared';
 import { pathsEqual } from '../../utils/project-path.js';
 import type { Provider } from './governance-pack.js';
 import {
@@ -250,7 +250,7 @@ export class GovernanceBootstrapService {
           return { file: hooksDir, action: 'skipped', reason: 'hooks symlink already correct' };
         }
       }
-      return { file: hooksDir, action: 'skipped', reason: 'hooks path exists but is not a symlink to cat-cafe hooks' };
+      return { file: hooksDir, action: 'skipped', reason: 'hooks path exists but is not a symlink to office-claw hooks' };
     } catch {
       // Doesn't exist — create
     }

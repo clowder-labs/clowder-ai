@@ -70,7 +70,7 @@ describe('evidence route DI (IEvidenceStore path)', () => {
     app = Fastify();
     await app.register(evidenceRoutes, {
       hindsightClient: mockHindsight,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       evidenceStore: mockStore,
     });
     await app.ready();
@@ -99,7 +99,7 @@ describe('evidence route DI (IEvidenceStore path)', () => {
     app = Fastify();
     await app.register(evidenceRoutes, {
       hindsightClient: MOCK_HINDSIGHT,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       evidenceStore: mockStore,
     });
     await app.ready();
@@ -122,7 +122,7 @@ describe('evidence route DI (IEvidenceStore path)', () => {
     app = Fastify();
     await app.register(evidenceRoutes, {
       hindsightClient: MOCK_HINDSIGHT,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       evidenceStore: mockStore,
     });
     await app.ready();
@@ -168,7 +168,7 @@ describe('reflect route DI (IReflectionService path)', () => {
     app = Fastify();
     await app.register(reflectRoutes, {
       hindsightClient: mockHindsight,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       reflectionService: mockReflection,
     });
     await app.ready();
@@ -198,7 +198,7 @@ describe('reflect route DI (IReflectionService path)', () => {
     app = Fastify();
     await app.register(reflectRoutes, {
       hindsightClient: MOCK_HINDSIGHT,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       reflectionService: mockReflection,
     });
     await app.ready();

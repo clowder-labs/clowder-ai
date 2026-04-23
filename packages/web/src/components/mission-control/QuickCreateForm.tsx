@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogPriority } from '@clowder/shared';
+import type { BacklogPriority } from '@office-claw/shared';
 import { useState } from 'react';
 
 interface QuickCreateFormProps {

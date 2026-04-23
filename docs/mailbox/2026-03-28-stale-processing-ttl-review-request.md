@@ -18,7 +18,7 @@ PR: #798
 
 `InvocationQueue.hasActiveOrQueuedAgentForCat()` now expires `processing` entries older than 10 minutes (zombie defense). Previously, a stuck `processing` entry blocked text-scan A2A dedup forever.
 
-Also adds YAML frontmatter to `cat-cafe-skills/image-generation/SKILL.md` (fixes Codex skill loader parse error on every gpt52 spawn).
+Also adds YAML frontmatter to `office-claw-skills/image-generation/SKILL.md` (fixes Codex skill loader parse error on every gpt52 spawn).
 
 ## Why
 
@@ -28,13 +28,13 @@ Recurring bug: gpt52 @mention routing gets permanently stuck. Root cause chain:
 3. `processing` entry stays in InvocationQueue indefinitely (no TTL)
 4. All subsequent text-scan @mentions for that cat are deduped against the zombie entry
 
-The 10-min TTL is a defense-in-depth layer — it lets the system self-heal even when the bottom-layer issue (expired token) isn't fixed yet. The expired token is an environment config issue reported to 铲屎官.
+The 10-min TTL is a defense-in-depth layer — it lets the system self-heal even when the bottom-layer issue (expired token) isn't fixed yet. The expired token is an environment config issue reported to 用户.
 
 ## Original Requirements
 > thread_mn90ffjh52byy7va → 这个线程的砚砚又卡了。。 是你at他 他又卡了 启动不起来了
 > 为什么要我确认啊！你们都为什么天天止血！如果解决呢？
-- 来源：铲屎官当前会话直接反馈（2026-03-28）
-- **请对照上面的摘录判断交付物是否解决了铲屎官的问题**
+- 来源：用户当前会话直接反馈（2026-03-28）
+- **请对照上面的摘录判断交付物是否解决了用户的问题**
 
 ## Tradeoff
 
@@ -53,7 +53,7 @@ The 10-min TTL is a defense-in-depth layer — it lets the system self-heal even
 ## 自检证据
 
 ### Spec 合规
-Bug fix，无 feature spec。对照铲屎官原始反馈：
+Bug fix，无 feature spec。对照用户原始反馈：
 - "砚砚又卡了" → zombie processing entry 现在 10 min 后自动跳过 ✅
 - "如果解决呢" → 根因已定位（expired MCP token），defense-in-depth 层已加 ✅
 

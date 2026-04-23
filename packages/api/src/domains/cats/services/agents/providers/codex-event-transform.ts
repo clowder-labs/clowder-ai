@@ -5,7 +5,7 @@
  */
 
 import { basename, extname, isAbsolute, relative, resolve } from 'node:path';
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 // F060: Allowed image MIME types and max base64 payload size (5 MB encoded ≈ 3.75 MB decoded)

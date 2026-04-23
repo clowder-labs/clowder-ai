@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { computeMentionStats } from '../../dist/domains/leaderboard/mention-stats.js';
 
-const CAT_NAMES = { opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫' };
+const CAT_NAMES = { opus: 'Claude', codex: 'Codex', gemini: 'Gemini' };
 
 /** Helper to build a minimal message-like object with numeric timestamp */
 function msg(id, mentions, isoDate, catId = null, content = 'x') {
@@ -60,8 +60,8 @@ describe('computeMentionStats', () => {
 
   it('uses displayName from catNames map', () => {
     const result = computeMentionStats(messages, CAT_NAMES, 'all');
-    assert.equal(result.favoriteCat[0].displayName, '布偶猫');
-    assert.equal(result.favoriteCat[1].displayName, '缅因猫');
+    assert.equal(result.favoriteCat[0].displayName, 'Claude');
+    assert.equal(result.favoriteCat[1].displayName, 'Codex');
   });
 
   it('returns empty arrays for no messages', () => {

@@ -141,7 +141,7 @@ describe('PreviewGateway', () => {
     const res = await httpGet(url);
     // The WS patch must override the WebSocket constructor so HMR connections
     // include __preview_port, allowing the gateway to proxy them correctly
-    assert.ok(res.body.includes('cat-cafe-ws-patch'), 'Should inject ws-patch script tag');
+    assert.ok(res.body.includes('office-claw-ws-patch'), 'Should inject ws-patch script tag');
   });
 
   it('rejects start when configured port is already in use', async () => {

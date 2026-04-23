@@ -4,14 +4,14 @@
  *
  */
 
-import type { SignalSourceConfig } from '@clowder/shared';
+import type { SignalSourceConfig } from '@office-claw/shared';
 import { PAPER_SOURCES } from './sources-papers.js';
 import { TIER1_CHINA_SOURCES } from './sources-tier1-china.js';
 import { TIER1_GLOBAL_SOURCES } from './sources-tier1-global.js';
 import { TIER2_COMMUNITY_SOURCES } from './sources-tier2-community.js';
 
 /**
- * Default signal sources for Clowder AI Signal Hunter.
+ * Default signal sources for OfficeClaw Signal Hunter.
  *
  * Split into topic files under config/:
  *  - sources-tier1-global.ts  — Global AI labs (Anthropic → Groq)
@@ -20,7 +20,7 @@ import { TIER2_COMMUNITY_SOURCES } from './sources-tier2-community.js';
  *  - sources-tier2-community.ts — OSS, bloggers, VC, aggregators
  *
  * Full provenance:
- *  - 缅因猫调研: docs/archive/2026-02/research/signal-hunter.md
+ *  - Codex调研: docs/archive/2026-02/research/signal-hunter.md
  *  - 集成讨论: docs/archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md
  *  - Gap 审计: docs/plans/2026-02-20-f21-signal-sources-gap.md
  */

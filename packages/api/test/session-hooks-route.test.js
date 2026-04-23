@@ -54,7 +54,7 @@ describe('Session Hooks Routes', () => {
 
   /** Helper: default auth headers for hook requests */
   function authHeaders(token = DEFAULT_HOOK_TOKEN) {
-    return { 'x-cat-cafe-hook-token': token };
+    return { 'x-office-claw-hook-token': token };
   }
 
   // --- POST /api/sessions/seal ---
@@ -453,7 +453,7 @@ describe('Session Hooks Routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/sessions/seal',
-        headers: { 'x-cat-cafe-hook-token': 'wrong-token' },
+        headers: { 'x-office-claw-hook-token': 'wrong-token' },
         payload: { cliSessionId: 'cli-abc', reason: 'test' },
       });
 
@@ -472,7 +472,7 @@ describe('Session Hooks Routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/sessions/seal',
-        headers: { 'x-cat-cafe-hook-token': 'secret-token-123' },
+        headers: { 'x-office-claw-hook-token': 'secret-token-123' },
         payload: { cliSessionId: 'cli-auth', reason: 'test-auth' },
       });
 

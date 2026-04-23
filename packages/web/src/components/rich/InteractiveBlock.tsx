@@ -56,7 +56,7 @@ function patchBlockState(messageId: string, blockId: string, patch: { disabled?:
 }
 
 function dispatchInteractiveSend(text: string) {
-  window.dispatchEvent(new CustomEvent('cat-cafe:interactive-send', { detail: { text } }));
+  window.dispatchEvent(new CustomEvent('office-claw:interactive-send', { detail: { text } }));
 }
 
 /** Render option icon: prefer SVG icon over emoji */

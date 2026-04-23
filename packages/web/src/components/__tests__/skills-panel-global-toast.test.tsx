@@ -116,7 +116,7 @@ describe('SkillsPanel global upload toast', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     useToastStore.setState({ toasts: [] });
-    window.localStorage.removeItem('cat-cafe:skills-plaza-risk-ack:v1');
+    window.localStorage.removeItem('office-claw:skills-plaza-risk-ack:v1');
   });
 
   afterEach(() => {

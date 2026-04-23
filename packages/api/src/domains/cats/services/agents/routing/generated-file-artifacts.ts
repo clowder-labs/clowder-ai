@@ -4,7 +4,7 @@
  *
  */
 
-import type { RichBlock } from '@clowder/shared';
+import type { RichBlock } from '@office-claw/shared';
 
 export type GeneratedFileArtifact = {
   fileName: string;

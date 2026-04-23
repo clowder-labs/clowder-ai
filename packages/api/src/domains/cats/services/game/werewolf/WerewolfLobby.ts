@@ -10,7 +10,7 @@
  * Creates lobby state and handles role assignment + game start.
  */
 
-import type { GameEvent, GameRuntime, Seat } from '@clowder/shared';
+import type { GameEvent, GameRuntime, Seat } from '@office-claw/shared';
 import { createWerewolfDefinition, WEREWOLF_PRESETS } from './WerewolfDefinition.js';
 
 interface LobbyInput {

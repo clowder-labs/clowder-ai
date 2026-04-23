@@ -23,8 +23,8 @@ describe('Socket join_room whitelist', () => {
   const accepted = [
     'thread:abc123',
     'thread:default',
-    'worktree:cat-cafe',
-    'worktree:cat-cafe-runtime',
+    'worktree:office-claw',
+    'worktree:office-claw-runtime',
     'preview:global',
     'workspace:global',
     'user:user-abc',

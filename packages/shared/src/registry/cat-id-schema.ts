@@ -13,7 +13,7 @@
  */
 
 import { z } from 'zod';
-import { catRegistry } from './CatRegistry.js';
+import { officeClawRegistry } from './CatRegistry.js';
 
 /**
  * Zod schema for catId fields in route schemas.
@@ -21,9 +21,9 @@ import { catRegistry } from './CatRegistry.js';
  */
 export function catIdSchema() {
   return z.string().refine(
-    (id) => catRegistry.has(id),
+    (id) => officeClawRegistry.has(id),
     (id) => ({
-      message: `Unknown cat ID: "${id}". Valid: ${catRegistry.getAllIds().join(', ')}`,
+      message: `Unknown cat ID: "${id}". Valid: ${officeClawRegistry.getAllIds().join(', ')}`,
     }),
   );
 }

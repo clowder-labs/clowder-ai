@@ -1,8 +1,8 @@
 /**
- * @clowder/core — The headless runtime for Clowder AI
+ * @office-claw/core — The headless runtime for OfficeClaw
  *
  * Provides:
- * - Plugin interface (ClowderProviderPlugin) for building provider packages
+ * - Plugin interface (OfficeClawProviderPlugin) for building provider packages
  * - Plugin discovery and registration (ProviderPluginRegistry)
  * - Agent service types (AgentService, AgentMessage, AgentServiceOptions)
  * - Runtime profile types (RuntimeProviderProfile, RuntimeAcpModelProfile)
@@ -32,7 +32,7 @@ export { mergeTokenUsage } from './agent/index.js';
 // ── Plugin system ──
 export type {
   AgentServiceFactoryContext,
-  ClowderProviderPlugin,
+  OfficeClawProviderPlugin,
   DiscoveryResult,
   McpConfigReader,
   McpConfigWriter,

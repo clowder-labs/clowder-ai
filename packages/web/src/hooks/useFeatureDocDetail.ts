@@ -4,7 +4,7 @@
  *
  */
 
-import type { FeatureDocDetail } from '@clowder/shared';
+import type { FeatureDocDetail } from '@office-claw/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../utils/api-client';
 

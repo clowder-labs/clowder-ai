@@ -25,7 +25,7 @@ export interface FindEditorTargetOptions {
 /** URLs known to be non-interactive agent/extension pages — never pick these. */
 const EXCLUDED_URL_PATTERNS = ['workbench-jetski-agent.html', 'extension-host'];
 
-/** Normalise a worktree-suffixed hint: "cat-cafe-f061-fix" → "cat-cafe" */
+/** Normalise a worktree-suffixed hint: "office-claw-f061-fix" → "office-claw" */
 export function normaliseHint(hint: string): string {
   return hint.replace(/-f\d{2,4}[a-z0-9-]*$/i, '');
 }

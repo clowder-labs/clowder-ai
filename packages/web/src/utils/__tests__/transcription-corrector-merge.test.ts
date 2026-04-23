@@ -16,8 +16,8 @@ describe('mergeTermEntries', () => {
   });
 
   it('adds new custom terms alongside built-in', () => {
-    const entries = mergeTermEntries([{ from: '喵喵', to: '猫猫' }]);
-    expect(applyTermDictionary('喵喵来了', entries)).toBe('猫猫来了');
+    const entries = mergeTermEntries([{ from: '智能助理', to: '智能体' }]);
+    expect(applyTermDictionary('智能助理来了', entries)).toBe('智能体来了');
     // Built-in still works
     expect(applyTermDictionary('icp', entries)).toBe('MCP');
   });
@@ -47,8 +47,8 @@ describe('mergeTermEntries', () => {
   });
 
   it('works end-to-end with correctTranscription', () => {
-    const entries = mergeTermEntries([{ from: '测试猫', to: '布偶猫' }]);
-    const result = correctTranscription('嗯那个测试猫帮我看看', entries);
-    expect(result).toBe('布偶猫帮我看看');
+    const entries = mergeTermEntries([{ from: '测试助手', to: 'Claude' }]);
+    const result = correctTranscription('嗯那个测试助手帮我看看', entries);
+    expect(result).toBe('Claude帮我看看');
   });
 });

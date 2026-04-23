@@ -8,8 +8,8 @@ created: 2026-03-11
 
 # F096: Interactive Rich Blocks — 可交互富文本组件
 
-> **Status**: done | **Owner**: Ragdoll | **Completed**: 2026-03-13
-> **Priority**: P1 | **Evolved from**: F022（Rich Block 基础架构） | **Related**: F087（猫猫训练营）
+> **Status**: done | **Owner**: Claude | **Completed**: 2026-03-13
+> **Priority**: P1 | **Evolved from**: F022（Rich Block 基础架构） | **Related**: F087（智能体训练营）
 
 ## Why
 
@@ -29,7 +29,7 @@ Cat Café 有完整的 Web 前端，交互能力远超 CLI。可交互 Rich Bloc
 
 ### 设计原则
 
-1. **交互结果 = 自动发一条消息**：前端把用户选择注入 ChatInput 并自动发送。后端猫猫收到的就是普通文字，**零后端改动**
+1. **交互结果 = 自动发一条消息**：前端把用户选择注入 ChatInput 并自动发送。后端智能体收到的就是普通文字，**零后端改动**
 2. **渐进增强**：不支持交互的客户端（未来 CLI/API）降级为纯文本展示
 3. **通用复用**：不为 F087 定制，所有场景都能用
 
@@ -39,7 +39,7 @@ Cat Café 有完整的 Web 前端，交互能力远超 CLI。可交互 Rich Bloc
 |-----------------|------|---------|-------------------|
 | `select` | 单选列表 | 点选项 → 确认（`customInput` 时先输入） | "我选了：方案 A" / "其他：我的想法" |
 | `multi-select` | 多选列表 | 勾选多个 → 确认 | "我选了：Node.js, pnpm" |
-| `card-grid` | 卡片网格 | 点卡片或随机抽 → 确认 | "我选了：猫猫盲盒" |
+| `card-grid` | 卡片网格 | 点卡片或随机抽 → 确认 | "我选了：智能体盲盒" |
 | `confirm` | 确认/取消 | 点按钮 | "确认" / "取消" |
 
 ### 数据结构
@@ -77,13 +77,13 @@ interface InteractiveOption {
 ### 前端交互流程
 
 ```
-猫猫发送含 interactive block 的消息
+智能体发送含 interactive block 的消息
   → 前端渲染对应的交互组件（按钮/卡片/checkbox）
   → 用户点击选择
   → 前端组装消息文本（使用 messageTemplate 或默认模板）
   → 自动填入 ChatInput 并发送
   → Block 状态更新为 disabled + 回显 selectedIds
-  → 猫猫收到普通文字消息，正常处理
+  → 智能体收到普通文字消息，正常处理
 ```
 
 ### 复用场景
@@ -112,7 +112,7 @@ interface InteractiveOption {
 ### Phase B（渐进增强） ✅
 
 - [x] AC-B1: 非交互客户端降级为纯文本展示（option 列表 + "请输入编号选择"）
-- [x] AC-B2: Rich Block Rules 文档更新，猫猫知道怎么用 interactive block
+- [x] AC-B2: Rich Block Rules 文档更新，智能体知道怎么用 interactive block
 
 ### Phase C（表单组：多 block 统一提交） ✅
 
@@ -127,7 +127,7 @@ interface InteractiveOption {
 
 - **Evolved from**: F022（Rich Block 基础架构）
 - **Blocked by**: 无（现有 Rich Block 架构已就绪）
-- **Related**: F087（猫猫训练营，首个重度使用者）
+- **Related**: F087（智能体训练营，首个重度使用者）
 
 ## Risk
 
@@ -141,7 +141,7 @@ interface InteractiveOption {
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 交互结果 = 自动发消息，后端零改动 | 最小侵入，猫猫无需特殊处理 | 2026-03-11 |
+| KD-1 | 交互结果 = 自动发消息，后端零改动 | 最小侵入，智能体无需特殊处理 | 2026-03-11 |
 | KD-2 | 4 种 interactiveType 覆盖主要场景 | select/multi-select/card-grid/confirm 足够通用 | 2026-03-11 |
 | KD-3 | 交互后 block 变 disabled | 防止重复操作，保留选择记录 | 2026-03-11 |
 | KD-4 | 持久化到 `message.extra.rich`（PATCH endpoint） | 终态基座，刷新不丢状态（P1：每步产物是终态） | 2026-03-11 |

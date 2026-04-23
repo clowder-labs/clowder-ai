@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-TTS server for Cat Cafe voice output.
+TTS server for local voice output.
 OpenAI-compatible endpoint: POST /v1/audio/speech
 
 Supports multiple backends via TtsAdapter:
-  - qwen3-clone (default): Qwen3-TTS Base + ref_audio voice cloning (三猫声线)
+  - qwen3-clone (default): Qwen3-TTS Base + ref_audio voice cloning (multi-agent presets)
   - mlx-audio: Apple Silicon native, Kokoro-82M (legacy)
   - edge-tts: Microsoft cloud TTS (fallback, no GPU needed)
 
@@ -46,7 +46,7 @@ MAX_INPUT_CHARS = 5000
 
 log = logging.getLogger("tts-api")
 
-app = FastAPI(title="Cat Cafe TTS Server")
+app = FastAPI(title="OfficeClaw TTS Server")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -129,7 +129,7 @@ class MlxAudioAdapter(TtsAdapter):
                 "mlx_audio.tts not available — pip install mlx-audio 'misaki[zh]'"
             ) from exc
 
-        output_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-"))
+        output_dir = Path(tempfile.mkdtemp(prefix="office-claw-tts-"))
         try:
             async with self._lock:
                 await asyncio.to_thread(
@@ -154,7 +154,7 @@ class MlxAudioAdapter(TtsAdapter):
     def warmup(self) -> None:
         from mlx_audio.tts.generate import generate_audio as tts_generate
 
-        warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-warmup-"))
+        warmup_dir = Path(tempfile.mkdtemp(prefix="office-claw-tts-warmup-"))
         try:
             tts_generate(
                 text="你好",
@@ -277,7 +277,7 @@ class Qwen3CloneAdapter(TtsAdapter):
         if ref_audio and not Path(ref_audio).exists():
             raise RuntimeError(f"Reference audio not found: {ref_audio}")
 
-        output_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-clone-"))
+        output_dir = Path(tempfile.mkdtemp(prefix="office-claw-tts-clone-"))
         try:
             kwargs: dict = {
                 "text": text,
@@ -313,7 +313,7 @@ class Qwen3CloneAdapter(TtsAdapter):
     def warmup(self) -> None:
         from mlx_audio.tts.generate import generate_audio as tts_generate
 
-        warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-clone-warmup-"))
+        warmup_dir = Path(tempfile.mkdtemp(prefix="office-claw-tts-clone-warmup-"))
         try:
             tts_generate(
                 text="你好",
@@ -430,7 +430,7 @@ async def health():
 def main():
     global adapter, adapter_ready
 
-    parser = argparse.ArgumentParser(description="Cat Cafe TTS Server")
+    parser = argparse.ArgumentParser(description="OfficeClaw TTS Server")
     parser.add_argument(
         "--model",
         default="mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
@@ -454,7 +454,7 @@ def main():
 
     provider = os.environ.get("TTS_PROVIDER", "qwen3-clone").strip().lower()
 
-    log.info("=== Cat Cafe TTS Server ===")
+    log.info("=== OfficeClaw TTS Server ===")
     log.info("Provider: %s | Port: %d", provider, args.port)
 
     try:

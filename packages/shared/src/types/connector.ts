@@ -8,7 +8,7 @@
  * Connector Types — 外部信息源抽象
  *
  * Connector 是从外部系统（GitHub、iMessage、Slack 等）
- * 进入 Cat Cafe 的消息来源。每个 connector 有固定的视觉标识
+ * 进入 OfficeClaw 的消息来源。每个 connector 有固定的视觉标识
  * （icon、颜色），在前端以独立气泡样式展示。
  *
  * BACKLOG #97
@@ -58,9 +58,9 @@ export interface ConnectorDefinition {
   readonly tailwindTheme?: ConnectorTailwindTheme;
 }
 
-// ── Thread Binding (external platform ↔ Clowder AI thread) ──
+// ── Thread Binding (external platform ↔ OfficeClaw thread) ──
 
-/** Bidirectional mapping between an external chat and a Clowder AI thread. */
+/** Bidirectional mapping between an external chat and a OfficeClaw thread. */
 export interface ConnectorThreadBinding {
   readonly connectorId: string;
   readonly externalChatId: string;
@@ -226,7 +226,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
   },
   {
     id: 'system-command',
-    displayName: 'Clowder AI',
+    displayName: 'OfficeClaw',
     icon: 'settings',
     color: { primary: '#6B7280', secondary: '#F9FAFB' },
     description: '系统命令响应',

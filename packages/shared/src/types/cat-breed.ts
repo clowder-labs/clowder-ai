@@ -156,14 +156,14 @@ export type MissionHubSelfClaimScope = 'disabled' | 'once' | 'thread' | 'global'
 
 /**
  * A cat breed — the identity layer (name, avatar, color, role).
- * Each breed has one or more variants (model configs).
+ * Each group has one or more variants (model configs).
  */
 export interface CatBreed {
   readonly id: string; // 'ragdoll', 'maine-coon', 'siamese'
   readonly catId: CatId;
-  readonly name: string; // '布偶猫'
+  readonly name: string; // e.g. 'Claude'
   readonly displayName: string;
-  /** Nickname given by 铲屎官. See docs/stories/cat-names/ */
+  /** Nickname given by 用户. See docs/stories/cat-names/ */
   readonly nickname?: string;
   readonly avatar: string;
   readonly color: CatColor;
@@ -182,19 +182,19 @@ export interface CatBreed {
 // ── F032: Roster types for collaboration rules ─────────────────────────
 
 /**
- * Roster entry for a single cat.
+   * Roster entry for a single agent.
  * F032: Used for reviewer matching, availability tracking, and role checking.
  */
 export interface RosterEntry {
   /** Family/species (ragdoll, maine-coon, siamese) */
   readonly family: string;
-  /** Roles this cat can fulfill (architect, peer-reviewer, designer, etc.) */
+  /** Roles this agent can fulfill (architect, peer-reviewer, designer, etc.) */
   readonly roles: readonly string[];
-  /** Whether this cat is the lead of its family */
+  /** Whether this agent is the lead of its group */
   readonly lead: boolean;
-  /** Whether this cat is available (has quota). 铲屎官 40 美刀教训！ */
+  /** Whether this agent is available (has quota). 用户 40 美刀教训！ */
   readonly available: boolean;
-  /** 铲屎官's evaluation of this cat */
+  /** 用户's evaluation of this agent */
   readonly evaluation: string;
 }
 
@@ -208,24 +208,24 @@ export type Roster = Record<string, RosterEntry>;
 export interface ReviewPolicy {
   /** Require reviewer to be from a different family than author */
   readonly requireDifferentFamily: boolean;
-  /** Prefer cats that are active in the current thread */
+   /** Prefer agents that are active in the current thread */
   readonly preferActiveInThread: boolean;
-  /** Prefer lead cats when multiple candidates exist */
+   /** Prefer lead agents when multiple candidates exist */
   readonly preferLead: boolean;
-  /** Exclude cats with available: false (no quota) */
+   /** Exclude agents with available: false (no quota) */
   readonly excludeUnavailable: boolean;
 }
 
 /**
  * Root config v1: breeds only (legacy)
  */
-export interface CatCafeConfigV1 {
+export interface OfficeClawConfigV1 {
   readonly version: 1;
   readonly breeds: readonly CatBreed[];
 }
 
 /**
- * F067: Co-Creator (铲屎官) configuration — configurable identity for @ mention routing.
+ * F067: Co-Creator (用户) configuration — configurable identity for @ mention routing.
  */
 export interface CoCreatorConfig {
   /** Primary display name (e.g. "You") */
@@ -243,7 +243,7 @@ export interface CoCreatorConfig {
 /**
  * Root config v2: breeds + roster + reviewPolicy (F032)
  */
-export interface CatCafeConfigV2 {
+export interface OfficeClawConfigV2 {
   readonly version: 2;
   readonly breeds: readonly CatBreed[];
   readonly roster: Roster;
@@ -255,4 +255,4 @@ export interface CatCafeConfigV2 {
  * Root config: versioned, contains all breeds.
  * Union of all versions — loader handles migration.
  */
-export type CatCafeConfig = CatCafeConfigV1 | CatCafeConfigV2;
+export type OfficeClawConfig = OfficeClawConfigV1 | OfficeClawConfigV2;

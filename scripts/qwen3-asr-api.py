@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Qwen3-ASR server for Cat Cafe voice input (MLX backend, Apple Silicon native).
+Qwen3-ASR server for local voice input (MLX backend, Apple Silicon native).
 Drop-in replacement for whisper-api.py with same OpenAI-compatible endpoint.
 
 Endpoint: POST /v1/audio/transcriptions
@@ -34,7 +34,7 @@ MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MB
 
 log = logging.getLogger("qwen3-asr")
 
-app = FastAPI(title="Cat Cafe Qwen3-ASR Server")
+app = FastAPI(title="OfficeClaw Qwen3-ASR Server")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -150,7 +150,7 @@ async def health():
 def main():
     global _model, _model_path, _model_loaded
 
-    parser = argparse.ArgumentParser(description="Cat Cafe Qwen3-ASR Server (MLX)")
+    parser = argparse.ArgumentParser(description="OfficeClaw Qwen3-ASR Server (MLX)")
     parser.add_argument(
         "--model",
         default="mlx-community/Qwen3-ASR-1.7B-8bit",
@@ -166,7 +166,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     _model_path = args.model
-    log.info("=== Cat Cafe Qwen3-ASR Server (MLX) ===")
+    log.info("=== OfficeClaw Qwen3-ASR Server (MLX) ===")
     log.info("Model: %s | Port: %d", _model_path, args.port)
     log.info("Loading model (first run downloads from HuggingFace)...")
 

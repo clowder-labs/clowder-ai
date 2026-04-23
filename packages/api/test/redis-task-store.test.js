@@ -28,7 +28,7 @@ describe('RedisTaskStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisTaskStore.js');
     RedisTaskStore = storeModule.RedisTaskStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

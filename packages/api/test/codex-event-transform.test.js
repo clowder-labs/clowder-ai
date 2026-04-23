@@ -252,14 +252,14 @@ test('item.started mcp_tool_call → tool_use', () => {
     type: 'item.started',
     item: {
       type: 'mcp_tool_call',
-      server: 'cat-cafe',
+      server: 'office-claw',
       tool: 'post_message',
       arguments: { text: 'hello' },
     },
   };
   const msg = transformCodexEvent(event, CAT);
   assert.equal(msg?.type, 'tool_use');
-  assert.equal(msg?.toolName, 'mcp:cat-cafe/post_message');
+  assert.equal(msg?.toolName, 'mcp:office-claw/post_message');
   assert.deepEqual(msg?.toolInput, { text: 'hello' });
 });
 
@@ -268,7 +268,7 @@ test('item.completed mcp_tool_call → tool_result', () => {
     type: 'item.completed',
     item: {
       type: 'mcp_tool_call',
-      server: 'cat-cafe',
+      server: 'office-claw',
       tool: 'post_message',
       status: 'completed',
       result: { content: [{ type: 'text', text: 'ok' }] },
@@ -276,7 +276,7 @@ test('item.completed mcp_tool_call → tool_result', () => {
   };
   const msg = transformCodexEvent(event, CAT);
   assert.equal(msg?.type, 'tool_result');
-  assert.ok(msg?.content?.includes('mcp:cat-cafe/post_message'));
+  assert.ok(msg?.content?.includes('mcp:office-claw/post_message'));
 });
 
 // ── F045: web_search → system_info(web_search) ──

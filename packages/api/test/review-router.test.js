@@ -117,11 +117,11 @@ function noopLog() {
 function makeEvent(overrides = {}) {
   return {
     prNumber: 42,
-    repository: 'zts212653/cat-cafe',
-    title: '[布偶猫🐾] feat(audit): add timestamps',
+    repository: 'zts212653/office-claw',
+    title: '[Claude🐾] feat(audit): add timestamps',
     reviewType: 'approved',
     reviewer: 'codex-bot',
-    catTag: '布偶猫',
+    catTag: 'Claude',
     catId: 'opus',
     emailUid: 1000,
     receivedAt: new Date(),
@@ -179,13 +179,13 @@ describe('ReviewRouter', () => {
     it('skips PR in dedup window (registered PR)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
         userId: 'user-1',
       });
-      processedEmailStore.markPrInvoked('zts212653/cat-cafe', 42);
+      processedEmailStore.markPrInvoked('zts212653/office-claw', 42);
 
       const result = await router.route(makeEvent());
       assert.strictEqual(result.kind, 'skipped');
@@ -200,7 +200,7 @@ describe('ReviewRouter', () => {
       assert.ok(r1.reason.includes('No tracking entry'));
 
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -223,7 +223,7 @@ describe('ReviewRouter', () => {
     it('routes to tracked thread+cat', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -247,7 +247,7 @@ describe('ReviewRouter', () => {
 
       // Should mark as processed + pr invoked
       assert.strictEqual(processedEmailStore.isProcessed(1000), true);
-      assert.strictEqual(processedEmailStore.isPrRecentlyInvoked('zts212653/cat-cafe', 42), true);
+      assert.strictEqual(processedEmailStore.isPrRecentlyInvoked('zts212653/office-claw', 42), true);
     });
   });
 
@@ -291,7 +291,7 @@ describe('ReviewRouter', () => {
     it('includes review type in routed message', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -306,7 +306,7 @@ describe('ReviewRouter', () => {
     it('includes reviewer in message when present', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -321,7 +321,7 @@ describe('ReviewRouter', () => {
     it('omits reviewer line when not present', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -342,7 +342,7 @@ describe('ReviewRouter', () => {
 
       // Both registry and cat tag available
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'codex',
         threadId: 'registry-thread',
@@ -351,7 +351,7 @@ describe('ReviewRouter', () => {
 
       const result = await router.route(
         makeEvent({
-          catTag: '布偶猫',
+          catTag: 'Claude',
           catId: 'opus',
         }),
       );
@@ -370,7 +370,7 @@ describe('ReviewRouter', () => {
       const router = createRouter();
 
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -401,7 +401,7 @@ describe('ReviewRouter', () => {
       const router = createRouter();
 
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -419,7 +419,7 @@ describe('ReviewRouter', () => {
       const ownerThread = threadStore.create('alice', 'Owner thread');
 
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: ownerThread.id,
@@ -465,7 +465,7 @@ describe('ReviewRouter', () => {
 
       // Register tracking so we route via Layer 1
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -476,7 +476,7 @@ describe('ReviewRouter', () => {
       await assert.rejects(() => router.route(makeEvent()), /transient store failure/);
 
       assert.strictEqual(processedEmailStore.isProcessed(1000), false);
-      assert.strictEqual(processedEmailStore.isPrRecentlyInvoked('zts212653/cat-cafe', 42), false);
+      assert.strictEqual(processedEmailStore.isPrRecentlyInvoked('zts212653/office-claw', 42), false);
 
       // Second call: should retry successfully
       const result = await router.route(makeEvent());
@@ -491,7 +491,7 @@ describe('ReviewRouter', () => {
     it('only one of two concurrent routes for same PR succeeds', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -519,7 +519,7 @@ describe('ReviewRouter', () => {
     it('registry route returns messageId from stored message', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -554,7 +554,7 @@ describe('ReviewRouter', () => {
       const router = createRouter();
 
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -568,7 +568,7 @@ describe('ReviewRouter', () => {
       assert.strictEqual(msg.source.connector, 'github-review');
       assert.strictEqual(msg.source.label, 'GitHub Review');
       assert.strictEqual(msg.source.icon, 'github');
-      assert.strictEqual(msg.source.url, 'https://github.com/zts212653/cat-cafe/pull/42');
+      assert.strictEqual(msg.source.url, 'https://github.com/zts212653/office-claw/pull/42');
     });
 
     it('unregistered PR produces no ConnectorSource message', async () => {
@@ -584,7 +584,7 @@ describe('ReviewRouter', () => {
     it('broadcasts connector_message to routed thread', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -637,7 +637,7 @@ describe('ReviewRouter', () => {
 
       const router = createRouter({ reviewContentFetcher: mockFetcher });
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -666,7 +666,7 @@ describe('ReviewRouter', () => {
 
       const router = createRouter({ reviewContentFetcher: mockFetcher });
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -691,7 +691,7 @@ describe('ReviewRouter', () => {
 
       const router = createRouter({ reviewContentFetcher: mockFetcher });
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',

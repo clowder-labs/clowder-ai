@@ -17,9 +17,9 @@
  * 6. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
-import type { CatId } from '@clowder/shared';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
-import { isCatAvailable } from '../../../../../config/cat-config-loader.js';
+import type { CatId } from '@office-claw/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
+import { isCatAvailable } from '../../../../../config/office-claw-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('a2a-mentions');
@@ -84,8 +84,8 @@ export function analyzeA2AMentions(
   // 1. Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
 
-  // F32-a: prefer catRegistry, fallback to static CAT_CONFIGS
-  const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+  // F32-a: prefer officeClawRegistry, fallback to static OFFICE_CLAW_CONFIGS
+  const allConfigs = Object.keys(officeClawRegistry.getAllConfigs()).length > 0 ? officeClawRegistry.getAllConfigs() : OFFICE_CLAW_CONFIGS;
 
   // 2. Build patterns and sort longest-first to avoid prefix collisions
   const entries: MentionPatternEntry[] = [];

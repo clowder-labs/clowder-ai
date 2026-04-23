@@ -30,7 +30,7 @@ vi.mock('@/utils/api-client', () => ({
 const TEST_THREAD = {
   id: 'thread_abc123',
   title: '\u6d4b\u8bd5\u5bf9\u8bdd\u6807\u9898',
-  projectPath: '/projects/cat-cafe',
+  projectPath: '/projects/office-claw',
   createdBy: 'user1',
   participants: ['user1'],
   lastActiveAt: Date.now(),

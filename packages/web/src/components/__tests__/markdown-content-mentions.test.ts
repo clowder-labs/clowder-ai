@@ -27,7 +27,7 @@ describe('MarkdownContent mention highlighting', () => {
   it('renders mention ids as display names', () => {
     const html = render('@office 帮我整理一下，并且 @codex 看代码');
     expect(html).toContain('@办公助理');
-    expect(html).toContain('@缅因猫');
+    expect(html).toContain('@Codex');
     expect(html).not.toContain('@office');
     expect(html).not.toContain('@codex');
   });

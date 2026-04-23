@@ -94,7 +94,7 @@ describe('CapabilitySection skill card layout', () => {
     expect(container.textContent).toContain('卸载');
     expect(container.textContent).not.toContain('触发词');
     expect(container.textContent).not.toContain('挂载状态');
-    expect(container.textContent).not.toContain('启用状态（按猫）');
+    expect(container.textContent).not.toContain('启用状态（按智能体）');
   });
 
   it('shows a custom tooltip for the skill description instead of relying on title', async () => {

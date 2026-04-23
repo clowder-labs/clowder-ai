@@ -8,7 +8,7 @@
  * F32-a Mock Agent Integration Test
  *
  * Verifies that a dynamically registered fourth cat ("mock-cat") works
- * through the entire system: catRegistry, AgentRegistry, catIdSchema(),
+ * through the entire system: officeClawRegistry, AgentRegistry, catIdSchema(),
  * route schemas, config lookups, and AgentRouter routing.
  *
  * This is the primary verification of F32-a's design goal:
@@ -19,12 +19,12 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
 // Shared registry + helpers
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 
 // Populate built-in cats first
-for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-  if (!catRegistry.has(id)) {
-    catRegistry.register(id, config);
+for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+  if (!officeClawRegistry.has(id)) {
+    officeClawRegistry.register(id, config);
   }
 }
 
@@ -32,12 +32,12 @@ for (const [id, config] of Object.entries(CAT_CONFIGS)) {
 const MOCK_CAT_CONFIG = {
   id: 'mock-cat',
   name: 'Mock Cat',
-  displayName: '模拟猫',
+  displayName: 'Mock Agent',
   nickname: null,
   color: '#888888',
   provider: 'mock',
   defaultModel: 'mock-v1',
-  mentionPatterns: ['@mock-cat', '@模拟猫'],
+  mentionPatterns: ['@mock-cat', '@mock-agent'],
   mcpSupport: false,
   roleDescription: 'A mock cat for testing dynamic registration',
   personality: 'Test personality',
@@ -46,8 +46,8 @@ const MOCK_CAT_CONFIG = {
 describe('F32-a Mock Agent Integration', () => {
   beforeEach(() => {
     // Register mock cat (safe if already registered from a previous run)
-    if (!catRegistry.has('mock-cat')) {
-      catRegistry.register('mock-cat', MOCK_CAT_CONFIG);
+    if (!officeClawRegistry.has('mock-cat')) {
+      officeClawRegistry.register('mock-cat', MOCK_CAT_CONFIG);
     }
   });
 
@@ -59,14 +59,14 @@ describe('F32-a Mock Agent Integration', () => {
 
   describe('CatRegistry: mock-cat registration', () => {
     test('mock-cat is registered and retrievable', () => {
-      assert.ok(catRegistry.has('mock-cat'));
-      const entry = catRegistry.getOrThrow('mock-cat');
-      assert.equal(entry.config.displayName, '模拟猫');
+      assert.ok(officeClawRegistry.has('mock-cat'));
+      const entry = officeClawRegistry.getOrThrow('mock-cat');
+      assert.equal(entry.config.displayName, 'Mock Agent');
       assert.equal(entry.config.provider, 'mock');
     });
 
     test('getAllIds includes mock-cat alongside built-in cats', () => {
-      const ids = catRegistry.getAllIds();
+      const ids = officeClawRegistry.getAllIds();
       assert.ok(ids.includes('opus'), 'should include opus');
       assert.ok(ids.includes('codex'), 'should include codex');
       assert.ok(ids.includes('gemini'), 'should include gemini');
@@ -74,21 +74,21 @@ describe('F32-a Mock Agent Integration', () => {
     });
 
     test('getAllConfigs includes mock-cat', () => {
-      const configs = catRegistry.getAllConfigs();
+      const configs = officeClawRegistry.getAllConfigs();
       assert.ok('mock-cat' in configs);
-      assert.equal(configs['mock-cat'].displayName, '模拟猫');
+      assert.equal(configs['mock-cat'].displayName, 'Mock Agent');
     });
 
     test('tryGet returns undefined for unregistered cat', () => {
-      assert.equal(catRegistry.tryGet('nonexistent'), undefined);
+      assert.equal(officeClawRegistry.tryGet('nonexistent'), undefined);
     });
 
     test('getOrThrow throws for unregistered cat', () => {
-      assert.throws(() => catRegistry.getOrThrow('nonexistent'), /Unknown cat ID/);
+      assert.throws(() => officeClawRegistry.getOrThrow('nonexistent'), /Unknown cat ID/);
     });
 
     test('duplicate registration throws', () => {
-      assert.throws(() => catRegistry.register('mock-cat', MOCK_CAT_CONFIG), /already registered/i);
+      assert.throws(() => officeClawRegistry.register('mock-cat', MOCK_CAT_CONFIG), /already registered/i);
     });
   });
 
@@ -96,14 +96,14 @@ describe('F32-a Mock Agent Integration', () => {
 
   describe('catIdSchema: dynamic validation', () => {
     test('accepts registered mock-cat', async () => {
-      const { catIdSchema } = await import('@clowder/shared');
+      const { catIdSchema } = await import('@office-claw/shared');
       const schema = catIdSchema();
       const result = schema.safeParse('mock-cat');
       assert.ok(result.success, 'mock-cat should be valid');
     });
 
     test('accepts built-in cats', async () => {
-      const { catIdSchema } = await import('@clowder/shared');
+      const { catIdSchema } = await import('@office-claw/shared');
       const schema = catIdSchema();
       for (const id of ['opus', 'codex', 'gemini']) {
         const result = schema.safeParse(id);
@@ -112,7 +112,7 @@ describe('F32-a Mock Agent Integration', () => {
     });
 
     test('rejects unregistered cat', async () => {
-      const { catIdSchema } = await import('@clowder/shared');
+      const { catIdSchema } = await import('@office-claw/shared');
       const schema = catIdSchema();
       const result = schema.safeParse('nonexistent-cat');
       assert.ok(!result.success, 'nonexistent-cat should be invalid');
@@ -152,7 +152,7 @@ describe('F32-a Mock Agent Integration', () => {
 
   describe('Config lookups for mock-cat', () => {
     test('getCatContextBudget returns fallback for mock-cat', async () => {
-      const { getCatContextBudget } = await import('../dist/config/cat-budgets.js');
+      const { getCatContextBudget } = await import('../dist/config/office-claw-budgets.js');
       const budget = getCatContextBudget('mock-cat');
       assert.ok(budget.maxPromptTokens > 0, 'should have positive maxPromptTokens');
       assert.ok(budget.maxMessages > 0, 'should have positive maxMessages');
@@ -170,14 +170,14 @@ describe('F32-a Mock Agent Integration', () => {
     });
 
     test('getCatModel returns registry model for mock-cat', async () => {
-      const { getCatModel } = await import('../dist/config/cat-models.js');
-      // F32-a: getCatModel now falls back to catRegistry for dynamic cats
+      const { getCatModel } = await import('../dist/config/office-claw-models.js');
+      // F32-a: getCatModel now falls back to officeClawRegistry for dynamic cats
       const model = getCatModel('mock-cat');
       assert.equal(model, 'mock-v1', 'should return mock-cat defaultModel from registry');
     });
 
     test('getCatModel still throws for completely unknown cat', async () => {
-      const { getCatModel } = await import('../dist/config/cat-models.js');
+      const { getCatModel } = await import('../dist/config/office-claw-models.js');
       assert.throws(() => getCatModel('nonexistent-cat'), /No model configured/);
     });
   });
@@ -187,32 +187,32 @@ describe('F32-a Mock Agent Integration', () => {
   describe('SystemPromptBuilder with mock-cat', () => {
     test('buildStaticIdentity includes mock-cat identity', async () => {
       const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-      const { createCatId } = await import('@clowder/shared');
+      const { createCatId } = await import('@office-claw/shared');
       const identity = buildStaticIdentity(createCatId('mock-cat'));
-      assert.ok(identity.includes('模拟猫'), 'should include display name');
+      assert.ok(identity.includes('Mock Agent'), 'should include display name');
       assert.ok(identity.includes('mock'), 'should include provider');
     });
 
     test('buildInvocationContext includes mock-cat teammates', async () => {
       const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-      const { createCatId } = await import('@clowder/shared');
+      const { createCatId } = await import('@office-claw/shared');
       const context = buildInvocationContext({
         catId: createCatId('opus'),
         mode: 'independent',
         teammates: [createCatId('mock-cat')],
         mcpAvailable: false,
       });
-      assert.ok(context.includes('模拟猫'), 'should list mock-cat as teammate');
+      assert.ok(context.includes('Mock Agent'), 'should list mock-cat as teammate');
     });
   });
 
   // ── A2A mention detection ─────────────────────────────────
 
   describe('A2A mentions detect mock-cat', () => {
-    test('parseA2AMentions detects @模拟猫', async () => {
+    test('parseA2AMentions detects @mock-agent', async () => {
       const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-      const { createCatId } = await import('@clowder/shared');
-      const mentions = parseA2AMentions('@模拟猫 请确认这个改动', createCatId('opus'));
+      const { createCatId } = await import('@office-claw/shared');
+      const mentions = parseA2AMentions('@mock-agent 请确认这个改动', createCatId('opus'));
       assert.ok(
         mentions.some((m) => m === 'mock-cat'),
         'should detect mock-cat',
@@ -221,7 +221,7 @@ describe('F32-a Mock Agent Integration', () => {
 
     test('parseA2AMentions detects @mock-cat', async () => {
       const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-      const { createCatId } = await import('@clowder/shared');
+      const { createCatId } = await import('@office-claw/shared');
       const mentions = parseA2AMentions('@mock-cat please review', createCatId('opus'));
       assert.ok(
         mentions.some((m) => m === 'mock-cat'),
@@ -246,7 +246,7 @@ describe('F32-a Mock Agent Integration', () => {
         origin: 'stream',
       };
       const formatted = formatMessage(msg);
-      assert.ok(formatted.includes('模拟猫'), 'should use mock-cat display name');
+      assert.ok(formatted.includes('Mock Agent'), 'should use mock-cat display name');
       assert.ok(formatted.includes('你好世界'), 'should include content');
     });
   });
@@ -266,7 +266,7 @@ describe('F32-a Mock Agent Integration', () => {
       const body = JSON.parse(res.body);
       const mockEntry = body.cats.find((c) => c.id === 'mock-cat');
       assert.ok(mockEntry, 'mock-cat should be in cats list');
-      assert.equal(mockEntry.displayName, '模拟猫');
+      assert.equal(mockEntry.displayName, 'Mock Agent');
     });
 
     test('GET /api/cats/:id/status returns mock-cat status', async () => {
@@ -280,7 +280,7 @@ describe('F32-a Mock Agent Integration', () => {
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.body);
       assert.equal(body.id, 'mock-cat');
-      assert.equal(body.displayName, '模拟猫');
+      assert.equal(body.displayName, 'Mock Agent');
     });
   });
 

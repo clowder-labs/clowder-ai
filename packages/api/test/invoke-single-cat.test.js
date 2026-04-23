@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { before, describe, it, mock, afterEach } from 'node:test';
 
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 
 const { resetLocalSecretBackendForTests, setLocalSecretBackendForTests } = await import(
   '../dist/config/local-secret-store.js'
@@ -1406,8 +1406,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   async function withSanitizedOpencodeConfig(run) {
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const registrySnapshot = catRegistry.getAllConfigs();
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
     const baselineConfigs = toAllCatConfigs(
       loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')),
     );
@@ -1421,21 +1421,21 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     } = baselineOpencodeConfig;
     sanitizedOpencodeConfig.defaultModel = 'anthropic/claude-opus-4-6';
 
-    catRegistry.reset();
+    officeClawRegistry.reset();
     for (const [id, config] of Object.entries(baselineConfigs)) {
       if (id === 'opencode') {
-        catRegistry.register(id, sanitizedOpencodeConfig);
+        officeClawRegistry.register(id, sanitizedOpencodeConfig);
       } else {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
 
     try {
       return await run();
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   }
@@ -2561,9 +2561,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
+            apiKeyRef: 'wincred://OfficeClaw/model-config/test/my-openai-proxy/apiKey',
             headers: {
-              'X-App-Id': 'cat-cafe',
+              'X-App-Id': 'office-claw',
               'X-Workspace': 'sandbox',
             },
             models: [{ id: 'mimo-v2-flash' }, { id: 'gpt-4o-mini' }],
@@ -2579,20 +2579,20 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
     const { backend } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
-    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
+    backend.set('OfficeClaw/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
     try {
-      const registrySnapshot = catRegistry.getAllConfigs();
-      const originalConfig = catRegistry.tryGet('agentteams')?.config;
+      const registrySnapshot = officeClawRegistry.getAllConfigs();
+      const originalConfig = officeClawRegistry.tryGet('agentteams')?.config;
       assert.ok(originalConfig, 'agentteams config should exist in registry');
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
         if (id === 'agentteams') continue;
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
-      catRegistry.register('agentteams', {
+      officeClawRegistry.register('agentteams', {
         ...originalConfig,
         provider: 'acp',
         accountRef: 'my-openai-proxy',
@@ -2633,9 +2633,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         assert.ok(messages.some((m) => m.type === 'done'));
       } finally {
         process.chdir(previousCwd);
-        catRegistry.reset();
+        officeClawRegistry.reset();
         for (const [id, config] of Object.entries(registrySnapshot)) {
-          catRegistry.register(id, config);
+          officeClawRegistry.register(id, config);
         }
       }
 
@@ -2654,7 +2654,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.equal(acpModelProfile?.baseUrl, 'https://proxy.example.com/v1');
       assert.equal(acpModelProfile?.apiKey, 'sk-custom-proxy');
       assert.deepEqual(acpModelProfile?.headers, {
-        'X-App-Id': 'cat-cafe',
+        'X-App-Id': 'office-claw',
         'X-Workspace': 'sandbox',
       });
     } finally {
@@ -2685,7 +2685,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
     const { backend } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
-    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
+    backend.set('OfficeClaw/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
@@ -2704,15 +2704,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         },
       });
 
-      const registrySnapshot = catRegistry.getAllConfigs();
-      const originalConfig = catRegistry.tryGet('agentteams')?.config;
+      const registrySnapshot = officeClawRegistry.getAllConfigs();
+      const originalConfig = officeClawRegistry.tryGet('agentteams')?.config;
       assert.ok(originalConfig, 'agentteams config should exist in registry');
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
         if (id === 'agentteams') continue;
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
-      catRegistry.register('agentteams', {
+      officeClawRegistry.register('agentteams', {
         ...originalConfig,
         provider: 'acp',
         accountRef: 'huawei-maas',
@@ -2754,9 +2754,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       } finally {
         process.chdir(previousCwd);
         sessions.delete('user-agentteams-huawei-maas');
-        catRegistry.reset();
+        officeClawRegistry.reset();
         for (const [id, config] of Object.entries(registrySnapshot)) {
-          catRegistry.register(id, config);
+          officeClawRegistry.register(id, config);
         }
       }
 
@@ -2794,7 +2794,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'mission:    @office 帮我做一页 PPT',
       '',
       '[对话历史增量 - 未发送过 1 条]',
-      '[msg-1] [00:18 铲屎官] @office 帮我做一页 PPT',
+      '[msg-1] [00:18 用户] @office 帮我做一页 PPT',
       '[/对话历史]',
     ].join('\n');
 
@@ -2840,7 +2840,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         catId: 'gemini',
         service,
         prompt: 'test',
-        systemPrompt: 'You are a Siamese cat',
+        systemPrompt: 'You are a Gemini cat',
         userId: 'u1',
         threadId: 'thread-bloat-gemini',
         isLastCat: true,
@@ -2850,7 +2850,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     // F053: Gemini now has sessionChain=true, so on resume it SKIPS
     // systemPrompt injection (same as Claude/Codex)
     assert.ok(
-      !promptsSeen[0].includes('You are a Siamese cat'),
+      !promptsSeen[0].includes('You are a Gemini cat'),
       'F053: Gemini should skip systemPrompt on resume (sessionChain=true)',
     );
   });
@@ -3014,11 +3014,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('codex')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('codex')?.config;
     assert.ok(originalConfig, 'codex config should exist in registry');
     const boundCatId = 'codex-template-root-bound-profile';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3052,9 +3052,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     } finally {
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       await rm(templateRoot, { recursive: true, force: true });
     }
@@ -3128,8 +3128,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127 P2: bootstrapped seed cats follow the current bootstrap binding after activation', async () => {
-    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/office-claw-catalog-store.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-seed-bootstrap-binding-'));
     const apiDir = join(root, 'packages', 'api');
@@ -3159,10 +3159,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     await activateProviderProfile(root, 'openai', activatedProfile.id);
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     for (const [id, config] of Object.entries(toAllCatConfigs(loadCatConfig(catalogPath)))) {
-      catRegistry.register(id, config);
+      officeClawRegistry.register(id, config);
     }
 
     const optionsSeen = [];
@@ -3189,9 +3189,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       if (prevGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
@@ -3234,11 +3234,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('codex')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('codex')?.config;
     assert.ok(originalConfig, 'codex config should exist in registry');
     const boundCatId = 'codex-bound-profile-test';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3271,9 +3271,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       await rm(root, { recursive: true, force: true });
     }
@@ -3300,7 +3300,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const { backend } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
-    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
+    backend.set('OfficeClaw/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
@@ -3318,11 +3318,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         },
       });
 
-      const registrySnapshot = catRegistry.getAllConfigs();
-      const originalConfig = catRegistry.tryGet('dare')?.config;
+      const registrySnapshot = officeClawRegistry.getAllConfigs();
+      const originalConfig = officeClawRegistry.tryGet('dare')?.config;
       assert.ok(originalConfig, 'dare config should exist in registry');
       const boundCatId = 'dare-huawei-maas-model-config-test';
-      catRegistry.register(boundCatId, {
+      officeClawRegistry.register(boundCatId, {
         ...originalConfig,
         id: boundCatId,
         mentionPatterns: [`@${boundCatId}`],
@@ -3357,9 +3357,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       } finally {
         process.chdir(previousCwd);
         sessions.delete('user-f127-huawei-maas-model-config');
-        catRegistry.reset();
+        officeClawRegistry.reset();
         for (const [id, config] of Object.entries(registrySnapshot)) {
-          catRegistry.register(id, config);
+          officeClawRegistry.register(id, config);
         }
       }
 
@@ -3392,9 +3392,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
+            apiKeyRef: 'wincred://OfficeClaw/model-config/test/my-openai-proxy/apiKey',
             headers: {
-              'X-App-Id': 'cat-cafe',
+              'X-App-Id': 'office-claw',
               'X-Workspace': 'sandbox',
             },
             models: [{ id: 'gpt-4o-mini' }, { id: 'deepseek-chat' }],
@@ -3408,15 +3408,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const { backend } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
-    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
+    backend.set('OfficeClaw/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
-      const registrySnapshot = catRegistry.getAllConfigs();
-      const originalConfig = catRegistry.tryGet('jiuwenclaw')?.config;
+      const registrySnapshot = officeClawRegistry.getAllConfigs();
+      const originalConfig = officeClawRegistry.tryGet('jiuwenclaw')?.config;
       assert.ok(originalConfig, 'jiuwenclaw config should exist in registry');
       const boundCatId = 'relayclaw-custom-model-config-test';
-      catRegistry.register(boundCatId, {
+      officeClawRegistry.register(boundCatId, {
         ...originalConfig,
         id: boundCatId,
         mentionPatterns: [`@${boundCatId}`],
@@ -3450,9 +3450,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         assert.ok(messages.some((m) => m.type === 'done'));
       } finally {
         process.chdir(previousCwd);
-        catRegistry.reset();
+        officeClawRegistry.reset();
         for (const [id, config] of Object.entries(registrySnapshot)) {
-          catRegistry.register(id, config);
+          officeClawRegistry.register(id, config);
         }
       }
 
@@ -3465,9 +3465,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.equal(callbackEnv.OPENAI_API_BASE, 'https://proxy.example.com/v1');
       assert.equal(
         callbackEnv.OPENAI_DEFAULT_HEADERS,
-        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
+        JSON.stringify({ 'X-App-Id': 'office-claw', 'X-Workspace': 'sandbox' }),
       );
-      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }));
+      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'office-claw', 'X-Workspace': 'sandbox' }));
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
@@ -3489,11 +3489,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     process.env.OPENAI_BASE_URL = 'https://api.global.example';
     process.env.OPENAI_API_BASE = 'https://api.global.example';
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('codex')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('codex')?.config;
     assert.ok(originalConfig, 'codex config should exist in registry');
     const boundCatId = 'codex-builtin-oauth-test';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3526,9 +3526,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       if (originalCodexAuthMode === undefined) delete process.env.CODEX_AUTH_MODE;
       else process.env.CODEX_AUTH_MODE = originalCodexAuthMode;
@@ -3555,11 +3555,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     const prevGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('codex')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('codex')?.config;
     assert.ok(originalConfig, 'codex config should exist in registry');
     const unboundCatId = 'codex-env-auth-unbound';
-    catRegistry.register(unboundCatId, {
+    officeClawRegistry.register(unboundCatId, {
       ...originalConfig,
       id: unboundCatId,
       mentionPatterns: [`@${unboundCatId}`],
@@ -3593,9 +3593,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       if (prevGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
@@ -3627,11 +3627,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('opencode')?.config;
     assert.ok(originalConfig, 'opencode config should exist in registry');
     const boundCatId = 'opencode-bound-mismatch-test';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3670,9 +3670,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       await rm(root, { recursive: true, force: true });
     }
@@ -3696,11 +3696,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('opencode')?.config;
     assert.ok(originalConfig, 'opencode config should exist in registry');
     const boundCatId = 'opencode-openrouter-bound-test';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3734,9 +3734,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.ok(messages.some((m) => m.type === 'done'));
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       await rm(root, { recursive: true, force: true });
     }
@@ -3766,11 +3766,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    const registrySnapshot = catRegistry.getAllConfigs();
-    const originalConfig = catRegistry.tryGet('dare')?.config;
+    const registrySnapshot = officeClawRegistry.getAllConfigs();
+    const originalConfig = officeClawRegistry.tryGet('dare')?.config;
     assert.ok(originalConfig, 'dare config should exist in registry');
     const boundCatId = 'dare-adapter-override-test';
-    catRegistry.register(boundCatId, {
+    officeClawRegistry.register(boundCatId, {
       ...originalConfig,
       id: boundCatId,
       mentionPatterns: [`@${boundCatId}`],
@@ -3804,9 +3804,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.ok(messages.some((m) => m.type === 'done'));
     } finally {
       process.chdir(previousCwd);
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       await rm(root, { recursive: true, force: true });
     }

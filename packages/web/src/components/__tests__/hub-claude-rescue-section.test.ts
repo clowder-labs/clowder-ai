@@ -84,15 +84,15 @@ describe('HubClaudeRescueSection', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('布偶猫救援中心');
-    expect(container.textContent).toContain('检测到 2 只布偶猫 session 需要救援');
+    expect(container.textContent).toContain('Claude 救援中心');
+    expect(container.textContent).toContain('检测到 2 个 Claude session 需要救援');
     expect(container.textContent).toContain('broken-1');
     expect(container.textContent).toContain('broken-2');
     expect(container.textContent).toContain('纯 thinking turn：12 条');
     expect(container.textContent).toContain('纯 thinking turn：8 条');
     expect(container.textContent).toContain('/tmp/broken-1.jsonl');
     expect(container.textContent).toContain('/tmp/broken-2.jsonl');
-    expect(container.textContent).toContain('一键救活 2 只布偶猫');
+    expect(container.textContent).toContain('一键救活 2 个 Claude session');
 
     const checkedBoxes = Array.from(container.querySelectorAll('input[type="checkbox"]')).filter(
       (node) => (node as HTMLInputElement).checked,
@@ -108,7 +108,7 @@ describe('HubClaudeRescueSection', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('暂未发现坏掉的布偶猫 session');
+    expect(container.textContent).toContain('暂未发现损坏的 Claude session');
     expect(container.textContent).toContain('重新扫描');
   });
 
@@ -161,7 +161,7 @@ describe('HubClaudeRescueSection', () => {
     await flushEffects();
 
     const rescueButton = Array.from(container.querySelectorAll('button')).find((node) =>
-      node.textContent?.includes('一键救活 2 只布偶猫'),
+      node.textContent?.includes('一键救活 2 个 Claude session'),
     ) as HTMLButtonElement | undefined;
     expect(rescueButton).toBeDefined();
 
@@ -184,10 +184,10 @@ describe('HubClaudeRescueSection', () => {
       sessionIds: ['broken-1', 'broken-2'],
     });
 
-    expect(container.textContent).toContain('刚刚救活 2 只布偶猫');
-    expect(container.textContent).toContain('暂未发现坏掉的布偶猫 session');
+    expect(container.textContent).toContain('刚刚救活 2 个 Claude session');
+    expect(container.textContent).toContain('暂未发现损坏的 Claude session');
 
     const toasts = useToastStore.getState().toasts;
-    expect(toasts.some((toast) => toast.type === 'success' && toast.title === '布偶猫已救活')).toBe(true);
+    expect(toasts.some((toast) => toast.type === 'success' && toast.title === 'Claude 已救活')).toBe(true);
   });
 });

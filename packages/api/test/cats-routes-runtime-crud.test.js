@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry, createCatId } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry, createCatId } from '@office-claw/shared';
 
 const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
 const { _clearRuntimeOverrides, getRuntimeOverride, setRuntimeOverride } = await import(
@@ -20,9 +20,9 @@ const tempDirs = [];
 let savedTemplatePath;
 
 function resetRegistryToBuiltins() {
-  catRegistry.reset();
-  for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-    catRegistry.register(id, config);
+  officeClawRegistry.reset();
+  for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+    officeClawRegistry.register(id, config);
   }
 }
 
@@ -33,11 +33,11 @@ function makeTemplate() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫'],
+        mentionPatterns: ['@opus', '@claude'],
         roleDescription: '主架构师',
         defaultVariantId: 'opus-default',
         variants: [
@@ -592,8 +592,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       },
       body: JSON.stringify({
         catId: 'runtime-codex',
-        name: '运行时缅因猫',
-        displayName: '运行时缅因猫',
+        name: '运行时Codex',
+        displayName: '运行时Codex',
         avatar: '/avatars/codex.png',
         color: { primary: '#16a34a', secondary: '#bbf7d0' },
         mentionPatterns: ['@runtime-codex'],
@@ -650,8 +650,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       },
       body: JSON.stringify({
         catId: 'runtime-opencode-crossproto',
-        name: '运行时金渐层',
-        displayName: '运行时金渐层',
+        name: '运行时OpenCode',
+        displayName: '运行时OpenCode',
         avatar: '/avatars/opencode.png',
         color: { primary: '#0f172a', secondary: '#e2e8f0' },
         mentionPatterns: ['@runtime-opencode-crossproto'],
@@ -693,8 +693,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-bare-no-provider',
-        name: '金渐层A',
-        displayName: '金渐层A',
+        name: 'OpenCodeA',
+        displayName: 'OpenCodeA',
         avatar: '/avatars/opencode.png',
         color: { primary: '#0f172a', secondary: '#e2e8f0' },
         mentionPatterns: ['@oc-bare-no-provider'],
@@ -714,8 +714,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-slash-no-provider',
-        name: '金渐层B',
-        displayName: '金渐层B',
+        name: 'OpenCodeB',
+        displayName: 'OpenCodeB',
         avatar: '/avatars/opencode.png',
         color: { primary: '#0f172a', secondary: '#e2e8f0' },
         mentionPatterns: ['@oc-slash-no-provider'],
@@ -735,8 +735,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-bare-with-provider',
-        name: '金渐层C',
-        displayName: '金渐层C',
+        name: 'OpenCodeC',
+        displayName: 'OpenCodeC',
         avatar: '/avatars/opencode.png',
         color: { primary: '#0f172a', secondary: '#e2e8f0' },
         mentionPatterns: ['@oc-bare-with-provider'],
@@ -1105,7 +1105,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
             apiKey: 'sk-proxy',
-            headers: { 'X-App-Id': 'cat-cafe' },
+            headers: { 'X-App-Id': 'office-claw' },
             models: [{ id: 'glm-5' }, { id: 'gpt-4o-mini' }],
           },
         },
@@ -1198,8 +1198,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       },
       body: JSON.stringify({
         catId: 'runtime-codex-scoped-profile',
-        name: '运行时缅因猫',
-        displayName: '运行时缅因猫',
+        name: '运行时Codex',
+        displayName: '运行时Codex',
         avatar: '/avatars/codex.png',
         color: { primary: '#16a34a', secondary: '#bbf7d0' },
         mentionPatterns: ['@runtime-codex-scoped-profile'],
@@ -1232,7 +1232,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const projectRoot = createProjectRootFromRepoTemplate();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
-    const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
+    const { bootstrapCatCatalog } = await import('../dist/config/office-claw-catalog-store.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
     bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
     const sponsorProfile = await createProviderProfile(projectRoot, {
@@ -1289,7 +1289,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
-        nickname: '金渐层审计版',
+        nickname: 'OpenCode审计版',
       }),
     });
     assert.equal(res.statusCode, 200);

@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { ActionStatus, SeatId, SeatView } from '@clowder/shared';
+import type { ActionStatus, SeatId, SeatView } from '@office-claw/shared';
 
 interface SeatStatusInput {
   alive: boolean;

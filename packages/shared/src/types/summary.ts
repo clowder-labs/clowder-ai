@@ -6,7 +6,7 @@
 
 /**
  * Discussion Summary Types (拍立得照片墙)
- * 猫猫讨论纪要 — 记录讨论的结论和待解决问题
+ * 智能体讨论纪要 — 记录讨论的结论和待解决问题
  */
 
 import type { CatId } from './ids.js';

@@ -70,7 +70,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview please',
+        content: '@assistant\nreview please',
         userId: 'user-1',
         threadId: 't-deleting',
         triggerMessage: {
@@ -126,7 +126,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 't1',
         triggerMessage: {
@@ -195,7 +195,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nalready covered by parent',
+        content: '@assistant\nalready covered by parent',
         userId: 'user-1',
         threadId: 'active-thread',
         triggerMessage: {
@@ -269,7 +269,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nplease review',
+        content: '@assistant\nplease review',
         userId: 'user-1',
         threadId: 'thread-err',
         triggerMessage: {
@@ -358,7 +358,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 't-768-ok',
         triggerMessage: {
@@ -431,7 +431,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 't-queue-ok',
         triggerMessage: {
@@ -504,7 +504,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 't-queue-err',
         triggerMessage: {
@@ -583,7 +583,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 't-queue-cancel',
         triggerMessage: {
@@ -628,7 +628,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
         },
         {
           targetCats: ['codex'],
-          content: '@缅因猫\nreview please',
+          content: '@assistant\nreview please',
           userId: 'user-1',
           threadId: 't-enqueue',
           triggerMessage: {
@@ -672,7 +672,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
         },
         {
           targetCats: ['codex'],
-          content: '@缅因猫\nagain',
+          content: '@assistant\nagain',
           userId: 'user-1',
           threadId: 't-dedup',
           triggerMessage: {
@@ -712,7 +712,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
         { router: {}, invocationRecordStore: {}, socketManager: {}, log: mockLog },
         {
           targetCats: ['codex'],
-          content: '@缅因猫',
+          content: '@assistant',
           userId: 'u1',
           threadId: 't-depth',
           triggerMessage: {
@@ -733,7 +733,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
         { router: {}, invocationRecordStore: {}, socketManager: {}, log: mockLog },
         {
           targetCats: ['gemini'],
-          content: '@暹罗猫',
+          content: '@design',
           userId: 'u1',
           threadId: 't-depth',
           triggerMessage: {
@@ -804,7 +804,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 'active-parent-thread',
         triggerMessage: {
@@ -877,7 +877,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 'all-active-thread',
         triggerMessage: {
@@ -967,7 +967,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
         },
         {
           targetCats: ['codex'],
-          content: '@缅因猫\nreview',
+          content: '@assistant\nreview',
           userId: 'user-1',
           threadId,
           triggerMessage: {
@@ -1041,7 +1041,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
       },
       {
         targetCats: ['codex'],
-        content: '@缅因猫\nreview',
+        content: '@assistant\nreview',
         userId: 'user-1',
         threadId: 'no-worklist-thread',
         triggerMessage: {

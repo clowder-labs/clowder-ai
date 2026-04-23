@@ -89,7 +89,7 @@ export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'installer-seed',
   'vendor',
   'assets',
-  '.clowder-release.json',
+  '.office-claw-release.json',
   '.env.example',
   'LICENSE',
   'office-claw-template.json',
@@ -976,7 +976,7 @@ export function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@clowder/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -1351,7 +1351,7 @@ async function stageBundledMcpServerRuntime(targetRootDir) {
       `--banner:js=${banner}`,
       '--minify',
       '--log-level=error',
-      '--external:@clowder/shared',
+      '--external:@office-claw/shared',
       '--external:@modelcontextprotocol/sdk',
       '--external:zod',
     ]);
@@ -1425,7 +1425,7 @@ async function downloadFile(url, destination) {
   rmSync(tempDestination, { force: true });
   const response = await fetch(url, {
     headers: {
-      'user-agent': 'clowder-ai-windows-installer-builder',
+      'user-agent': 'office-claw-windows-installer-builder',
       ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
       accept: 'application/octet-stream, application/json',
     },
@@ -1565,7 +1565,7 @@ async function resolveRedisDownload(options) {
   }
   const response = await fetch(options.redisReleaseApi, {
     headers: {
-      'user-agent': 'clowder-ai-windows-installer-builder',
+      'user-agent': 'office-claw-windows-installer-builder',
       ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
       accept: 'application/vnd.github+json',
     },
@@ -1611,7 +1611,7 @@ async function stageWindowsRedis(bundleDir, options) {
 }
 
 function writeReleaseMetadata(bundleDir, metadata) {
-  const targetPath = join(bundleDir, '.clowder-release.json');
+  const targetPath = join(bundleDir, '.office-claw-release.json');
   const tempPath = `${targetPath}.tmp`;
   writeFileSync(tempPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
   rmSync(targetPath, { force: true });
@@ -1689,17 +1689,17 @@ function ensureBuildArtifacts(options) {
     return;
   }
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@clowder/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }
 
 function buildWindowsDesktopLauncher(bundleDir, options) {
   const launcherScript = join(repoRoot, 'scripts', 'build-windows-webview2-launcher.ps1');
-  const launcherSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'ClowderDesktop.cs');
+  const launcherSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'OfficeClawDesktop.cs');
   const launcherIconPath = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
   if (!existsSync(launcherScript) || !existsSync(launcherSource)) {
     throw new Error('Missing WebView2 launcher build assets');
@@ -1855,7 +1855,7 @@ async function main() {
     installSharedPythonDeps(bundleDir);
   } else {
     logStep('Skipping Python embed + pip install (--skip-python)');
-    const releaseMetaPath = join(bundleDir, '.clowder-release.json');
+    const releaseMetaPath = join(bundleDir, '.office-claw-release.json');
     const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
   }
@@ -1885,7 +1885,7 @@ async function main() {
   await stageWebView2Installer(bundleDir, options);
   await stageVcRedistInstaller(bundleDir, options);
   writeReleaseMetadata(bundleDir, {
-    name: 'Clowder AI',
+    name: 'OfficeClaw',
     version: packageJson.version,
     generatedAt: new Date().toISOString(),
     managedTopLevelPaths: WINDOWS_MANAGED_TOP_LEVEL_PATHS,

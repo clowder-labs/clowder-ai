@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, BacklogStatus, CatId } from '@clowder/shared';
+import type { BacklogItem, BacklogStatus, CatId } from '@office-claw/shared';
 import { useState } from 'react';
 
 interface ThreadSituationSummary {

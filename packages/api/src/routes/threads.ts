@@ -13,8 +13,8 @@
  * DELETE /api/threads/:id  - 删除对话
  */
 
-import type { CatId } from '@clowder/shared';
-import { catIdSchema } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
+import { catIdSchema } from '@office-claw/shared';
 import { mkdir, realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
@@ -105,7 +105,7 @@ const createThreadSchema = z
     userId: z.string().min(1).max(100).optional(),
     title: z.string().min(1).max(200).optional(),
     projectPath: z.string().min(1).max(500).optional(),
-    /** F32-b Phase 2: Thread-level cat preference (validated against catRegistry) */
+    /** F32-b Phase 2: Thread-level cat preference (validated against officeClawRegistry) */
     preferredCats: z.array(catIdSchema()).max(10).optional(),
     /** F095 Phase C: Pin thread on creation */
     pinned: z.boolean().optional(),

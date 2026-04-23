@@ -11,7 +11,7 @@ import { buildDeps, mockMsg, seedMessages } from './helpers/incremental-context-
 const { assembleIncrementalContext } = await import('../dist/domains/cats/services/agents/routing/route-helpers.js');
 const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 const { DeliveryCursorStore } = await import('../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js');
-const { getCatContextBudget } = await import('../dist/config/cat-budgets.js');
+const { getCatContextBudget } = await import('../dist/config/office-claw-budgets.js');
 
 describe('assembleIncrementalContext — GAP-1 budget enforcement', () => {
   test('caps messages to maxMessages when cursor is undefined (first-time cat)', async () => {

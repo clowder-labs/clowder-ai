@@ -46,7 +46,7 @@ function extractDeliveredIds(prompt) {
   return ids;
 }
 
-const { getCatContextBudget } = await import('../../dist/config/cat-budgets.js');
+const { getCatContextBudget } = await import('../../dist/config/office-claw-budgets.js');
 
 describe('Incremental Delivery', () => {
   let messageStore;

@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalArticleStatus } from '@clowder/shared';
+import type { SignalArticle, SignalArticleStatus } from '@office-claw/shared';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -112,7 +112,7 @@ export class AomMetricsReporter {
           Authorization: `Bearer ${this.token}`,
           'Content-Type': 'application/x-protobuf',
           'X-Prometheus-Remote-Write-Version': '0.1.0',
-          'User-Agent': 'cat-cafe-metrics-reporter/1.0',
+          'User-Agent': 'office-claw-metrics-reporter/1.0',
           'Content-Length': body.length,
         },
         agent: insecureAgent,

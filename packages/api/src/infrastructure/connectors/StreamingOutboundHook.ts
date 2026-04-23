@@ -4,7 +4,7 @@
  *
  */
 
-import { type CatId, catRegistry } from '@clowder/shared';
+import { type CatId, officeClawRegistry } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { IOutboundAdapter, IStreamableOutboundAdapter } from './OutboundDeliveryHook.js';
@@ -53,7 +53,7 @@ export class StreamingOutboundHook {
       if (!adapter?.sendPlaceholder) continue;
       if (adapter.supportsPlaceholderStreaming === false) continue;
       try {
-        const catEntry = catId ? catRegistry.tryGet(catId) : undefined;
+        const catEntry = catId ? officeClawRegistry.tryGet(catId) : undefined;
         const prefix = catEntry ? `[${catEntry.config.displayName}] ` : '';
         const msgId = await adapter.sendPlaceholder(binding.externalChatId, `${prefix}🤔 思考中...`);
         if (msgId) {

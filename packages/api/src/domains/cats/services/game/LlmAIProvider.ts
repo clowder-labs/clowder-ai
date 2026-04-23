@@ -17,8 +17,8 @@
  * - 10s timeout per call; fallback to null on failure (caller handles fallback).
  */
 
-import { catRegistry } from '@clowder/shared';
-import { getCatModel } from '../../../../config/cat-models.js';
+import { officeClawRegistry } from '@office-claw/shared';
+import { getCatModel } from '../../../../config/office-claw-models.js';
 import type { AIActionResponse, AIProvider } from '../game/werewolf/WerewolfAIPlayer.js';
 
 const LLM_TIMEOUT_MS = 10_000;
@@ -36,7 +36,7 @@ export class LlmAIProvider implements AIProvider {
 
   constructor(catId: string) {
     this.model = getCatModel(catId);
-    const entry = catRegistry.tryGet(catId);
+    const entry = officeClawRegistry.tryGet(catId);
     this.provider = entry?.config.provider ?? 'anthropic';
   }
 

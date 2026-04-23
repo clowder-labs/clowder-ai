@@ -147,7 +147,7 @@ describe('schedule trigger validation', () => {
       url: '/api/schedule/tasks',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'reminder',
@@ -178,7 +178,7 @@ describe('schedule trigger validation', () => {
       url: '/api/schedule/tasks',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'reminder',
@@ -203,7 +203,7 @@ describe('schedule trigger validation', () => {
       url: '/api/schedule/tasks/preview',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'reminder',
@@ -228,7 +228,7 @@ describe('schedule trigger validation', () => {
       url: '/api/schedule/tasks',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'reminder',
@@ -253,7 +253,7 @@ describe('schedule trigger validation', () => {
       url: '/api/schedule/tasks',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'default-user',
+        'x-office-claw-user': 'default-user',
       },
       payload: {
         templateId: 'reminder',

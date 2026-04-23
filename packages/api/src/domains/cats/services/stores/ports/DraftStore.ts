@@ -16,7 +16,7 @@
  * - TTL-based auto-cleanup (300s) with explicit delete on completion
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 
 export interface DraftRecord {
   userId: string;

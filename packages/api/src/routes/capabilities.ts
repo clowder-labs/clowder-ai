@@ -12,7 +12,7 @@
  *
  * F041 Re-open fixes:
  * - Skill descriptions from SKILL.md frontmatter
- * - Source classification: project-level skills → 'cat-cafe'
+ * - Source classification: project-level skills → 'office-claw'
  * - Cat family grouping metadata for frontend
  */
 
@@ -30,8 +30,8 @@ import type {
   CatFamily,
   McpToolInfo,
   SkillHealthSummary,
-} from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+} from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import {
@@ -39,20 +39,18 @@ import {
   type DiscoveryPaths,
   discoverExternalMcpServers,
   generateCliConfigs,
-  migrateLegacyCatCafeCapability,
   readCapabilitiesConfig,
   resolveServersForCat,
   toCapabilityEntry,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
-import { ensureSkillStorageMigrated } from '../domains/cats/services/skillhub/SkillStorageMigration.js';
 import { resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
-import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../utils/office-claw-root.js';
 import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
 import {
   listRelayClawSharedSkillNames,
-  resolveCatCafeSkillsSourceDir,
+  resolveOfficeClawSkillsSourceDir,
   resolveRelayClawSharedSkillsDirs,
 } from '../utils/relayclaw-skills.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -122,14 +120,14 @@ async function isCorrectSymlink(
     if (skillName && fallbackSkillsRoot) {
       const parentDir = dirname(normalizedDest);
       const nameMatches = normalizedDest.endsWith(`${sep}${skillName}`);
-      const isCatCafeSkillsDir = basename(parentDir) === 'office-claw-skills';
+      const isOfficeClawSkillsDir = basename(parentDir) === 'office-claw-skills';
       const resolvedFallbackRoot = (await realpath(fallbackSkillsRoot).catch(() => fallbackSkillsRoot)).replace(
         /[/\\]$/,
         '',
       );
       const inFallbackRoot = pathsEqual(parentDir, resolvedFallbackRoot);
       if (
-        isCatCafeSkillsDir &&
+        isOfficeClawSkillsDir &&
         inFallbackRoot &&
         nameMatches &&
         existsSync(join(parentDir, 'manifest.yaml')) &&
@@ -176,13 +174,13 @@ async function resolveMainRepoPath(): Promise<string> {
 }
 
 /** Walk up from CWD to find pnpm-workspace.yaml — the monorepo root. */
-const PROJECT_ROOT = resolveCatCafeHostRoot(process.cwd());
+const PROJECT_ROOT = resolveOfficeClawHostRoot(process.cwd());
 
 function getProjectRoot(): string {
   return PROJECT_ROOT;
 }
 
-const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
+const OFFICE_CLAW_SKILLS_SRC = resolveOfficeClawSkillsSourceDir();
 
 /**
  * P1-1 fix: All CLI config paths are project-level (not user-level).
@@ -403,14 +401,14 @@ export function describeMcpCapability(cap: CapabilityEntry, tools?: McpToolInfo[
 }
 
 /**
- * Build cat family grouping from catRegistry.
+ * Build cat family grouping from officeClawRegistry.
  * Groups catIds by breedId (e.g. ragdoll → [opus, opus-45, sonnet]).
  */
 function buildCatFamilies(): CatFamily[] {
   const familyMap = new Map<string, { name: string; catIds: string[] }>();
 
-  for (const catId of catRegistry.getAllIds()) {
-    const entry = catRegistry.tryGet(catId as string);
+  for (const catId of officeClawRegistry.getAllIds()) {
+    const entry = officeClawRegistry.tryGet(catId as string);
     if (!entry) continue;
     const breedId = entry.config.breedId ?? 'unknown';
     const breedName = entry.config.breedDisplayName ?? breedId;
@@ -459,18 +457,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // 1. Load or bootstrap capabilities.json
     let config = await readCapabilitiesConfig(projectRoot);
     if (!config) {
-      // Multi-project: when bootstrapping a non-cat-cafe project, still point the
-      // Cat Cafe MCP server to THIS repo (host), not the managed project root.
-      config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot), {
-        catCafeRepoRoot: getProjectRoot(),
-      });
-    } else {
-      const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot: getProjectRoot() });
-      if (migrated.migrated) {
-        config = migrated.config;
-        await writeCapabilitiesConfig(projectRoot, config);
+      // Multi-project: when bootstrapping a non-office-claw project, still point the
+      // OfficeClaw MCP server to THIS repo (host), not the managed project root.
+        config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot), {
+          officeClawRepoRoot: getProjectRoot(),
+        });
       }
-    }
 
     // Always regenerate CLI configs so that config changes (e.g. new env
     // placeholders for Gemini MCP) are applied to existing environments
@@ -485,28 +477,27 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const claudeProjectSkills = await listSubdirs(projectSkillsDir);
 
     // Scan office-claw-skills/ for official skills
-    const hostRoot = resolveCatCafeHostRoot(process.cwd());
-    await ensureSkillStorageMigrated(hostRoot);
-    const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
+    const hostRoot = resolveOfficeClawHostRoot(process.cwd());
+    const officeClawSkillsDir = OFFICE_CLAW_SKILLS_SRC;
     const userInstalledSkillsDir = resolveUserSkillsRoot(hostRoot);
-    const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
+    const officeClawOwnSkills = await listSkillSubdirs(officeClawSkillsDir);
     const userInstalledSkills = await listSkillSubdirs(userInstalledSkillsDir);
-    const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
+    const hasProjectOfficeClawSkillsDir = existsSync(officeClawSkillsDir);
 
     const projectScanOk = claudeProjectSkills !== null;
 
     // Official skills come from office-claw-skills/ directory
     const projectSkillNames = new Set([
       ...(claudeProjectSkills ?? []),
-      ...(catCafeOwnSkills ?? []),
+      ...(officeClawOwnSkills ?? []),
       ...(userInstalledSkills ?? []),
     ]);
 
-    const catIds = catRegistry.getAllIds().map((id) => id as string);
+    const catIds = officeClawRegistry.getAllIds().map((id) => id as string);
     const relayclawSkillNames = listRelayClawSharedSkillNames();
     const relayclawApplicableSkills = new Map<string, string[]>();
     for (const catId of catIds) {
-      const entry = catRegistry.tryGet(catId);
+      const entry = officeClawRegistry.tryGet(catId);
       if (entry?.config.provider === 'relayclaw') {
         relayclawApplicableSkills.set(catId, relayclawSkillNames);
       }
@@ -514,7 +505,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
     const providerSkills: Record<string, string[]> = {
       anthropic: [
-        ...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? []), ...(userInstalledSkills ?? [])]),
+        ...new Set([...(claudeProjectSkills ?? []), ...(officeClawOwnSkills ?? []), ...(userInstalledSkills ?? [])]),
       ],
       relayclaw: relayclawSkillNames,
     };
@@ -534,10 +525,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const skills of Object.values(providerSkills)) {
       for (const s of skills) allSkillNames.add(s);
     }
-    // Cloud P2: include source-only Cat Cafe skills (present in office-claw-skills/ but not mounted
+    // Cloud P2: include source-only OfficeClaw skills (present in office-claw-skills/ but not mounted
     // into any provider directory yet) so mount health can detect missing mounts.
-    if (catCafeOwnSkills !== null) {
-      for (const s of catCafeOwnSkills) allSkillNames.add(s);
+    if (officeClawOwnSkills !== null) {
+      for (const s of officeClawOwnSkills) allSkillNames.add(s);
     }
     if (userInstalledSkills !== null) {
       for (const s of userInstalledSkills) allSkillNames.add(s);
@@ -569,10 +560,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const mainRepo = await resolveMainRepoPath();
     const mainSkillsSrc = join(mainRepo, 'office-claw-skills');
     // Use dir existence (not skill count) to avoid treating existing-but-empty as "missing".
-    const mountSkillsSrc = catCafeOwnSkills !== null && hasProjectCatCafeSkillsDir ? catCafeSkillsDir : mainSkillsSrc;
+    const mountSkillsSrc =
+      officeClawOwnSkills !== null && hasProjectOfficeClawSkillsDir ? officeClawSkillsDir : mainSkillsSrc;
 
     // Also fix source for existing skills
-    // Only skills in BOOTSTRAP.md are official (cat-cafe), others are external
+    // Only skills in BOOTSTRAP.md are official (office-claw), others are external
     const bootstrapSkillNames = await getBootstrapSkillNames(mountSkillsSrc);
     for (const cap of config.capabilities) {
       if (cap.type !== 'skill') continue;
@@ -639,7 +631,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       if (cap.type !== 'skill') continue;
       const cats: Record<string, boolean> = {};
       for (const catId of catIds) {
-        const entry = catRegistry.tryGet(catId);
+        const entry = officeClawRegistry.tryGet(catId);
         const provider = entry?.config.provider ?? 'unknown';
         const presentForProvider =
           provider === 'relayclaw'
@@ -709,14 +701,16 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    // 6. Mount health check for cat-cafe skills
+    // 6. Mount health check for office-claw skills
     // Multi-project: validate mounts against the selected project's office-claw-skills
     // if it exists; otherwise fall back to host repo's office-claw-skills.
 
     const mountSourceNames = new Set(
-      mountSkillsSrc === catCafeSkillsDir ? (catCafeOwnSkills ?? []) : ((await listSkillSubdirs(mountSkillsSrc)) ?? []),
+      mountSkillsSrc === officeClawSkillsDir
+        ? (officeClawOwnSkills ?? [])
+        : ((await listSkillSubdirs(mountSkillsSrc)) ?? []),
     );
-    const catCafeSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'builtin');
+    const officeClawSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'builtin');
     const providerDirs = {
       claude: join(home, '.claude', 'skills'),
       codex: join(home, '.codex', 'skills'),
@@ -724,7 +718,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     };
     const relayclawSharedSkillsEnabled = resolveRelayClawSharedSkillsDirs().length > 0;
     await Promise.all(
-      catCafeSkillItems.map(async (item) => {
+      officeClawSkillItems.map(async (item) => {
         const expectedTarget = join(mountSkillsSrc, item.id);
         const [claude, codex, gemini] = await Promise.all([
           isCorrectSymlink(join(providerDirs.claude, item.id), expectedTarget, item.id, mainSkillsSrc),
@@ -745,11 +739,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const unregistered = [...mountSourceNames].filter((n) => !bootstrapNames.has(n) && !remoteInstalledNames.has(n));
     const phantom = [...bootstrapNames].filter((n) => !mountSourceNames.has(n));
     let allMounted =
-      catCafeSkillItems.length > 0 &&
-      catCafeSkillItems.every((item) => item.mounts && Object.values(item.mounts).every(Boolean));
-    // If we have expected cat-cafe skills (source dir non-empty) but discovered none,
+      officeClawSkillItems.length > 0 &&
+      officeClawSkillItems.every((item) => item.mounts && Object.values(item.mounts).every(Boolean));
+    // If we have expected office-claw skills (source dir non-empty) but discovered none,
     // treat as unhealthy (likely broken mounts).
-    if (!allMounted && catCafeSkillItems.length === 0 && mountSourceNames.size > 0) allMounted = false;
+    if (!allMounted && officeClawSkillItems.length === 0 && mountSourceNames.size > 0) allMounted = false;
     const skillHealth: SkillHealthSummary = {
       allMounted,
       registrationConsistent: unregistered.length === 0 && phantom.length === 0,
@@ -758,11 +752,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     };
 
     // 7. F070: Governance health for external projects
-    const catCafeRoot = getProjectRoot();
+    const officeClawRoot = getProjectRoot();
     let governanceHealth: CapabilityBoardResponse['governanceHealth'];
-    if (projectRoot !== catCafeRoot) {
+    if (projectRoot !== officeClawRoot) {
       const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
-      const registry = new GovernanceRegistry(catCafeRoot);
+      const registry = new GovernanceRegistry(officeClawRoot);
       governanceHealth = await registry.checkHealth(projectRoot);
     }
 
@@ -878,14 +872,14 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Invalid project path' };
     }
 
-    const catCafeRoot = getProjectRoot();
-    if (validated === catCafeRoot) {
+    const officeClawRoot = getProjectRoot();
+    if (validated === officeClawRoot) {
       reply.status(400);
       return { error: 'Cannot confirm governance for OfficeClaw itself' };
     }
 
     const { GovernanceBootstrapService } = await import('../config/governance/governance-bootstrap.js');
-    const service = new GovernanceBootstrapService(catCafeRoot);
+    const service = new GovernanceBootstrapService(officeClawRoot);
     const report = await service.bootstrap(validated, { dryRun: false });
 
     return { ok: true, report };
@@ -899,9 +893,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required' };
     }
 
-    const catCafeRoot = getProjectRoot();
+    const officeClawRoot = getProjectRoot();
     const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
-    const registry = new GovernanceRegistry(catCafeRoot);
+    const registry = new GovernanceRegistry(officeClawRoot);
     const entries = await registry.listAll();
 
     const healthResults = await Promise.all(entries.map((entry) => registry.checkHealth(entry.projectPath)));
@@ -925,13 +919,13 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Required: projectPaths (string[])' };
     }
 
-    const catCafeRoot = getProjectRoot();
+    const officeClawRoot = getProjectRoot();
     const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
-    const registry = new GovernanceRegistry(catCafeRoot);
+    const registry = new GovernanceRegistry(officeClawRoot);
 
     const unsynced: string[] = [];
     for (const pp of body.projectPaths) {
-      if (typeof pp !== 'string' || pp === 'default' || pp === catCafeRoot) continue;
+      if (typeof pp !== 'string' || pp === 'default' || pp === officeClawRoot) continue;
       const entry = await registry.get(pp);
       if (!entry) {
         unsynced.push(pp);

@@ -197,7 +197,7 @@ trap cleanup EXIT INT TERM
 
 # ─── Preflight checks ───────────────────────────────────────────────
 
-log "${GREEN}=== Clowder AI macOS Bundled Startup ===${NC}"
+log "${GREEN}=== OfficeClaw macOS Bundled Startup ===${NC}"
 
 if [ ! -x "$BUNDLED_NODE" ]; then
     log "${RED}  ✗ Bundled Node.js not found at $BUNDLED_NODE${NC}"
@@ -331,7 +331,7 @@ wait_for_port "$WEB_PORT" "Frontend" 30 || exit 1
 write_runtime_state
 
 log ""
-log "${GREEN}=== Clowder AI is running ===${NC}"
+log "${GREEN}=== OfficeClaw is running ===${NC}"
 log "  Frontend: http://localhost:$WEB_PORT"
 log "  API:      http://localhost:$API_PORT"
 log "  Redis:    redis://localhost:$REDIS_PORT"

@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type CatId, catRegistry, type RichBlock } from '@clowder/shared';
+import { type CatId, officeClawRegistry, type RichBlock } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { ConnectorMessageFormatter, type MessageEnvelope, type MessageOrigin } from './ConnectorMessageFormatter.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
@@ -151,7 +151,7 @@ export class OutboundDeliveryHook {
       }
     }
 
-    const entry = catId ? catRegistry.tryGet(catId) : undefined;
+    const entry = catId ? officeClawRegistry.tryGet(catId) : undefined;
     const catDisplayName = entry?.config.displayName ?? '';
     const textPrefix = !presentation?.suppressCatPrefix && catDisplayName ? `[${catDisplayName}] ` : '';
     const finalContent = `${textPrefix}${content}`;
@@ -311,7 +311,7 @@ export class OutboundDeliveryHook {
     if (!match) return null;
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
     const buffer = Buffer.from(match[2], 'base64');
-    const filePath = join(tmpdir(), `cat-cafe-img-${randomBytes(8).toString('hex')}.${ext}`);
+    const filePath = join(tmpdir(), `office-claw-img-${randomBytes(8).toString('hex')}.${ext}`);
     await writeFile(filePath, buffer);
     return filePath;
   }

@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, ConnectorSource, MessageContent, RichMessageExtra, ErrorFallbackMetadata } from '@clowder/shared';
+import type { CatId, ConnectorSource, MessageContent, RichMessageExtra, ErrorFallbackMetadata } from '@office-claw/shared';
 import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
@@ -69,7 +69,7 @@ export interface StoredMessage {
   };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
-  /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
+  /** F057-C2: Whether this message mentions the user (@user / @用户) */
   mentionsUser?: boolean;
   timestamp: number;
   /** F045: Extended thinking content (accumulated from CLI thinking blocks). Persisted for F5 recovery. */

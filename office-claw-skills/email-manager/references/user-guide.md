@@ -43,11 +43,11 @@ python scripts/wincred_store.py set --kind smtp --user "your-email@example.com" 
   "imap_host": "imap.qq.com",
   "imap_port": 993,
   "imap_user": "your-email@qq.com",
-  "imap_pass_ref": "wincred://Clowder/email-manager/imap/your-email%40qq.com",
+  "imap_pass_ref": "wincred://OfficeClaw/email-manager/imap/your-email%40qq.com",
   "smtp_host": "smtp.qq.com",
   "smtp_port": 587,
   "smtp_user": "your-email@qq.com",
-  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/your-email%40qq.com",
+  "smtp_pass_ref": "wincred://OfficeClaw/email-manager/smtp/your-email%40qq.com",
   "smtp_from": "your-email@qq.com"
 }
 ```

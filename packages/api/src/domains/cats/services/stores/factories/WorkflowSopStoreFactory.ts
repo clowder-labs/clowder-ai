@@ -4,7 +4,7 @@
  *
  */
 
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { IWorkflowSopStore } from '../ports/WorkflowSopStore.js';
 import { RedisWorkflowSopStore } from '../redis/RedisWorkflowSopStore.js';
 

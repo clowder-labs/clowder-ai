@@ -18,7 +18,7 @@ import {
   HUB_GROUPS,
   type HubTabId,
   resolveRequestedHubTab,
-} from './cat-cafe-hub.navigation';
+} from './office-claw-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCatEditor } from './HubCatEditor';
@@ -33,8 +33,8 @@ import { HubSkillsTab } from './HubSkillsTab';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
-export type { HubTabId } from './cat-cafe-hub.navigation';
-export { findGroupForTab, resolveRequestedHubTab } from './cat-cafe-hub.navigation';
+export type { HubTabId } from './office-claw-hub.navigation';
+export { findGroupForTab, resolveRequestedHubTab } from './office-claw-hub.navigation';
 
 /* ─── Main Hub modal ─── */
 export function CatCafeHub() {

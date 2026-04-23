@@ -25,9 +25,9 @@ const CONFIG: ConfigData & {
     color: { primary: '#E29578', secondary: '#FFE4D6' },
   },
   cats: {
-    opus: { displayName: '布偶猫', provider: 'anthropic', model: 'claude-opus-4-5-20250214', mcpSupport: true },
-    codex: { displayName: '缅因猫', provider: 'openai', model: 'codex-2025-03', mcpSupport: false },
-    antigravity: { displayName: '孟加拉猫', provider: 'antigravity', model: 'gemini-bridge', mcpSupport: false },
+    opus: { displayName: 'Claude', provider: 'anthropic', model: 'claude-opus-4-5-20250214', mcpSupport: true },
+    codex: { displayName: 'Codex', provider: 'openai', model: 'codex-2025-03', mcpSupport: false },
+    antigravity: { displayName: 'Antigravity', provider: 'antigravity', model: 'gemini-bridge', mcpSupport: false },
   },
   perCatBudgets: {
     opus: { maxPromptTokens: 150000, maxContextTokens: 200000, maxMessages: 50, maxContentLengthPerMsg: 64000 },
@@ -41,14 +41,14 @@ const CONFIG: ConfigData & {
 const CATS: CatData[] = [
   {
     id: 'opus',
-    displayName: '布偶猫 Opus',
-    breedDisplayName: '布偶猫',
+    displayName: 'Claude Opus',
+    breedDisplayName: 'Claude',
     nickname: '宪宪',
     provider: 'anthropic',
     accountRef: 'claude',
     defaultModel: 'claude-opus-4-5',
     color: { primary: '#6366f1', secondary: '#818cf8' },
-    mentionPatterns: ['@opus', '@布偶猫'],
+    mentionPatterns: ['@opus', '@claude'],
     avatar: '',
     roleDescription: '',
     personality: '',
@@ -63,14 +63,14 @@ const CATS: CatData[] = [
   },
   {
     id: 'codex',
-    displayName: '缅因猫 Codex',
-    breedDisplayName: '缅因猫',
+    displayName: 'Codex GPT',
+    breedDisplayName: 'Codex',
     nickname: '砚砚',
     provider: 'openai',
     accountRef: 'sponsor1',
     defaultModel: 'codex',
     color: { primary: '#22c55e', secondary: '#4ade80' },
-    mentionPatterns: ['@codex', '@缅因猫'],
+    mentionPatterns: ['@codex', '@assistant'],
     avatar: '',
     roleDescription: '',
     personality: '',
@@ -85,14 +85,14 @@ const CATS: CatData[] = [
   },
   {
     id: 'antigravity',
-    displayName: '孟加拉猫 Antigravity',
-    breedDisplayName: '孟加拉猫',
+    displayName: 'Antigravity Browser',
+    breedDisplayName: 'Antigravity',
     nickname: '阿吉',
     provider: 'antigravity',
     defaultModel: 'gemini-bridge',
     commandArgs: ['npx', 'antigravity', '--bridge'],
     color: { primary: '#f59e0b', secondary: '#fcd34d' },
-    mentionPatterns: ['@antigravity', '@孟加拉猫'],
+    mentionPatterns: ['@antigravity', '@browser'],
     avatar: '',
     roleDescription: '',
     personality: '',
@@ -121,19 +121,19 @@ describe('CatOverviewTab', () => {
     expect(html).toContain('Owner');
     expect(html).toContain('#E29578');
     expect(html).toContain('/avatars/owner-custom.png');
-    expect(html.indexOf('Co-worker')).toBeLessThan(html.indexOf('布偶猫 · 宪宪'));
+    expect(html.indexOf('Co-worker')).toBeLessThan(html.indexOf('Claude · 宪宪'));
     expect(html).toContain('全部');
     expect(html).toContain('订阅');
     expect(html).toContain('API Key');
     expect(html).toContain('未启用');
-    expect(html.indexOf('+ 添加成员')).toBeLessThan(html.indexOf('布偶猫 · 宪宪'));
-    expect(html).toContain('布偶猫 · 宪宪');
-    expect(html).toContain('缅因猫 · 砚砚');
-    expect(html).toContain('孟加拉猫 · 阿吉');
+    expect(html.indexOf('+ 添加成员')).toBeLessThan(html.indexOf('Claude · 宪宪'));
+    expect(html).toContain('Claude · 宪宪');
+    expect(html).toContain('Codex · 砚砚');
+    expect(html).toContain('Antigravity · 阿吉');
     expect(html).toContain('内置 OAuth 账号');
     expect(html).toContain('API Key · sponsor1');
     expect(html).toContain('已启用');
-    expect(html).toContain('@布偶猫');
+    expect(html).toContain('@claude');
     expect(html).toContain('只能编辑，不能新增或删除');
     expect(html).toContain('点击任意卡片进入成员配置');
     expect(html).toContain('gemini-bridge');

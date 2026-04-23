@@ -8,7 +8,7 @@
  * Limb Types — F126 四肢控制面
  *
  * 四肢节点的类型定义：接口、能力、状态、权限。
- * 猫猫是灵魂议会的议员，四肢是外部设备/节点。
+ * 智能体是灵魂议会的议员，四肢是外部设备/节点。
  */
 
 // ─── Node Status ─────────────────────────────────────────────
@@ -57,7 +57,7 @@ export interface LimbInvokeResult {
  * ILimbNode — 所有四肢必须实现的接口
  *
  * 四肢是外部设备/节点（iPhone, Windows 机, Mac Mini, Watch 等），
- * 不是猫猫 Provider（AgentService 不变）。
+ * 不是智能体 Provider（AgentService 不变）。
  */
 export interface ILimbNode {
   /** 节点唯一 ID */

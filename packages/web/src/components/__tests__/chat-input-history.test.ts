@@ -30,9 +30,9 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-        mentionPatterns: ['布偶猫'],
+        mentionPatterns: ['Claude'],
         provider: 'anthropic',
         defaultModel: 'opus',
         avatar: '/a.png',
@@ -233,7 +233,7 @@ describe('ChatInput history completion', () => {
     // Mention menu should be gone
     const mentionMenuAfter = container.querySelectorAll('[class*="absolute bottom-full"]');
     // Only the search modal should be positioned absolute, not the mention menu
-    const hasMentionMenu = Array.from(mentionMenuAfter).some((el) => el.textContent?.includes('布偶猫'));
+    const hasMentionMenu = Array.from(mentionMenuAfter).some((el) => el.textContent?.includes('Claude'));
     expect(hasMentionMenu).toBe(false);
   });
 
@@ -253,10 +253,10 @@ describe('ChatInput history completion', () => {
 
     // Now type @ to trigger mention — this changes input programmatically
     act(() => {
-      typeInto(getTextarea(), '@布偶猫 ');
+      typeInto(getTextarea(), '@Claude ');
     });
     const ghostAfter = container.querySelector('[data-testid="ghost-suggestion"]');
-    // Ghost should be gone — no history entry starts with "@布偶猫 "
+    // Ghost should be gone — no history entry starts with "@Claude "
     expect(ghostAfter).toBeNull();
   });
 

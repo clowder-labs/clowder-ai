@@ -56,7 +56,7 @@ vi.mock('@/hooks/usePathCompletion', () => ({
 vi.mock('@/utils/skill-options-cache', () => ({
   fetchSkillOptionsWithCache: vi.fn(),
   seedSkillOptionsCache: vi.fn(),
-  SKILL_OPTIONS_UPDATED_EVENT: 'cat-cafe:skill-options-updated',
+  SKILL_OPTIONS_UPDATED_EVENT: 'office-claw:skill-options-updated',
 }));
 
 const mockFetchSkillOptionsWithCache = vi.mocked(fetchSkillOptionsWithCache);
@@ -126,7 +126,7 @@ describe('ChatInput skill refresh', () => {
     expect(container.textContent).not.toContain('beta-skill');
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent('cat-cafe:skill-options-updated'));
+      window.dispatchEvent(new CustomEvent('office-claw:skill-options-updated'));
     });
     await flush();
 

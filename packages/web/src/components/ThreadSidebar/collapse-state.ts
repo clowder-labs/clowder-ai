@@ -8,7 +8,7 @@
  * F095 Phase A: Collapse state persistence logic (pure functions, no React).
  */
 
-export const STORAGE_KEY = 'cat-cafe:sidebar:collapsed-groups';
+export const STORAGE_KEY = 'office-claw:sidebar:collapsed-groups';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -87,7 +87,7 @@ export function collapseAllGroups(allKnownKeys: string[]): Set<string> {
 /**
  * Find the group key that contains a given thread ID.
  * When a thread appears in multiple groups (e.g. both 'recent' and a project group),
- * prefer project/pinned groups over 'recent' to avoid sidebar jumping. (clowder-ai#89)
+ * prefer project/pinned groups over 'recent' to avoid sidebar jumping. (office-claw#89)
  */
 export function findGroupKeyForThread(
   threadId: string,

@@ -59,7 +59,7 @@ created: 2026-04-21
 
 provider runtime replay 的核心不是“把所有 provider 都拆成独立 npm 包”，而是先把主调用链的边界切干净：
 
-1. `@clowder/core` 承载 provider plugin contract 和 registry
+1. `@office-claw/core` 承载 provider plugin contract 和 registry
 2. API 主流程改成“读取 provider → 通过 registry 找 plugin → 创建 service”
 3. provider-specific 的 builtin client / expected protocol / binding validation 收口到 plugin 边界
 4. `provider-a2a` / `provider-echo` 作为样板与 discovery 验证
@@ -104,7 +104,7 @@ provider runtime replay 的核心不是“把所有 provider 都拆成独立 npm
 
 auth 这一半最终补齐后，公共 contract 变成：
 
-1. `@clowder/plugin-api/auth`
+1. `@office-claw/plugin-api/auth`
 
 核心接口是 `AuthProvider`，职责边界很明确：
 
@@ -238,7 +238,7 @@ auth replay 最终通过的验证包括：
 1. **代码已完成**
 2. **review 已完成**
 3. **分支已收口**
-4. **剩余工作主要是铲屎官的端到端验收**
+4. **剩余工作主要是用户的端到端验收**
 
 ## 7. 为什么最终只保留一条分支
 

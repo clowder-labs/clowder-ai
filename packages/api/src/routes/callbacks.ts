@@ -9,8 +9,8 @@
  * 安全: 每个请求都需要 invocationId + callbackToken 验证。
  */
 
-import type { CatId, RichBlock } from '@clowder/shared';
-import { catRegistry, createCatId, normalizeRichBlock } from '@clowder/shared';
+import type { CatId, RichBlock } from '@office-claw/shared';
+import { officeClawRegistry, createCatId, normalizeRichBlock } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
@@ -375,7 +375,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return EXPIRED_CREDENTIALS_ERROR;
     }
 
-    // Stale callback guard (cloud Codex P1 + 缅因猫 R3): reject callbacks from
+    // Stale callback guard (cloud Codex P1 + Codex R3): reject callbacks from
     // preempted invocations. A newer invocation for the same thread+cat supersedes.
     // Return 200 + stale_ignored to avoid retry storms from the dying CLI process.
     if (!registry.isLatest(invocationId)) {
@@ -456,7 +456,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Filter out invalid catIds (e.g. "default-user") — graceful degradation, not 400
     const validExplicitTargets: CatId[] = [];
     for (const id of explicitTargetCats ?? []) {
-      if (catRegistry.has(id)) {
+      if (officeClawRegistry.has(id)) {
         validExplicitTargets.push(createCatId(id));
       } else {
         app.log.warn(
@@ -834,7 +834,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return EXPIRED_CREDENTIALS_ERROR;
     }
 
-    if (filterCatId && filterCatId !== 'user' && !catRegistry.has(filterCatId)) {
+    if (filterCatId && filterCatId !== 'user' && !officeClawRegistry.has(filterCatId)) {
       reply.status(400);
       return { error: `Unknown catId filter: ${filterCatId}` };
     }
@@ -853,7 +853,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     let filtered: Awaited<ReturnType<typeof messageStore.getByThread>>;
 
     // F35: Viewer for whisper filtering.
-    // Debug mode: cats see everything (like 铲屎官) — full transparency for debugging.
+    // Debug mode: cats see everything (like 用户) — full transparency for debugging.
     // Play mode: cats only see whispers addressed to them — game privacy.
     const viewer = needsPlayFilter
       ? { type: 'cat' as const, catId: createCatId(record.catId) }

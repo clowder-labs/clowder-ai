@@ -97,7 +97,7 @@ describe('model config profiles routes', () => {
         baseUrl: 'https://proxy.example.com/v1',
         apiKey: 'sk-proxy',
         headers: {
-          'X-App-Id': 'cat-cafe',
+          'X-App-Id': 'office-claw',
         },
         models: ['gpt-4o-mini', 'deepseek-chat'],
       }),
@@ -115,7 +115,7 @@ describe('model config profiles routes', () => {
       displayName: 'My OpenAI Proxy',
       baseUrl: 'https://proxy.example.com/v1',
       apiKey: 'sk-proxy',
-      headers: { 'X-App-Id': 'cat-cafe' },
+      headers: { 'X-App-Id': 'office-claw' },
       models: [{ id: 'gpt-4o-mini' }, { id: 'deepseek-chat' }],
     });
 

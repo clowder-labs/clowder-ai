@@ -15,8 +15,8 @@
  * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands.
  */
 
-import type { AuthorizationAuditEntry, CatId, RespondScope } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { AuthorizationAuditEntry, CatId, RespondScope } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { CreateAuditInput, IAuthorizationAuditStore } from '../ports/AuthorizationAuditStore.js';
 import { generateSortableId } from '../ports/MessageStore.js';
 import { AuthAuditKeys } from '../redis-keys/authorization-keys.js';

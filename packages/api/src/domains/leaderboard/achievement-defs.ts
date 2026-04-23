@@ -8,7 +8,7 @@
  * F075 Phase C — Achievement badge definitions
  * Static catalog of all unlockable achievements (CVO + daily).
  */
-import type { Achievement } from '@clowder/shared';
+import type { Achievement } from '@office-claw/shared';
 
 type AchievementDef = Omit<Achievement, 'unlockedAt'>;
 

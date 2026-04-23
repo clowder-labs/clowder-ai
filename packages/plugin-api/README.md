@@ -1,17 +1,17 @@
-# @clowder/plugin-api
+# @office-claw/plugin-api
 
-Plugin contracts for Cat Cafe extensions. Auth is the first extension point.
+Plugin contracts for OfficeClaw extensions. Auth is the first extension point.
 
 ## Install
 
 ```bash
-pnpm add @clowder/plugin-api
+pnpm add @office-claw/plugin-api
 ```
 
 ## Auth Provider Contract
 
 ```ts
-import type { AuthProvider } from '@clowder/plugin-api/auth';
+import type { AuthProvider } from '@office-claw/plugin-api/auth';
 
 const myProvider: AuthProvider = {
   id: 'my-provider',

@@ -8,7 +8,7 @@
  * F075 — Mention stats computation
  * Pure functions: input messages → output ranked stats
  */
-import type { MentionStats, RankedCat, StreakCat } from '@clowder/shared';
+import type { MentionStats, RankedCat, StreakCat } from '@office-claw/shared';
 
 export interface MessageLike {
   id: string;
@@ -110,7 +110,7 @@ export function computeMentionStats(
   const dateSets = new Map<string, Set<string>>(); // catId → set of date keys
 
   for (const msg of messages) {
-    // Mention-based rankings should reflect 铲屎官/owner mentions only.
+    // Mention-based rankings should reflect 用户/owner mentions only.
     // Exclude cat-authored messages AND connector-sourced messages (catId is also null).
     if (!msg.catId && !msg.source?.connector) {
       for (const catId of msg.mentions) {

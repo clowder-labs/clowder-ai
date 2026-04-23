@@ -1,6 +1,6 @@
 # macOS Packaging Workspace
 
-This directory centralizes the macOS-specific packaging work for Clowder AI.
+This directory centralizes the macOS-specific packaging work for OfficeClaw.
 
 ## Structure
 

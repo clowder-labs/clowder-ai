@@ -42,7 +42,7 @@ describe('inputHistoryStore', () => {
     useInputHistoryStore.getState().addEntry('hello world');
     expect(useInputHistoryStore.getState().entries).toEqual(['hello world']);
     expect(mockLocalStorage.setItem).toHaveBeenCalled();
-    const stored = JSON.parse(mockStorage['cat-cafe-input-history']);
+    const stored = JSON.parse(mockStorage['office-claw-input-history']);
     expect(stored).toEqual(['hello world']);
   });
 
@@ -131,19 +131,19 @@ describe('inputHistoryStore', () => {
   });
 
   it('loads from localStorage on init', () => {
-    mockStorage['cat-cafe-input-history'] = JSON.stringify(['saved-1', 'saved-2']);
+    mockStorage['office-claw-input-history'] = JSON.stringify(['saved-1', 'saved-2']);
     useInputHistoryStore.getState().loadFromStorage();
     expect(useInputHistoryStore.getState().entries).toEqual(['saved-1', 'saved-2']);
   });
 
   it('recovers from corrupted localStorage', () => {
-    mockStorage['cat-cafe-input-history'] = 'not-json!!!';
+    mockStorage['office-claw-input-history'] = 'not-json!!!';
     useInputHistoryStore.getState().loadFromStorage();
     expect(useInputHistoryStore.getState().entries).toEqual([]);
   });
 
   it('filters non-string entries from localStorage', () => {
-    mockStorage['cat-cafe-input-history'] = JSON.stringify(['valid', 42, null, 'also-valid']);
+    mockStorage['office-claw-input-history'] = JSON.stringify(['valid', 42, null, 'also-valid']);
     useInputHistoryStore.getState().loadFromStorage();
     expect(useInputHistoryStore.getState().entries).toEqual(['valid', 'also-valid']);
   });
@@ -153,6 +153,6 @@ describe('inputHistoryStore', () => {
     store.addEntry('will be cleared');
     store.clearHistory();
     expect(useInputHistoryStore.getState().entries).toEqual([]);
-    expect(mockStorage['cat-cafe-input-history']).toBeUndefined();
+    expect(mockStorage['office-claw-input-history']).toBeUndefined();
   });
 });

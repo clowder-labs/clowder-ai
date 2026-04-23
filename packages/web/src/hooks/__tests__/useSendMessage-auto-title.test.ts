@@ -35,7 +35,7 @@ vi.mock('@/hooks/useChatCommands', () => ({
 
 vi.mock('@/lib/mention-highlight', () => ({
   getMentionToCat: () => ({
-    '布偶': 'ragdoll',
+    'Claude': 'ragdoll',
     ragdoll: 'ragdoll',
   }),
 }));
@@ -157,7 +157,7 @@ describe('useSendMessage auto title', () => {
     await act(async () => {
       root.render(
         React.createElement(SendRunner, {
-          content: '@布偶 帮我整理发布清单',
+          content: '@Claude 帮我整理发布清单',
           onDone: () => {},
         }),
       );

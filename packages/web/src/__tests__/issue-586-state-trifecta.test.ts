@@ -5,7 +5,7 @@
  */
 
 /**
- * Issue #586: 前端状态三连击 — 气泡裂变 + 猫状态不准 + 未读点复活
+ * Issue #586: 前端状态三连击 — 气泡裂变 + 智能体状态不准 + 未读点复活
  *
  * Regression tests for the three interlinked bugs:
  * - Bug 1 (TD112): callback-before-stream creates duplicate bubbles

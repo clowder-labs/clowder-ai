@@ -11,7 +11,7 @@
 
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { clearBudgetCache, getAllCatBudgets, getCatContextBudget } from '../dist/config/cat-budgets.js';
+import { clearBudgetCache, getAllCatBudgets, getCatContextBudget } from '../dist/config/office-claw-budgets.js';
 
 describe('getCatContextBudget', () => {
   beforeEach(() => {

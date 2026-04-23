@@ -59,7 +59,7 @@ describe('auto-replyTo: worklist path (a2aTriggerMessageId)', () => {
       messageStore,
       socketManager,
       invocationRecordStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
     });
     return app;
   }

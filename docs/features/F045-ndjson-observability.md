@@ -8,7 +8,7 @@ created: 2026-02-27
 
 # F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化
 
-> **Status**: done (Phase 1+2 合并交付, PR #88) | **Owner**: Ragdoll
+> **Status**: done (Phase 1+2 合并交付, PR #88) | **Owner**: Claude
 > **Created**: 2026-02-27
 > **Priority**: P1
 
@@ -23,8 +23,8 @@ created: 2026-02-27
 | **Gemini** | `message/assistant`, `tool_use`, `init`, `result/error` | （暂不在本 Feature 范围，Gemini CLI 事件较少） |
 
 **team lead痛点**：
-1. 猫猫在想什么？前端看不到 thinking
-2. 猫猫的计划进度？只能从自然语言硬抽，很脆弱
+1. 智能体在想什么？前端看不到 thinking
+2. 智能体的计划进度？只能从自然语言硬抽，很脆弱
 3. 出错了为什么？只显示笼统的 "error"，不知道是超 turn、超预算还是运行时异常
 4. 多猫并行时，不知道每只猫做到哪了
 5. token 消耗只在调用结束后才能看到，没有实时感知
@@ -151,7 +151,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 | thinking 跨猫 | **暂不做**（遗留） | 存+按需查阅 | team lead："不然过度设计" |
 | plan 位置 | 右侧看板（复用 RightStatusPanel） | 消息流内嵌 | 已有基础设施，全局性 |
 | plan 互操作 | 全局可见 + TaskStore 同步 | 仅本猫可见 | 多猫协调基础 |
-| web_search query | 默认只计数，不落盘 | 完整记录 | 隐私安全（Maine Coon建议） |
+| web_search query | 默认只计数，不落盘 | 完整记录 | 隐私安全（Codex建议） |
 | token/cost | **不做**，保持原状 | 重做 HUD | 已有（F24），不重复 |
 | AgentMessageType | 不新增 type | 新增 thinking/plan_update/telemetry | 保持接口稳定 |
 
@@ -181,8 +181,8 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| 本地 R1 | Maine Coon/Codex | P0(auth)+P1(persistence)+P2(ghost) → 修复 | 2026-02-27 |
-| 本地 R2 | Maine Coon/Codex | 通过，建议"重启项目"→"浏览器刷新/页面重载" | 2026-02-27 |
+| 本地 R1 | Codex/Codex | P0(auth)+P1(persistence)+P2(ghost) → 修复 | 2026-02-27 |
+| 本地 R2 | Codex/Codex | 通过，建议"重启项目"→"浏览器刷新/页面重载" | 2026-02-27 |
 | 云端 R1 | Codex (GitHub) | 1P1 (targetCats 未恢复) → 修复 | 2026-02-28 |
 | 云端 R2 | Codex (GitHub) | 1P2 (HTTP race 覆盖 WS 状态) → 修复 | 2026-02-28 |
 | 云端 R3 | Codex (GitHub) | 2P2 (cache 泄漏 + 空 progress 恢复) → 修复 | 2026-02-28 |
@@ -214,7 +214,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 ### Gap #2: thinkingMode 默认值可能导致跨猫泄露 ✅ 已验证无泄露 (2026-02-28)
 
-**发现者**：Maine Coon/GPT-52
+**发现者**：Codex/GPT-52
 
 **问题（历史担忧）**：`RedisThreadStore` 的 `thinkingMode` 默认是 `debug`。我们担心 debug 模式下 🧠 Thinking 可能被传递给其他猫作为上下文，违背team lead“🧠 Thinking 永不跨猫”的约束。
 

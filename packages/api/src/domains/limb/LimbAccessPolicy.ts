@@ -8,10 +8,10 @@
  * LimbAccessPolicy — F126 Phase B 三维权限检查
  *
  * catId × nodeId × capability → authLevel
- * 三级授权：free（直接通过）/ leased（需要租约）/ gated（需要铲屎官审批）
+ * 三级授权：free（直接通过）/ leased（需要租约）/ gated（需要用户审批）
  */
 
-import type { LimbAccessEntry, LimbAuthLevel, LimbCapability } from '@clowder/shared';
+import type { LimbAccessEntry, LimbAuthLevel, LimbCapability } from '@office-claw/shared';
 
 export class LimbAccessPolicy {
   private readonly policies = new Map<string, LimbAccessEntry>();

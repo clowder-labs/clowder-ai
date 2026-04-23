@@ -34,7 +34,7 @@ describe('workspace file management endpoints', () => {
     const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
 
     const worktrees = await listWorktrees();
-    const thisWt = worktrees.find((w) => w.root.endsWith('cat-cafe-f063-gap4'));
+    const thisWt = worktrees.find((w) => w.root.endsWith('office-claw-f063-gap4'));
     const wt = thisWt ?? worktrees[0];
     worktreeId = wt.id;
     wtRoot = wt.root;

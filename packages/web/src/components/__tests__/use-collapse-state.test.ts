@@ -29,7 +29,7 @@ function createMockStorage(): StorageLike & { store: Map<string, string> } {
   };
 }
 
-const ALL_KEYS = ['pinned', '/proj/cat-cafe', '/proj/dare', 'favorites'];
+const ALL_KEYS = ['pinned', '/proj/office-claw', '/proj/dare', 'favorites'];
 
 // ── initCollapsedSet ──────────────────────────────────
 
@@ -50,7 +50,7 @@ describe('initCollapsedSet', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(['pinned']));
     const set = initCollapsedSet(ALL_KEYS, storage);
     expect(set.has('pinned')).toBe(true);
-    expect(set.has('/proj/cat-cafe')).toBe(false);
+    expect(set.has('/proj/office-claw')).toBe(false);
     expect(set.has('/proj/dare')).toBe(false);
   });
 
@@ -81,7 +81,7 @@ describe('initCollapsedSet', () => {
 
 describe('persistence round-trip', () => {
   // AC-A4: storage key has namespace prefix
-  it('uses namespaced key cat-cafe:sidebar:collapsed-groups', () => {
+  it('uses namespaced key office-claw:sidebar:collapsed-groups', () => {
     const storage = createMockStorage();
     writeCollapsedGroups(['pinned', '/proj/dare'], storage);
     const raw = storage.store.get(STORAGE_KEY);
@@ -91,9 +91,9 @@ describe('persistence round-trip', () => {
 
   it('readCollapsedGroups returns what writeCollapsedGroups stored', () => {
     const storage = createMockStorage();
-    writeCollapsedGroups(['/proj/cat-cafe'], storage);
+    writeCollapsedGroups(['/proj/office-claw'], storage);
     const result = readCollapsedGroups(storage);
-    expect(result).toEqual(['/proj/cat-cafe']);
+    expect(result).toEqual(['/proj/office-claw']);
   });
 
   it('readCollapsedGroups returns null when nothing stored', () => {
@@ -117,7 +117,7 @@ describe('shouldCollapse', () => {
     const collapsed = new Set(['pinned', '/proj/dare']);
     expect(shouldCollapse('pinned', collapsed, '')).toBe(true);
     expect(shouldCollapse('/proj/dare', collapsed, '')).toBe(true);
-    expect(shouldCollapse('/proj/cat-cafe', collapsed, '')).toBe(false);
+    expect(shouldCollapse('/proj/office-claw', collapsed, '')).toBe(false);
   });
 
   it('returns false for groups not in collapsed set', () => {
@@ -131,14 +131,14 @@ describe('shouldCollapse', () => {
 describe('findGroupKeyForThread', () => {
   const groups = [
     { groupKey: 'pinned', threadIds: ['p1'] },
-    { groupKey: '/proj/cat-cafe', threadIds: ['t1', 't2'] },
+    { groupKey: '/proj/office-claw', threadIds: ['t1', 't2'] },
     { groupKey: '/proj/dare', threadIds: ['t3'] },
     { groupKey: 'favorites', threadIds: ['f1'] },
   ];
 
   // AC-A6: Find group containing active thread
   it('finds the group containing the given thread', () => {
-    expect(findGroupKeyForThread('t1', groups)).toBe('/proj/cat-cafe');
+    expect(findGroupKeyForThread('t1', groups)).toBe('/proj/office-claw');
     expect(findGroupKeyForThread('p1', groups)).toBe('pinned');
     expect(findGroupKeyForThread('f1', groups)).toBe('favorites');
   });
@@ -147,16 +147,16 @@ describe('findGroupKeyForThread', () => {
     expect(findGroupKeyForThread('unknown', groups)).toBeUndefined();
   });
 
-  // clowder-ai#89: thread in both recent + project should prefer project
+  // office-claw#89: thread in both recent + project should prefer project
   it('prefers project group over recent when thread appears in both', () => {
     const groupsWithRecent = [
       { groupKey: 'pinned', threadIds: ['p1'], type: 'pinned' as const },
       { groupKey: 'recent', threadIds: ['t1', 't3'], type: 'recent' as const },
-      { groupKey: '/proj/cat-cafe', threadIds: ['t1', 't2'], type: 'project' as const },
+      { groupKey: '/proj/office-claw', threadIds: ['t1', 't2'], type: 'project' as const },
       { groupKey: '/proj/dare', threadIds: ['t3'], type: 'project' as const },
     ];
-    // t1 is in both recent and /proj/cat-cafe → should return project
-    expect(findGroupKeyForThread('t1', groupsWithRecent)).toBe('/proj/cat-cafe');
+    // t1 is in both recent and /proj/office-claw → should return project
+    expect(findGroupKeyForThread('t1', groupsWithRecent)).toBe('/proj/office-claw');
     // t3 is in both recent and /proj/dare → should return project
     expect(findGroupKeyForThread('t3', groupsWithRecent)).toBe('/proj/dare');
   });
@@ -164,7 +164,7 @@ describe('findGroupKeyForThread', () => {
   it('falls back to recent if thread is only in recent', () => {
     const groupsWithRecent = [
       { groupKey: 'recent', threadIds: ['r1'], type: 'recent' as const },
-      { groupKey: '/proj/cat-cafe', threadIds: ['t1'], type: 'project' as const },
+      { groupKey: '/proj/office-claw', threadIds: ['t1'], type: 'project' as const },
     ];
     expect(findGroupKeyForThread('r1', groupsWithRecent)).toBe('recent');
   });
@@ -178,8 +178,8 @@ describe('expandAllGroups / collapseAllGroups', () => {
   });
 
   it('collapseAllGroups collapses ALL known keys, not just filtered subset', () => {
-    const allKnown = ['pinned', '/proj/cat-cafe', '/proj/dare', 'favorites'];
-    const filteredVisible = ['pinned', '/proj/cat-cafe']; // simulates search filter
+    const allKnown = ['pinned', '/proj/office-claw', '/proj/dare', 'favorites'];
+    const filteredVisible = ['pinned', '/proj/office-claw']; // simulates search filter
 
     // The bug: using filteredVisible would miss /proj/dare and favorites
     const result = collapseAllGroups(allKnown);
@@ -200,7 +200,7 @@ describe('shouldCollapseBeforeInit', () => {
   it('returns true (collapsed) for any group before storage is read', () => {
     // Before init, everything should appear collapsed to prevent flicker
     expect(shouldCollapseBeforeInit('pinned')).toBe(true);
-    expect(shouldCollapseBeforeInit('/proj/cat-cafe')).toBe(true);
+    expect(shouldCollapseBeforeInit('/proj/office-claw')).toBe(true);
     expect(shouldCollapseBeforeInit('unknown-group')).toBe(true);
   });
 });
@@ -225,7 +225,7 @@ describe('resolveCollapse (hook-equivalent logic)', () => {
   it('delegates to shouldCollapse after init', () => {
     const collapsed = new Set(['pinned']);
     expect(resolveCollapse('pinned', collapsed, '', true)).toBe(true);
-    expect(resolveCollapse('/proj/cat-cafe', collapsed, '', true)).toBe(false);
+    expect(resolveCollapse('/proj/office-claw', collapsed, '', true)).toBe(false);
     // search still wins post-init
     expect(resolveCollapse('pinned', collapsed, 'cat', true)).toBe(false);
   });
@@ -237,15 +237,15 @@ describe('independent group collapse', () => {
   it('toggle one group does not affect others (via Set operations)', () => {
     const storage = createMockStorage();
     const collapsed = initCollapsedSet(ALL_KEYS, storage);
-    // Simulate expanding cat-cafe
-    collapsed.delete('/proj/cat-cafe');
-    expect(collapsed.has('/proj/cat-cafe')).toBe(false);
+    // Simulate expanding office-claw
+    collapsed.delete('/proj/office-claw');
+    expect(collapsed.has('/proj/office-claw')).toBe(false);
     expect(collapsed.has('pinned')).toBe(true);
     expect(collapsed.has('/proj/dare')).toBe(true);
     expect(collapsed.has('favorites')).toBe(true);
 
-    // Simulate re-collapsing cat-cafe
-    collapsed.add('/proj/cat-cafe');
-    expect(collapsed.has('/proj/cat-cafe')).toBe(true);
+    // Simulate re-collapsing office-claw
+    collapsed.add('/proj/office-claw');
+    expect(collapsed.has('/proj/office-claw')).toBe(true);
   });
 });

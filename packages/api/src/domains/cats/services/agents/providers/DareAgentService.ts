@@ -17,12 +17,12 @@ import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSy
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:path';
-import { type CatId, createCatId } from '@clowder/shared';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { type CatId, createCatId } from '@office-claw/shared';
+import { getCatModel } from '../../../../../config/office-claw-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
-import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../../../../utils/office-claw-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -324,11 +324,11 @@ function resolveMetadataModel(
 }
 
 export function resolveVendorDarePath(): string {
-  return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare-cli');
+  return join(resolveOfficeClawHostRoot(process.cwd()), 'vendor', 'dare-cli');
 }
 
 export function resolveVendoredDareExecutable(): string {
-  return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare.exe');
+  return join(resolveOfficeClawHostRoot(process.cwd()), 'vendor', 'dare.exe');
 }
 
 function isExistingFile(path: string): boolean {
@@ -386,7 +386,7 @@ export function resolveVenvPython(darePath: string, envPath = process.env.PATH):
     if (existsSync(candidate)) return candidate;
   }
   // Shared Python from Windows installer layout (embeddable + deps in Lib/site-packages)
-  const sharedPython = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python', 'python.exe');
+  const sharedPython = join(resolveOfficeClawHostRoot(process.cwd()), 'tools', 'python', 'python.exe');
   if (existsSync(sharedPython)) return sharedPython;
   return resolveSystemPythonCommand(envPath);
 }
@@ -423,7 +423,7 @@ export function resolveDefaultDarePath(): string | undefined {
   const vendorPath = resolveVendorDarePath();
   if (hasDareModuleEntry(vendorPath)) return vendorPath;
 
-  const legacyPath = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
+  const legacyPath = '/tmp/office-claw-reviews/Deterministic-Agent-Runtime-Engine';
   if (hasDareModuleEntry(legacyPath)) return legacyPath;
 
   return undefined;
@@ -793,10 +793,10 @@ export class DareAgentService implements AgentService {
     env[DARE_API_KEY_ENV] = null;
     env[DARE_ENDPOINT_ENV] = null;
 
-    const projectRoot = resolveCatCafeHostRoot(process.cwd());
-    const catCafeSkillsDir = join(projectRoot, 'office-claw-skills');
-    if (existsSync(catCafeSkillsDir)) {
-      env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
+    const projectRoot = resolveOfficeClawHostRoot(process.cwd());
+    const officeClawSkillsDir = join(projectRoot, 'office-claw-skills');
+    if (existsSync(officeClawSkillsDir)) {
+      env.DARE_SKILL_PATHS = JSON.stringify([officeClawSkillsDir]);
     }
 
     // Windows Python: force UTF-8 stdout/stderr to avoid GBK encode errors on emoji/CJK

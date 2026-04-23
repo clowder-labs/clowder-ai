@@ -8,20 +8,20 @@ created: 2026-03-12
 
 # F108: Side-Dispatch — 同一 Thread 多猫并发执行
 
-> **Status**: in-progress | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: in-progress | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
 team lead作为 CVO，需要在**任何时刻**向**任何猫**派活，且**不打断**正在工作的猫。
 
-当前架构的限制：InvocationTracker 对每个 thread 持有单一执行锁——当Ragdoll在 thread 里修 bug 时，team lead无法同时派Maine Coon在同一 thread 里做架构反思。只能开新 thread（信息孤岛）或等当前猫完成（阻塞 CVO）。
+当前架构的限制：InvocationTracker 对每个 thread 持有单一执行锁——当Claude在 thread 里修 bug 时，team lead无法同时派Codex在同一 thread 里做架构反思。只能开新 thread（信息孤岛）或等当前猫完成（阻塞 CVO）。
 
 team experience（2026-03-12）：
 
-> "赶紧开 worktree 修了他 记住只有Ragdoll去修这个问题！@opus"
-> "@gpt52 你Maine Coon反思你为什么给Ragdoll过了？你回答我这个不要碰代码"
+> "赶紧开 worktree 修了他 记住只有Claude去修这个问题！@opus"
+> "@gpt52 你Codex反思你为什么给Claude过了？你回答我这个不要碰代码"
 
-> "这样的情况我会需要一直和不同的你们交流 甚至我可能就是给Maine Coon一直发悄悄话避免影响你的修复。我会想要 1. 让你修复问题 2. 并发让Maine Coon反思为什么他做的不好 然后如何从架构上改进"
+> "这样的情况我会需要一直和不同的你们交流 甚至我可能就是给Codex一直发悄悄话避免影响你的修复。我会想要 1. 让你修复问题 2. 并发让Codex反思为什么他做的不好 然后如何从架构上改进"
 
 **核心诉求**：同一 feat、同一 thread，team lead并发派不同的猫干相关但不同的事——一边修 bug 一边反思，互不干扰，结果都在同一 thread 可见。
 
@@ -118,16 +118,16 @@ team lead发消息有两种模式：
 
 ## Review Gate
 
-- Phase A: 跨家族 review（架构级改动），Maine Coon review 运行时安全性
+- Phase A: 跨家族 review（架构级改动），Codex review 运行时安全性
 
 ## 需求点 Checklist
 
 | ID | 需求点（team experience/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "让你修复问题，并发让Maine Coon反思" — 同一 thread 同时派两只猫干不同的事 | AC-A1 | integration test: 两猫并发 invocation 互不 abort | [ ] |
-| R2 | "给Maine Coon一直发悄悄话避免影响你的修复" — 锁头 → 选猫 → 悄悄话 | AC-B1, AC-B2 | test: 锁头模式发消息不打断当前猫 + 不能选执行中的猫 | [ ] |
+| R1 | "让你修复问题，并发让Codex反思" — 同一 thread 同时派两只猫干不同的事 | AC-A1 | integration test: 两猫并发 invocation 互不 abort | [ ] |
+| R2 | "给Codex一直发悄悄话避免影响你的修复" — 锁头 → 选猫 → 悄悄话 | AC-B1, AC-B2 | test: 锁头模式发消息不打断当前猫 + 不能选执行中的猫 | [ ] |
 | R3 | 相关但不同的任务在同一 feat/thread 里，结果都可见 | AC-A2 | test: 旁路消息在 thread 中可见 | [ ] |
-| R4 | 涉及 A2A 并发调整，安全性需要强评估 | AC-A5 | 向后兼容测试 + Maine Coon安全 review | [ ] |
+| R4 | 涉及 A2A 并发调整，安全性需要强评估 | AC-A5 | 向后兼容测试 + Codex安全 review | [ ] |
 | R5 | 不点锁头直接发 = 广播，不打断执行猫，下次拉起时收到 | AC-B3, AC-B4 | test: 广播排队 + @ 路由旁路执行 | [ ] |
 
 ### 覆盖检查
@@ -139,18 +139,18 @@ team lead发消息有两种模式：
 
 ```
 场景 1：悄悄话模式（锁头）
-  Ragdoll正在修 bug...
-  team lead → 点 🔒 锁头 → 猫选择器出现（Ragdoll灰掉不能选）
-  team lead → 选Maine Coon → "你反思一下为什么 review 放过了"
-  ✅ Maine Coon开始旁路执行（反思）
-  ✅ Ragdoll不被打断，也看不到这条消息
-  ✅ team lead可以继续用锁头和Maine Coon对话
+  Claude正在修 bug...
+  team lead → 点 🔒 锁头 → 猫选择器出现（Claude灰掉不能选）
+  team lead → 选Codex → "你反思一下为什么 review 放过了"
+  ✅ Codex开始旁路执行（反思）
+  ✅ Claude不被打断，也看不到这条消息
+  ✅ team lead可以继续用锁头和Codex对话
 
 场景 2：广播模式（不点锁头）
-  Ragdoll正在修 bug...
+  Claude正在修 bug...
   team lead → 直接输入 "大家注意，这个 API 的 breaking change 影响范围可能更大"
-  ✅ Ragdoll不被打断，下次拉起 CLI 时收到这条广播
-  ✅ 如果消息里写了 @gpt52，Maine Coon立即开始旁路执行
+  ✅ Claude不被打断，下次拉起 CLI 时收到这条广播
+  ✅ 如果消息里写了 @gpt52，Codex立即开始旁路执行
 
 场景 3：给空闲猫发消息
   没有猫在执行...

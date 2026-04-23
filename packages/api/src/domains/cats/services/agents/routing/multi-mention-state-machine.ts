@@ -4,7 +4,7 @@
  *
  */
 
-import { ALL_MULTI_MENTION_STATUSES, MULTI_MENTION_TERMINAL_STATES, type MultiMentionStatus } from '@clowder/shared';
+import { ALL_MULTI_MENTION_STATUSES, MULTI_MENTION_TERMINAL_STATES, type MultiMentionStatus } from '@office-claw/shared';
 
 /**
  * Multi-Mention State Machine (F086 M1)

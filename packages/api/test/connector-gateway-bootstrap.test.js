@@ -71,7 +71,7 @@ afterEach(() => {
 
 describe('ConnectorGateway Bootstrap', () => {
   it('creates gateway in QR-only mode when no connectors configured', async () => {
-    const hostRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-gateway-qr-only-'));
+    const hostRoot = mkdtempSync(join(tmpdir(), 'office-claw-gateway-qr-only-'));
     try {
       const result = await startConnectorGateway({}, { ...baseDeps, hostRoot });
       assert.ok(result, 'Gateway should be created even without env tokens (for WeChat QR login)');
@@ -383,7 +383,7 @@ describe('ConnectorGateway Bootstrap', () => {
   });
 
   it('restores persisted WeChat bot token across gateway restarts', async () => {
-    const hostRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-weixin-'));
+    const hostRoot = mkdtempSync(join(tmpdir(), 'office-claw-weixin-'));
     const delayedFetch = async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       return {

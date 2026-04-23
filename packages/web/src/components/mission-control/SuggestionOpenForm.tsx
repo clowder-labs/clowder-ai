@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { ThreadPhase } from '@clowder/shared';
+import type { ThreadPhase } from '@office-claw/shared';
 
 export interface SuggestionCatOption {
   id: string;

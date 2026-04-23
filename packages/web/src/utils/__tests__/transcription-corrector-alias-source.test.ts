@@ -7,15 +7,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
-  vi.doUnmock('@clowder/shared');
+  vi.doUnmock('@office-claw/shared');
   vi.resetModules();
 });
 
 describe('transcription-corrector alias source', () => {
   it('follows CAT_CONFIGS mentionPatterns dynamically', async () => {
-    vi.doMock('@clowder/shared', async () => {
-      const actual = await vi.importActual<typeof import('@clowder/shared')>('@clowder/shared');
-      const codexPatterns = [...actual.CAT_CONFIGS.codex.mentionPatterns, '@测试缅因别名'];
+    vi.doMock('@office-claw/shared', async () => {
+      const actual = await vi.importActual<typeof import('@office-claw/shared')>('@office-claw/shared');
+      const codexPatterns = [...actual.CAT_CONFIGS.codex.mentionPatterns, '@测试Codex别名'];
       return {
         ...actual,
         CAT_CONFIGS: {
@@ -29,6 +29,6 @@ describe('transcription-corrector alias source', () => {
     });
 
     const { correctTranscription } = await import('@/utils/transcription-corrector');
-    expect(correctTranscription('at测试缅因别名 出来一下')).toBe('@测试缅因别名 出来一下');
+    expect(correctTranscription('at测试Codex别名 出来一下')).toBe('@测试Codex别名 出来一下');
   });
 });

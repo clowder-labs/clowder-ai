@@ -29,7 +29,7 @@ describe('MCP Callback Tools', () => {
     process.env.OFFICE_CLAW_INVOCATION_ID = 'test-invocation';
     process.env.OFFICE_CLAW_CALLBACK_TOKEN = 'test-token';
     process.env.OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS = '0,0,0';
-    outboxDir = join(tmpdir(), `cat-cafe-mcp-outbox-test-${Date.now()}-${Math.random()}`);
+    outboxDir = join(tmpdir(), `office-claw-mcp-outbox-test-${Date.now()}-${Math.random()}`);
     mkdirSync(outboxDir, { recursive: true });
     process.env.OFFICE_CLAW_CALLBACK_OUTBOX_DIR = outboxDir;
 
@@ -500,7 +500,7 @@ describe('MCP Callback Tools', () => {
       query: 'phase 5 bank policy',
       limit: 4,
       budget: 'high',
-      tags: 'project:cat-cafe,kind:decision',
+      tags: 'project:office-claw,kind:decision',
     });
 
     assert.equal(result.isError, undefined);
@@ -508,7 +508,7 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('q=phase+5+bank+policy'));
     assert.ok(capturedUrl.includes('limit=4'));
     assert.ok(capturedUrl.includes('budget=high'));
-    assert.ok(capturedUrl.includes('tags=project%3Acat-cafe%2Ckind%3Adecision'));
+    assert.ok(capturedUrl.includes('tags=project%3Aoffice-claw%2Ckind%3Adecision'));
   });
 
   test('handleReflectProject posts query to callback reflect endpoint', async () => {
@@ -1090,10 +1090,10 @@ describe('MCP Callback Tools', () => {
       return { ok: true, json: async () => ({ status: 'ok' }) };
     };
 
-    await handleRegisterPrTracking({ repoFullName: 'zts212653/cat-cafe', prNumber: 832 });
+    await handleRegisterPrTracking({ repoFullName: 'zts212653/office-claw', prNumber: 832 });
 
     const body = JSON.parse(capturedOptions.body);
-    assert.equal(body.repoFullName, 'zts212653/cat-cafe');
+    assert.equal(body.repoFullName, 'zts212653/office-claw');
     assert.equal(body.prNumber, 832);
     assert.equal(body.catId, undefined, 'catId must not appear in body when omitted');
     assert.equal(body.invocationId, 'test-invocation');
@@ -1109,11 +1109,11 @@ describe('MCP Callback Tools', () => {
       return { ok: true, json: async () => ({ status: 'ok' }) };
     };
 
-    await handleRegisterPrTracking({ repoFullName: 'zts212653/cat-cafe', prNumber: 100, catId: 'opus' });
+    await handleRegisterPrTracking({ repoFullName: 'zts212653/office-claw', prNumber: 100, catId: 'opus' });
 
     const body = JSON.parse(capturedOptions.body);
     assert.equal(body.catId, 'opus', 'catId must be forwarded when caller provides it');
-    assert.equal(body.repoFullName, 'zts212653/cat-cafe');
+    assert.equal(body.repoFullName, 'zts212653/office-claw');
     assert.equal(body.prNumber, 100);
   });
 });

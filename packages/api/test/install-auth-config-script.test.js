@@ -296,8 +296,8 @@ test('client-auth remove fails when the installer-managed account is still refer
             {
               id: 'runtime-codex',
               catId: 'runtime-codex',
-              name: '运行时缅因猫',
-              displayName: '运行时缅因猫',
+              name: '运行时Codex',
+              displayName: '运行时Codex',
               avatar: '/avatars/codex.png',
               color: { primary: '#16a34a', secondary: '#bbf7d0' },
               mentionPatterns: ['@runtime-codex'],

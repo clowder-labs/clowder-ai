@@ -50,8 +50,8 @@ describe('external provider e2e', () => {
     const sessionStore = new InMemoryAuthSessionStore();
     const authModule = await createAuthModule({
       env: {
-        CAT_CAFE_AUTH_PROVIDER: 'demo-static',
-        CAT_CAFE_AUTH_PROVIDER_MODULES: '@examples/demo-auth-provider',
+        OFFICE_CLAW_AUTH_PROVIDER: 'demo-static',
+        OFFICE_CLAW_AUTH_PROVIDER_MODULES: '@examples/demo-auth-provider',
       },
       moduleLoader: async (specifier) => {
         if (specifier === '@examples/demo-auth-provider') {

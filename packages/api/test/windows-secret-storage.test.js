@@ -78,7 +78,7 @@ describe('windows secret-backed persistence', () => {
       const saved = readFileSync(envFilePath, 'utf8');
       assert.match(saved, /DINGTALK_APP_KEY=ding-key/);
       assert.ok(!saved.includes('ding-secret'));
-      assert.match(saved, /DINGTALK_APP_SECRET_REF=wincred:\/\/Clowder\/env\/DINGTALK_APP_SECRET/);
+      assert.match(saved, /DINGTALK_APP_SECRET_REF=wincred:\/\/OfficeClaw\/env\/DINGTALK_APP_SECRET/);
 
       const ref = process.env.DINGTALK_APP_SECRET_REF;
       assert.ok(ref);
@@ -93,9 +93,9 @@ describe('windows secret-backed persistence', () => {
     const { backend, store } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
     const refName = buildConnectorEnvRefVarName('FEISHU_APP_SECRET');
-    const refValue = 'wincred://Clowder/env/FEISHU_APP_SECRET';
+    const refValue = 'wincred://OfficeClaw/env/FEISHU_APP_SECRET';
     process.env[refName] = refValue;
-    store.set('Clowder/env/FEISHU_APP_SECRET', 'feishu-secret');
+    store.set('OfficeClaw/env/FEISHU_APP_SECRET', 'feishu-secret');
 
     const entry = buildEnvSummary().find((item) => item.name === 'FEISHU_APP_SECRET');
     assert.ok(entry);

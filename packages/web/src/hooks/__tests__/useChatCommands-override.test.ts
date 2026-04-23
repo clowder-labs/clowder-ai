@@ -24,9 +24,9 @@ vi.mock('@/utils/api-client', () => ({
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [
-      { id: 'opus', displayName: '布偶猫', mentionPatterns: ['@opus', '@布偶猫', '@布偶'] },
-      { id: 'codex', displayName: '缅因猫', mentionPatterns: ['@codex', '@缅因猫', '@缅因'] },
-      { id: 'gemini', displayName: '暹罗猫', mentionPatterns: ['@gemini', '@暹罗猫', '@暹罗'] },
+      { id: 'opus', displayName: 'Claude', mentionPatterns: ['@opus', '@claude', '@office'] },
+      { id: 'codex', displayName: 'Codex', mentionPatterns: ['@codex', '@assistant', '@codex-review'] },
+      { id: 'gemini', displayName: 'Gemini', mentionPatterns: ['@gemini', '@design', '@gemini-design'] },
     ],
     getCatById: () => undefined,
     getCatsByBreed: () => new Map(),

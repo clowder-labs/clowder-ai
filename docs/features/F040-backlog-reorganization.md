@@ -8,7 +8,7 @@ created: 2026-02-26
 
 # F040: BACKLOG 整理与 Feature 聚合体系
 
-> **Status**: done | **Owner**: Ragdoll
+> **Status**: done | **Owner**: Claude
 > **Created**: 2026-02-26
 > **Completed**: 2026-02-27
 > **Priority**: P1（基建，影响后续所有 feat 的管理方式）
@@ -56,7 +56,7 @@ team lead的记忆系统设计 proposal（三层记忆）：
 | Feature | `F001` | F001, F021, F040 | 三位固定宽度，不再用 F20b/F21++ |
 | Tech Debt | `TD001` | TD001, TD089 | 不再用 `#`，避免和 PR/issue 冲突 |
 
-> **为什么三位数**：一次到位，避免未来 F100+ 再整体改名。（Maine Coon建议）
+> **为什么三位数**：一次到位，避免未来 F100+ 再整体改名。（Codex建议）
 
 ### 目录结构
 
@@ -72,7 +72,7 @@ docs/
 └── (feature-specs/feature-discussions/...)  # 冷层，被 frontmatter 挂接
 ```
 
-### BACKLOG 新结构设计（Ragdoll 2026-02-26）
+### BACKLOG 新结构设计（Claude 2026-02-26）
 
 **当前问题**：
 1. Feature (F1-F39) 和 Tech Debt (#1-#103) 混编在一个文件
@@ -85,7 +85,7 @@ docs/
 #### `docs/ROADMAP.md`（热层 - 活跃 Feature 索引）
 
 ```markdown
-# Cat Cafe Feature Roadmap
+# OfficeClaw Feature Roadmap
 
 > 维护者：三猫 | 最后更新：YYYY-MM-DD
 >
@@ -94,11 +94,11 @@ docs/
 
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
-| F010 | 手机端猫猫 | in-progress | Ragdoll | [F010](features/F010-mobile-cat.md) |
-| F032 | Agent Plugin Architecture | review | Ragdoll | [F032](features/F032-agent-plugin.md) |
+| F010 | 手机端智能体 | in-progress | Claude | [F010](features/F010-mobile-cat.md) |
+| F032 | Agent Plugin Architecture | review | Claude | [F032](features/F032-agent-plugin.md) |
 | F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
-| F039 | 消息排队投递 | spec | Ragdoll | [F039](features/F039-message-queue.md) |
-| F040 | BACKLOG 整理 | in-progress | Ragdoll | [F040](features/F040-backlog-reorganization.md) |
+| F039 | 消息排队投递 | spec | Claude | [F039](features/F039-message-queue.md) |
+| F040 | BACKLOG 整理 | in-progress | Claude | [F040](features/F040-backlog-reorganization.md) |
 ```
 
 > **超级简洁！** 只有 ~10 行活跃项，不是 200+ 行历史。
@@ -106,7 +106,7 @@ docs/
 #### `docs/TECH-DEBT.md`（技术债务独立文件）
 
 ```markdown
-# Cat Cafe 技术债务
+# OfficeClaw 技术债务
 
 > 维护者：三猫 | 最后更新：YYYY-MM-DD
 >
@@ -137,7 +137,7 @@ docs/
 - `F21++` → `F021` (演进关系用 `Evolved from` 字段)
 - `F20b` → `F020` (variant 用 Phase 或 聚合文件内区分)
 
-**迁移执行**：由Maine Coon批量执行（见 Progress 章节任务分工）。
+**迁移执行**：由Codex批量执行（见 Progress 章节任务分工）。
 
 ### Frontmatter Contract（三猫收敛 2026-02-26）
 
@@ -183,7 +183,7 @@ created: 2026-02-26           # 创建日期
 # Fxxx: 名称
 
 > **Status**: idea | spec | in-progress | review | done
-> **Owner**: Ragdoll | Maine Coon | Siamese
+> **Owner**: Claude | Codex | Gemini
 > **Created**: YYYY-MM-DD
 > **Completed**: YYYY-MM-DD（如果 done）
 
@@ -215,7 +215,7 @@ created: 2026-02-26           # 创建日期
 ## Review Gate（审查记录）
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| R1 | Maine Coon | Pass | YYYY-MM-DD |
+| R1 | Codex | Pass | YYYY-MM-DD |
 | Cloud | Codex | Pass | YYYY-MM-DD |
 
 ## Test Evidence（测试证据）
@@ -239,7 +239,7 @@ created: 2026-02-26           # 创建日期
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **Discussion** | 本 thread（2026-02-26 team lead + Ragdoll）| BACKLOG 问题诊断 |
+| **Discussion** | 本 thread（2026-02-26 team lead + Claude）| BACKLOG 问题诊断 |
 | **BACKLOG 条目** | 待登记 | - |
 
 ---
@@ -257,7 +257,7 @@ F020 → F022 → F010
 - F020: TTS 文本转语音
 - F022: Voice Input 语音输入
 - F034: Voice Pipeline 完整语音流
-- F010: Mobile Cat 手机端猫猫（依赖语音栈）
+- F010: Mobile Cat 手机端智能体（依赖语音栈）
 
 ### 2. 记忆栈（Memory Stack）
 ```
@@ -290,7 +290,7 @@ F021 → F039
 ```
 F014 → F015 → F036
 ```
-- F014: SVG 猫猫状态动画
+- F014: SVG 智能体状态动画
 - F015: Backlog 管理（基础）
 - F036: Logo 一笔画动画
 
@@ -311,37 +311,37 @@ F014 → F015 → F036
   - `stage` 不下沉到普通文档
   - 编号 `F001` / `TD001`（三位固定宽度）
   - 机器索引 `index.json`（脚本生成）
-- [x] 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **Ragdoll**
-- [x] 设计 feat-kickoff skill — **Ragdoll**
+- [x] 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **Claude**
+- [x] 设计 feat-kickoff skill — **Claude**
 
 ### Phase 2: 迁移执行（2026-02-26~27，已完成）
 
-- [x] 写 frontmatter 迁移脚本 — **Maine Coon**（`scripts/migrate-frontmatter.mjs`）
-- [x] 执行迁移脚本，拆分 BACKLOG + TECH-DEBT — **Maine Coon**
-- [x] 恢复 F001-F041 聚合文件内容（从 git history `be27a44^` 恢复）— **Maine Coon**
-- [x] 创建 `docs/features/README.md` 统一索引 — **Maine Coon**
-- [x] 历史文档补 frontmatter（research/discussion/bug-report 共 50+ 文件）— **Maine Coon**
-- [x] TECH-DEBT commit 标注（52/83 条，剩余 31 条无对应 commit）— **Maine Coon**
-- [x] 创建维护脚本 `scripts/tech-debt-maintain.mjs` — **Maine Coon**
-- [x] 验收 F021 重新开放（F21++ 未完成，不能标 done）— **Ragdoll+team lead**
-- [x] 扩展 frontmatter contract 加入 `debt_ids` 字段 — **Ragdoll**（commit `3fb8aa9`）
-- [x] 更新 SOP.md "完成后真相源同步" 章节 — **Ragdoll**（commit `3fb8aa9`）
+- [x] 写 frontmatter 迁移脚本 — **Codex**（`scripts/migrate-frontmatter.mjs`）
+- [x] 执行迁移脚本，拆分 BACKLOG + TECH-DEBT — **Codex**
+- [x] 恢复 F001-F041 聚合文件内容（从 git history `be27a44^` 恢复）— **Codex**
+- [x] 创建 `docs/features/README.md` 统一索引 — **Codex**
+- [x] 历史文档补 frontmatter（research/discussion/bug-report 共 50+ 文件）— **Codex**
+- [x] TECH-DEBT commit 标注（52/83 条，剩余 31 条无对应 commit）— **Codex**
+- [x] 创建维护脚本 `scripts/tech-debt-maintain.mjs` — **Codex**
+- [x] 验收 F021 重新开放（F21++ 未完成，不能标 done）— **Claude+team lead**
+- [x] 扩展 frontmatter contract 加入 `debt_ids` 字段 — **Claude**（commit `3fb8aa9`）
+- [x] 更新 SOP.md "完成后真相源同步" 章节 — **Claude**（commit `3fb8aa9`）
 
 ### Phase 3: Skill 实现（2026-02-27，已完成）
 
-- [x] 创建 `feat-kickoff` skill — **Ragdoll**（`cat-cafe-skills/feat-kickoff/SKILL.md`）
-- [x] 创建 `feat-completion` skill — **Ragdoll**（`cat-cafe-skills/feat-completion/SKILL.md`，commit `d55d3b6`）
+- [x] 创建 `feat-kickoff` skill — **Claude**（`office-claw-skills/feat-kickoff/SKILL.md`）
+- [x] 创建 `feat-completion` skill — **Claude**（`office-claw-skills/feat-completion/SKILL.md`，commit `d55d3b6`）
 
 ### Phase 4: 沉淀同步（2026-02-27，已完成）
 
-- [x] 写 ADR: Metadata Contract — **Ragdoll**（`docs/decisions/011-metadata-contract.md`，commit `14a8b53`）
-- [x] 更新 lessons-learned.md（LL-024: 状态字段多点写入会复发蜘蛛网）— **Ragdoll**
-- [x] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff/completion 触发）— **Ragdoll**
+- [x] 写 ADR: Metadata Contract — **Claude**（`docs/decisions/011-metadata-contract.md`，commit `14a8b53`）
+- [x] 更新 lessons-learned.md（LL-024: 状态字段多点写入会复发蜘蛛网）— **Claude**
+- [x] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff/completion 触发）— **Claude**
 
 ### Phase 5: 验收与优化（2026-02-27，已完成）
 
-- [x] 生成 `docs/features/index.json` 机器索引 — **Maine Coon**（`scripts/generate-feature-index.mjs`，commit `6f69452`）
-- [x] 全量扫描验证 frontmatter 覆盖率 — **Maine Coon**（`scripts/check-frontmatter.mjs`，703/707 = 99.4%）
+- [x] 生成 `docs/features/index.json` 机器索引 — **Codex**（`scripts/generate-feature-index.mjs`，commit `6f69452`）
+- [x] 全量扫描验证 frontmatter 覆盖率 — **Codex**（`scripts/check-frontmatter.mjs`，703/707 = 99.4%）
 - [x] 用 F032 验证"分阶段交付"记录模式 — **跳过**（F032 尚未完成，后续顺便验证）
 
 ---
@@ -352,14 +352,14 @@ F014 → F015 → F036
 
 | 项目 | 说明 | 负责猫 |
 |------|------|--------|
-| BACKLOG 拆分 | Feature Roadmap + Tech Debt 分离 | Maine Coon |
-| F001-F041 聚合文件 | 全部从 git history 恢复 | Maine Coon |
-| `docs/features/README.md` | 统一索引（done + active） | Maine Coon |
-| Frontmatter 补录 | 50+ 文件（research/discussion/bug-report） | Maine Coon |
-| `feat-kickoff` skill | 已创建并注册 | Ragdoll |
-| `debt_ids` 字段 | 加入 frontmatter contract | Ragdoll |
-| SOP 更新 | "完成后真相源同步" 章节 | Ragdoll |
-| 维护脚本 | `scripts/tech-debt-maintain.mjs` | Maine Coon |
+| BACKLOG 拆分 | Feature Roadmap + Tech Debt 分离 | Codex |
+| F001-F041 聚合文件 | 全部从 git history 恢复 | Codex |
+| `docs/features/README.md` | 统一索引（done + active） | Codex |
+| Frontmatter 补录 | 50+ 文件（research/discussion/bug-report） | Codex |
+| `feat-kickoff` skill | 已创建并注册 | Claude |
+| `debt_ids` 字段 | 加入 frontmatter contract | Claude |
+| SOP 更新 | "完成后真相源同步" 章节 | Claude |
+| 维护脚本 | `scripts/tech-debt-maintain.mjs` | Codex |
 
 ### 未完成 Gap（2026-02-27 更新）
 
@@ -415,11 +415,11 @@ F014 → F015 → F036
 
 ---
 
-## 收敛计划（Ragdoll 2026-02-27）
+## 收敛计划（Claude 2026-02-27）
 
 ### Step 1: 创建 `feat-completion` skill（P1，~30min）
 
-1. 创建 `cat-cafe-skills/feat-completion/SKILL.md`
+1. 创建 `office-claw-skills/feat-completion/SKILL.md`
 2. 使用上方设计草案
 3. 注册 symlinks 给三猫
 

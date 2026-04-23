@@ -6,7 +6,7 @@
 
 /**
  * Connector Router
- * Routes inbound messages from external platforms to Clowder AI threads.
+ * Routes inbound messages from external platforms to OfficeClaw threads.
  *
  * Flow:
  *   1. Dedup check (skip webhook retries)
@@ -20,8 +20,8 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource, MessageContent } from '@clowder/shared';
-import { catRegistry, getConnectorDefinition } from '@clowder/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@office-claw/shared';
+import { officeClawRegistry, getConnectorDefinition } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
@@ -169,11 +169,11 @@ export class ConnectorRouter {
     return this.normalizeOwnerUserId(this.opts.defaultUserId);
   }
 
-  /** Build @-mention patterns from catRegistry for parseMentions. */
+  /** Build @-mention patterns from officeClawRegistry for parseMentions. */
   private getMentionPatterns(): Map<string, string[]> {
     const patterns = new Map<string, string[]>();
-    for (const catId of catRegistry.getAllIds()) {
-      const entry = catRegistry.tryGet(catId);
+    for (const catId of officeClawRegistry.getAllIds()) {
+      const entry = officeClawRegistry.tryGet(catId);
       if (!entry?.config) continue;
 
       const derived = new Set<string>(entry.config.mentionPatterns ?? []);
@@ -643,7 +643,7 @@ export class ConnectorRouter {
       userId: this.resolveOwnerUserId() ?? FRONTEND_DEFAULT_USER_ID,
       catId: null,
       content: responseText,
-      source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
+      source: { connector: 'system-command', label: 'OfficeClaw', icon: 'settings' },
       mentions: [],
       timestamp: responseTimestamp,
     });
@@ -658,7 +658,7 @@ export class ConnectorRouter {
     emitConnectorMessage(socketManager, threadId, {
       id: resMsg.id,
       content: responseText,
-      source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
+      source: { connector: 'system-command', label: 'OfficeClaw', icon: 'settings' },
       timestamp: responseTimestamp,
     });
 

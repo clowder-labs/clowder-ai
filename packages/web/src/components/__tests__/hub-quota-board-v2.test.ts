@@ -21,7 +21,7 @@ import type { QuotaResponse } from './quota-test-fixtures';
 const MOCK_CATS = [
   {
     id: 'opus',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     nickname: '宪宪',
     color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
     mentionPatterns: ['@opus'],
@@ -35,7 +35,7 @@ const MOCK_CATS = [
   },
   {
     id: 'codex',
-    displayName: '缅因猫',
+    displayName: 'Codex',
     nickname: '砚砚',
     color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
     mentionPatterns: ['@codex'],
@@ -49,7 +49,7 @@ const MOCK_CATS = [
   },
   {
     id: 'spark',
-    displayName: '缅因猫',
+    displayName: 'Codex',
     nickname: 'Spark',
     color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
     mentionPatterns: ['@spark'],
@@ -63,7 +63,7 @@ const MOCK_CATS = [
   },
   {
     id: 'gemini25',
-    displayName: '暹罗猫',
+    displayName: 'Gemini',
     nickname: 'Gemini 2.5',
     color: { primary: '#EAA54B', secondary: '#F8E7C7' },
     mentionPatterns: ['@gemini25'],
@@ -77,8 +77,8 @@ const MOCK_CATS = [
   },
   {
     id: 'antigravity',
-    displayName: '孟加拉猫',
-    nickname: '豹猫',
+    displayName: 'Antigravity',
+    nickname: 'Bridge',
     color: { primary: '#C97A35', secondary: '#F5E4D0' },
     mentionPatterns: ['@antigravity'],
     provider: 'antigravity',
@@ -314,12 +314,12 @@ describe('HubQuotaBoardTab — account pool grouping', () => {
     expect(container.textContent).toContain('@spark');
     expect(container.textContent).toContain('Antigravity Bridge（独立通道）');
     expect(container.textContent).toContain('@antigravity');
-    expect(container.textContent).toContain('从猫粮看板改名为配额看板');
+    expect(container.textContent).toContain('从配额看板旧名称统一为配额看板');
     expect(container.textContent).not.toContain('Claude 订阅');
     expect(container.textContent).not.toContain('Codex 订阅');
     expect(container.textContent).not.toContain('Gemini 订阅');
-    expect(container.textContent).not.toContain('缅因猫 Codex + GPT-5.2');
-    expect(container.textContent).not.toContain('缅因猫 代码审查');
+    expect(container.textContent).not.toContain('Codex Codex + GPT-5.2');
+    expect(container.textContent).not.toContain('Codex 代码审查');
   });
 
   it('attributes unbound openai cats to the active openai profile pool', async () => {

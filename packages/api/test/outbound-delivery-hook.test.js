@@ -6,16 +6,16 @@
 
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
 import { OutboundDeliveryHook } from '../dist/infrastructure/connectors/OutboundDeliveryHook.js';
 
-// Bootstrap catRegistry for tests
-for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-  if (!catRegistry.has(id)) catRegistry.register(id, config);
+// Bootstrap officeClawRegistry for tests
+for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+  if (!officeClawRegistry.has(id)) officeClawRegistry.register(id, config);
 }
 
-const OPUS_DISPLAY_NAME = CAT_CONFIGS.opus?.displayName ?? 'opus';
+const OPUS_DISPLAY_NAME = OFFICE_CLAW_CONFIGS.opus?.displayName ?? 'opus';
 const OPUS_PREFIX = `[${OPUS_DISPLAY_NAME}] `;
 
 function noopLog() {

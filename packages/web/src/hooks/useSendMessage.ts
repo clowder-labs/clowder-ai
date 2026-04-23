@@ -73,7 +73,7 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
 
     if (!thread) {
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+        window.dispatchEvent(new CustomEvent('office-claw:threads-refresh'));
       }
       return;
     }

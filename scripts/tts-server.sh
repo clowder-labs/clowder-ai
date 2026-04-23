@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/tts-server.sh
-# Start local TTS server for Cat Cafe voice output.
+# Start local TTS server for OfficeClaw voice output.
 #
 # Usage:
 #   ./scripts/tts-server.sh                                  # default: qwen3-clone + Qwen3-TTS Base (三猫声线)

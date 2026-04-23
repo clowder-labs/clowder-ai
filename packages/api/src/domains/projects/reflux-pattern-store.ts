@@ -7,7 +7,7 @@
 /**
  * F076: RefluxPatternStore — in-memory store for methodology experience capture
  */
-import type { CreateRefluxPatternInput, RefluxCategory, RefluxPattern } from '@clowder/shared';
+import type { CreateRefluxPatternInput, RefluxCategory, RefluxPattern } from '@office-claw/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class RefluxPatternStore {

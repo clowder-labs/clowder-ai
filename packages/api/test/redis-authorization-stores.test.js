@@ -27,7 +27,7 @@ describe('RedisAuthorizationRuleStore', { skip: !REDIS_URL ? 'REDIS_URL not set'
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisAuthorizationRuleStore');
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisAuthorizationRuleStore.js');
     RedisAuthorizationRuleStore = storeModule.RedisAuthorizationRuleStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
     redis = createRedisClient({ url: REDIS_URL });
     try {
@@ -181,7 +181,7 @@ describe('RedisPendingRequestStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : 
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisPendingRequestStore');
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisPendingRequestStore.js');
     RedisPendingRequestStore = storeModule.RedisPendingRequestStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
     redis = createRedisClient({ url: REDIS_URL });
     try {
@@ -371,7 +371,7 @@ describe('RedisAuthorizationAuditStore', { skip: !REDIS_URL ? 'REDIS_URL not set
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisAuthorizationAuditStore');
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisAuthorizationAuditStore.js');
     RedisAuthorizationAuditStore = storeModule.RedisAuthorizationAuditStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
     redis = createRedisClient({ url: REDIS_URL });
     try {

@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalTier } from '@clowder/shared';
+import type { SignalTier } from '@office-claw/shared';
 
 const tierClassMap: Record<SignalTier, string> = {
   1: 'bg-opus-bg text-opus-dark border-opus-light',

@@ -8,7 +8,7 @@
  * F076: Intent Card routes — CRUD + triage + risk detection
  * Extracted from external-projects.ts to stay under 350-line limit.
  */
-import type { IntentCard, RiskSignal } from '@clowder/shared';
+import type { IntentCard, RiskSignal } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { IntentCardStore } from '../domains/projects/intent-card-store.js';
@@ -23,7 +23,7 @@ export const intentCardRoutes: FastifyPluginAsync<IntentCardRoutesOptions> = asy
   const { externalProjectStore, intentCardStore } = opts;
 
   function requireUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string | undefined;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']) as string | undefined;
     if (!userId) {
       void reply.status(401).send({ error: 'Identity required' });
       return null;

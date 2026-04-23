@@ -15,11 +15,11 @@
 
 import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry, createCatId } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry, createCatId } from '@office-claw/shared';
 
-// Bootstrap catRegistry
-for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-  if (!catRegistry.has(id)) catRegistry.register(id, config);
+// Bootstrap officeClawRegistry
+for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+  if (!officeClawRegistry.has(id)) officeClawRegistry.register(id, config);
 }
 
 const { MultiMentionOrchestrator } = await import(

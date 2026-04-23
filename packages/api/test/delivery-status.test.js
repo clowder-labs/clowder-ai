@@ -379,7 +379,7 @@ describe('F117: integration regression', () => {
     const queuedMsg = store.append({
       userId: 'u1',
       catId: null,
-      content: '@gpt52 嘿嘿大猫猫喵',
+      content: '@gpt52 嘿嘿大智能体',
       mentions: ['gpt52'],
       timestamp: now,
       deliveryStatus: 'queued',
@@ -390,16 +390,16 @@ describe('F117: integration regression', () => {
 
     // History should not include it
     const history = store.getByThread('default', 50, 'u1');
-    assert.ok(!history.some((m) => m.content.includes('嘿嘿大猫猫喵')), 'queued msg not in history');
+    assert.ok(!history.some((m) => m.content.includes('嘿嘿大智能体')), 'queued msg not in history');
 
     // Context should not include it
     const allMsgs = store.getByThread('default', 50, 'u1');
     const ctx = assembleContext(allMsgs);
-    assert.ok(!ctx.contextText.includes('嘿嘿大猫猫喵'), 'queued msg not in context');
+    assert.ok(!ctx.contextText.includes('嘿嘿大智能体'), 'queued msg not in context');
 
     // Mentions should not include it
     const mentions = store.getMentionsFor('gpt52', 50, 'u1');
-    assert.ok(!mentions.some((m) => m.content.includes('嘿嘿大猫猫喵')), 'queued msg not in mentions');
+    assert.ok(!mentions.some((m) => m.content.includes('嘿嘿大智能体')), 'queued msg not in mentions');
 
     // Simulate cancel
     store.markCanceled(queuedMsg.id);
@@ -407,9 +407,9 @@ describe('F117: integration regression', () => {
 
     // After cancel: still invisible
     const historyAfter = store.getByThread('default', 50, 'u1');
-    assert.ok(!historyAfter.some((m) => m.content.includes('嘿嘿大猫猫喵')), 'canceled msg not in history');
+    assert.ok(!historyAfter.some((m) => m.content.includes('嘿嘿大智能体')), 'canceled msg not in history');
 
     const mentionsAfter = store.getMentionsFor('gpt52', 50, 'u1');
-    assert.ok(!mentionsAfter.some((m) => m.content.includes('嘿嘿大猫猫喵')), 'canceled msg not in mentions');
+    assert.ok(!mentionsAfter.some((m) => m.content.includes('嘿嘿大智能体')), 'canceled msg not in mentions');
   });
 });

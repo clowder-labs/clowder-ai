@@ -12,7 +12,7 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { catRegistry, createCatId } from '@clowder/shared';
+import { officeClawRegistry, createCatId } from '@office-claw/shared';
 
 const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
@@ -102,10 +102,10 @@ const variantCatConfigs = {
   'opus-45': {
     id: createCatId('opus-45'),
     name: 'opus-45',
-    displayName: '布偶猫 4.5',
+    displayName: 'Claude 4.5',
     avatar: '/avatars/opus.png',
     color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-    mentionPatterns: ['@opus-45', '@布偶猫4.5'],
+    mentionPatterns: ['@opus-45', '@claude4.5'],
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-5-20250929',
     mcpSupport: true,
@@ -120,15 +120,15 @@ let _registeredVariants = false;
 
 before(() => {
   for (const [id, config] of Object.entries(variantCatConfigs)) {
-    if (!catRegistry.has(id)) {
-      catRegistry.register(id, config);
+    if (!officeClawRegistry.has(id)) {
+      officeClawRegistry.register(id, config);
       _registeredVariants = true;
     }
   }
 });
 
 after(() => {
-  // catRegistry has no unregister API, but since tests run in isolation this is fine
+  // officeClawRegistry has no unregister API, but since tests run in isolation this is fine
 });
 
 describe('F32-b: parseMentions (longest-match-first)', () => {
@@ -168,15 +168,15 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     assert.ok(targetCats.map(String).includes('opus-45'));
   });
 
-  it('@布偶猫4.5 routes to opus-45 (Chinese variant mention)', async () => {
+  it('@claude4.5 routes to opus-45 (Chinese variant mention)', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('请 @布偶猫4.5 来帮忙', 'test-thread');
+    const { targetCats } = await router.resolveTargetsAndIntent('请 @claude4.5 来帮忙', 'test-thread');
     assert.deepEqual(targetCats.map(String), ['opus-45']);
   });
 
   it('token boundary: @opus-45x does not match (no boundary after)', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('邮件 @opus-45x 不是猫猫', 'test-thread');
+    const { targetCats } = await router.resolveTargetsAndIntent('邮件 @opus-45x 不是智能体', 'test-thread');
     // Should fall through to default (opus) since no valid mention found
     assert.deepEqual(targetCats.map(String), ['opus']);
   });
@@ -195,11 +195,11 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
 
   it('earliest position wins when same cat has short+long alias (cloud P1 regression)', async () => {
     const router = await createVariantRouter();
-    // @布偶 (short alias, early) → opus, @codex (mid), @布偶猫 (long alias, late) → opus
-    // Longest-first processing sees @布偶猫 first (later position), but opus should
-    // resolve to the earliest occurrence (@布偶 at position 0), not the longest match.
+    // @claude (short alias, early) → opus, @codex (mid), @claude (long alias, late) → opus
+    // Longest-first processing sees @claude first (later position), but opus should
+    // resolve to the earliest occurrence (@claude at position 0), not the longest match.
     const { targetCats } = await router.resolveTargetsAndIntent(
-      '@布偶 和 @codex 讨论一下 @布偶猫 的方案',
+      '@claude 和 @codex 讨论一下 @claude 的方案',
       'test-thread',
     );
     // opus should come first (earliest mention), codex second
@@ -212,8 +212,8 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     const r1 = await router.resolveTargetsAndIntent('(@codex)', 'test-thread');
     assert.deepEqual(r1.targetCats.map(String), ['codex']);
 
-    // [@布偶猫] — square bracket
-    const r2 = await router.resolveTargetsAndIntent('[@布偶猫]', 'test-thread');
+    // [@claude] — square bracket
+    const r2 = await router.resolveTargetsAndIntent('[@claude]', 'test-thread');
     assert.deepEqual(r2.targetCats.map(String), ['opus']);
 
     // <@opus> — angle bracket
@@ -227,16 +227,16 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     const r1 = await router.resolveTargetsAndIntent('（@codex）', 'test-thread');
     assert.deepEqual(r1.targetCats.map(String), ['codex']);
 
-    // 【@缅因猫】 — fullwidth square bracket
-    const r2 = await router.resolveTargetsAndIntent('【@缅因猫】', 'test-thread');
+    // 【@assistant】 — fullwidth square bracket
+    const r2 = await router.resolveTargetsAndIntent('【@assistant】', 'test-thread');
     assert.deepEqual(r2.targetCats.map(String), ['codex']);
 
     // 《@opus》 — fullwidth angle bracket
     const r3 = await router.resolveTargetsAndIntent('《@opus》', 'test-thread');
     assert.deepEqual(r3.targetCats.map(String), ['opus']);
 
-    // 「@布偶猫」 — corner bracket (common in Japanese/traditional Chinese)
-    const r4 = await router.resolveTargetsAndIntent('「@布偶猫」', 'test-thread');
+    // 「@claude」 — corner bracket (common in Japanese/traditional Chinese)
+    const r4 = await router.resolveTargetsAndIntent('「@claude」', 'test-thread');
     assert.deepEqual(r4.targetCats.map(String), ['opus']);
   });
 });

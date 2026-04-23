@@ -42,14 +42,14 @@ function makeGroups(): ThreadGroup[] {
     },
     {
       type: 'project',
-      label: 'cat-cafe',
-      projectPath: '/proj/cat-cafe',
+      label: 'office-claw',
+      projectPath: '/proj/office-claw',
       threads: [
         {
           id: 'thread-project',
           title: 'Project thread',
           participants: [],
-          projectPath: '/proj/cat-cafe',
+          projectPath: '/proj/office-claw',
           createdBy: 'test-user',
           lastActiveAt: Date.now() - 1000,
           pinned: false,

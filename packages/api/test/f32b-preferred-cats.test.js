@@ -145,7 +145,7 @@ function createMockThreadStoreWithPreferred(opts = {}) {
 describe('ThreadStore preferredCats (memory)', () => {
   test('updatePreferredCats sets and retrieves preferred cats', async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const { createCatId } = await import('@clowder/shared');
+    const { createCatId } = await import('@office-claw/shared');
 
     const store = new ThreadStore();
     const thread = store.create('user-1', 'test');
@@ -157,7 +157,7 @@ describe('ThreadStore preferredCats (memory)', () => {
 
   test('updatePreferredCats with empty array clears preference', async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const { createCatId } = await import('@clowder/shared');
+    const { createCatId } = await import('@office-claw/shared');
 
     const store = new ThreadStore();
     const thread = store.create('user-1', 'test');
@@ -170,7 +170,7 @@ describe('ThreadStore preferredCats (memory)', () => {
 
   test('updatePreferredCats supports multiple cats', async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const { createCatId } = await import('@clowder/shared');
+    const { createCatId } = await import('@office-claw/shared');
 
     const store = new ThreadStore();
     const thread = store.create('user-1', 'test');

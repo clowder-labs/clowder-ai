@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@clowder/shared';
+import type { SignalSource } from '@office-claw/shared';
 
 export interface RawArticle {
   readonly url: string;

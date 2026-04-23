@@ -251,9 +251,9 @@ function createAvailabilityConfigProject(availabilityOverrides = {}) {
       {
         version: 2,
         breeds: [
-          makeBreed('opus', 'ragdoll', '布偶猫', 'anthropic', 'claude-opus-4-6'),
-          makeBreed('codex', 'maine-coon', '缅因猫', 'openai', 'gpt-5.4'),
-          makeBreed('gemini', 'siamese', '暹罗猫', 'google', 'gemini-3.1-pro'),
+          makeBreed('opus', 'ragdoll', 'Claude', 'anthropic', 'claude-opus-4-6'),
+          makeBreed('codex', 'maine-coon', 'Codex', 'openai', 'gpt-5.4'),
+          makeBreed('gemini', 'siamese', 'Gemini', 'google', 'gemini-3.1-pro'),
         ],
         roster: {
           opus: {
@@ -299,7 +299,7 @@ function createAvailabilityConfigProject(availabilityOverrides = {}) {
 
 async function withAvailabilityConfig(availabilityOverrides, fn) {
   const templatePath = createAvailabilityConfigProject(availabilityOverrides);
-  const { _resetCachedConfig } = await import('../dist/config/cat-config-loader.js');
+  const { _resetCachedConfig } = await import('../dist/config/office-claw-config-loader.js');
   const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
   process.env.CAT_TEMPLATE_PATH = templatePath;
   _resetCachedConfig();
@@ -521,7 +521,7 @@ describe('AgentRouter', () => {
     assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
   });
 
-  test('routes to opus when Chinese mention @布偶猫 is used', async () => {
+  test('routes to opus when Chinese mention @claude is used', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const mockClaudeService = createMockAgentService('opus');
@@ -539,7 +539,7 @@ describe('AgentRouter', () => {
     );
 
     const messages = [];
-    for await (const msg of router.route('user-1', '@布偶猫 请帮我')) {
+    for await (const msg of router.route('user-1', '@claude 请帮我')) {
       messages.push(msg);
     }
 
@@ -576,7 +576,7 @@ describe('AgentRouter', () => {
     assert.ok(messages.every((m) => m.catId === 'codex'));
   });
 
-  test('routes to codex when Chinese mention @缅因猫 is used', async () => {
+  test('routes to codex when Chinese mention @assistant is used', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const mockClaudeService = createMockAgentService('opus');
@@ -594,7 +594,7 @@ describe('AgentRouter', () => {
     );
 
     const messages = [];
-    for await (const msg of router.route('user-1', '@缅因猫 检查代码')) {
+    for await (const msg of router.route('user-1', '@assistant 检查代码')) {
       messages.push(msg);
     }
 
@@ -630,7 +630,7 @@ describe('AgentRouter', () => {
     assert.ok(messages.every((m) => m.catId === 'gemini'));
   });
 
-  test('routes to gemini when Chinese mention @暹罗猫 is used', async () => {
+  test('routes to gemini when Chinese mention @design is used', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const mockClaudeService = createMockAgentService('opus');
@@ -648,7 +648,7 @@ describe('AgentRouter', () => {
     );
 
     const messages = [];
-    for await (const msg of router.route('user-1', '@暹罗猫 设计表情')) {
+    for await (const msg of router.route('user-1', '@design 设计表情')) {
       messages.push(msg);
     }
 
@@ -850,9 +850,9 @@ describe('AgentRouter', () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const testCases = [
-      { mention: '@ragdoll', expectedCat: 'opus' },
-      { mention: '@maine', expectedCat: 'codex' },
-      { mention: '@siamese', expectedCat: 'gemini' },
+      { mention: '@claude', expectedCat: 'opus' },
+      { mention: '@assistant', expectedCat: 'codex' },
+      { mention: '@design', expectedCat: 'gemini' },
     ];
 
     for (const { mention, expectedCat } of testCases) {
@@ -888,9 +888,9 @@ describe('AgentRouter', () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const testCases = [
-      { mention: '@布偶', expectedCat: 'opus' },
-      { mention: '@缅因', expectedCat: 'codex' },
-      { mention: '@暹罗', expectedCat: 'gemini' },
+      { mention: '@claude', expectedCat: 'opus' },
+      { mention: '@assistant', expectedCat: 'codex' },
+      { mention: '@design', expectedCat: 'gemini' },
     ];
 
     for (const { mention, expectedCat } of testCases) {
@@ -1527,7 +1527,7 @@ describe('AgentRouter', () => {
     });
   });
 
-  test('identity injection: opus prompt contains 布偶猫', async () => {
+  test('identity injection: opus prompt contains Claude', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     let opusReceivedPrompt = '';
@@ -1555,13 +1555,13 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    // Static identity (布偶猫, Anthropic) prepended to prompt by invoke-single-cat (new session)
-    assert.ok(opusReceivedPrompt.includes('布偶猫'), 'Opus prompt should contain 布偶猫');
+    // Static identity (Claude, Anthropic) prepended to prompt by invoke-single-cat (new session)
+    assert.ok(opusReceivedPrompt.includes('Claude'), 'Opus prompt should contain Claude');
     assert.ok(opusReceivedPrompt.includes('Anthropic'), 'Opus prompt should mention Anthropic');
     assert.ok(opusReceivedPrompt.includes('hello'), 'Opus prompt should contain original message');
   });
 
-  test('identity injection: codex prompt in serial chain contains 缅因猫 (#execute)', async () => {
+  test('identity injection: codex prompt in serial chain contains Codex (#execute)', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     let codexReceivedPrompt = '';
@@ -1590,8 +1590,8 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    // Static identity (缅因猫) prepended to prompt by invoke-single-cat (new session)
-    assert.ok(codexReceivedPrompt.includes('缅因猫'), 'Codex prompt should contain 缅因猫');
+    // Static identity (Codex) prepended to prompt by invoke-single-cat (new session)
+    assert.ok(codexReceivedPrompt.includes('Codex'), 'Codex prompt should contain Codex');
     // Dynamic chain position still in -p prompt
     assert.ok(codexReceivedPrompt.includes('2/2'), 'Codex prompt should show chain position 2/2');
   });
@@ -2209,19 +2209,19 @@ describe('F078: Group mentions', () => {
     assert.ok(targetCats.includes('opus'));
   });
 
-  test('@全体布偶猫 routes to all ragdoll variants', async () => {
+  test('@全体Claude routes to all ragdoll variants', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     // Register sonnet as a second ragdoll variant
-    const { catRegistry, createCatId } = await import('@clowder/shared');
-    if (!catRegistry.has('sonnet')) {
-      catRegistry.register('sonnet', {
+    const { officeClawRegistry, createCatId } = await import('@office-claw/shared');
+    if (!officeClawRegistry.has('sonnet')) {
+      officeClawRegistry.register('sonnet', {
         id: createCatId('sonnet'),
         name: 'sonnet',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         avatar: '/avatars/sonnet.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@sonnet', '@布偶sonnet'],
+        mentionPatterns: ['@sonnet', '@claudesonnet'],
         provider: 'anthropic',
         defaultModel: 'claude-sonnet-4-6',
         mcpSupport: true,
@@ -2245,7 +2245,7 @@ describe('F078: Group mentions', () => {
       messageStore: createMockMessageStore(),
     });
 
-    const { targetCats } = await router.resolveTargetsAndIntent('@全体布偶猫 你们好');
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体Claude 你们好');
     assert.ok(targetCats.includes('opus'), 'should include opus (ragdoll)');
     assert.ok(targetCats.includes('sonnet'), 'should include sonnet (ragdoll)');
     assert.ok(!targetCats.includes('codex'), 'should NOT include codex (maine-coon)');
@@ -2414,15 +2414,15 @@ describe('F078: Group mentions', () => {
   test('@all-ragdollish does NOT trigger @all-ragdoll (token boundary)', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
-    const { catRegistry, createCatId } = await import('@clowder/shared');
-    if (!catRegistry.has('sonnet')) {
-      catRegistry.register('sonnet', {
+    const { officeClawRegistry, createCatId } = await import('@office-claw/shared');
+    if (!officeClawRegistry.has('sonnet')) {
+      officeClawRegistry.register('sonnet', {
         id: createCatId('sonnet'),
         name: 'sonnet',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         avatar: '/avatars/sonnet.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@sonnet', '@布偶sonnet'],
+        mentionPatterns: ['@sonnet', '@claudesonnet'],
         provider: 'anthropic',
         defaultModel: 'claude-sonnet-4-6',
         mcpSupport: true,
@@ -2449,7 +2449,7 @@ describe('F078: Group mentions', () => {
     assert.ok(!targetCats.includes('sonnet'), '@all-ragdollish should not match @all-ragdoll');
   });
 
-  test('@全体布偶猫咪 does NOT trigger @全体布偶猫 (token boundary)', async () => {
+  test('@全体Claude咪 does NOT trigger @全体Claude (token boundary)', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const router = new AgentRouter(
@@ -2462,9 +2462,9 @@ describe('F078: Group mentions', () => {
       }),
     );
 
-    const { targetCats } = await router.resolveTargetsAndIntent('@全体布偶猫咪 hi');
-    // 咪 is not a boundary char — should NOT match @全体布偶猫
-    assert.equal(targetCats.length, 1, '@全体布偶猫咪 should not trigger breed group');
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体Claude咪 hi');
+    // 咪 is not a boundary char — should NOT match @全体Claude
+    assert.equal(targetCats.length, 1, '@全体Claude咪 should not trigger breed group');
   });
 });
 
@@ -2581,20 +2581,20 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
     assert.deepStrictEqual(targetCats, ['gemini'], 'without preferredCats, last replier should still work');
   });
 
-  test('@全体布偶猫 still triggers parallel dispatch even with preferredCats', async () => {
+  test('@全体Claude still triggers parallel dispatch even with preferredCats', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
     const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
 
     // Register sonnet as a second ragdoll variant (needed for breed group mention)
-    const { catRegistry, createCatId } = await import('@clowder/shared');
-    if (!catRegistry.has('sonnet')) {
-      catRegistry.register('sonnet', {
+    const { officeClawRegistry, createCatId } = await import('@office-claw/shared');
+    if (!officeClawRegistry.has('sonnet')) {
+      officeClawRegistry.register('sonnet', {
         id: createCatId('sonnet'),
         name: 'sonnet',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         avatar: '/avatars/sonnet.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@sonnet', '@布偶sonnet'],
+        mentionPatterns: ['@sonnet', '@claudesonnet'],
         provider: 'anthropic',
         defaultModel: 'claude-sonnet-4-6',
         mcpSupport: true,
@@ -2625,9 +2625,9 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
       threadStore,
     });
 
-    const { targetCats } = await router.resolveTargetsAndIntent('@全体布偶猫 discuss this', 't1');
-    // @全体布偶猫 is a breed group mention — should override preferredCats and route to all ragdolls
-    assert.ok(targetCats.length > 1, '@全体布偶猫 should still trigger multi-cat dispatch');
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体Claude discuss this', 't1');
+    // @全体Claude is a breed group mention — should override preferredCats and route to all ragdolls
+    assert.ok(targetCats.length > 1, '@全体Claude should still trigger multi-cat dispatch');
     assert.ok(targetCats.includes('opus'), 'should include opus');
   });
 
@@ -2680,7 +2680,7 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
   test('refreshFromRegistry updates routable service set after runtime catalog changes', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
     const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
-    const { catRegistry } = await import('@clowder/shared');
+    const { officeClawRegistry } = await import('@office-claw/shared');
 
     const threadStore = createMockThreadStore();
     const agentRegistry = new AgentRegistry();
@@ -2692,17 +2692,17 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
       threadStore,
     });
 
-    // Before refresh: codex is in catRegistry (mention parsing) but NOT in agentRegistry
+    // Before refresh: codex is in officeClawRegistry (mention parsing) but NOT in agentRegistry
     // Mention resolution finds codex, but route() will fail to dispatch it
     const before = await router.resolveTargetsAndIntent('@codex review this', 't1');
-    assert.deepEqual(before.targetCats, ['codex'], 'codex mention should be parsed from catRegistry');
+    assert.deepEqual(before.targetCats, ['codex'], 'codex mention should be parsed from officeClawRegistry');
 
-    const codexConfig = catRegistry.tryGet('codex')?.config;
+    const codexConfig = officeClawRegistry.tryGet('codex')?.config;
     assert.ok(codexConfig, 'codex config should exist');
     agentRegistry.register('codex', createMockAgentService('codex'));
     router.refreshFromRegistry(agentRegistry);
 
-    // After refresh: codex is both in catRegistry AND agentRegistry — fully routable
+    // After refresh: codex is both in officeClawRegistry AND agentRegistry — fully routable
     const after = await router.resolveTargetsAndIntent('@codex review this', 't1');
     assert.deepEqual(after.targetCats, ['codex'], 'codex should be routable after refresh');
   });

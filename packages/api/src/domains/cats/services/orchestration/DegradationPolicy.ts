@@ -10,7 +10,7 @@
  * Part of 4-D-lite feature for Phase 4.0.
  */
 
-import type { ContextBudget } from '@clowder/shared';
+import type { ContextBudget } from '@office-claw/shared';
 
 export type DegradationStrategy = 'full' | 'truncated' | 'pattern_only' | 'abort';
 

@@ -6,11 +6,11 @@
 
 <a id="english"></a>
 
-## Clowder AI Individual Contributor License Agreement
+## OfficeClaw Individual Contributor License Agreement
 
-Thank you for your interest in contributing to Clowder AI. This CLA clarifies the intellectual property license granted with your contributions.
+Thank you for your interest in contributing to OfficeClaw. This CLA clarifies the intellectual property license granted with your contributions.
 
-By signing this CLA, you agree to the following terms for your past, present, and future contributions to the Clowder AI project:
+By signing this CLA, you agree to the following terms for your past, present, and future contributions to the OfficeClaw project:
 
 ### 1. Definitions
 
@@ -19,11 +19,11 @@ By signing this CLA, you agree to the following terms for your past, present, an
 
 ### 2. Grant of Copyright License
 
-You grant to the Clowder AI project maintainers a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute your Contributions and such derivative works.
+You grant to the OfficeClaw project maintainers a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute your Contributions and such derivative works.
 
 ### 3. Grant of Patent License
 
-You grant to the Clowder AI project maintainers a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer your Contributions, where such license applies only to those patent claims licensable by you that are necessarily infringed by your Contributions alone or by combination with the project.
+You grant to the OfficeClaw project maintainers a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer your Contributions, where such license applies only to those patent claims licensable by you that are necessarily infringed by your Contributions alone or by combination with the project.
 
 ### 4. Representations
 
@@ -40,11 +40,11 @@ You understand that the decision to include your Contribution is at the sole dis
 
 <a id="中文"></a>
 
-## Clowder AI 个人贡献者许可协议
+## OfficeClaw 个人贡献者许可协议
 
-感谢你对 Clowder AI 项目的贡献兴趣。本 CLA 明确了你的贡献所授予的知识产权许可。
+感谢你对 OfficeClaw 项目的贡献兴趣。本 CLA 明确了你的贡献所授予的知识产权许可。
 
-签署本 CLA 即表示你同意以下条款，适用于你过去、现在和未来对 Clowder AI 项目的所有贡献：
+签署本 CLA 即表示你同意以下条款，适用于你过去、现在和未来对 OfficeClaw 项目的所有贡献：
 
 ### 1. 定义
 
@@ -53,11 +53,11 @@ You understand that the decision to include your Contribution is at the sole dis
 
 ### 2. 版权许可授予
 
-你授予 Clowder AI 项目维护者一项永久、全球范围、非排他、免费、免版税、不可撤销的版权许可，以复制、准备衍生作品、公开展示、公开表演、再许可和分发你的贡献及其衍生作品。
+你授予 OfficeClaw 项目维护者一项永久、全球范围、非排他、免费、免版税、不可撤销的版权许可，以复制、准备衍生作品、公开展示、公开表演、再许可和分发你的贡献及其衍生作品。
 
 ### 3. 专利许可授予
 
-你授予 Clowder AI 项目维护者一项永久、全球范围、非排他、免费、免版税、不可撤销的专利许可，以制造、使用、销售、进口和以其他方式转让你的贡献。该许可仅适用于你有权许可的、因你的贡献单独或与项目结合而必然被侵犯的专利权利要求。
+你授予 OfficeClaw 项目维护者一项永久、全球范围、非排他、免费、免版税、不可撤销的专利许可，以制造、使用、销售、进口和以其他方式转让你的贡献。该许可仅适用于你有权许可的、因你的贡献单独或与项目结合而必然被侵犯的专利权利要求。
 
 ### 4. 声明
 

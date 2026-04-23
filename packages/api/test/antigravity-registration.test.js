@@ -9,7 +9,7 @@ import { describe, test } from 'node:test';
 
 describe('Antigravity provider registration', () => {
   test('cat-config-loader accepts antigravity provider', async () => {
-    const { loadCatConfig } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig } = await import('../dist/config/office-claw-config-loader.js');
     const config = loadCatConfig();
     const bengal = config.breeds.find((b) => b.id === 'bengal');
     assert.ok(bengal, 'bengal breed should exist in config');

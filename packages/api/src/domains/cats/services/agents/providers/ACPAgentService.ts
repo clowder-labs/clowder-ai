@@ -6,13 +6,13 @@
 
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import type { CatId } from '@clowder/shared';
-import { createCatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../../../../utils/office-claw-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import { ACPMcpBridge, buildAcpMcpServers, resolveACPMcpTransportFromInitializeResult } from './acp-mcp-bridge.js';
 import { buildACPModelProfileOverridePayload } from './acp-model-profile-override.js';
@@ -190,7 +190,7 @@ function buildACPSubprocessEnv(providerProfile: RuntimeProviderProfile): NodeJS.
   const env = buildFilteredACPSubprocessEnv(providerProfile);
   // Windows: prepend bundled Python to PATH so ACP agents (e.g. agent-teams) find the right interpreter
   if (process.platform === 'win32') {
-    const bundledPythonDir = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python');
+    const bundledPythonDir = join(resolveOfficeClawHostRoot(process.cwd()), 'tools', 'python');
     if (existsSync(join(bundledPythonDir, 'python.exe'))) {
       const scriptsDir = join(bundledPythonDir, 'Scripts');
       env.PATH = `${bundledPythonDir};${scriptsDir};${process.env.PATH ?? ''}`;

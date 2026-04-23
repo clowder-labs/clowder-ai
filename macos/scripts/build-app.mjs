@@ -22,8 +22,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
 const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 
-const APP_DISPLAY_NAME = 'Clowder AI';
-const APP_EXECUTABLE_NAME = 'ClowderAI';
+const APP_DISPLAY_NAME = 'OfficeClaw';
+const APP_EXECUTABLE_NAME = 'OfficeClaw';
 const APP_BUNDLE_ID = 'ai.clowder.desktop';
 const MAC_RUNTIME_NPM_ARGS = [
   'install',
@@ -361,8 +361,8 @@ function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@clowder/shared']) {
-    dependencies['@clowder/shared'] = 'file:../shared';
+  if (dependencies['@office-claw/shared']) {
+    dependencies['@office-claw/shared'] = 'file:../shared';
   }
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -513,10 +513,10 @@ function ensureBuildArtifacts(options) {
   }
 
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@clowder/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@clowder/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }
@@ -594,16 +594,16 @@ function writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode, launcher
     executableName: APP_EXECUTABLE_NAME,
     bundleId: options.bundleId,
     scaffold: false,
-    managedTopLevelPaths: ['scripts', 'node', 'packages', 'assets', '.clowder-release.json', 'package.json'],
+    managedTopLevelPaths: ['scripts', 'node', 'packages', 'assets', '.office-claw-release.json', 'package.json'],
     bundledNode,
     launcher,
   };
-  writeJson(join(runtimeRoot, '.clowder-release.json'), metadata);
+  writeJson(join(runtimeRoot, '.office-claw-release.json'), metadata);
 }
 
 function writeRuntimePackageJson(runtimeRoot) {
   writeJson(join(runtimeRoot, 'package.json'), {
-    name: 'clowder-ai-runtime',
+    name: 'office-claw-runtime',
     version: rootPackageJson.version,
     private: true,
   });

@@ -11,8 +11,8 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { LeaderboardRange, LeaderboardStatsResponse } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import type { AchievementStore } from './achievement-store.js';
 import type { GameStore } from './game-store.js';
 import { computeMentionStats, type MessageLike } from './mention-stats.js';
@@ -30,7 +30,7 @@ const OWNER_SUFFIX_EXAMPLE = process.env.OWNER_SUFFIX_EXAMPLE!;
 /** Build catId → displayName map from registry */
 function getCatNames(): Record<string, string> {
   const names: Record<string, string> = {};
-  for (const config of Object.values(catRegistry.getAllConfigs())) {
+  for (const config of Object.values(officeClawRegistry.getAllConfigs())) {
     names[config.id] = config.displayName ?? config.nickname ?? config.id;
   }
   return names;

@@ -14,8 +14,8 @@
  * Do NOT manually prepend the prefix — pass bare keys and let ioredis handle it.
  */
 
-import type { CatId } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { CatId } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { TokenUsage } from '../../types.js';
 import type {
   CreateInvocationInput,

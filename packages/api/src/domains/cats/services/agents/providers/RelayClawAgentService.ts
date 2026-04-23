@@ -15,8 +15,8 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@clowder/shared';
-import { createCatId } from '@clowder/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
@@ -36,7 +36,7 @@ import {
   type RelayClawConnection,
   type RelayClawConnectionFactory,
 } from './relayclaw-connection.js';
-import { buildCatCafeMcpRequestConfig } from './relayclaw-catcafe-mcp.js';
+import { buildOfficeClawMcpRequestConfig } from './relayclaw-office-claw-mcp.js';
 import {
   DefaultRelayClawSidecarController,
   isSidecarReady,
@@ -549,7 +549,9 @@ function buildRequest(
       ...(buildRelayClawFilesPayload(options?.contentBlocks, options?.uploadDir)
         ? { files: buildRelayClawFilesPayload(options?.contentBlocks, options?.uploadDir) }
         : {}),
-      ...(buildCatCafeMcpRequestConfig(options) ? { cat_cafe_mcp: buildCatCafeMcpRequestConfig(options) } : {}),
+      ...(buildOfficeClawMcpRequestConfig(options)
+        ? { office_claw_mcp: buildOfficeClawMcpRequestConfig(options) }
+        : {}),
     },
     is_stream: true,
     timestamp: Date.now() / 1000,

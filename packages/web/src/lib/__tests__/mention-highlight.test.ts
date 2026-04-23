@@ -29,16 +29,16 @@ describe('mention highlight cache', () => {
     const cats: CatData[] = [
       makeCat({
         id: 'spark',
-        displayName: '火花猫',
+        displayName: 'Spark',
         color: { primary: '#F59E0B', secondary: '#FDE68A' },
-        mentionPatterns: ['@spark', '@火花猫'],
+        mentionPatterns: ['@spark', '@spark-agent'],
         roster: { family: 'maine-coon', roles: ['coder'], lead: false, available: false, evaluation: 'disabled' },
       }),
       makeCat({
         id: 'ragdoll',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@ragdoll', '@布偶猫'],
+        mentionPatterns: ['@ragdoll', '@claude'],
         roster: { family: 'ragdoll', roles: ['architect'], lead: true, available: true, evaluation: '' },
       }),
     ];
@@ -48,10 +48,10 @@ describe('mention highlight cache', () => {
     const toCat = getMentionToCat();
     // Disabled cat excluded
     expect(toCat.spark).toBeUndefined();
-    expect(toCat['火花猫']).toBeUndefined();
+    expect(toCat['spark-agent']).toBeUndefined();
     // Available cat included
     expect(toCat.ragdoll).toBe('ragdoll');
-    expect(toCat['布偶猫']).toBe('ragdoll');
+    expect(toCat.claude).toBe('ragdoll');
 
     const re = getMentionRe();
     re.lastIndex = 0;

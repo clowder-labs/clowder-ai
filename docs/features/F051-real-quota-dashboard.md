@@ -7,10 +7,10 @@ created: 2026-03-02
 updated: 2026-03-20
 ---
 
-# F051 — 猫粮看板（Quota Board）
+# F051 — 配额看板（Quota Board）
 
-> **Status**: in-progress | **Owner**: Ragdoll (Opus) ← v2 重写后接管
-> **Reviewer**: Maine Coon (GPT-5.2) — 愿景守护
+> **Status**: in-progress | **Owner**: Claude (Opus) ← v2 重写后接管
+> **Reviewer**: Codex (GPT-5.2) — 愿景守护
 > **Created**: 2026-03-02
 > **v1 Completed**: 2026-03-03 (Phase 1-5)
 > **v2 Rewrite**: 2026-03-04
@@ -24,7 +24,7 @@ team lead需要**一眼看到三只猫的真实额度**，服务两个目的：
 
 ### 为什么 v1 需要重写
 
-v1（Phase 1-5，Maine Coon实现）的核心问题：
+v1（Phase 1-5，Codex实现）的核心问题：
 
 | 问题 | 表现 |
 |------|------|
@@ -35,9 +35,9 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 
 ### team experience（2026-03-04，v2 触发）
 
-> "Maine Coon没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑。ClaudeBar（macOS 菜单栏，一锅端多家）可以参考这个开源项目他的做法。我是想把猫猫们的猫粮以及通知能在我们的 Hub 以及 macOS 菜单和通知中心对上。"
+> "Codex没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑。ClaudeBar（macOS 菜单栏，一锅端多家）可以参考这个开源项目他的做法。我是想把智能体们的配额以及通知能在我们的 Hub 以及 macOS 菜单和通知中心对上。"
 
-> "Maine Coon的额度人家是有区隔的，你不应该笼统归因。至少要知道 Codex 云端 review 额度和 Codex 本地额度还有 Spark 的额度。"
+> "Codex的额度人家是有区隔的，你不应该笼统归因。至少要知道 Codex 云端 review 额度和 Codex 本地额度还有 Spark 的额度。"
 
 ### 仍然成立的原则
 
@@ -49,16 +49,16 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 
 ### 1. 额度粒度模型（核心纠正）
 
-**v1 的错误**：把 OpenAI 所有额度笼统归为"Maine Coon一张卡"。
+**v1 的错误**：把 OpenAI 所有额度笼统归为"Codex一张卡"。
 
 **v2 的真实模型**（来自 `chatgpt.com/codex/settings/usage` 官方页面截图 2026-03-04）：
 
-#### Ragdoll (Claude) 额度池
+#### Claude (Claude) 额度池
 
 | Pool | 数据源 | Cat Café 映射 | 调度意义 |
 |------|--------|--------------|---------|
 | Session 5h | Anthropic OAuth API | `@opus` `@sonnet` 当前窗口 | 当前能聊多少 |
-| Weekly all models | Anthropic OAuth API | Ragdoll全家 | 本周总预算 |
+| Weekly all models | Anthropic OAuth API | Claude全家 | 本周总预算 |
 | Weekly Sonnet | Anthropic OAuth API | `@sonnet` | Sonnet 独立限额 |
 | Weekly Opus | Anthropic OAuth API | `@opus` | Opus 不够→降级 Sonnet |
 
@@ -70,11 +70,11 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 - **响应字段**: `five_hour` (session), `seven_day` (weekly all), `seven_day_sonnet`, `seven_day_opus`, `extra_usage` (付费额度 cents)
 - **Fallback**: `claude /usage` CLI 解析终端输出（ClaudeBar 的 `ClaudeUsageProbe`）
 
-#### Maine Coon (OpenAI) 额度池 — 4 个独立池！
+#### Codex (OpenAI) 额度池 — 4 个独立池！
 
 | Pool | 官方页面标签 | Cat Café 映射 | 调度意义 |
 |------|-------------|--------------|---------|
-| **Codex 主额度** (5h + weekly) | "5小时使用限额" + "每周使用限额" | `@codex` 本地编码 + `@gpt52` | Maine Coon还能写多少代码（GPT-5.2 共享此池） |
+| **Codex 主额度** (5h + weekly) | "5小时使用限额" + "每周使用限额" | `@codex` 本地编码 + `@gpt52` | Codex还能写多少代码（GPT-5.2 共享此池） |
 | **Codex-Spark 额度** (5h + weekly) | "GPT-5.3-Codex-Spark 5小时/每周" | `@spark` | Spark 还能用多少 |
 | **代码审查额度** | "代码审查 xx% 剩余" | 云端 Codex review | **review 能力快不够了→切 @gpt52** |
 | **溢出额度** | "剩余额度: 0" | 超额降级通道 | 完全没余粮时的信号 |
@@ -89,7 +89,7 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 - **响应**: HTTP headers (`x-codex-primary-used-percent`, `x-codex-secondary-used-percent`, `x-codex-credits-balance`) + JSON body (`rate_limit.primary_window.used_percent`, `reset_at` 等)
 - **Fallback**: `codex` CLI 输出解析（regex `([0-9]{1,3})%\s+left`）— ClaudeBar 的 `CodexUsageProbe`
 
-#### Siamese (Gemini / Antigravity) 额度池
+#### Gemini (Gemini / Antigravity) 额度池
 
 **Gemini (Google AI)**（对齐 ClaudeBar `GeminiAPIProbe`）
 
@@ -141,33 +141,33 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 
 **砍掉**：Puppeteer 依赖、Chrome CDP 自动启动、隔离浏览器 profile、`readPageTextFromConnectedChrome`、`resolveBrowserCdpUrl` 及其全部配置项（`QUOTA_BROWSER_*` 环境变量）
 
-### 2. Hub 猫粮看板（重做）
+### 2. Hub 配额看板（重做）
 
 **设计哲学**：ClaudeBar 风格的 **glanceable list**，不是运维面板。
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ 猫粮看板                          最后刷新 14:32  │
+│ 配额看板                          最后刷新 14:32  │
 │                                         [刷新全部] │
 ├──────────────────────────────────────────────────┤
 │                                                    │
-│ Ragdoll Claude                                      │
+│ Claude Claude                                      │
 │ 🟢 Session 5h    ████████░░  78%                   │
 │ 🟡 Weekly All    ██████░░░░  58%   resets Fri 19:00│
 │ 🟢 Weekly Opus   ████████░░  82%                   │
 │                                                    │
-│ Maine Coon Codex + GPT-5.2 (共享池)                     │
+│ Codex Codex + GPT-5.2 (共享池)                     │
 │ 🟢 本地编码 5h    ██████████  100%                  │
 │ 🟡 本地编码 周    ████████░░  80%   resets Sun 19:10│
 │                                                    │
-│ Maine Coon Spark                                       │
+│ Codex Spark                                       │
 │ 🟢 Spark 5h      ██████████  100%                  │
 │ 🟢 Spark 周      █████████░  93%   resets Wed 17:03│
 │                                                    │
-│ Maine Coon 代码审查                                     │
+│ Codex 代码审查                                     │
 │ 🔴 Review        █████░░░░░  44%   resets Sat 00:26│
 │                                                    │
-│ Siamese Gemini                                        │
+│ Gemini Gemini                                        │
 │ 🟢 Gemini 2.5 Pro  █████████░  90%   resets Mon     │
 │ 🟡 Gemini 2.5 Flash ██████░░░░  60%   resets Mon    │
 │                                                    │
@@ -184,7 +184,7 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 - **色点语义**：🟢 >50% 健康 / 🟡 20-50% 关注 / 🔴 <20% 危险 / ⬜ 未接入
 - **删除所有运维信息**：probe hint、CDP 配置、隔离浏览器警告、止血模式 → 放到开发者控制台
 - **只有一个刷新按钮**，一键刷所有，不弹 confirm
-- **按"猫猫 + 用途"分组**，不按"provider"分组 — 因为调度决策是"哪只猫能干活"
+- **按"智能体 + 用途"分组**，不按"provider"分组 — 因为调度决策是"哪只猫能干活"
 
 ### 3. macOS Menu Bar — 使用 ClaudeBar
 
@@ -230,7 +230,7 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 > v1 AC-1~22 全部已完成（2026-03-03），归档到 Timeline。以下是 v2 新增。
 
 - [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
-- [ ] AC-v2-1: Hub 猫粮看板按"猫猫 + 用途"分组，Maine Coon至少显示 4 个独立池，Siamese显示 Gemini per-model 池 + Antigravity 池
+- [ ] AC-v2-1: Hub 配额看板按"智能体 + 用途"分组，Codex至少显示 4 个独立池，Gemini显示 Gemini per-model 池 + Antigravity 池
 - [ ] AC-v2-2: 每个 pool 一行：色点 + 名称 + 进度条 + 百分比 + 重置时间，3 秒可读
 - [ ] AC-v2-3: 删除所有运维 UI（probe hint、CDP 配置、止血模式、通知能力矩阵）
 - [ ] AC-v2-4: 删除 SwiftBar 脚本 + `/widget/quota` 页面 + QuotaSummaryWidget 组件 + Web Push 通知基建
@@ -244,12 +244,12 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 
 | ID | 需求点（team experience） | AC 编号 | 状态 |
 |----|---------------------|---------|------|
-| R-v2-1 | "Maine Coon的额度人家是有区隔的，你不应该笼统归因" | AC-v2-1, AC-v2-6 | [ ] |
+| R-v2-1 | "Codex的额度人家是有区隔的，你不应该笼统归因" | AC-v2-1, AC-v2-6 | [ ] |
 | R-v2-2 | "至少要知道 codex 云端 review 额度和 codex 本地额度还有 spark 的额度" | AC-v2-1 | [ ] |
 | R-v2-3 | "直接用 ClaudeBar ok" | AC-v2-4, AC-v2-9 | [ ] |
 | R-v2-4 | "重写 f51 保证我们未来做愿景审计不偏航" | 本文件 | [ ] |
-| R-v2-5 | "Maine Coon没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑" | AC-v2-2, AC-v2-3 | [ ] |
-| R-v2-6 | "猫粮以及通知能在 hub 以及 macos 菜单和通知中心对上" | AC-v2-4, AC-v2-9 | [ ] |
+| R-v2-5 | "Codex没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑" | AC-v2-2, AC-v2-3 | [ ] |
+| R-v2-6 | "配额以及通知能在 hub 以及 macos 菜单和通知中心对上" | AC-v2-4, AC-v2-9 | [ ] |
 
 ## Key Decisions
 
@@ -333,10 +333,10 @@ v1（Phase 1-5，Maine Coon实现）的核心问题：
 ## Review Gate (v2)
 
 - **愿景守护重点**: 额度粒度是否正确？调度映射是否对？有没有把独立池又合并了？
-- **Reviewer**: Maine Coon (GPT-5.2) — 验证额度模型与官方页面一致
+- **Reviewer**: Codex (GPT-5.2) — 验证额度模型与官方页面一致
 
 ## 2026-03-20 增量（社区 intake）
 
-- 吸收社区 PR `clowder-ai#145`，把按“日期 × 猫”聚合的日消耗能力带回家里
+- 吸收社区 PR `office-claw#145`，把按“日期 × 猫”聚合的日消耗能力带回家里
 - 后端新增 `GET /api/usage/daily`，支持 `days` / `catId` 过滤，`total.invocations` 按 record 计数，per-cat 用 `participations`
-- Hub 的猫粮看板新增“近 7 日猫粮消耗”区域，补齐 quota board 的日级钻取视角
+- Hub 的配额看板新增“近 7 日配额消耗”区域，补齐 quota board 的日级钻取视角

@@ -3,8 +3,8 @@
  * A2A Task/Artifact → AgentMessage mapping
  */
 
-import type { A2APart, A2ATask, CatId } from '@clowder/shared';
-import type { AgentMessage } from '@clowder/core';
+import type { A2APart, A2ATask, CatId } from '@office-claw/shared';
+import type { AgentMessage } from '@office-claw/core';
 
 /** Extract text content from A2A parts */
 export function extractTextFromParts(parts: A2APart[]): string {

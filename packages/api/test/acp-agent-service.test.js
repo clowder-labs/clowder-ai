@@ -86,7 +86,7 @@ describe('summarizeACPSessionParamsForLog', () => {
     const summary = summarizeACPSessionParamsForLog(
       {
         cwd: '/opt/workspace/hello',
-        mcpServers: [{ id: 'cat-cafe', transport: 'acp' }],
+        mcpServers: [{ id: 'office-claw', transport: 'acp' }],
         modelProfileOverride: {
           name: 'default',
           model: 'glm-5',

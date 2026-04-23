@@ -55,7 +55,7 @@ export function useChatSocketCallbacks({
       onThreadCreated: (data) => {
         // Refresh thread list for sidebar
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+          window.dispatchEvent(new CustomEvent('office-claw:threads-refresh'));
         }
         // Navigate to new thread when created via connector command (e.g. /new in Feishu/Telegram)
         // This matches the behavior of onGameThreadCreated

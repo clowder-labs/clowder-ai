@@ -7,7 +7,7 @@
 
 
 /**
- * Clowder AI MCP Server — Memory Surface
+ * OfficeClaw MCP Server — Memory Surface
  * 只暴露记忆与回溯工具（evidence/reflect/session chain）。
  */
 
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerMemoryToolset } from './server-toolsets.js';
-import { initCatCafeDir } from './utils/path-validator.js';
+import { initOfficeClawDir } from './utils/path-validator.js';
 
 function createBaseServer(name: string): McpServer {
   return new McpServer({
@@ -36,7 +36,7 @@ export function createMemoryServer(): McpServer {
 }
 
 async function main(): Promise<void> {
-  initCatCafeDir();
+  initOfficeClawDir();
   const server = createMemoryServer();
   const transport = new StdioServerTransport();
   console.error('[office-claw-memory] MCP Server starting...');

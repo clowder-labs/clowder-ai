@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle } from '@clowder/shared';
+import type { SignalArticle } from '@office-claw/shared';
 import type { SignalNotificationConfig } from '../config/notifications-loader.js';
 
 export interface InAppPublishEvent {
@@ -33,10 +33,10 @@ export interface SignalInAppNotificationServiceOptions {
 
 function toDigestContent(input: PublishDailyDigestInput): string {
   if (input.articles.length === 0) {
-    return `Clowder AI 信号日报（${input.date}）\n\n今日无新增信号，咱们继续观察。`;
+    return `OfficeClaw 信号日报（${input.date}）\n\n今日无新增信号，咱们继续观察。`;
   }
 
-  const lines = [`Clowder AI 信号日报（${input.date}）`, '', `新增 ${input.articles.length} 条信号：`, ''];
+  const lines = [`OfficeClaw 信号日报（${input.date}）`, '', `新增 ${input.articles.length} 条信号：`, ''];
 
   const sorted = [...input.articles].sort((a, b) => {
     if (a.tier === b.tier) {

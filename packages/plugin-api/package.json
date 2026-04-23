@@ -1,8 +1,8 @@
 {
-  "name": "@clowder/plugin-api",
+  "name": "@office-claw/plugin-api",
   "version": "0.1.0",
   "type": "module",
-  "description": "Plugin contracts for Cat Cafe extensions. Auth is the first extension point.",
+  "description": "Plugin contracts for OfficeClaw extensions. Auth is the first extension point.",
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

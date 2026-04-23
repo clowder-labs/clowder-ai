@@ -52,7 +52,7 @@ describe('ConnectorRouter media handling', () => {
     const { ConnectorRouter } = await import('../dist/infrastructure/connectors/ConnectorRouter.js');
 
     const sttTranscribe = mock.fn(async () => ({
-      text: '你好猫猫',
+      text: '你好智能体',
     }));
     const mediaDownload = mock.fn(async () => ({
       localUrl: '/api/connector-media/audio.ogg',
@@ -72,7 +72,7 @@ describe('ConnectorRouter media handling', () => {
 
     assert.equal(result.kind, 'routed');
     // Should have stored the STT transcribed text
-    assert.ok(deps._messages[0].content.includes('🎤 你好猫猫'));
+    assert.ok(deps._messages[0].content.includes('🎤 你好智能体'));
     assert.equal(sttTranscribe.mock.calls.length, 1);
     assert.equal(mediaDownload.mock.calls.length, 1);
   });

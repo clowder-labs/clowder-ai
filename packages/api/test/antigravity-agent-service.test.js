@@ -147,9 +147,9 @@ describe('AntigravityAgentService', () => {
       model: 'gemini-3.1-pro',
       cdpClient,
     });
-    await collect(service.invoke('test', { workingDirectory: '/home/user/projects/cat-cafe' }));
+    await collect(service.invoke('test', { workingDirectory: '/home/user/projects/office-claw' }));
     assert.equal(cdpClient.connect.mock.callCount(), 1);
-    assert.equal(cdpClient.connect.mock.calls[0].arguments[0], 'cat-cafe');
+    assert.equal(cdpClient.connect.mock.calls[0].arguments[0], 'office-claw');
   });
 
   test('connect receives undefined titleHint when no workingDirectory', async () => {

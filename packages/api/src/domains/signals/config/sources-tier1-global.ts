@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@clowder/shared';
+import type { SignalSource } from '@office-claw/shared';
 
 // ── Signal Source Base URLs (信号源域名) ───────────────────────────
 const ANTHROPIC_WEB_URL = process.env.ANTHROPIC_WEB_URL!;
@@ -30,7 +30,7 @@ const GROQ_URL = process.env.GROQ_URL!;
  * Microsoft/Apple/AWS, xAI, Mistral, Cohere, Together AI, Groq.
  */
 export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
-  // ── Anthropic (P0 — 铲屎官特别指出) ──────────────────────────
+  // ── Anthropic (P0 — 用户特别指出) ──────────────────────────
   {
     id: 'anthropic-news',
     name: 'Anthropic Newsroom',

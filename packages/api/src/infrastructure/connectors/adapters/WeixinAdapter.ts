@@ -47,7 +47,7 @@ function getIlinkBaseUrl(): string {
 }
 
 function generateClientId(): string {
-  return `cat-cafe-weixin-${crypto.randomUUID()}`;
+  return `office-claw-weixin-${crypto.randomUUID()}`;
 }
 
 // ── iLink Bot API types ──

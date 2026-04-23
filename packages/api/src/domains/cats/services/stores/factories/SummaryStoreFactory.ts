@@ -9,7 +9,7 @@
  * Redis → RedisSummaryStore, 无 → SummaryStore (内存)
  */
 
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { ISummaryStore } from '../ports/SummaryStore.js';
 import { SummaryStore } from '../ports/SummaryStore.js';

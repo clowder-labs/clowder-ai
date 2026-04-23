@@ -108,7 +108,7 @@ describe('MCP Prompt Injection E2E', () => {
     messageStore.append({
       userId: 'user-1',
       catId: 'opus',
-      content: '你好铲屎官',
+      content: '你好用户',
       mentions: [],
       timestamp: Date.now() + 1,
       threadId: 'thread-e2e',
@@ -155,7 +155,7 @@ describe('MCP Prompt Injection E2E', () => {
     const task = taskStore.create({
       threadId: 'thread-e2e',
       title: '设计图标',
-      why: '暹罗猫负责视觉',
+      why: 'Gemini 负责视觉',
       createdBy: 'user',
       ownerCatId: 'gemini',
     });

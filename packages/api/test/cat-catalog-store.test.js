@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
-const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
+const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/office-claw-catalog-store.js');
 const { createRuntimeCat, deleteRuntimeCat, readRuntimeCatCatalog, updateRuntimeCat } = await import(
-  '../dist/config/runtime-cat-catalog.js'
+  '../dist/config/runtime-office-claw-catalog.js'
 );
 
 function validConfig() {
@@ -22,11 +22,11 @@ function validConfig() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫'],
+        mentionPatterns: ['@opus', '@claude'],
         roleDescription: '主架构师',
         defaultVariantId: 'opus-default',
         variants: [
@@ -70,11 +70,11 @@ function makeF127BootstrapTemplate() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫'],
+        mentionPatterns: ['@opus', '@claude'],
         roleDescription: 'Claude 系主力',
         defaultVariantId: 'opus-default',
         variants: [
@@ -88,7 +88,7 @@ function makeF127BootstrapTemplate() {
           {
             id: 'opus-sonnet',
             catId: 'sonnet',
-            displayName: '布偶猫',
+            displayName: 'Claude',
             mentionPatterns: ['@sonnet'],
             provider: 'anthropic',
             defaultModel: 'claude-sonnet-4',
@@ -100,11 +100,11 @@ function makeF127BootstrapTemplate() {
       {
         id: 'maine-coon',
         catId: 'codex',
-        name: '缅因猫',
-        displayName: '缅因猫',
+        name: 'Codex',
+        displayName: 'Codex',
         avatar: '/avatars/codex.png',
         color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
-        mentionPatterns: ['@codex', '@缅因猫'],
+        mentionPatterns: ['@codex', '@assistant'],
         roleDescription: 'Codex 系主力',
         defaultVariantId: 'codex-default',
         variants: [
@@ -118,7 +118,7 @@ function makeF127BootstrapTemplate() {
           {
             id: 'codex-spark',
             catId: 'spark',
-            displayName: '缅因猫',
+            displayName: 'Codex',
             mentionPatterns: ['@spark'],
             provider: 'openai',
             defaultModel: 'gpt-5.3-codex-spark',
@@ -130,11 +130,11 @@ function makeF127BootstrapTemplate() {
       {
         id: 'siamese',
         catId: 'gemini',
-        name: '暹罗猫',
-        displayName: '暹罗猫',
+        name: 'Gemini',
+        displayName: 'Gemini',
         avatar: '/avatars/gemini.png',
         color: { primary: '#5B9BD5', secondary: '#D6E9F8' },
-        mentionPatterns: ['@gemini', '@暹罗猫'],
+        mentionPatterns: ['@gemini', '@design'],
         roleDescription: 'Gemini 系主力',
         defaultVariantId: 'gemini-default',
         variants: [
@@ -150,11 +150,11 @@ function makeF127BootstrapTemplate() {
       {
         id: 'dragon-li',
         catId: 'dare',
-        name: '狸花猫',
-        displayName: '狸花猫',
+        name: 'DARE',
+        displayName: 'DARE',
         avatar: '/avatars/dare.png',
         color: { primary: '#6B7280', secondary: '#E5E7EB' },
-        mentionPatterns: ['@dare', '@狸花猫'],
+        mentionPatterns: ['@dare', '@dare'],
         roleDescription: 'Dare 框架猫',
         defaultVariantId: 'dare-default',
         variants: [
@@ -170,11 +170,11 @@ function makeF127BootstrapTemplate() {
       {
         id: 'golden-chinchilla',
         catId: 'opencode',
-        name: '金渐层',
-        displayName: '金渐层',
+        name: 'OpenCode',
+        displayName: 'OpenCode',
         avatar: '/avatars/opencode.png',
         color: { primary: '#C08457', secondary: '#FDE7D3' },
-        mentionPatterns: ['@opencode', '@金渐层'],
+        mentionPatterns: ['@opencode', '@opencode'],
         roleDescription: 'OpenCode',
         defaultVariantId: 'opencode-default',
         variants: [
@@ -390,13 +390,13 @@ describe('cat-catalog-store', () => {
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
 
     const runtimeConfig = validConfig();
-    runtimeConfig.breeds[0].displayName = '运行时布偶猫';
+    runtimeConfig.breeds[0].displayName = '运行时Claude';
     mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), JSON.stringify(runtimeConfig, null, 2));
 
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const hydrated = JSON.parse(readFileSync(catalogPath, 'utf-8'));
-    assert.equal(hydrated.breeds[0]?.displayName, '运行时布偶猫');
+    assert.equal(hydrated.breeds[0]?.displayName, '运行时Claude');
     assert.equal(hydrated.breeds[0]?.variants[0]?.accountRef, 'claude');
   });
 
@@ -448,8 +448,8 @@ describe('cat-catalog-store', () => {
     bootstrapCatCatalog(projectRoot, templatePath);
 
     await updateRuntimeCat(projectRoot, 'opus', {
-      displayName: '运行时布偶猫',
-      mentionPatterns: ['@opus', '@布偶猫', '@运行时布偶'],
+      displayName: '运行时Claude',
+      mentionPatterns: ['@opus', '@claude', '@运行时布偶'],
       defaultModel: 'claude-opus-4-1',
       personality: '更严格',
     });
@@ -457,8 +457,8 @@ describe('cat-catalog-store', () => {
     const catalog = readRuntimeCatCatalog(projectRoot);
     const updated = catalog.breeds.find((breed) => breed.catId === 'opus');
     assert.ok(updated, 'opus breed should still exist');
-    assert.equal(updated.displayName, '运行时布偶猫');
-    assert.deepEqual(updated.mentionPatterns, ['@opus', '@布偶猫', '@运行时布偶']);
+    assert.equal(updated.displayName, '运行时Claude');
+    assert.deepEqual(updated.mentionPatterns, ['@opus', '@claude', '@运行时布偶']);
     assert.equal(updated.variants[0]?.defaultModel, 'claude-opus-4-1');
     assert.equal(updated.variants[0]?.personality, '更严格');
     assert.equal(catalog.coCreator?.mentionPatterns[0], '@co-worker');
@@ -689,8 +689,8 @@ describe('cat-catalog-store', () => {
 
   it('ignores sibling CAT_TEMPLATE_PATH prefixes when bootstrapping a runtime catalog', async () => {
     const parentRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-boundary-'));
-    const projectRoot = join(parentRoot, 'clowder-ai');
-    const siblingRoot = join(parentRoot, 'clowder-ai-old');
+    const projectRoot = join(parentRoot, 'office-claw');
+    const siblingRoot = join(parentRoot, 'office-claw-old');
     mkdirSync(projectRoot, { recursive: true });
     mkdirSync(siblingRoot, { recursive: true });
 
@@ -737,8 +737,8 @@ describe('cat-catalog-store', () => {
 
   it('does not treat sibling-template seeds as local seeds during delete checks', async () => {
     const parentRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-delete-boundary-'));
-    const projectRoot = join(parentRoot, 'clowder-ai');
-    const siblingRoot = join(parentRoot, 'clowder-ai-old');
+    const projectRoot = join(parentRoot, 'office-claw');
+    const siblingRoot = join(parentRoot, 'office-claw-old');
     mkdirSync(projectRoot, { recursive: true });
     mkdirSync(siblingRoot, { recursive: true });
 
@@ -795,8 +795,8 @@ describe('cat-catalog-store', () => {
           {
             id: 'ragdoll',
             catId: 'opus',
-            name: '布偶猫',
-            displayName: '布偶猫',
+            name: 'Claude',
+            displayName: 'Claude',
             avatar: '/avatars/opus.png',
             color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
             mentionPatterns: ['@opus'],
@@ -857,18 +857,18 @@ describe('cat-catalog-store', () => {
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
-    await updateRuntimeCat(projectRoot, 'opus', { displayName: '新布偶猫' });
+    await updateRuntimeCat(projectRoot, 'opus', { displayName: '新Claude' });
 
     const catalog = readRuntimeCatCatalog(projectRoot);
     const breed = catalog.breeds.find((b) => b.catId === 'opus');
     assert.ok(breed);
-    assert.equal(breed.displayName, '新布偶猫');
+    assert.equal(breed.displayName, '新Claude');
     assert.ok(
-      breed.mentionPatterns.some((p) => p === '@新布偶猫'),
+      breed.mentionPatterns.some((p) => p === '@新Claude'),
       'new displayName should be added to mentionPatterns',
     );
     assert.ok(
-      !breed.mentionPatterns.some((p) => p === '@布偶猫'),
+      !breed.mentionPatterns.some((p) => p === '@claude'),
       'old displayName pattern should be replaced',
     );
     assert.ok(
@@ -892,13 +892,13 @@ describe('cat-catalog-store', () => {
     writeFileSync(templatePath, JSON.stringify(template, null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
-    await updateRuntimeCat(projectRoot, 'opus-sonnet', { displayName: '副手布偶猫' });
+    await updateRuntimeCat(projectRoot, 'opus-sonnet', { displayName: '副手Claude' });
 
     const catalog = readRuntimeCatCatalog(projectRoot);
     const breed = catalog.breeds.find((b) => b.id === 'ragdoll');
     assert.ok(breed);
     // Breed mentionPatterns must NOT be mutated
-    assert.deepEqual(breed.mentionPatterns, ['@opus', '@布偶猫'],
+    assert.deepEqual(breed.mentionPatterns, ['@opus', '@claude'],
       'breed mentionPatterns must not be polluted by non-default variant rename');
     // Non-default variant should have its own materialized patterns
     const sonnet = breed.variants.find((v) => v.id === 'opus-sonnet');
@@ -909,7 +909,7 @@ describe('cat-catalog-store', () => {
       'materialized patterns should include @catId',
     );
     assert.ok(
-      sonnet.mentionPatterns.some((p) => p === '@副手布偶猫'),
+      sonnet.mentionPatterns.some((p) => p === '@副手Claude'),
       'materialized patterns should include new displayName',
     );
   });
@@ -937,7 +937,7 @@ describe('cat-catalog-store', () => {
     // so simulate that by including displayName in the patch
     await updateRuntimeCat(projectRoot, 'opus-sonnet', {
       name: '新副手',
-      displayName: '布偶猫',
+      displayName: 'Claude',
     });
 
     const catalog = readRuntimeCatCatalog(projectRoot);

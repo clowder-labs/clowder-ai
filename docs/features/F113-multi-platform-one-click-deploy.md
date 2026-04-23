@@ -4,12 +4,12 @@ topics: [deploy, onboarding, linux, macos, windows, community, directory-picker,
 doc_kind: spec
 created: 2026-03-13
 source: community
-community_issue: https://github.com/zts212653/clowder-ai/issues/14
+community_issue: https://github.com/zts212653/office-claw/issues/14
 ---
 
 # F113: Multi-Platform One-Click Deploy
 
-> **Status**: in-progress | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2
+> **Status**: in-progress | **Source**: office-claw #14 (mindfn) | **Priority**: P2
 
 ## Why
 
@@ -36,12 +36,12 @@ UX 要点：
 ### Phase A–C: 一键部署脚本（后续）
 
 - **Phase A**: Linux（`install.sh`）—— 自动检测发行版、安装依赖、配置环境变量、启动服务
-  - 2026-03-19：已吸收 `clowder-ai#128` 的 Linux TTY/install/runtime 修复（cat-cafe PR #565），保留内部 runtime 语义并补齐回归测试
-  - 2026-03-19：post-review follow-up（cat-cafe PR #566）已合入，补齐 `/workspace` provider-profile sharing 边界，并修正 installer completion banner 的家里端口口径
+  - 2026-03-19：已吸收 `office-claw#128` 的 Linux TTY/install/runtime 修复（office-claw PR #565），保留内部 runtime 语义并补齐回归测试
+  - 2026-03-19：post-review follow-up（office-claw PR #566）已合入，补齐 `/workspace` provider-profile sharing 边界，并修正 installer completion banner 的家里端口口径
 - **Phase B**: macOS（`install-mac.sh`）—— Homebrew 前置检测 + 依赖安装
 - **Phase C**: Windows（`install.ps1` / WSL 引导）—— PowerShell 脚本或引导用 WSL
-  - 2026-03-19：已吸收 `clowder-ai#113` 的 Windows 一键部署与 CLI spawn 修复（cat-cafe PR #572），manual-port 时保留家里 runtime 口径（`3003/3004/6399`），并锁定开源出口口径为 `Frontend 3003 / API 3004 / Redis 6399`
-  - 2026-03-19：outbound sync follow-up（cat-cafe PR #573）已合入，补齐 Windows deploy 脚本导出 allowlist，并修正 sync parser 对 YAML `#` 的处理，避免公开仓同步时误删脚本或截断合法路径
+  - 2026-03-19：已吸收 `office-claw#113` 的 Windows 一键部署与 CLI spawn 修复（office-claw PR #572），manual-port 时保留家里 runtime 口径（`3003/3004/6399`），并锁定开源出口口径为 `Frontend 3003 / API 3004 / Redis 6399`
+  - 2026-03-19：outbound sync follow-up（office-claw PR #573）已合入，补齐 Windows deploy 脚本导出 allowlist，并修正 sync parser 对 YAML `#` 的处理，避免公开仓同步时误删脚本或截断合法路径
 
 脚本应具备：幂等性（重复运行不报错）、版本检测（已安装不重装）、清晰的进度提示。
 
@@ -58,4 +58,4 @@ UX 要点：
 
 ## Notes
 
-clowder-ai #12 (`buildClaudeEnvOverrides` bug) 应先修，否则 Windows 平台安装成功也无法正常使用。
+office-claw #12 (`buildClaudeEnvOverrides` bug) 应先修，否则 Windows 平台安装成功也无法正常使用。

@@ -6,7 +6,7 @@
 
 /**
  * A2A Event Transformer
- * A2A Task/Artifact → Clowder AI AgentMessage 映射
+ * A2A Task/Artifact → OfficeClaw AgentMessage 映射
  *
  * Mapping:
  *   Task completed + text artifacts → text messages
@@ -15,7 +15,7 @@
  *   Task input-required → system_info
  */
 
-import type { A2APart, A2ATask, CatId } from '@clowder/shared';
+import type { A2APart, A2ATask, CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 /** Extract text content from A2A parts */

@@ -1,4 +1,4 @@
-import type { AuthenticateOutcome, AuthProvider, AuthSessionInfo } from '@clowder/plugin-api/auth';
+import type { AuthenticateOutcome, AuthProvider, AuthSessionInfo } from '@office-claw/plugin-api/auth';
 
 interface LoginInput {
   domainName?: string;

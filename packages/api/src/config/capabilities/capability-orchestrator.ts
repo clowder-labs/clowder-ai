@@ -8,18 +8,18 @@
  * Capability Orchestrator — F041 配置编排器
  *
  * 读取 `.office-claw/capabilities.json` 唯一真相源，
- * 结合 catRegistry 的 provider 映射，
+ * 结合 officeClawRegistry 的 provider 映射，
  * 生成三猫 CLI 的 MCP 配置文件。
  *
  * 首次运行时自动从现有 CLI 配置中发现外部 MCP 服务器，
- * 连同 Cat Cafe 自有 MCP 一起写入 capabilities.json。
+ * 连同 OfficeClaw 自有 MCP 一起写入 capabilities.json。
  */
 
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { relative, resolve, sep } from 'node:path';
-import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { getPluginRegistry } from '../plugins/plugin-registry-singleton.js';
 import {
   readClaudeMcpConfig,
@@ -130,10 +130,6 @@ export async function readCapabilitiesConfig(projectRoot: string): Promise<Capab
     const raw = await readFile(filePath, 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
     if (data.version !== 1 || !Array.isArray(data.capabilities)) return null;
-    // Migrate legacy source: 'cat-cafe' → 'builtin'
-    for (const cap of data.capabilities) {
-      if ((cap.source as string) === 'cat-cafe') cap.source = 'builtin';
-    }
     return data;
   } catch {
     return null;
@@ -189,13 +185,13 @@ export async function discoverExternalMcpServers(paths: DiscoveryPaths): Promise
 }
 
 /**
- * Build the Cat Cafe own MCP server descriptor.
+ * Build the OfficeClaw own MCP server descriptor.
  * Uses the same resolution logic as ClaudeAgentService.
  */
-export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescriptor {
+export function buildOfficeClawMcpDescriptor(projectRoot: string): McpServerDescriptor {
   const serverPath = resolve(projectRoot, 'packages/mcp-server/dist/index.js');
   return {
-    name: 'cat-cafe',
+    name: 'office-claw',
     command: 'node',
     args: [serverPath],
     enabled: true,
@@ -204,12 +200,6 @@ export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescrip
 }
 
 const SPLIT_SERVER_IDS = ['office-claw-collab', 'office-claw-memory', 'office-claw-signals'] as const;
-/** Legacy server IDs from pre-rename — used for auto-migration of capabilities.json */
-const LEGACY_SPLIT_SERVER_MAP: Record<string, string> = {
-  'cat-cafe-collab': 'office-claw-collab',
-  'cat-cafe-memory': 'office-claw-memory',
-  'cat-cafe-signals': 'office-claw-signals',
-};
 
 function buildSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
   return [
@@ -256,91 +246,32 @@ export function toCapabilityEntry(server: McpServerDescriptor): CapabilityEntry 
   return entry;
 }
 
-type LegacyCatCafeSeed = {
+type OfficeClawSeed = {
   enabled: boolean;
   overrides?: CapabilityEntry['overrides'];
   env?: Record<string, string>;
   workingDir?: string;
 };
 
-function buildSplitCapabilityEntries(projectRoot: string, legacySeed?: LegacyCatCafeSeed): CapabilityEntry[] {
+function buildSplitCapabilityEntries(projectRoot: string, officeClawSeed?: OfficeClawSeed): CapabilityEntry[] {
   const descriptors = buildSplitMcpDescriptors(projectRoot);
   const entries = descriptors.map((descriptor) => {
     const entry = toCapabilityEntry(descriptor);
-    if (legacySeed) {
-      entry.enabled = legacySeed.enabled;
-      if (legacySeed.overrides) {
-        entry.overrides = legacySeed.overrides.map((o) => ({ ...o }));
+    if (officeClawSeed) {
+      entry.enabled = officeClawSeed.enabled;
+      if (officeClawSeed.overrides) {
+        entry.overrides = officeClawSeed.overrides.map((o) => ({ ...o }));
       }
-      if (legacySeed.env) {
-        entry.mcpServer!.env = { ...legacySeed.env };
+      if (officeClawSeed.env) {
+        entry.mcpServer!.env = { ...officeClawSeed.env };
       }
-      if (legacySeed.workingDir) {
-        entry.mcpServer!.workingDir = legacySeed.workingDir;
+      if (officeClawSeed.workingDir) {
+        entry.mcpServer!.workingDir = officeClawSeed.workingDir;
       }
     }
     return entry;
   });
   return entries;
-}
-
-export function migrateLegacyCatCafeCapability(
-  config: CapabilitiesConfig,
-  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
-): { migrated: boolean; config: CapabilitiesConfig } {
-  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
-  if (!projectRoot) return { migrated: false, config };
-
-  // Phase 1: Rename old split server IDs (cat-cafe-* → office-claw-*)
-  let renamed = false;
-  const renamedCapabilities = config.capabilities.map((cap) => {
-    const newId = LEGACY_SPLIT_SERVER_MAP[cap.id];
-    if (newId && cap.type === 'mcp' && cap.mcpServer) {
-      renamed = true;
-      return { ...cap, id: newId, mcpServer: { ...cap.mcpServer, name: newId } };
-    }
-    return cap;
-  });
-  if (renamed) {
-    config = { ...config, capabilities: renamedCapabilities };
-  }
-
-  // Phase 1b: Migrate legacy source: 'cat-cafe' → 'builtin'
-  let sourceMigrated = false;
-  for (const cap of config.capabilities) {
-    if ((cap.source as string) === 'cat-cafe') {
-      cap.source = 'builtin';
-      sourceMigrated = true;
-    }
-  }
-  if (sourceMigrated) renamed = true;
-
-  // Phase 2: Check if split servers already exist (current or just-renamed)
-  const splitSet = new Set(SPLIT_SERVER_IDS);
-  const hasSplit = config.capabilities.some((cap) =>
-    splitSet.has(cap.id as (typeof SPLIT_SERVER_IDS)[number]),
-  );
-  if (hasSplit) return { migrated: renamed, config };
-
-  const legacyCatCafe = config.capabilities.find((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
-  if (!legacyCatCafe) return { migrated: renamed, config };
-
-  const nextCapabilities = config.capabilities.filter((cap) => cap.id !== 'cat-cafe');
-  const legacySeed: LegacyCatCafeSeed = { enabled: legacyCatCafe.enabled };
-  if (legacyCatCafe.overrides) legacySeed.overrides = legacyCatCafe.overrides;
-  if (legacyCatCafe.mcpServer?.env) legacySeed.env = legacyCatCafe.mcpServer.env;
-  if (legacyCatCafe.mcpServer?.workingDir) legacySeed.workingDir = legacyCatCafe.mcpServer.workingDir;
-  const splitEntries = buildSplitCapabilityEntries(projectRoot, legacySeed);
-  for (const splitEntry of splitEntries) {
-    nextCapabilities.unshift(splitEntry);
-  }
-  return {
-    migrated: true,
-    config: {
-      ...config,
-      capabilities: nextCapabilities,
-    },
-  };
 }
 
 // ────────── Bootstrap: Create initial capabilities.json ──────────
@@ -352,23 +283,23 @@ export function migrateLegacyCatCafeCapability(
 export async function bootstrapCapabilities(
   projectRoot: string,
   discoveryPaths: DiscoveryPaths,
-  opts?: { catCafeRepoRoot?: string },
+  opts?: { officeClawRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafeServers = buildSplitMcpDescriptors(opts?.catCafeRepoRoot ?? projectRoot);
+  const officeClawServers = buildSplitMcpDescriptors(opts?.officeClawRepoRoot ?? projectRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 
   const capabilities: CapabilityEntry[] = [];
 
-  // Add Cat Cafe's own MCP (split servers)
-  for (const entry of buildSplitCapabilityEntries(opts?.catCafeRepoRoot ?? projectRoot)) {
+  // Add OfficeClaw's own MCP (split servers)
+  for (const entry of buildSplitCapabilityEntries(opts?.officeClawRepoRoot ?? projectRoot)) {
     capabilities.push(entry);
   }
 
   // Add discovered external MCP servers
-  const splitNames = new Set(catCafeServers.map((s) => s.name));
+  const splitNames = new Set(officeClawServers.map((s) => s.name));
   for (const ext of externals) {
     // Skip built-in server names if already discovered from existing config
-    if (ext.name === 'cat-cafe' || splitNames.has(ext.name)) continue;
+    if (ext.name === 'office-claw' || splitNames.has(ext.name)) continue;
     capabilities.push(toCapabilityEntry(ext));
   }
 
@@ -403,7 +334,7 @@ function isTransportSupportedForProvider(
  * Applies global enabled + per-cat overrides + provider transport compatibility.
  */
 export function resolveServersForCat(config: CapabilitiesConfig, catId: string): McpServerDescriptor[] {
-  const entry = catRegistry.tryGet(catId);
+  const entry = officeClawRegistry.tryGet(catId);
   const provider = entry?.config.provider;
 
   return config.capabilities
@@ -438,9 +369,9 @@ export function resolveServersForCat(config: CapabilitiesConfig, catId: string):
 }
 
 function resolveServersForProvider(config: CapabilitiesConfig, provider: string): McpServerDescriptor[] {
-  const catIds = catRegistry
+  const catIds = officeClawRegistry
     .getAllIds()
-    .filter((catId) => catRegistry.tryGet(catId as string)?.config.provider === provider);
+    .filter((catId) => officeClawRegistry.tryGet(catId as string)?.config.provider === provider);
 
   if (catIds.length > 0) {
     const byName = new Map<string, McpServerDescriptor>();
@@ -486,8 +417,8 @@ function resolveServersForProvider(config: CapabilitiesConfig, provider: string)
 function collectServersPerProvider(config: CapabilitiesConfig): Record<string, McpServerDescriptor[]> {
   const providerServers: Record<string, Map<string, McpServerDescriptor>> = {};
 
-  for (const catId of catRegistry.getAllIds()) {
-    const entry = catRegistry.tryGet(catId as string);
+  for (const catId of officeClawRegistry.getAllIds()) {
+    const entry = officeClawRegistry.tryGet(catId as string);
     if (!entry) continue;
     const provider = entry.config.provider;
 
@@ -557,26 +488,17 @@ export async function orchestrate(
   projectRoot: string,
   discoveryPaths: DiscoveryPaths,
   cliConfigPaths: CliConfigPaths,
-  opts?: { catCafeRepoRoot?: string },
+  opts?: { officeClawRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
   let config = await readCapabilitiesConfig(projectRoot);
   if (!config) {
     config = await bootstrapCapabilities(projectRoot, discoveryPaths, opts);
-  } else {
-    const migrated = migrateLegacyCatCafeCapability(
-      config,
-      opts?.catCafeRepoRoot ? { projectRoot, catCafeRepoRoot: opts.catCafeRepoRoot } : { projectRoot },
-    );
-    if (migrated.migrated) {
-      config = migrated.config;
-      await writeCapabilitiesConfig(projectRoot, config);
-    }
   }
   await generateCliConfigs(config, cliConfigPaths);
 
   // F070: Governance bootstrap for external projects
-  if (opts?.catCafeRepoRoot && projectRoot !== opts.catCafeRepoRoot) {
-    await tryGovernanceBootstrap(projectRoot, opts.catCafeRepoRoot);
+  if (opts?.officeClawRepoRoot && projectRoot !== opts.officeClawRepoRoot) {
+    await tryGovernanceBootstrap(projectRoot, opts.officeClawRepoRoot);
   }
 
   return config;
@@ -588,10 +510,10 @@ export async function orchestrate(
  */
 export async function tryGovernanceBootstrap(
   projectRoot: string,
-  catCafeRoot: string,
+  officeClawRoot: string,
 ): Promise<{ bootstrapped: boolean; needsConfirmation: boolean }> {
   const { GovernanceBootstrapService } = await import('../governance/governance-bootstrap.js');
-  const service = new GovernanceBootstrapService(catCafeRoot);
+  const service = new GovernanceBootstrapService(officeClawRoot);
   const registry = service.getRegistry();
   const existing = await registry.get(projectRoot);
 

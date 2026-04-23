@@ -114,7 +114,7 @@ describe('validateProjectPath', () => {
   let subDir;
 
   before(() => {
-    testDir = mkdtempSync('/tmp/cat-cafe-test-path-validation-');
+    testDir = mkdtempSync('/tmp/office-claw-test-path-validation-');
     subDir = join(testDir, 'project-a');
     mkdirSync(subDir, { recursive: true });
   });

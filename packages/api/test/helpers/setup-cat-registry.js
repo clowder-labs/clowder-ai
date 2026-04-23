@@ -5,7 +5,7 @@
  */
 
 /**
- * Auto-populate catRegistry for tests.
+ * Auto-populate officeClawRegistry for tests.
  *
  * Prefer the real office-claw-config.json expansion so route tests see the same
  * variant roster as runtime (gpt52/sonnet/spark/etc.), then fall back
@@ -14,15 +14,15 @@
  * Usage: import './helpers/setup-cat-registry.js';
  */
 
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 
 async function registerAllCats() {
   try {
-    const { loadCatConfig, toAllCatConfigs } = await import('../../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../../dist/config/office-claw-config-loader.js');
     const allConfigs = toAllCatConfigs(loadCatConfig());
     for (const [id, config] of Object.entries(allConfigs)) {
-      if (!catRegistry.has(id)) {
-        catRegistry.register(id, config);
+      if (!officeClawRegistry.has(id)) {
+        officeClawRegistry.register(id, config);
       }
     }
     return;
@@ -30,9 +30,9 @@ async function registerAllCats() {
     // Best-effort fallback for contexts without built dist/config support.
   }
 
-  for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-    if (!catRegistry.has(id)) {
-      catRegistry.register(id, config);
+  for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+    if (!officeClawRegistry.has(id)) {
+      officeClawRegistry.register(id, config);
     }
   }
 }

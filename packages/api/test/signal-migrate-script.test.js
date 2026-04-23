@@ -117,7 +117,7 @@ describe('migrate-signals script args', () => {
 
 describe('runMigrateSignalsCli', () => {
   it('fails fast when --from is missing', async () => {
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const { io, logs, errors } = createIo();
 
     const code = await runMigrateSignalsCli(['--to', targetRoot, '--dry-run'], io);
@@ -131,7 +131,7 @@ describe('runMigrateSignalsCli', () => {
   });
 
   it('fails fast when --from path does not exist', async () => {
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const missingLegacyRoot = join(targetRoot, 'missing-legacy-root');
     const { io, logs, errors } = createIo();
 
@@ -147,7 +147,7 @@ describe('runMigrateSignalsCli', () => {
 
   it('dry-run does not write target signals workspace', async () => {
     const legacyRoot = await createLegacyFixture();
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const { io, logs, errors } = createIo();
 
     const code = await runMigrateSignalsCli(['--from', legacyRoot, '--to', targetRoot, '--dry-run'], io);
@@ -161,7 +161,7 @@ describe('runMigrateSignalsCli', () => {
 
   it('writes migrated sources and articles when not dry-run', async () => {
     const legacyRoot = await createLegacyFixture();
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const { io, logs, errors } = createIo();
 
     const code = await runMigrateSignalsCli(['--from', legacyRoot, '--to', targetRoot], io);
@@ -182,7 +182,7 @@ describe('runMigrateSignalsCli', () => {
 
   it('continues migration when one legacy article file is malformed', async () => {
     const legacyRoot = await createLegacyFixture();
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const { io, logs, errors } = createIo();
 
     await writeFile(
@@ -210,7 +210,7 @@ describe('runMigrateSignalsCli', () => {
 
   it('flags unterminated frontmatter file as malformed and continues migration', async () => {
     const legacyRoot = await createLegacyFixture();
-    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const targetRoot = await mkdtemp(join(tmpdir(), 'office-claw-signals-'));
     const { io, logs, errors } = createIo();
 
     await writeFile(

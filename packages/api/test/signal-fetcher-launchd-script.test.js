@@ -24,7 +24,7 @@ describe('signal fetcher launchd scripts', () => {
       encoding: 'utf8',
       env: {
         ...process.env,
-        HOME: '/tmp/cat-cafe-home',
+        HOME: '/tmp/office-claw-home',
         SIGNAL_FETCHER_LABEL: 'com.office-claw.signal-fetcher',
         SIGNAL_FETCH_HOUR: '7',
         SIGNAL_FETCH_MINUTE: '30',
@@ -33,8 +33,8 @@ describe('signal fetcher launchd scripts', () => {
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /<string>com.office-claw.signal-fetcher<\/string>/);
-    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.office-claw\/signals\/logs\/fetch\.log<\/string>/);
-    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.office-claw\/signals\/logs\/fetch-error\.log<\/string>/);
+    assert.match(result.stdout, /<string>\/tmp\/office-claw-home\/\.office-claw\/signals\/logs\/fetch\.log<\/string>/);
+    assert.match(result.stdout, /<string>\/tmp\/office-claw-home\/\.office-claw\/signals\/logs\/fetch-error\.log<\/string>/);
     assert.match(result.stdout, /<integer>7<\/integer>/);
     assert.match(result.stdout, /<integer>30<\/integer>/);
   });
@@ -52,7 +52,7 @@ describe('signal fetcher launchd scripts', () => {
   });
 
   it('parses single-quoted daily_digest with inline comment from notifications.yaml', () => {
-    const signalsRootDir = mkdtempSync(resolve(tmpdir(), 'cat-cafe-signals-'));
+    const signalsRootDir = mkdtempSync(resolve(tmpdir(), 'office-claw-signals-'));
     mkdirSync(resolve(signalsRootDir, 'config'), { recursive: true });
     writeFileSync(
       resolve(signalsRootDir, 'config', 'notifications.yaml'),
@@ -64,7 +64,7 @@ describe('signal fetcher launchd scripts', () => {
       encoding: 'utf8',
       env: {
         ...process.env,
-        HOME: '/tmp/cat-cafe-home',
+        HOME: '/tmp/office-claw-home',
         SIGNALS_ROOT_DIR: signalsRootDir,
       },
     });

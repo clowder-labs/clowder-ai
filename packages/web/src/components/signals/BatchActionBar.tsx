@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticleStatus } from '@clowder/shared';
+import type { SignalArticleStatus } from '@office-claw/shared';
 import { useCallback, useState } from 'react';
 import { batchSignalArticles } from '@/utils/signals-api';
 

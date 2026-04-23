@@ -292,7 +292,7 @@ test('escapeBashArg escapes internal single quotes', () => {
 });
 
 test('escapeBashArg preserves CJK characters (UTF-8 safe)', () => {
-  const prompt = '你是 claude-claude（claude-claude），由 Anthropic 提供的 AI 猫猫。';
+  const prompt = '你是 claude-claude（claude-claude），由 Anthropic 提供的 AI 智能体。';
   assert.equal(escapeBashArg(prompt), `'${prompt}'`);
 });
 

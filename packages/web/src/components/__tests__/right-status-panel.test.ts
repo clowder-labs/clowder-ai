@@ -51,8 +51,8 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('执行');
     expect(html).toContain('当前调用');
     expect(html).toContain('消息统计');
-    expect(html).toContain('布偶猫');
-    expect(html).toContain('缅因猫');
+    expect(html).toContain('Claude');
+    expect(html).toContain('Codex');
     expect(html).toContain('12');
   });
 
@@ -103,7 +103,7 @@ describe('RightStatusPanel', () => {
     // IDs are now behind a collapsible toggle (default collapsed in SSR)
     expect(html).toContain('▸ IDs');
     // The cat name and invocation section still render
-    expect(html).toContain('缅因猫');
+    expect(html).toContain('Codex');
   });
 
   it('shows history cats that are not in current targetCats', () => {
@@ -127,7 +127,7 @@ describe('RightStatusPanel', () => {
 
     expect(html).toContain('当前调用');
     expect(html).toContain('历史参与');
-    expect(html).toContain('布偶猫');
+    expect(html).toContain('Claude');
   });
 
   it('shows non-target cat in 当前调用 when it has task progress', () => {
@@ -157,9 +157,9 @@ describe('RightStatusPanel', () => {
     });
 
     expect(html).toContain('当前调用');
-    expect(html).toContain('缅因猫');
-    // F055: task progress now in 猫猫祟祟 panel, not in 当前调用
-    expect(html).toContain('猫猫祟祟');
+    expect(html).toContain('Codex');
+    // F055: task progress now in 智能体祟祟 panel, not in 当前调用
+    expect(html).toContain('智能体祟祟');
     expect(html).toContain('Reviewing PR');
   });
 
@@ -190,13 +190,13 @@ describe('RightStatusPanel', () => {
     });
 
     expect(html).toContain('当前调用');
-    expect(html).toContain('布偶猫');
-    // F055: completed plan folds in 猫猫祟祟
-    expect(html).toContain('猫猫祟祟');
+    expect(html).toContain('Claude');
+    // F055: completed plan folds in 智能体祟祟
+    expect(html).toContain('智能体祟祟');
     expect(html).toContain('已完成 (1)');
   });
 
-  it('keeps interrupted snapshots in 猫猫祟祟 with continue action', () => {
+  it('keeps interrupted snapshots in 智能体祟祟 with continue action', () => {
     const html = render({
       intentMode: 'execute',
       targetCats: ['opus'],
@@ -222,8 +222,8 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('猫猫祟祟');
-    expect(html).toContain('缅因猫');
+    expect(html).toContain('智能体祟祟');
+    expect(html).toContain('Codex');
     expect(html).toContain('已中断');
     expect(html).toContain('继续');
   });
@@ -255,12 +255,12 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('缅因猫');
+    expect(html).toContain('Codex');
     expect(html).toContain('继续执行');
     expect(html).toContain('放弃本次运行');
   });
 
-  it('renders task progress in 猫猫祟祟 panel', () => {
+  it('renders task progress in 智能体祟祟 panel', () => {
     const html = render({
       intentMode: 'execute',
       targetCats: ['opus'],
@@ -288,14 +288,14 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('猫猫祟祟');
+    expect(html).toContain('智能体祟祟');
     expect(html).toContain('1/3');
     expect(html).toContain('Fix auth bug');
     expect(html).toContain('Adding caching');
     expect(html).toContain('Write tests');
   });
 
-  // clowder-ai#28: resize width prop regression tests
+  // office-claw#28: resize width prop regression tests
   it('renders with custom width via style attribute', () => {
     const html = render({
       intentMode: null,

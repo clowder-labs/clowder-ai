@@ -19,8 +19,8 @@ Branch: feat/fix-queue-stale-dedup
 
 ## Original Requirements（必填）
 
-> 这个砚砚 thread id thread_mnn6uo92lgz3xdtj 很奇怪。猫猫咖啡喊他没反应，但是我取消掉猫猫咖啡的调用去codex resume 他是可以resume 且还可以和我交互的！！
-> 猫猫咖啡重启之后那个session的砚砚能调度了。之前猫猫咖啡没重启的时候那个砚砚怎么at都at不出来
+> 这个砚砚 thread id thread_mnn6uo92lgz3xdtj 很奇怪。智能体咖啡喊他没反应，但是我取消掉智能体咖啡的调用去codex resume 他是可以resume 且还可以和我交互的！！
+> 智能体咖啡重启之后那个session的砚砚能调度了。之前智能体咖啡没重启的时候那个砚砚怎么at都at不出来
 
 - 来源：thread_mnn6uo92lgz3xdtj（2026-04-06 实时调试）
 - **请对照上面的摘录判断：修复后是否能消除"@不出来，重启才恢复"的现象**
@@ -41,7 +41,7 @@ Branch: feat/fix-queue-stale-dedup
 ## 自检证据
 
 ### Spec 合规
-- 铲屎官需求：@猫名不再因僵尸队列条目永久失联 ✅
+- 用户需求：@猫名不再因僵尸队列条目永久失联 ✅
 - 重启不再是唯一恢复手段 ✅
 - 与 hasActiveOrQueuedAgentForCat 行为对称 ✅
 

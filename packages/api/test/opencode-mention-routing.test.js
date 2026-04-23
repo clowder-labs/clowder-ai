@@ -11,7 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { after, before, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { OpenCodeAgentService } from '../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js';
 import { parseA2AMentions } from '../dist/domains/cats/services/agents/routing/a2a-mentions.js';
 import {
@@ -26,23 +26,23 @@ ensureFakeCliOnPath('opencode');
 
 // ── Shared fixtures ──────────────────────────────────────────────
 
-/** Full pattern map including opencode — mirrors production catRegistry */
+/** Full pattern map including opencode — mirrors production officeClawRegistry */
 const allPatterns = new Map([
-  ['opus', ['@opus', '@布偶猫', '@布偶', '@宪宪']],
-  ['codex', ['@codex', '@缅因猫', '@缅因', '@砚砚']],
-  ['gemini', ['@gemini', '@暹罗猫', '@暹罗', '@烁烁']],
-  ['opencode', ['@opencode', '@金渐层', '@golden', '@golden-chinchilla']],
+  ['opus', ['@opus', '@claude', '@office', '@宪宪']],
+  ['codex', ['@codex', '@assistant', '@codex-review', '@砚砚']],
+  ['gemini', ['@gemini', '@design', '@gemini-design', '@烁烁']],
+  ['opencode', ['@opencode', '@opencode-agent', '@opencode', '@opencode-agent']],
 ]);
 
 /** Display names for realistic system prompt output */
 const catDisplayNames = {
-  opus: '布偶猫',
-  codex: '缅因猫',
-  gemini: '暹罗猫',
-  opencode: '金渐层',
+  opus: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  opencode: 'OpenCode',
 };
 
-/** Minimal CatConfig stub for catRegistry tests */
+/** Minimal OfficeClawConfigEntry stub for officeClawRegistry tests */
 function stubCatConfig(catId, mentionPatterns) {
   return {
     id: catId,
@@ -67,23 +67,23 @@ describe('parseMentions — opencode patterns', () => {
     assert.equal(result.targetCatId, 'opencode');
   });
 
-  it('resolves @金渐层 to opencode', () => {
-    const result = parseMentions('@金渐层 帮我看看', allPatterns, 'opus');
+  it('resolves @opencode-agent to opencode', () => {
+    const result = parseMentions('@opencode-agent 帮我看看', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opencode');
   });
 
-  it('resolves @golden to opencode', () => {
-    const result = parseMentions('@golden check this', allPatterns, 'opus');
+  it('resolves @opencode to opencode', () => {
+    const result = parseMentions('@opencode check this', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opencode');
   });
 
-  it('resolves @golden-chinchilla to opencode', () => {
-    const result = parseMentions('@golden-chinchilla review', allPatterns, 'opus');
+  it('resolves @opencode-agent to opencode', () => {
+    const result = parseMentions('@opencode-agent review', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opencode');
   });
 
-  it('does not match @goldenxyz (partial word)', () => {
-    const result = parseMentions('@goldenxyz hello', allPatterns, 'opus');
+  it('does not match @opencodexyz (partial word)', () => {
+    const result = parseMentions('@opencodexyz hello', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opus'); // default
   });
 
@@ -107,8 +107,8 @@ describe('parseMentions — opencode patterns', () => {
     assert.equal(result.targetCatId, 'opencode');
   });
 
-  it('matches @金渐层 followed by CJK full-width comma', () => {
-    const result = parseMentions('@金渐层，帮忙看下', allPatterns, 'opus');
+  it('matches @opencode-agent followed by CJK full-width comma', () => {
+    const result = parseMentions('@opencode-agent，帮忙看下', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opencode');
   });
 
@@ -117,9 +117,9 @@ describe('parseMentions — opencode patterns', () => {
     assert.equal(result.targetCatId, 'opus'); // default
   });
 
-  it('matches @golden-chinchilla over @golden (longest match)', () => {
-    // Both patterns start with @golden, longest wins
-    const result = parseMentions('@golden-chinchilla 来帮忙', allPatterns, 'opus');
+  it('matches @opencode-agent over @opencode (longest match)', () => {
+    // Both patterns start with @opencode, longest wins
+    const result = parseMentions('@opencode-agent 来帮忙', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opencode');
   });
 });
@@ -128,19 +128,19 @@ describe('parseMentions — opencode patterns', () => {
 
 describe('parseA2AMentions — opencode A2A chain', () => {
   before(() => {
-    // Register all cats including opencode in catRegistry
-    catRegistry.reset();
+    // Register all cats including opencode in officeClawRegistry
+    officeClawRegistry.reset();
     for (const [catId, patterns] of allPatterns) {
-      catRegistry.register(catId, stubCatConfig(catId, patterns));
+      officeClawRegistry.register(catId, stubCatConfig(catId, patterns));
     }
   });
 
   after(() => {
-    catRegistry.reset();
+    officeClawRegistry.reset();
   });
 
   it('detects @opencode at line start from opus response', () => {
-    const text = '分析完了，交给金渐层\n@opencode 请继续分析';
+    const text = '分析完了，交给 OpenCode\n@opencode 请继续分析';
     const result = parseA2AMentions(text, 'opus');
     assert.deepEqual(result, ['opencode']);
   });
@@ -157,8 +157,8 @@ describe('parseA2AMentions — opencode A2A chain', () => {
     assert.deepEqual(result, []); // self-mention filtered
   });
 
-  it('detects @金渐层 at line start (CJK A2A)', () => {
-    const text = '请金渐层接手\n@金渐层 帮忙看看这段代码';
+  it('detects @opencode-agent at line start (CJK A2A)', () => {
+    const text = '请 OpenCode 接手\n@opencode-agent 帮忙看看这段代码';
     const result = parseA2AMentions(text, 'opus');
     assert.deepEqual(result, ['opencode']);
   });
@@ -186,19 +186,19 @@ describe('parseA2AMentions — opencode A2A chain', () => {
 
 describe('System prompt — opencode context injection', () => {
   before(() => {
-    catRegistry.reset();
+    officeClawRegistry.reset();
     for (const [catId, patterns] of allPatterns) {
-      catRegistry.register(catId, stubCatConfig(catId, patterns));
+      officeClawRegistry.register(catId, stubCatConfig(catId, patterns));
     }
   });
 
   after(() => {
-    catRegistry.reset();
+    officeClawRegistry.reset();
   });
 
   it('buildStaticIdentity produces identity for opencode', () => {
     const identity = buildStaticIdentity('opencode');
-    assert.ok(identity.includes('金渐层'), 'should include displayName');
+    assert.ok(identity.includes('OpenCode'), 'should include displayName');
     assert.ok(identity.length > 10, 'should be non-trivial');
   });
 
@@ -211,7 +211,7 @@ describe('System prompt — opencode context injection', () => {
       directMessageFrom: 'opus',
     });
     assert.ok(ctx.includes('Direct message from'), 'should include direct message context');
-    assert.ok(ctx.includes('布偶猫'), 'should include sender displayName');
+    assert.ok(ctx.includes('Claude'), 'should include sender displayName');
   });
 
   it('buildInvocationContext includes opencode identity line', () => {
@@ -221,7 +221,7 @@ describe('System prompt — opencode context injection', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(ctx.includes('金渐层'), 'should include opencode displayName');
+    assert.ok(ctx.includes('OpenCode'), 'should include opencode displayName');
     assert.ok(ctx.includes('opencode'), 'should include catId');
   });
 
@@ -234,7 +234,7 @@ describe('System prompt — opencode context injection', () => {
       directMessageFrom: 'opencode',
     });
     assert.ok(ctx.includes('Direct message from'), 'should include DM context');
-    assert.ok(ctx.includes('金渐层'), 'should include opencode displayName');
+    assert.ok(ctx.includes('OpenCode'), 'should include opencode displayName');
   });
 });
 
@@ -305,14 +305,14 @@ async function collect(iterable) {
 
 describe('OpenCodeAgentService — routed prompt with system context', () => {
   before(() => {
-    catRegistry.reset();
+    officeClawRegistry.reset();
     for (const [catId, patterns] of allPatterns) {
-      catRegistry.register(catId, stubCatConfig(catId, patterns));
+      officeClawRegistry.register(catId, stubCatConfig(catId, patterns));
     }
   });
 
   after(() => {
-    catRegistry.reset();
+    officeClawRegistry.reset();
   });
 
   // ── P1 fix: mirror the real route-serial assembly path ────────
@@ -349,12 +349,12 @@ describe('OpenCodeAgentService — routed prompt with system context', () => {
     const effectivePrompt = `${staticIdentity}\n\n---\n\n${prompt}`;
 
     // Verify structure matches production assembly
-    assert.ok(staticIdentity.includes('金渐层'), 'staticIdentity includes opencode displayName');
+    assert.ok(staticIdentity.includes('OpenCode'), 'staticIdentity includes opencode displayName');
     assert.ok(invocationContext.includes('Direct message from'), 'invocationContext includes DM context');
-    assert.ok(invocationContext.includes('布偶猫'), 'invocationContext includes sender displayName');
+    assert.ok(invocationContext.includes('Claude'), 'invocationContext includes sender displayName');
 
     // Verify ordering: staticIdentity → invocationContext → userMessage
-    const idxIdentity = effectivePrompt.indexOf('金渐层');
+    const idxIdentity = effectivePrompt.indexOf('OpenCode');
     const idxDM = effectivePrompt.indexOf('Direct message from');
     const idxUser = effectivePrompt.indexOf(userMessage);
     assert.ok(idxIdentity < idxDM, 'staticIdentity precedes invocationContext');
@@ -415,7 +415,7 @@ describe('OpenCodeAgentService — routed prompt with system context', () => {
     assert.equal(spawnFn.mock.calls.length, 1, 'spawnFn called once');
     const args = spawnFn.mock.calls[0].arguments[1];
     const lastArg = args[args.length - 1];
-    assert.ok(lastArg.includes('金渐层'), 'CLI arg includes opencode identity');
+    assert.ok(lastArg.includes('OpenCode'), 'CLI arg includes opencode identity');
     assert.ok(lastArg.includes('Direct message from'), 'CLI arg includes DM context');
     assert.ok(lastArg.includes(userMessage), 'CLI arg includes user message');
   });
@@ -464,13 +464,13 @@ describe('OpenCodeAgentService — routed prompt with system context', () => {
     // Verify prompt was delivered matching route-serial assembly
     const cliArgs = spawnFn.mock.calls[0].arguments[1];
     const deliveredPrompt = cliArgs[cliArgs.length - 1];
-    assert.ok(deliveredPrompt.includes('金渐层'), 'opencode identity injected');
+    assert.ok(deliveredPrompt.includes('OpenCode'), 'opencode identity injected');
     assert.ok(deliveredPrompt.includes('Direct message from'), 'DM context injected');
     assert.ok(deliveredPrompt.includes(userText), 'original user message preserved');
 
     // Verify structure: identity → DM → user message (matching production order)
     // Use the full userText to avoid matching @opencode in Identity line
-    const idxId = deliveredPrompt.indexOf('金渐层');
+    const idxId = deliveredPrompt.indexOf('OpenCode');
     const idxDm = deliveredPrompt.indexOf('Direct message from');
     const idxUsr = deliveredPrompt.indexOf(userText);
     assert.ok(idxId < idxDm && idxDm < idxUsr, 'production ordering: identity → invocationContext → user message');
@@ -505,7 +505,7 @@ describe('Fixture guard — allPatterns matches office-claw-template.json truth 
   it('all fixture cats patterns are a subset of office-claw-template.json (no phantom patterns)', () => {
     // Guard: fixture patterns must exist in the truth source — prevents phantom patterns
     // that would make tests pass for patterns that were removed from production config.
-    // Note: fixture may be a subset (e.g., opus fixture omits @ragdoll for simplicity)
+    // Note: fixture may be a subset (e.g., opus fixture omits @claude for simplicity)
     const catIdToBreed = { opus: 'ragdoll', codex: 'maine-coon', gemini: 'siamese', opencode: 'golden-chinchilla' };
     for (const [catId, fixturePatterns] of allPatterns) {
       const breedId = catIdToBreed[catId];

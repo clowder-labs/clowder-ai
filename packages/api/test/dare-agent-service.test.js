@@ -1043,7 +1043,7 @@ describe('DareAgentService', () => {
       JSON.stringify(
         {
           mcpServers: {
-            'cat-cafe': { command: 'node', args: ['/repo/packages/mcp-server/dist/index.js'] },
+            'office-claw': { command: 'node', args: ['/repo/packages/mcp-server/dist/index.js'] },
             'http-tool': { type: 'http', url: 'https://example.com/mcp', headers: { Authorization: 'Bearer token' } },
           },
         },
@@ -1091,7 +1091,7 @@ describe('DareAgentService', () => {
       JSON.stringify(
         {
           mcpServers: {
-            'cat-cafe': { command: 'node', args: ['/repo/packages/mcp-server/dist/index.js'] },
+            'office-claw': { command: 'node', args: ['/repo/packages/mcp-server/dist/index.js'] },
             cat_cafe: { command: 'node', args: ['/repo/packages/mcp-server/dist/secondary.js'] },
             '123 weird@name': { command: 'node', args: ['/repo/packages/mcp-server/dist/third.js'] },
           },

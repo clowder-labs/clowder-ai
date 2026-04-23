@@ -41,8 +41,8 @@ describe('F096: buildSelectionMessage', () => {
   });
 
   it('card-grid — with emoji', () => {
-    const result = buildSelectionMessage('card-grid', [{ id: 'a', label: '猫猫盲盒', emoji: '🎲' }], ['a']);
-    expect(result).toBe('我选了：🎲 猫猫盲盒');
+    const result = buildSelectionMessage('card-grid', [{ id: 'a', label: '智能体盲盒', emoji: '🎲' }], ['a']);
+    expect(result).toBe('我选了：🎲 智能体盲盒');
   });
 
   it('confirm — confirm action (no title)', () => {
@@ -70,9 +70,9 @@ describe('F096: buildSelectionMessage', () => {
       'select',
       [{ id: 'a', label: '宪宪' }],
       ['a'],
-      '我选了 {selection} 作为引导猫',
+      '我选了 {selection} 作为引导智能体',
     );
-    expect(result).toBe('我选了 宪宪 作为引导猫');
+    expect(result).toBe('我选了 宪宪 作为引导智能体');
   });
 
   it('multi-select — respects selection order', () => {

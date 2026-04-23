@@ -93,7 +93,7 @@ describe('validatePort', () => {
     assert.equal(result.allowed, true);
   });
 
-  it('DEFAULT_EXCLUDED_PORTS contains all Clowder AI service ports', () => {
+  it('DEFAULT_EXCLUDED_PORTS contains all OfficeClaw service ports', () => {
     const expected = [3001, 3002, 6398, 6399, 18888, 19999, 9876, 9878, 9879, 9877];
     for (const port of expected) {
       assert.ok(DEFAULT_EXCLUDED_PORTS.includes(port), `Missing excluded port: ${port}`);

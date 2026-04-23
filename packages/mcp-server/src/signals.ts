@@ -7,7 +7,7 @@
 
 
 /**
- * Clowder AI MCP Server — Signals Surface
+ * OfficeClaw MCP Server — Signals Surface
  * 只暴露 Signal Hunter 工具。
  */
 
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerSignalToolset } from './server-toolsets.js';
-import { initCatCafeDir } from './utils/path-validator.js';
+import { initOfficeClawDir } from './utils/path-validator.js';
 
 function createBaseServer(name: string): McpServer {
   return new McpServer({
@@ -36,7 +36,7 @@ export function createSignalsServer(): McpServer {
 }
 
 async function main(): Promise<void> {
-  initCatCafeDir();
+  initOfficeClawDir();
   const server = createSignalsServer();
   const transport = new StdioServerTransport();
   console.error('[office-claw-signals] MCP Server starting...');

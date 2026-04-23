@@ -119,13 +119,13 @@ describe('ProviderPluginRegistry', () => {
     assert.ok(!registry.has('tmp'));
   });
 
-  it('discovers @clowder/provider-echo from node_modules', async () => {
+  it('discovers @office-claw/provider-echo from node_modules', async () => {
     const registry = new ProviderPluginRegistry();
     const result = await registry.discoverFromNodeModules();
 
     // provider-echo should be discovered from the workspace
-    const echoDiscovery = result.discovered.find(d => d.package === '@clowder/provider-echo');
-    assert.ok(echoDiscovery, `Expected to discover @clowder/provider-echo, got: ${JSON.stringify(result)}`);
+    const echoDiscovery = result.discovered.find(d => d.package === '@office-claw/provider-echo');
+    assert.ok(echoDiscovery, `Expected to discover @office-claw/provider-echo, got: ${JSON.stringify(result)}`);
     assert.ok(echoDiscovery.providers.includes('echo'));
     assert.ok(registry.has('echo'));
 

@@ -89,7 +89,7 @@ function createMockSpawnFn(events) {
 }
 
 function installFakeCliPath() {
-  const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-cli-'));
+  const dir = mkdtempSync(join(tmpdir(), 'office-claw-thread-cli-'));
   const writeExecutable = (name, content) => {
     const file = join(dir, name);
     writeFileSync(file, content);
@@ -288,7 +288,7 @@ describe('Project-scoped threads: create and list by project', () => {
 
   beforeEach(async () => {
     // Create temp dirs for project path validation
-    mkdirSync('/tmp/test-cat-cafe', { recursive: true });
+    mkdirSync('/tmp/test-office-claw', { recursive: true });
     mkdirSync('/tmp/test-relay', { recursive: true });
     threadStore = new ThreadStore();
     app = Fastify();
@@ -298,7 +298,7 @@ describe('Project-scoped threads: create and list by project', () => {
 
   afterEach(async () => {
     if (app) await app.close();
-    rmSync('/tmp/test-cat-cafe', { recursive: true, force: true });
+    rmSync('/tmp/test-office-claw', { recursive: true, force: true });
     rmSync('/tmp/test-relay', { recursive: true, force: true });
   });
 
@@ -307,7 +307,7 @@ describe('Project-scoped threads: create and list by project', () => {
     await app.inject({
       method: 'POST',
       url: '/api/threads',
-      payload: { userId: 'alice', title: 'In cat-cafe', projectPath: '/tmp/test-cat-cafe' },
+      payload: { userId: 'alice', title: 'In office-claw', projectPath: '/tmp/test-office-claw' },
     });
     await app.inject({
       method: 'POST',
@@ -326,8 +326,8 @@ describe('Project-scoped threads: create and list by project', () => {
       url: '/api/threads?userId=alice',
     });
     const allThreads0 = JSON.parse(resAll0.body).threads;
-    const catCafeThread = allThreads0.find((t) => t.title === 'In cat-cafe');
-    assert.ok(catCafeThread, 'Should find the cat-cafe thread');
+    const catCafeThread = allThreads0.find((t) => t.title === 'In office-claw');
+    assert.ok(catCafeThread, 'Should find the office-claw thread');
     const resolvedPath = catCafeThread.projectPath;
 
     // Query by resolved project path
@@ -337,7 +337,7 @@ describe('Project-scoped threads: create and list by project', () => {
     });
     const catCafeThreads = JSON.parse(resCatCafe.body).threads;
     assert.equal(catCafeThreads.length, 1);
-    assert.equal(catCafeThreads[0].title, 'In cat-cafe');
+    assert.equal(catCafeThreads[0].title, 'In office-claw');
     assert.equal(catCafeThreads[0].projectPath, resolvedPath);
 
     // Query all (no projectPath filter)
@@ -351,7 +351,7 @@ describe('Project-scoped threads: create and list by project', () => {
   });
 
   it('falls back to repo workspace when projectPath is missing', async () => {
-    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-missing-'));
+    const tempRepo = mkdtempSync(join(tmpdir(), 'office-claw-thread-workspace-missing-'));
     const previousCwd = process.cwd();
     writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
     mkdirSync(join(tempRepo, 'office-claw-skills'), { recursive: true });
@@ -379,7 +379,7 @@ describe('Project-scoped threads: create and list by project', () => {
   });
 
   it('falls back to repo workspace and creates it when projectPath does not exist', async () => {
-    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-invalid-'));
+    const tempRepo = mkdtempSync(join(tmpdir(), 'office-claw-thread-workspace-invalid-'));
     const previousCwd = process.cwd();
     const missingProjectPath = join(tempRepo, 'missing-project');
     writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
@@ -409,7 +409,7 @@ describe('Project-scoped threads: create and list by project', () => {
   });
 
   it('bootstraps governance for an existing workspace that was not governed yet', async () => {
-    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-existing-'));
+    const tempRepo = mkdtempSync(join(tmpdir(), 'office-claw-thread-workspace-existing-'));
     const previousCwd = process.cwd();
     const workspaceDir = join(tempRepo, 'workspace');
     writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');

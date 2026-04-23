@@ -5,20 +5,22 @@
  */
 
 /**
- * CatRegistry — 运行时猫猫注册表
+ * CatRegistry — 运行时智能体注册表
  *
  * 服务启动时从 office-claw-config.json 注册所有猫。
  * 路由层和业务逻辑通过 registry 做运行时校验，
  * 替代旧的编译时 CatId union 校验。
  */
 
-import type { CatConfig } from '../types/cat.js';
+import type { OfficeClawConfigEntry } from '../types/cat.js';
 import type { CatId } from '../types/ids.js';
 import { createCatId } from '../types/ids.js';
 
 export interface CatRegistryEntry {
-  readonly config: CatConfig;
+  readonly config: OfficeClawConfigEntry;
 }
+
+export type OfficeClawRegistryEntry = CatRegistryEntry;
 
 export class CatRegistry {
   private entries = new Map<string, CatRegistryEntry>();
@@ -26,7 +28,7 @@ export class CatRegistry {
   /**
    * Register a cat. Throws on duplicate ID.
    */
-  register(catId: string, config: CatConfig): void {
+  register(catId: string, config: OfficeClawConfigEntry): void {
     if (this.entries.has(catId)) {
       throw new Error(`Cat "${catId}" is already registered`);
     }
@@ -59,8 +61,8 @@ export class CatRegistry {
     return Array.from(this.entries.keys()).map((id) => createCatId(id));
   }
 
-  getAllConfigs(): Record<string, CatConfig> {
-    const result: Record<string, CatConfig> = {};
+  getAllConfigs(): Record<string, OfficeClawConfigEntry> {
+    const result: Record<string, OfficeClawConfigEntry> = {};
     for (const [id, entry] of this.entries) {
       result[id] = entry.config;
     }
@@ -85,8 +87,11 @@ export class CatRegistry {
   }
 }
 
+export class OfficeClawRegistry extends CatRegistry {}
+
 /** Global singleton — populated at startup from office-claw-config.json */
-export const catRegistry = new CatRegistry();
+export const officeClawRegistry = new CatRegistry();
+export const catRegistry = officeClawRegistry;
 
 /**
  * Assert that a string is a registered cat ID. Throws if not.
@@ -96,6 +101,6 @@ export const catRegistry = new CatRegistry();
  * against the runtime registry.
  */
 export function assertKnownCatId(id: string): CatId {
-  catRegistry.getOrThrow(id);
+  officeClawRegistry.getOrThrow(id);
   return createCatId(id);
 }

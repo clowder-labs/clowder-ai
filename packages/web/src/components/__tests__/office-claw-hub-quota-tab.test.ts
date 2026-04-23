@@ -25,7 +25,7 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'codex',
-        displayName: '缅因猫',
+        displayName: 'Codex',
         nickname: '砚砚',
         color: { primary: '#4A90E2', secondary: '#E6F2FF' },
         mentionPatterns: ['@codex'],
@@ -41,7 +41,7 @@ vi.mock('@/hooks/useCatData', () => ({
       id === 'codex'
         ? {
             id: 'codex',
-            displayName: '缅因猫',
+            displayName: 'Codex',
             nickname: '砚砚',
             color: { primary: '#4A90E2', secondary: '#E6F2FF' },
             mentionPatterns: ['@codex'],
@@ -80,7 +80,7 @@ describe('CatCafeHub quota tab', () => {
   it('renders routing policy summary plus quota board', () => {
     const html = renderToStaticMarkup(React.createElement(HubRoutingPolicyTab));
     expect(html).toContain('配额看板');
-    expect(html).toContain('路由策略（猫粮约束子模块）');
+    expect(html).toContain('路由策略（配额约束子模块）');
     expect(html).toContain('@codex');
   });
 });

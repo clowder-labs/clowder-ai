@@ -5,8 +5,8 @@
  */
 
 /**
- * Task Types (毛线球)
- * 猫猫任务系统 — 让每只猫追踪自己负责的事项
+ * Task Types
+ * 智能体任务系统 — 让每个智能体追踪自己负责的事项
  */
 
 import type { CatId } from './ids.js';

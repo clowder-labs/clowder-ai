@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEFAULT_RUNTIME_DIR="$(cd "$PROJECT_DIR/.." && pwd)/cat-cafe-runtime"
+DEFAULT_RUNTIME_DIR="$(cd "$PROJECT_DIR/.." && pwd)/office-claw-runtime"
 
 RUNTIME_DIR="${OFFICE_CLAW_RUNTIME_DIR:-$DEFAULT_RUNTIME_DIR}"
 RUNTIME_BRANCH="${OFFICE_CLAW_RUNTIME_BRANCH:-runtime/main-sync}"
@@ -16,7 +16,7 @@ START_ARGS=()
 
 usage() {
   cat <<'EOF'
-Cat Café Runtime Worktree Manager
+OfficeClaw Runtime Worktree Manager
 
 Usage:
   ./scripts/runtime-worktree.sh init   [--dir PATH] [--branch NAME] [--remote NAME] [--no-install]
@@ -25,7 +25,7 @@ Usage:
   ./scripts/runtime-worktree.sh status [--dir PATH] [--branch NAME] [--remote NAME]
 
 Defaults:
-  --dir    ../cat-cafe-runtime
+  --dir    ../office-claw-runtime
   --branch runtime/main-sync
   --remote origin
 

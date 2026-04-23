@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import Fastify from 'fastify';
 import { skillsRoutes, translateSkillErrorMessage } from '../src/routes/skills.js';
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 async function createApp() {
   const app = Fastify();

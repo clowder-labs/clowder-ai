@@ -29,10 +29,10 @@ Users had to F5 refresh to see any IM messages. This was the **deterministic roo
 
 ## Original Requirements（必填）
 
-> 铲屎官 [2026-03-28]: "我发现现在比如我发一条消息，或者特别是im来一条消息 前端气泡是刷不出来的，需要我f5"
+> 用户 [2026-03-28]: "我发现现在比如我发一条消息，或者特别是im来一条消息 前端气泡是刷不出来的，需要我f5"
 
-- 来源：当日对话（铲屎官直接描述）
-- **请对照上面的摘录判断交付物是否解决了铲屎官的问题**
+- 来源：当日对话（用户直接描述）
+- **请对照上面的摘录判断交付物是否解决了用户的问题**
 
 ## Tradeoff
 
@@ -64,7 +64,7 @@ Branch: fix/connector-message-protocol
 connector-router*.test.js → 46/46 pass, 0 fail ✅
 pnpm check               → 0 errors ✅
 pnpm lint                → 0 errors (pre-existing warnings only) ✅
-pnpm --filter @cat-cafe/api build → exit 0 ✅
+pnpm --filter @office-claw/api build → exit 0 ✅
 ```
 
 ### 相关文档

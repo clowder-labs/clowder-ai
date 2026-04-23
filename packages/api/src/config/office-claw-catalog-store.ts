@@ -6,7 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { CatCafeConfig, Roster } from '@clowder/shared';
+import type { OfficeClawConfig, Roster } from '@office-claw/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { builtinAccountIdForClient, readBootstrapBindingsSync } from './provider-profiles.js';
@@ -16,7 +16,7 @@ import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 const CAT_CAFE_DIR = '.office-claw';
 const META_FILENAME = 'provider-profiles.json';
 const CAT_CATALOG_FILENAME = 'office-claw-catalog.json';
-const log = createModuleLogger('cat-catalog-store');
+const log = createModuleLogger('office-claw-catalog-store');
 
 function safePath(projectRoot: string, ...segments: string[]): string {
   const root = resolve(projectRoot);
@@ -169,7 +169,7 @@ function readSeedMetadata(projectRoot: string): {
   const seedCatIdsByClient = new Map<BuiltinAccountClient, Set<string>>();
 
   try {
-    const template = JSON.parse(readFileSync(resolveProjectTemplatePath(projectRoot), 'utf-8')) as CatCafeConfig;
+    const template = JSON.parse(readFileSync(resolveProjectTemplatePath(projectRoot), 'utf-8')) as OfficeClawConfig;
     for (const breed of template.breeds as unknown as Record<string, unknown>[]) {
       const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
       for (const variant of variants) {
@@ -195,7 +195,7 @@ function readSeedMetadata(projectRoot: string): {
 
 function resolveLegacySeedBindingBackfill(
   projectRoot: string,
-  catalog: CatCafeConfig,
+  catalog: OfficeClawConfig,
   _bootstrapBindings: Record<string, BootstrapBinding | undefined>,
 ): Map<string, string> {
   const { explicitSeedAccountRefs, seedCatIdsByClient } = readSeedMetadata(projectRoot);
@@ -248,12 +248,12 @@ function resolveLegacySeedBindingBackfill(
 
 function migrateExistingCatalogBindings(
   projectRoot: string,
-  catalog: CatCafeConfig,
-): { catalog: CatCafeConfig; dirty: boolean } {
+  catalog: OfficeClawConfig,
+): { catalog: OfficeClawConfig; dirty: boolean } {
   const bootstrapBindings = readBootstrapBindingsSync(projectRoot);
   const legacySeedBindingBackfill = resolveLegacySeedBindingBackfill(projectRoot, catalog, bootstrapBindings);
   let dirty = false;
-  const nextCatalog = structuredClone(catalog) as CatCafeConfig;
+  const nextCatalog = structuredClone(catalog) as OfficeClawConfig;
 
   for (const breed of nextCatalog.breeds as unknown as Record<string, unknown>[]) {
     const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
@@ -286,7 +286,7 @@ function migrateExistingCatalogBindings(
   return { catalog: nextCatalog, dirty };
 }
 
-function filterBootstrapCatalog(template: CatCafeConfig, projectRoot: string): CatCafeConfig {
+function filterBootstrapCatalog(template: OfficeClawConfig, projectRoot: string): OfficeClawConfig {
   const bootstrapBindings = readBootstrapBindingsSync(projectRoot);
   const selectedBreeds: Record<string, unknown>[] = [];
   const selectedCatIds = new Set<string>();
@@ -345,10 +345,10 @@ function filterBootstrapCatalog(template: CatCafeConfig, projectRoot: string): C
 }
 
 function reconcileCatalogWithSourceCatalog(
-  existingCatalog: CatCafeConfig,
-  sourceCatalog: CatCafeConfig,
-): { catalog: CatCafeConfig; dirty: boolean } {
-  const nextCatalog = structuredClone(existingCatalog) as CatCafeConfig & { roster?: Roster };
+  existingCatalog: OfficeClawConfig,
+  sourceCatalog: OfficeClawConfig,
+): { catalog: OfficeClawConfig; dirty: boolean } {
+  const nextCatalog = structuredClone(existingCatalog) as OfficeClawConfig & { roster?: Roster };
   let dirty = false;
 
   const existingBreeds = nextCatalog.breeds as unknown as Array<Record<string, unknown>>;
@@ -395,7 +395,7 @@ function reconcileCatalogWithSourceCatalog(
     const nextRoster = { ...(('roster' in nextCatalog ? nextCatalog.roster : {}) ?? {}) } as Roster;
     for (const [catId, rosterEntry] of Object.entries(sourceCatalog.roster ?? {})) {
       if (nextRoster[catId]) continue;
-      nextRoster[catId] = structuredClone(rosterEntry);
+      nextRoster[catId] = structuredClone(rosterEntry as Roster[keyof Roster]);
       dirty = true;
     }
     if ('roster' in nextCatalog) {
@@ -405,7 +405,7 @@ function reconcileCatalogWithSourceCatalog(
     }
   }
 
-  return { catalog: nextCatalog as CatCafeConfig, dirty };
+  return { catalog: nextCatalog as OfficeClawConfig, dirty };
 }
 
 export function resolveCatCatalogPath(projectRoot: string): string {
@@ -417,7 +417,7 @@ export function readCatCatalogRaw(projectRoot: string): string | null {
   if (!existsSync(catalogPath)) return null;
   const raw = readFileSync(catalogPath, 'utf-8');
   try {
-    const parsed = JSON.parse(raw) as CatCafeConfig;
+    const parsed = JSON.parse(raw) as OfficeClawConfig;
     const migrated = migrateExistingCatalogBindings(projectRoot, parsed);
     if (migrated.dirty) {
       const nextRaw = `${JSON.stringify(migrated.catalog, null, 2)}\n`;
@@ -430,24 +430,24 @@ export function readCatCatalogRaw(projectRoot: string): string | null {
   return raw;
 }
 
-export function readCatCatalog(projectRoot: string): CatCafeConfig | null {
+export function readCatCatalog(projectRoot: string): OfficeClawConfig | null {
   const raw = readCatCatalogRaw(projectRoot);
   if (raw === null) return null;
-  return JSON.parse(raw) as CatCafeConfig;
+  return JSON.parse(raw) as OfficeClawConfig;
 }
 
 export function bootstrapCatCatalog(projectRoot: string, templatePath: string): string {
   const catalogPath = resolveCatCatalogPath(projectRoot);
   if (existsSync(catalogPath)) {
     try {
-      const existingCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as CatCafeConfig;
+      const existingCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as OfficeClawConfig;
       // Skip reconciliation for preset-managed catalogs (e.g. ModelArts custom install).
       // These catalogs intentionally contain a subset of members; reconciling with the
       // full template would re-add members the preset explicitly removed.
       const isPresetCatalog = (existingCatalog as unknown as Record<string, unknown>).preset === true;
       if (!isPresetCatalog) {
         const sourcePath = existsSync(resolve(projectRoot, 'office-claw-config.json')) ? resolve(projectRoot, 'office-claw-config.json') : templatePath;
-        const sourceCatalog = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
+        const sourceCatalog = JSON.parse(readFileSync(sourcePath, 'utf-8')) as OfficeClawConfig;
         const reconciled = reconcileCatalogWithSourceCatalog(existingCatalog, sourceCatalog);
         if (reconciled.dirty) {
           writeFileAtomic(catalogPath, `${JSON.stringify(reconciled.catalog, null, 2)}\n`);
@@ -465,14 +465,14 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
   // where office-claw-config.json doesn't exist (e.g. new clones from the open-source repo).
   const legacyConfigPath = resolve(projectRoot, 'office-claw-config.json');
   const sourcePath = existsSync(legacyConfigPath) ? legacyConfigPath : templatePath;
-  const template = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
+  const template = JSON.parse(readFileSync(sourcePath, 'utf-8')) as OfficeClawConfig;
   const runtimeCatalog = filterBootstrapCatalog(template, projectRoot);
   mkdirSync(dirname(catalogPath), { recursive: true });
   writeFileAtomic(catalogPath, `${JSON.stringify(runtimeCatalog, null, 2)}\n`);
   return catalogPath;
 }
 
-export function writeCatCatalog(projectRoot: string, catalog: CatCafeConfig): string {
+export function writeCatCatalog(projectRoot: string, catalog: OfficeClawConfig): string {
   const catalogPath = resolveCatCatalogPath(projectRoot);
   mkdirSync(dirname(catalogPath), { recursive: true });
   writeFileAtomic(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`);

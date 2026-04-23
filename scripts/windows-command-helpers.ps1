@@ -84,10 +84,10 @@ function Resolve-BundledNodeCommand {
     return $bundledNode
 }
 
-function Test-ClowderBundledRelease {
+function Test-OfficeClawBundledRelease {
     param([string]$ProjectRoot)
     if (-not $ProjectRoot) { return $false }
-    return (Test-Path (Join-Path $ProjectRoot ".clowder-release.json")) -and
+    return (Test-Path (Join-Path $ProjectRoot ".office-claw-release.json")) -and
         (Test-Path (Join-Path $ProjectRoot "tools\node\node.exe"))
 }
 

@@ -14,11 +14,11 @@ created: 2026-03-23
 
 > team experience（2026-03-23，F088 Phase 8 讨论中）：
 >
-> "connector 这个指的是？ im？ 我记得 F127 有一个烂摊子没收拾，他搞了个他自己的 Hot Reload 但是不用 cat config yaml 而是自己搞了一套。所以按照「脚手架」「喵约」理论我们是不是先梳理一下，我们有哪些配置项？我现在就能知道，我们有 ENV、Local，还有这个 cat config，这些可能都是需要有热更新的，这样子才能干掉 F127 的烂摊子，让它这些热更新都收到一块儿比较好一点。
+> "connector 这个指的是？ im？ 我记得 F127 有一个烂摊子没收拾，他搞了个他自己的 Hot Reload 但是不用 agent config yaml 而是自己搞了一套。所以按照「脚手架」「公约」理论我们是不是先梳理一下，我们有哪些配置项？我现在就能知道，我们有 ENV、Local，还有这个 agent config，这些可能都是需要有热更新的，这样子才能干掉 F127 的烂摊子，让它这些热更新都收到一块儿比较好一点。
 >
 > 然后就像你说的一样，各自模块订阅各自自己的热更新。但是这个我们得从全局考虑，这其实是配置的热更新。但是我们想到底有哪些配置呢？你是需要思考这一点的。"
 
-**核心问题**：Cat Café 目前有多种配置源，各自热更新机制不统一，导致改配置后要重启才能生效，或者各子系统自己搞一套 ad-hoc 的 reload 逻辑（如 F127 的 `runtime-cat-catalog.ts`）。
+**核心问题**：当前系统有多种配置源，各自热更新机制不统一，导致改配置后要重启才能生效，或者各子系统自己搞一套 ad-hoc 的 reload 逻辑（如 F127 的 `runtime-cat-catalog.ts`）。
 
 ## What
 
@@ -27,10 +27,10 @@ created: 2026-03-23
 | 配置源 | 文件 / 位置 | 当前热更新能力 | 问题 |
 |--------|-------------|----------------|------|
 | **`.env` 环境变量** | 项目根 `.env` | `PATCH /api/config/env` 写 `.env` + 写 `process.env`，但子系统不重新初始化 | Connector gateway 启动时读一次，改了 token 不生效；其他读 `process.env` 的变量倒是立即生效 |
-| **`cat-config.yaml`** | 项目根 `cat-config.yaml` | 无。F127 绕过它搞了 `runtime-cat-catalog.ts`（517 行），直接操作 `cat-catalog.json` | F127 自建了一套独立于 `cat-config.yaml` 的运行时猫猫目录，是team lead所说的「脚手架」 |
-| **ConfigStore (F4)** | 内存 + Redis | `PATCH /api/config` 热更新，即时生效 | 只管运行时可变的配置子集（coCreator、budget 等），不覆盖 env 和猫猫配置 |
-| **Provider Profiles (F062)** | `~/.cat-cafe/provider-profiles/` | UI 可编辑，文件写入后需重启生效 | 和猫猫实例绑定关系需要重新加载 |
-| **猫猫模板** | `cat-template.json` | 启动时加载一次 | 不影响运行时 |
+| **`cat-config.yaml`** | 项目根 `cat-config.yaml` | 无。F127 绕过它搞了 `runtime-cat-catalog.ts`（517 行），直接操作 `cat-catalog.json` | F127 自建了一套独立于 `cat-config.yaml` 的运行时智能体目录，是team lead所说的「脚手架」 |
+| **ConfigStore (F4)** | 内存 + Redis | `PATCH /api/config` 热更新，即时生效 | 只管运行时可变的配置子集（coCreator、budget 等），不覆盖 env 和智能体配置 |
+| **Provider Profiles (F062)** | `~/.office-claw/provider-profiles/` | UI 可编辑，文件写入后需重启生效 | 和智能体实例绑定关系需要重新加载 |
+| **智能体模板** | `cat-template.json` | 启动时加载一次 | 不影响运行时 |
 
 ### 目标架构（方向性，待具体设计）
 
@@ -59,7 +59,7 @@ created: 2026-03-23
 1. **一个管线** — 所有配置变更走同一个 event bus，不再各搞各的
 2. **订阅自治** — 各子系统自己决定如何响应变更（restart / reload / ignore）
 3. **收编 F127** — `runtime-cat-catalog.ts` 的热更新能力并入统一管线，干掉独立的 ad-hoc 机制
-4. **渐进式** — 可以分 Phase，先做 connector 热重载（F088 直接需求），再扩展到猫猫管理
+4. **渐进式** — 可以分 Phase，先做 connector 热重载（F088 直接需求），再扩展到智能体管理
 
 ### team lead待决策
 
@@ -79,14 +79,14 @@ created: 2026-03-23
 
 - **F004** (done): ConfigStore 热更新 — 运行时可变配置已有基座
 - **F088** (done Phase 8): IM Hub 配置向导 UI — 触发了 connector 热更新需求
-- **F127** (in-progress): 猫猫管理重构 — 其 `runtime-cat-catalog.ts` 是需要收编的「脚手架」
+- **F127** (in-progress): 智能体管理重构 — 其 `runtime-cat-catalog.ts` 是需要收编的「脚手架」
 - **F062** (done): Provider Profile Hub — 账户配置层
 
 ## Risk
 
 1. **引用替换的完整性**：outboundHook 在 invokeTrigger、queueProcessor、messages route 等多处被 wire，restart 后必须全部更新
 2. **Telegram polling race condition**：旧 polling 要优雅退出，新 polling 才能启动，中间可能丢消息
-3. **F127 收编范围**：如果改动 F127 的核心逻辑，可能影响已有的猫猫动态创建功能
+3. **F127 收编范围**：如果改动 F127 的核心逻辑，可能影响已有的智能体动态创建功能
 
 ## Phase 进度
 

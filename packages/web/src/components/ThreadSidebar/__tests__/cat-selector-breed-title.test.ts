@@ -9,21 +9,21 @@
  * breed-level display name, not the first variant's displayName.
  *
  * When a variant overrides displayName, the group heading should still read
- * "布偶猫家族" (from breedDisplayName), NOT "宪宪专用猫家族" (from variant displayName).
+ * "Claude 家族" (from breedDisplayName), NOT "宪宪专用家族" (from variant displayName).
  */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CatData } from '@/hooks/useCatData';
 
-// ── Build multi-variant data where first variant overrides displayName ──
+// Build multi-variant data where first variant overrides displayName.
 const ragdollVariants: CatData[] = [
   {
     id: 'opus-custom',
-    displayName: '定制布偶', // ← variant-level override, NOT the breed name
+    displayName: '定制 Claude', // variant-level override, not the family name
     color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
     breedId: 'ragdoll',
-    breedDisplayName: '布偶猫', // ← breed-level name
+    breedDisplayName: 'Claude', // ← breed-level name
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-5-20250929',
     avatar: '/avatars/opus.png',
@@ -36,10 +36,10 @@ const ragdollVariants: CatData[] = [
   },
   {
     id: 'opus',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
     breedId: 'ragdoll',
-    breedDisplayName: '布偶猫',
+    breedDisplayName: 'Claude',
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-5-20250929',
     avatar: '/avatars/opus.png',
@@ -97,11 +97,11 @@ describe('CatSelector breed group title (R24 P2-2)', () => {
       root.render(React.createElement(CatSelector, { selectedCats: [], onSelectionChange: onChange }));
     });
 
-    // Group title text should contain the breed name, NOT the first variant's override
+     // Group title text should contain the family name, not the first variant override.
     const groupTitle = container.querySelector('.text-\\[10px\\]');
     expect(groupTitle).toBeTruthy();
-    expect(groupTitle?.textContent).toContain('布偶猫家族');
-    expect(groupTitle?.textContent).not.toContain('定制布偶家族');
+    expect(groupTitle?.textContent).toContain('Claude 家族');
+    expect(groupTitle?.textContent).not.toContain('定制 Claude家族');
   });
 
   it('renders all variant chips within the breed group', async () => {
@@ -113,9 +113,9 @@ describe('CatSelector breed group title (R24 P2-2)', () => {
     });
 
     const buttons = Array.from(container.querySelectorAll('button'));
-    // Should have 2 variant chips
+    // Should have 2 variant chips.
     const chipTexts = buttons.map((b) => b.textContent);
-    expect(chipTexts.some((t) => t?.includes('定制布偶'))).toBe(true);
+    expect(chipTexts.some((t) => t?.includes('定制 Claude'))).toBe(true);
     expect(chipTexts.some((t) => t?.includes('Custom'))).toBe(true); // variantLabel
   });
 });

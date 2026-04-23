@@ -395,7 +395,7 @@ test('spawnCli handles empty stdout', async () => {
   assert.equal(results.length, 0);
 });
 
-// === New tests for 缅因猫 review findings ===
+// === New tests for Codex review findings ===
 
 test('spawnCli yields __cliError on non-zero exit code >= 2 (stderr sanitized)', async () => {
   const proc = createMockProcess({ exitOnKill: false });

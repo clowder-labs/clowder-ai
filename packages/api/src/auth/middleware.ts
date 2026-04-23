@@ -18,7 +18,7 @@ function extractSessionId(request: FastifyRequest): string | null {
   // Fallback: session header (dual-read for backward compat)
   const sessionHeader =
     (request.headers['x-office-claw-session'] as string) ||
-    (request.headers['x-cat-cafe-session'] as string);
+    (request.headers['x-office-claw-session'] as string);
   if (typeof sessionHeader === 'string' && sessionHeader.length > 0) {
     return sessionHeader;
   }
@@ -38,7 +38,7 @@ export function registerAuthMiddleware(
     if (options.skipAuth) {
       const userId =
         (request.headers['x-office-claw-user'] as string) ||
-        (request.headers['x-cat-cafe-user'] as string) ||
+        (request.headers['x-office-claw-user'] as string) ||
         'debug-user';
       (request as FastifyRequest & { auth: AuthContext }).auth = {
         userId: typeof userId === 'string' ? userId.trim() : 'debug-user',
