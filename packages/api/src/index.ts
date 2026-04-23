@@ -87,7 +87,6 @@ import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBloc
 import { PortDiscoveryService } from './domains/preview/port-discovery.js';
 import { collectRuntimePorts } from './domains/preview/port-validator.js';
 import { PreviewGateway } from './domains/preview/preview-gateway.js';
-import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
 import {
@@ -795,7 +794,6 @@ async function main(): Promise<void> {
     socketManager,
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
-    signalArticleLookup: createSignalArticleLookup({ transcriptReader }),
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

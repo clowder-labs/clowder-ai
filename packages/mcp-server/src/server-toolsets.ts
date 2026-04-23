@@ -66,9 +66,6 @@ export function registerMemoryToolset(server: McpServer): void {
   registerTools(server, memoryTools);
 }
 
-export function registerSignalToolset(_server: McpServer): void {
-}
-
 const limbNodeTools: readonly ToolDef[] = [...limbTools];
 
 export function registerLimbToolset(server: McpServer): void {
@@ -78,7 +75,6 @@ export function registerLimbToolset(server: McpServer): void {
 export function registerFullToolset(server: McpServer): void {
   registerCollabToolset(server);
   registerMemoryToolset(server);
-  registerSignalToolset(server);
   registerLimbToolset(server);
 }
 
@@ -124,19 +120,6 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_read_session_events: 'Read events from a sealed session (raw/chat/handoff views).',
   office_claw_read_session_digest: 'Read extractive digest of a sealed session.',
   office_claw_read_invocation_detail: 'Read all events for a specific invocation.',
-  // Signals
-  signal_list_inbox: 'List recent signal articles from inbox.',
-  signal_get_article: 'Get full signal article detail by id or URL.',
-  signal_search: 'Search signal articles by keyword.',
-  signal_mark_read: 'Mark a signal article as read.',
-  signal_summarize: 'Generate a concise summary for a signal article.',
-  signal_update_article: 'Update article status, tags, or note.',
-  signal_delete_article: 'Soft-delete signal articles by IDs.',
-  signal_link_thread: 'Link/unlink a Signal article to a thread.',
-  signal_start_study: 'Start studying a Signal article.',
-  signal_save_notes: 'Save study notes for an article.',
-  signal_list_studies: 'List study artifacts for an article.',
-  signal_generate_podcast: 'Generate a podcast from an article (essence/deep mode).',
   // Limbs
   limb_list_available: 'List online limb nodes and capabilities.',
   limb_invoke: 'Invoke a capability on a limb node.',

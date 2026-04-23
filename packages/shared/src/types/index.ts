@@ -284,20 +284,6 @@ export type {
   SessionUsageSnapshot,
   StrategyAction,
 } from './session.js';
-// Signals types (F21 Signal Hunter)
-export type {
-  SignalArticle,
-  SignalArticleStatus,
-  SignalCategory,
-  SignalFetchMethod,
-  SignalKeywordFilter,
-  SignalScheduleFrequency,
-  SignalSource,
-  SignalSourceConfig,
-  SignalSourceFetchConfig,
-  SignalSourceSchedule,
-  SignalTier,
-} from './signals.js';
 // SkillHub types (SkillsHub 注册中心集成)
 export type {
   InstalledSkillInfo,
@@ -319,14 +305,6 @@ export type {
 } from './slice.js';
 // STT types (F088 Phase 6 — Speech-to-Text)
 export type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from './stt.js';
-// Study types (F091 Signal Study Mode)
-export type {
-  ArtifactJobState,
-  ArtifactKind,
-  StudyArtifact,
-  StudyMeta,
-  StudyThreadLink,
-} from './study.js';
 // Summary types (拍立得照片墙)
 export type {
   CreateSummaryInput,
