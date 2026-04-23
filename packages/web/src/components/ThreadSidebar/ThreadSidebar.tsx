@@ -13,7 +13,6 @@ import { type Thread, useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
-import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
 import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
@@ -57,7 +56,6 @@ function writeSidebarScrollTop(nextTop: number): void {
 interface ThreadSidebarProps {
   onClose?: () => void;
   className?: string;
-  onBootcampClick?: () => void;
   onHubClick?: () => void;
   onThreadSelect?: () => void;
   onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks') => void;
@@ -95,7 +93,6 @@ const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
 export function ThreadSidebar({
   onClose,
   className,
-  onBootcampClick,
   onHubClick,
   onThreadSelect,
   onMenuClick,
@@ -436,47 +433,6 @@ export function ThreadSidebar({
     },
     [loadThreads, loadTrash],
   );
-
-  /** F087: Create a bootcamp onboarding thread */
-  const createBootcampThread = useCallback(async () => {
-    const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
-    if (actualThreadCount >= MAX_SESSIONS) {
-      addToast({
-        type: 'error',
-        title: '会话数量已达上限',
-        message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
-        duration: 5000,
-      });
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      const res = await apiFetch('/api/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: '🎓 训练营',
-          bootcampState: {
-            v: 1,
-            phase: 'phase-0-select-cat',
-            startedAt: Date.now(),
-          },
-        }),
-      });
-      if (!res.ok) return;
-      const thread: Thread = await res.json();
-      navigateToThread(thread.id);
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        onClose?.();
-      }
-      await loadThreads();
-    } catch {
-      // Silently ignore
-    } finally {
-      setIsCreating(false);
-    }
-  }, [addToast, navigateToThread, loadThreads, onClose, threads]);
 
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(

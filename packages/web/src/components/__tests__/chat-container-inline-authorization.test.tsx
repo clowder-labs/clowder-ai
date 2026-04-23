@@ -206,7 +206,6 @@ vi.mock('@/hooks/useGameApi', () => ({
 vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
 vi.mock('@/components/AgentsPanel', () => ({ AgentsPanel: () => null }));
 vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: mockGlobalAuthorizationCard }));
-vi.mock('@/components/BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('@/components/ChannelsPanel', () => ({ ChannelsPanel: () => null }));
 vi.mock('@/components/ChatContainerHeader', () => ({ ChatContainerHeader: () => null }));

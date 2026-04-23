@@ -189,7 +189,6 @@ vi.mock('@/utils/userId', () => ({ getUserId: () => 'test-user' }));
 vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
 vi.mock('@/components/AgentsRootPanel', () => ({ AgentsRootPanel: () => null }));
 vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: () => null }));
-vi.mock('@/components/BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('@/components/ChannelsPanel', () => ({ ChannelsPanel: () => null }));
 vi.mock('@/components/ChatContainerHeader', () => ({

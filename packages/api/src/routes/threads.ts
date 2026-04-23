@@ -31,7 +31,6 @@ import type { IMessageStore } from '../domains/cats/services/stores/ports/Messag
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadReadStateStore } from '../domains/cats/services/stores/ports/ThreadReadStateStore.js';
 import type {
-  BootcampStateV1,
   IThreadStore,
   ThreadRoutingPolicyV1,
 } from '../domains/cats/services/stores/ports/ThreadStore.js';
@@ -68,37 +67,6 @@ export interface ThreadsRoutesOptions {
   backlogStore?: IBacklogStore;
 }
 
-/** F087: Bootcamp state Zod schema */
-const bootcampPhaseSchema = z.enum([
-  'phase-0-select-cat',
-  'phase-1-intro',
-  'phase-2-env-check',
-  'phase-3-config-help',
-  'phase-3.5-advanced',
-  'phase-4-task-select',
-  'phase-5-kickoff',
-  'phase-6-design',
-  'phase-7-dev',
-  'phase-8-review',
-  'phase-9-complete',
-  'phase-10-retro',
-  'phase-11-farewell',
-]);
-const bootcampStateSchema = z
-  .object({
-    v: z.literal(1),
-    phase: bootcampPhaseSchema,
-    leadCat: catIdSchema().optional(),
-    selectedTaskId: z.string().max(50).optional(),
-    envCheck: z
-      .record(z.object({ ok: z.boolean(), version: z.string().optional(), note: z.string().optional() }))
-      .optional(),
-    advancedFeatures: z.record(z.enum(['available', 'unavailable', 'skipped'])).optional(),
-    startedAt: z.number(),
-    completedAt: z.number().optional(),
-  })
-  .strict();
-
 const createThreadSchema = z
   .object({
     /** Legacy fallback only; preferred identity source is X-Office-Claw-User header. */
@@ -111,8 +79,6 @@ const createThreadSchema = z
     pinned: z.boolean().optional(),
     /** F095 Phase C: Associate thread with a backlog item at creation */
     backlogItemId: z.string().min(1).max(100).optional(),
-    /** F087: Initial bootcamp state */
-    bootcampState: bootcampStateSchema.optional(),
   })
   .strict();
 
@@ -234,8 +200,6 @@ const updateThreadSchema = z
     routingPolicy: threadRoutingPolicySchema.nullable().optional(),
     /** F092: Voice companion mode toggle. */
     voiceMode: z.boolean().optional(),
-    /** F087: Update bootcamp state. null clears. */
-    bootcampState: bootcampStateSchema.nullable().optional(),
   })
   .strict()
   .refine(
@@ -246,8 +210,7 @@ const updateThreadSchema = z
       data.thinkingMode !== undefined ||
       data.preferredCats !== undefined ||
       data.routingPolicy !== undefined ||
-      data.voiceMode !== undefined ||
-      data.bootcampState !== undefined,
+      data.voiceMode !== undefined,
     {
       message: 'At least one field must be provided',
     },
@@ -311,13 +274,6 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
 
     // Re-fetch if any post-create mutations applied
     if ((preferredCats && preferredCats.length > 0) || pinned || backlogItemId) {
-      thread = (await threadStore.get(thread.id)) ?? thread;
-    }
-
-    // F087: Set bootcamp state if provided at creation time
-    const { bootcampState } = parseResult.data;
-    if (bootcampState) {
-      await threadStore.updateBootcampState(thread.id, bootcampState as BootcampStateV1);
       thread = (await threadStore.get(thread.id)) ?? thread;
     }
 
@@ -476,8 +432,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy, voiceMode, bootcampState } =
-      parseResult.data;
+    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy, voiceMode } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
@@ -487,9 +442,6 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       await threadStore.updateRoutingPolicy(id, routingPolicy as ThreadRoutingPolicyV1 | null);
     }
     if (voiceMode !== undefined) await threadStore.updateVoiceMode(id, voiceMode);
-    if (bootcampState !== undefined) {
-      await threadStore.updateBootcampState(id, bootcampState as BootcampStateV1 | null);
-    }
 
     const updated = await threadStore.get(id);
     if (!updated) {

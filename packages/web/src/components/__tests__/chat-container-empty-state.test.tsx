@@ -157,7 +157,6 @@ vi.mock('@/components/AgentsPanel', () => ({
   AgentsPanel: () => React.createElement('div', { 'data-testid': 'agents-panel' }, 'agents panel'),
 }));
 vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: () => null }));
-vi.mock('@/components/BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('@/components/ChannelsPanel', () => ({
   ChannelsPanel: () => React.createElement('div', { 'data-testid': 'channels-panel' }, 'channels panel'),

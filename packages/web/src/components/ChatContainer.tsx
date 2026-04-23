@@ -29,7 +29,6 @@ import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { clearAuthIdentity, getUserId, setCanCreateModel, setIsSkipAuth } from '@/utils/userId';
 import { AgentsPanel } from './AgentsPanel';
-import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatContainerHeader } from './ChatContainerHeader';
@@ -360,7 +359,6 @@ function ThreadModeChatContainer({
   const sidebarOpen = true;
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showSecurityManagement, setShowSecurityManagement] = useState(false);
-  const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
   const [stoppedIntentRecognition, setStoppedIntentRecognition] = useState<{
     timestamp: number;
@@ -781,7 +779,6 @@ function ThreadModeChatContainer({
         <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
           <ThreadSidebar
             className="w-full"
-            onBootcampClick={() => setShowBootcampList(true)}
             onHubClick={() => setShowHubList(true)}
             onThreadSelect={() => setSidebarMenu('chat')}
             onMenuClick={(menu) => setSidebarMenu(menu)}
@@ -938,11 +935,6 @@ function ThreadModeChatContainer({
       />
       <CatCafeHub />
       <HubListModal open={showHubList} onClose={() => setShowHubList(false)} currentThreadId={threadId} />
-      <BootcampListModal
-        open={showBootcampList}
-        onClose={() => setShowBootcampList(false)}
-        currentThreadId={threadId}
-      />
       <SecurityManagementModal open={showSecurityManagement} onClose={() => setShowSecurityManagement(false)} />
     </div>
   );
