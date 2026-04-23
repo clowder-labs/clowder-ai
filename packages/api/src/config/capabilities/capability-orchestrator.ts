@@ -199,7 +199,7 @@ export function buildOfficeClawMcpDescriptor(projectRoot: string): McpServerDesc
   };
 }
 
-const SPLIT_SERVER_IDS = ['office-claw-collab', 'office-claw-memory', 'office-claw-signals'] as const;
+const SPLIT_SERVER_IDS = ['office-claw-collab', 'office-claw-memory'] as const;
 
 function buildSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
   return [
@@ -214,13 +214,6 @@ function buildSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
       name: 'office-claw-memory',
       command: 'node',
       args: [resolve(projectRoot, 'packages/mcp-server/dist/memory.js')],
-      enabled: true,
-      source: 'builtin',
-    },
-    {
-      name: 'office-claw-signals',
-      command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/signals.js')],
       enabled: true,
       source: 'builtin',
     },

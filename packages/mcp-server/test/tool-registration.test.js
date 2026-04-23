@@ -125,21 +125,6 @@ const EXPECTED_MEMORY_TOOLS = [
   'office_claw_read_invocation_detail',
 ];
 
-const EXPECTED_SIGNAL_TOOLS = [
-  'signal_list_inbox',
-  'signal_get_article',
-  'signal_search',
-  'signal_mark_read',
-  'signal_summarize',
-  'signal_start_study',
-  'signal_save_notes',
-  'signal_list_studies',
-  'signal_generate_podcast',
-  'signal_update_article',
-  'signal_delete_article',
-  'signal_link_thread',
-];
-
 describe('MCP Server Tool Registration', () => {
   test('all expected tools are registered via createServer()', async () => {
     const { createServer } = await import('../dist/index.js');
@@ -257,11 +242,4 @@ describe('MCP Server Tool Registration', () => {
     assert.deepEqual([...registered].sort(), [...EXPECTED_MEMORY_TOOLS].sort());
   });
 
-  test('createSignalsServer registers only signals tool surface', async () => {
-    const { createSignalsServer } = await import('../dist/signals.js');
-    const server = createSignalsServer();
-    const registered = Object.keys(server._registeredTools);
-
-    assert.deepEqual([...registered].sort(), [...EXPECTED_SIGNAL_TOOLS].sort());
-  });
 });
