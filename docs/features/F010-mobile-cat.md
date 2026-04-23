@@ -6,7 +6,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
-# F010: 手机端猫猫
+# F010: 手机端智能体
 
 > **Status**: in-progress | **Owner**: 三猫
 > **Created**: 2026-02-26

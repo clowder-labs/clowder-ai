@@ -9,6 +9,12 @@ import { afterEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
 import { connectorHubRoutes } from '../dist/routes/connector-hub.js';
 
+function attachAuth(app, userId = 'tester') {
+  app.addHook('onRequest', async (request) => {
+    request.auth = { userId, sessionId: `${userId}-session` };
+  });
+}
+
 function createThreadStore() {
   return {
     async list() {
@@ -38,6 +44,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     };
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
 
     const res = await app.inject({
@@ -74,6 +81,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     };
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
 
     const res = await app.inject({
@@ -98,6 +106,7 @@ describe('POST /api/connector/test/dingtalk', () => {
 
   it('rejects requests without credentials', async () => {
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
 
     const res = await app.inject({
@@ -127,7 +136,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     });
 
     assert.equal(res.statusCode, 401);
-    assert.equal(res.json().error, '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头');
+    assert.equal(res.json().error, '缺少用户身份，请先登录或携带 X-Office-Claw-User 请求头');
 
     await app.close();
   });
@@ -144,6 +153,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     };
 
     const app = Fastify();
+    attachAuth(app);
     await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
 
     const res = await app.inject({

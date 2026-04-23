@@ -1,17 +1,17 @@
 /**
  * Echo Provider Plugin
- * Example @clowder/provider-* package that demonstrates the plugin contract.
+ * Example @office-claw/provider-* package that demonstrates the plugin contract.
  * Echoes back the user's prompt — useful for testing and as a template for custom providers.
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
-  ClowderProviderPlugin,
+  OfficeClawProviderPlugin,
   AgentServiceFactoryContext,
-} from '@clowder/core';
+} from '@office-claw/core';
 
 class EchoAgentService implements AgentService {
   private readonly catId: CatId;
@@ -48,7 +48,7 @@ class EchoAgentService implements AgentService {
   }
 }
 
-const plugin: ClowderProviderPlugin = {
+const plugin: OfficeClawProviderPlugin = {
   name: 'echo',
   providers: ['echo'],
 

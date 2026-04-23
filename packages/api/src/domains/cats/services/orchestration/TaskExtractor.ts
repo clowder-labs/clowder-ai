@@ -10,14 +10,14 @@
  * Part of 4-A feature for Phase 4.0.
  */
 
-import { type CatId, type CreateTaskInput, catRegistry } from '@clowder/shared';
-import { getAllCatIdsFromConfig } from '../../../../config/cat-config-loader.js';
+import { type CatId, type CreateTaskInput, officeClawRegistry } from '@office-claw/shared';
+import { getAllCatIdsFromConfig } from '../../../../config/office-claw-config-loader.js';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import type { AgentService } from '../types.js';
 
 /** Get all valid catIds dynamically from the registry */
 function getValidCatIds(): readonly string[] {
-  const ids = catRegistry.getAllIds();
+  const ids = officeClawRegistry.getAllIds();
   // F032 P2: use config fallback instead of hardcoded cat names
   return ids.length > 0 ? ids : getAllCatIdsFromConfig();
 }

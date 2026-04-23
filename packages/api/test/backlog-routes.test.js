@@ -936,18 +936,18 @@ describe('Backlog Routes', () => {
   });
 
   test('imports active features from docs backlog and refreshes existing feature metadata', async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-'));
+    const tempDir = await mkdtemp(join(tmpdir(), 'office-claw-backlog-import-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');
     const featuresDir = join(tempDir, 'features');
     await mkdir(featuresDir, { recursive: true });
 
     await writeFile(
       backlogDocPath,
-      `# Cat Cafe Feature Roadmap
+      `# OfficeClaw Feature Roadmap
 
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
-| F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
+| F010 | 手机端智能体 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F049 | Mission Hub — Backlog Center | review | 三猫 | [F049](features/F049-mission-control-backlog-center.md) |
 `,
     );
@@ -986,11 +986,11 @@ describe('Backlog Routes', () => {
 
       await writeFile(
         backlogDocPath,
-        `# Cat Cafe Feature Roadmap
+        `# OfficeClaw Feature Roadmap
 
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
-| F010 | 手机端猫猫 | spec | 三猫 | [F010](features/F010-mobile-cat.md) |
+| F010 | 手机端智能体 | spec | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F049 | Mission Hub — Backlog Center (updated) | in-progress | 三猫 | [F049](features/F049-mission-control-backlog-center.md) |
 `,
       );
@@ -1251,18 +1251,18 @@ describe('Backlog Routes', () => {
   });
 
   test('refresh prefers newest duplicate feature-tagged item', async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-dupe-'));
+    const tempDir = await mkdtemp(join(tmpdir(), 'office-claw-backlog-import-dupe-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');
     const featuresDir = join(tempDir, 'features');
     await mkdir(featuresDir, { recursive: true });
 
     await writeFile(
       backlogDocPath,
-      `# Cat Cafe Feature Roadmap
+      `# OfficeClaw Feature Roadmap
 
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
-| F010 | 手机端猫猫（docs） | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
+| F010 | 手机端智能体（docs） | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 `,
     );
 
@@ -1312,7 +1312,7 @@ describe('Backlog Routes', () => {
       assert.equal(olderItem?.title, '[F010] older duplicate');
       assert.equal(olderItem?.priority, 'p3');
 
-      assert.equal(newerItem?.title, '[F010] 手机端猫猫（docs）');
+      assert.equal(newerItem?.title, '[F010] 手机端智能体（docs）');
       assert.equal(newerItem?.priority, 'p1');
       assert.equal(newerItem?.tags.includes('status:in-progress'), true);
     } finally {
@@ -1523,7 +1523,7 @@ describe('Import sync marks disappeared items as done (any status)', () => {
       [
         '| ID | 名称 | Status | Owner | Link |',
         '|---|---|---|---|---|',
-        '| F001 | Active Feature | in-progress | 布偶猫 | [F001](features/F001.md) |',
+        '| F001 | Active Feature | in-progress | Claude | [F001](features/F001.md) |',
       ].join('\n'),
     );
 
@@ -1608,7 +1608,7 @@ describe('Import sync marks suggested items as done when disappeared', () => {
       [
         '| ID | 名称 | Status | Owner | Link |',
         '|---|---|---|---|---|',
-        '| F001 | Active Feature | in-progress | 布偶猫 | [F001](features/F001.md) |',
+        '| F001 | Active Feature | in-progress | Claude | [F001](features/F001.md) |',
       ].join('\n'),
     );
 
@@ -1686,7 +1686,7 @@ describe('Import sync hard-fails on parse error (zero writes)', () => {
       [
         '| ID | Name | Status | Owner | Link |',
         '|---|---|---|---|---|',
-        '| F001 | Active Feature | in-progress | 布偶猫 | [F001](features/F001.md) |',
+        '| F001 | Active Feature | in-progress | Claude | [F001](features/F001.md) |',
       ].join('\n'),
     );
 

@@ -20,7 +20,7 @@ export type {
   A2ATask,
   A2ATaskStatus,
 } from './a2a.js';
-// Authorization types (猫猫授权系统)
+// Authorization types (智能体授权系统)
 export type {
   AuthorizationAuditEntry,
   AuthorizationRequestEvent,
@@ -89,6 +89,7 @@ export type {
 // Cat types
 export type {
   CatColor,
+  OfficeClawConfigEntry,
   CatConfig,
   CatProvider,
   EmbeddedRuntimeKind,
@@ -97,6 +98,7 @@ export type {
   CatStatus,
 } from './cat.js';
 export {
+  OFFICE_CLAW_CONFIGS,
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
@@ -106,9 +108,9 @@ export {
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
   CatBreed,
-  CatCafeConfig,
-  CatCafeConfigV1,
-  CatCafeConfigV2,
+  OfficeClawConfig,
+  OfficeClawConfigV1,
+  OfficeClawConfigV2,
   CatFeatures,
   CatVariant,
   CliConfig,

@@ -1,18 +1,18 @@
 /**
  * Provider Plugin Registry
- * Discovers and manages @clowder/provider-* plugins.
+ * Discovers and manages @office-claw/provider-* plugins.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { BuiltinAccountClient, ProviderProfileProtocol } from '../agent/types.js';
-import type { ClowderProviderPlugin, ProviderAccountSpec, ProviderBindingSpec } from './types.js';
+import type { OfficeClawProviderPlugin, ProviderAccountSpec, ProviderBindingSpec } from './types.js';
 
 export class ProviderPluginRegistry {
-  private plugins = new Map<string, ClowderProviderPlugin>();
+  private plugins = new Map<string, OfficeClawProviderPlugin>();
 
   /** Manually register a plugin (for explicit registration / testing) */
-  register(plugin: ClowderProviderPlugin): void {
+  register(plugin: OfficeClawProviderPlugin): void {
     for (const provider of plugin.providers) {
       if (this.plugins.has(provider)) {
         const existing = this.plugins.get(provider)!;
@@ -26,7 +26,7 @@ export class ProviderPluginRegistry {
   }
 
   /** Get the plugin for a provider string */
-  get(provider: string): ClowderProviderPlugin | undefined {
+  get(provider: string): OfficeClawProviderPlugin | undefined {
     return this.plugins.get(provider);
   }
 
@@ -36,7 +36,7 @@ export class ProviderPluginRegistry {
   }
 
   /** Get all registered plugins (deduplicated) */
-  getAllPlugins(): ClowderProviderPlugin[] {
+  getAllPlugins(): OfficeClawProviderPlugin[] {
     return [...new Set(this.plugins.values())];
   }
 
@@ -62,7 +62,7 @@ export class ProviderPluginRegistry {
 
   /**
    * Discover and register provider plugins from node_modules.
-   * Scans for packages matching @clowder/provider-* with the clowder.kind === 'provider' marker.
+   * Scans for packages matching @office-claw/provider-* with the clowder.kind === 'provider' marker.
    * Also scans workspace packages/ directories (for monorepo development).
    */
   async discoverFromNodeModules(searchPaths?: string[]): Promise<DiscoveryResult> {
@@ -77,8 +77,8 @@ export class ProviderPluginRegistry {
   }
 
   private async scanDirectory(searchPath: string, result: DiscoveryResult): Promise<void> {
-    // Scan @clowder/ scope in node_modules-style directories
-    const scopeDir = join(searchPath, '@clowder');
+    // Scan @office-claw/ scope in node_modules-style directories
+    const scopeDir = join(searchPath, '@office-claw');
     if (existsSync(scopeDir)) {
       await this.scanScopeDir(scopeDir, result);
     }
@@ -134,7 +134,7 @@ export class ProviderPluginRegistry {
       }
 
       const mod = await import(mainPath);
-      const plugin = (mod.default ?? mod) as ClowderProviderPlugin;
+      const plugin = (mod.default ?? mod) as OfficeClawProviderPlugin;
 
       if (!isValidPlugin(plugin)) {
         result.errors.push({
@@ -175,7 +175,7 @@ export interface DiscoveryResult {
   errors: Array<{ package: string; error: string }>;
 }
 
-function isValidPlugin(plugin: unknown): plugin is ClowderProviderPlugin {
+function isValidPlugin(plugin: unknown): plugin is OfficeClawProviderPlugin {
   if (!plugin || typeof plugin !== 'object') return false;
   const p = plugin as Record<string, unknown>;
   return (

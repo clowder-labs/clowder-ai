@@ -61,7 +61,7 @@ describe('auto-replyTo for A2A invocations', () => {
       messageStore,
       socketManager,
       invocationRecordStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
     });
     return app;
   }

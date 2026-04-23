@@ -9,9 +9,9 @@ import { describe, it } from 'node:test';
 import { parseMentions } from '../dist/infrastructure/connectors/mention-parser.js';
 
 const allPatterns = new Map([
-  ['opus', ['@opus', '@布偶猫', '@布偶', '@宪宪']],
-  ['codex', ['@codex', '@缅因猫', '@缅因', '@砚砚']],
-  ['gemini', ['@gemini', '@暹罗猫', '@暹罗', '@烁烁']],
+  ['opus', ['@opus', '@claude', '@office', '@宪宪']],
+  ['codex', ['@codex', '@assistant', '@codex-review', '@砚砚']],
+  ['gemini', ['@gemini', '@design', '@gemini-design', '@烁烁']],
 ]);
 
 describe('parseMentions', () => {
@@ -20,8 +20,8 @@ describe('parseMentions', () => {
     assert.equal(result.targetCatId, 'opus');
   });
 
-  it('returns matched catId for @缅因猫', () => {
-    const result = parseMentions('@缅因猫 请review', allPatterns, 'opus');
+  it('returns matched catId for @assistant', () => {
+    const result = parseMentions('@assistant 请review', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'codex');
   });
 
@@ -72,12 +72,12 @@ describe('parseMentions', () => {
 
   // P1-1: CJK full-width punctuation after mention
   it('matches @mention followed by Chinese full-width comma', () => {
-    const result = parseMentions('@缅因猫，看下这个', allPatterns, 'opus');
+    const result = parseMentions('@assistant，看下这个', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'codex');
   });
 
   it('matches @mention followed by Chinese full-width period', () => {
-    const result = parseMentions('@布偶猫。你好', allPatterns, 'opus');
+    const result = parseMentions('@claude。你好', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'opus');
   });
 
@@ -99,8 +99,8 @@ describe('parseMentions', () => {
   });
 
   it('returns first mention by text position with CJK patterns', () => {
-    // 暹罗猫 appears before 布偶猫 in text
-    const result = parseMentions('请 @暹罗猫 和 @布偶猫 一起看', allPatterns, 'opus');
+    // design appears before claude in text
+    const result = parseMentions('请 @design 和 @claude 一起看', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'gemini');
   });
 
@@ -145,7 +145,7 @@ describe('parseMentions', () => {
   });
 
   it('matches full-width ＠ mention from IM clients', () => {
-    const result = parseMentions('请 ＠缅因猫 看一下', allPatterns, 'opus');
+    const result = parseMentions('请 ＠assistant 看一下', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'codex');
   });
 });

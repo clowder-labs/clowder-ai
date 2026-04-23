@@ -46,7 +46,7 @@ describe('Callback Bootcamp Env Check', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
     });
     return app;
   }

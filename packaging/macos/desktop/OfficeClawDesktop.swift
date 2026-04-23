@@ -52,15 +52,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // App menu
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(NSMenuItem(title: "About Clowder AI", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem(title: "About OfficeClaw", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(NSMenuItem(title: "Hide Clowder AI", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        appMenu.addItem(NSMenuItem(title: "Hide OfficeClaw", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
         let hideOthers = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(hideOthers)
         appMenu.addItem(NSMenuItem(title: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: ""))
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(NSMenuItem(title: "Quit Clowder AI", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "Quit OfficeClaw", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
@@ -107,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        window.title = "Clowder AI"
+        window.title = "OfficeClaw"
         window.minSize = NSSize(width: 960, height: 640)
         window.delegate = self
         window.center()
@@ -130,14 +130,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
             button.image = NSImage(
-                systemSymbolName: "cat.fill",
-                accessibilityDescription: "Clowder AI"
+                systemSymbolName: "briefcase.fill",
+                accessibilityDescription: "OfficeClaw"
             )
         }
 
         let menu = NSMenu()
         menu.addItem(
-            NSMenuItem(title: "Show Clowder AI", action: #selector(showWindow), keyEquivalent: "")
+            NSMenuItem(title: "Show OfficeClaw", action: #selector(showWindow), keyEquivalent: "")
         )
         menu.addItem(NSMenuItem.separator())
         menu.addItem(
@@ -181,7 +181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             appendLog("Launcher failed: \(error)")
             await MainActor.run {
                 let alert = NSAlert()
-                alert.messageText = "Clowder AI"
+                alert.messageText = "OfficeClaw"
                 alert.informativeText = "\(error.localizedDescription)\n\nSee log: \(logFilePath)"
                 alert.alertStyle = .critical
                 alert.runModal()
@@ -249,14 +249,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildServiceEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         // Clear inherited port/URL vars so bundled mode uses its own random ports,
-        // not values leaked from a co-running cat-cafe dev environment.
+        // not values leaked from a co-running office-claw dev environment.
         for key in ["REDIS_PORT", "REDIS_URL", "API_SERVER_PORT", "FRONTEND_PORT", "PORT"] {
             env.removeValue(forKey: key)
         }
-        env["CAT_CAFE_RESPECT_DOTENV_PORTS"] = "1"
-        env["CAT_CAFE_DIRECT_NO_WATCH"] = "1"
-        env["CAT_CAFE_STRICT_PROFILE_DEFAULTS"] = "1"
-        env["CAT_CAFE_MACOS_BUNDLED"] = "1"
+        env["OFFICE_CLAW_RESPECT_DOTENV_PORTS"] = "1"
+        env["OFFICE_CLAW_DIRECT_NO_WATCH"] = "1"
+        env["OFFICE_CLAW_STRICT_PROFILE_DEFAULTS"] = "1"
+        env["OFFICE_CLAW_MACOS_BUNDLED"] = "1"
         env["PATH"] = "\(projectRoot)/tools/node/bin:\(projectRoot)/tools/redis/bin:\(env["PATH"] ?? "")"
         return env
     }
@@ -287,7 +287,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if serviceStartedByLauncher,
                let process = serviceProcess, !process.isRunning {
                 throw NSError(
-                    domain: "ClowderAI", code: 1,
+                    domain: "OfficeClaw", code: 1,
                     userInfo: [NSLocalizedDescriptionKey:
                         "Local services exited before the UI became ready."]
                 )
@@ -295,7 +295,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try await Task.sleep(nanoseconds: 1_000_000_000)
         }
         throw NSError(
-            domain: "ClowderAI", code: 2,
+            domain: "OfficeClaw", code: 2,
             userInfo: [NSLocalizedDescriptionKey:
                 "Timed out waiting for the frontend at \(frontendUrl)"]
         )
@@ -454,7 +454,7 @@ extension AppDelegate: WKNavigationDelegate {
 // MARK: - Splash View
 
 class SplashView: NSView {
-    var statusText: String = "Preparing Clowder AI..." {
+    var statusText: String = "Preparing OfficeClaw..." {
         didSet { needsDisplay = true }
     }
 

@@ -83,7 +83,7 @@ describe('Task 5: Wiring – bootstrapDepth in buildSessionBootstrap', () => {
 
 describe('Task 5: Wiring – getConfigSessionStrategy accessor', () => {
   it('getConfigSessionStrategy returns valid bootstrapDepth when configured', async () => {
-    const { getConfigSessionStrategy } = await import('../dist/config/cat-config-loader.js');
+    const { getConfigSessionStrategy } = await import('../dist/config/office-claw-config-loader.js');
     const strategy = getConfigSessionStrategy('opus');
     if (strategy?.handoff?.bootstrapDepth) {
       assert.ok(

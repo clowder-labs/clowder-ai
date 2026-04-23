@@ -6,17 +6,17 @@ doc_kind: spec
 created: 2026-04-10
 ---
 
-# F140: De-Cat Branding — 去除用户可见的 Cat Cafe 痕迹
+# F140: Branding Cleanup — 去除用户可见的历史品牌痕迹
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
-产品已从内部代号 "Cat Cafe" 正式定名为 **OfficeClaw**。最终用户不应在 UI、安装目录配置文件、环境变量中看到任何 `cat-cafe` / `Cat Café` / `猫猫` 等旧品牌内容。功能不变，只改用户感知层。
+产品已从内部代号统一到 **OfficeClaw**。最终用户不应在 UI、安装目录配置文件、环境变量中看到任何 `office-claw` / 历史旧品牌 / 旧主题化术语等内容。功能不变，只改用户感知层。
 
 ## 目标
 
-在保证功能不变的前提下，最终用户在以下三个维度看不到 `cat-cafe` 相关内容：
+在保证功能不变的前提下，最终用户在以下三个维度看不到 `office-claw` 相关内容：
 
 1. **UI**（Web 前端文案、PWA manifest、push 通知、toast 提示）
 2. **安装目录配置文件**（`capabilities.json`、MCP server 注册名、`source` 字段）
@@ -28,17 +28,17 @@ created: 2026-04-10
 
 | 旧术语 | → 系统内部（LLM-facing） | → 前端 UI（用户-facing） |
 |--------|--------------------------|------------------------|
-| 猫猫 / 猫 | agent | 智能体 |
-| 铲屎官 / CVO | 用户 | 用户 |
-| 猫粮 | — | 配额 |
+| 智能体 / 猫 | agent | 智能体 |
+| 用户 / CVO | 用户 | 用户 |
+| 配额 | — | 配额 |
 | 🐾 / 🐱 | 删除 | 删除 |
 | ᓚᘏᗢ | — | 删除或换通用图标 |
-| 布偶猫 | 办公智能体 | 办公智能体（小九） |
-| 缅因猫 | 通用智能体 | 通用智能体（小理） |
-| 暹罗猫 | 编码智能体 | 编码智能体（小码） |
-| cat-cafe (source) | builtin | — |
+| Claude | 办公智能体 | 办公智能体（小九） |
+| Codex | 通用智能体 | 通用智能体（小理） |
+| Gemini | 编码智能体 | 编码智能体（小码） |
+| office-claw (source) | builtin | — |
 | CAT_CAFE_* (env) | OFFICE_CLAW_* | — |
-| cat-cafe-collab (MCP) | office-claw-collab | — |
+| office-claw-collab (MCP) | office-claw-collab | — |
 
 ---
 
@@ -53,12 +53,12 @@ created: 2026-04-10
 
 覆盖范围：
 - **SystemPromptBuilder.ts** — 身份注入、队友名册、治理摘要、MCP 工具文档、调用上下文、语音模式中所有猫主题文案
-- **ContextAssembler.ts** — `铲屎官` → `用户`（消息历史发送者标签）
+- **ContextAssembler.ts** — `用户` → `用户`（消息历史发送者标签）
 - **governance-pack.ts** — sentinel 标记 `CAT-CAFE-GOVERNANCE` → `CLOWDER-GOVERNANCE`，治理规则文案
 - **Connector 出站** — `ConnectorMessageFormatter`、`OutboundDeliveryHook`、`StreamingOutboundHook`、飞书/钉钉/Telegram adapter 中 🐱 emoji 前缀
-- **通知模板** — 信号日报 `🐱 Clowder AI` 前缀、push 测试推送 `猫猫测试推送`
-- **错误/提示文案** — `messages.ts`（猫猫正在忙/出错了）、`threads.ts`（猫猫正在工作中）
-- **env-registry.ts** — 描述文案中的猫品种名（`布偶猫 prompt 上限` → `Claude prompt 上限`）
+- **通知模板** — 信号日报 `🐱 OfficeClaw` 前缀、push 测试推送 `智能体测试推送`
+- **错误/提示文案** — `messages.ts`（智能体正在忙/出错了）、`threads.ts`（智能体正在工作中）
+- **env-registry.ts** — 描述文案中的猫品种名（`Claude prompt 上限` → `Claude prompt 上限`）
 - **成就系统** — `achievement-defs.ts`、`silly-stats.ts` 中猫主题成就名
 - **Bootcamp** — `bootcamp-blocks.ts` 选猫文案
 - **播客生成器** — `podcast-generator.ts` 说话人身份
@@ -84,14 +84,14 @@ created: 2026-04-10
 
 ### Skills 裁剪（✅ 已完成，关联工作）
 
-> Commit: `b98147d7` refactor(skills): remove cat-cafe synced skills
-> 40 files, 删除 20 个 cat-cafe-specific skills，保留 4 个核心协作 skill 并去猫化
+> Commit: `b98147d7` refactor(skills): remove office-claw synced skills
+> 40 files, 删除 20 个 office-claw-specific skills，保留 4 个核心协作 skill 并去猫化
 
 ---
 
 ## 待完成工作
 
-> 以下清单经布偶猫 + 缅因猫双审（2026-04-10），基于全仓 grep 实扫补齐。
+> 以下清单经 Claude + Codex 双审（2026-04-10），基于全仓 grep 实扫补齐。
 > 非测试前端源码命中 129 处 / 52 文件；后端用户可见残留 ~20 处；skill refs 117 处 / 13 文件。
 
 ### Phase A-fix — 后端漏网的用户可见文案
@@ -100,14 +100,14 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 | # | 文件 | 当前 | → 改为 | 用户何时看到 |
 |---|------|------|--------|------------|
-| A-f1 | `ClaudeAgentService.ts:357` | `布偶猫 CLI 响应超时` | `Claude CLI 响应超时` | agent 超时 error toast |
-| A-f2 | `CodexAgentService.ts:427` | `缅因猫 CLI 响应超时` | `Codex CLI 响应超时` | 同上 |
-| A-f3 | `GeminiAgentService.ts:157` | `暹罗猫 CLI 响应超时` | `Gemini CLI 响应超时` | 同上 |
-| A-f4 | `GeminiAgentService.ts:335` | `暹罗猫已在 Antigravity 中开始工作` | `Gemini 已在 Antigravity 中开始工作` | 对话消息 |
+| A-f1 | `ClaudeAgentService.ts:357` | `Claude CLI 响应超时` | `Claude CLI 响应超时` | agent 超时 error toast |
+| A-f2 | `CodexAgentService.ts:427` | `Codex CLI 响应超时` | `Codex CLI 响应超时` | 同上 |
+| A-f3 | `GeminiAgentService.ts:157` | `Gemini CLI 响应超时` | `Gemini CLI 响应超时` | 同上 |
+| A-f4 | `GeminiAgentService.ts:335` | `Gemini已在 Antigravity 中开始工作` | `Gemini 已在 Antigravity 中开始工作` | 对话消息 |
 | A-f5 | `queue.ts:357` | `该猫当前未在执行` | `该智能体当前未在执行` | 停止执行 error |
 | A-f6 | `callback-errors.ts:4` | hint 含 `@猫名` | `@智能体名` | 401 expired credentials |
 | A-f7 | `McpPromptInjector.ts:63` | `@猫名`（注入 LLM prompt） | `@智能体名` | LLM 引用后暴露给用户 |
-| A-f8 | `quota.ts:310-463` | 12 处 `布偶猫 (Claude)` / `缅因猫 (Codex)` / `暹罗猫 (Antigravity)` | 用 displayName 或 provider 名 | Hub 配额面板 |
+| A-f8 | `quota.ts:310-463` | 12 处 `Claude (Claude)` / `Codex (Codex)` / `Gemini (Antigravity)` | 用 displayName 或 provider 名 | Hub 配额面板 |
 | A-f9 | `SystemPromptBuilder.ts:196,218,222` | `office-claw-skills/refs/` 路径硬编码 | 去掉 `office-claw-skills/` 前缀或用相对引用 | LLM 引用后暴露给用户 |
 
 #### A-fix-gov. Governance 治理块适配
@@ -135,99 +135,99 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 ### Phase B — 前端 UI 文案（全量清单）
 
-> 方法论：以 `grep -rn '猫猫\|猫粮\|铲屎官\|布偶猫\|缅因猫\|暹罗猫\|狸花猫\|ᓚᘏᗢ\|Cat Café' packages/web/src/ --include='*.ts' --include='*.tsx' | grep -v __tests__ | grep -v .test.` 为基线。
-> 前端用户可见文案：`猫猫` → `智能体`，`铲屎官` → `用户`，`猫粮` → `配额`，品种名 → displayName。
+> 方法论：以 `grep -rn '智能体\|配额\|用户\|Claude\|Codex\|Gemini\|DARE\|ᓚᘏᗢ\|Cat Café' packages/web/src/ --include='*.ts' --include='*.tsx' | grep -v __tests__ | grep -v .test.` 为基线。
+> 前端用户可见文案：`智能体` → `智能体`，`用户` → `用户`，`配额` → `配额`，品种名 → displayName。
 
 #### B1. 核心交互区
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F01 | `ThreadCatStatus.tsx:48` | `猫猫 @ 了你` | `智能体 @ 了你` |
+| F01 | `ThreadCatStatus.tsx:48` | `智能体 @ 了你` | `智能体 @ 了你` |
 | F02 | `ThreadCatStatus.tsx:43` + `SplitPaneCell.tsx:68` | `ᓚᘏᗢ` ASCII 猫脸 | 删除或换通用 icon |
-| F03 | `PushSettingsPanel.tsx:99` | `猫猫回复...推送到系统通知栏` | `智能体回复...` |
-| F04 | `PushSettingsPanel.tsx:200` | `猫猫消息会推送` / `点击开启接收猫猫推送` | → 智能体 |
-| F05 | `ChatInput.tsx:1023` | `请至少选一只猫猫` | `请至少选一个智能体` |
-| F06 | `ChatInputActionButton.tsx:193,203` | `猫猫忙完后处理` / `中断当前猫猫` | → 智能体 |
-| F07 | `ParallelStatusBar.tsx:122` | `停止所有猫猫` | `停止所有智能体` |
-| F08 | `ChatInputMenus.tsx:202` | `↓ 还有更多猫猫` | `↓ 还有更多智能体` |
-| F09 | `BindNewSessionSection.tsx:87` | `选择猫猫...` | `选择智能体...` |
-| F10 | `VoteConfigModal.tsx:164` | `投票猫猫` | `投票智能体` |
-| F11 | `RightStatusPanel.tsx:179,417,500` | `猫猫状态` / `猫猫消息` / `猫猫互相看不到/分享心里话` | → 智能体 |
-| F12 | `MobileStatusSheet.tsx:85,141` | `猫猫状态` / `猫猫消息` | → 智能体 |
-| F13 | `EvidencePanel.tsx:46` | `喵... 翻遍了猫砂盆也没找到相关证据` | `暂未找到相关证据` |
-| F14 | `ChatEmptyState.tsx:117` | `第一次来？开始猫猫训练营` | `第一次来？开始新手引导` |
-| F15 | `BootcampListModal.tsx:106,174` + `ThreadSidebar.tsx:307` | `🎓 猫猫训练营` | `🎓 新手训练营` |
-| F16 | `BootcampIcon.tsx:5` | `<title>猫猫训练营</title>` | `<title>新手训练营</title>` |
-| F17 | `useAuthorization.ts:25` | `🔐 猫猫需要权限` | `🔐 智能体需要权限` |
-| F18 | `chatStore.ts:249` | fallback `猫猫` | fallback `智能体` |
-| F19 | `SuggestionDrawer.tsx:102` | `等待铲屎官决策` | `等待用户决策` |
-| F20 | `DirectoryPickerModal.tsx:282` | `收起猫猫` / `选猫猫` | `收起列表` / `选智能体` |
-| F21 | `CatSelector.tsx:39` | `默认猫猫 (可选)` | `默认智能体 (可选)` |
-| F22 | `ThreadCatSettings.tsx:83` | `设置默认猫猫` | `设置默认智能体` |
-| F23 | `PlanBoardPanel.tsx:202` | `猫猫祟祟` | `任务看板` |
-| F24 | `QueuePanel.tsx:258` | fallback `猫猫` (2 处) | `智能体` |
-| F25 | `IdeateHeader.tsx:14` | `猫猫们各自独立思考中...` | `智能体们各自独立思考中...` |
+| F03 | `PushSettingsPanel.tsx:99` | `智能体回复...推送到系统通知栏` | `智能体回复...` |
+| F04 | `PushSettingsPanel.tsx:200` | `智能体消息会推送` / `点击开启接收智能体推送` | → 智能体 |
+| F05 | `ChatInput.tsx:1023` | `请至少选一只智能体` | `请至少选一个智能体` |
+| F06 | `ChatInputActionButton.tsx:193,203` | `智能体忙完后处理` / `中断当前智能体` | → 智能体 |
+| F07 | `ParallelStatusBar.tsx:122` | `停止所有智能体` | `停止所有智能体` |
+| F08 | `ChatInputMenus.tsx:202` | `↓ 还有更多智能体` | `↓ 还有更多智能体` |
+| F09 | `BindNewSessionSection.tsx:87` | `选择智能体...` | `选择智能体...` |
+| F10 | `VoteConfigModal.tsx:164` | `投票智能体` | `投票智能体` |
+| F11 | `RightStatusPanel.tsx:179,417,500` | `智能体状态` / `智能体消息` / `智能体互相看不到/分享心里话` | → 智能体 |
+| F12 | `MobileStatusSheet.tsx:85,141` | `智能体状态` / `智能体消息` | → 智能体 |
+| F13 | `EvidencePanel.tsx:46` | `暂未找到相关证据` | `暂未找到相关证据` |
+| F14 | `ChatEmptyState.tsx:117` | `第一次来？开始智能体训练营` | `第一次来？开始新手引导` |
+| F15 | `BootcampListModal.tsx:106,174` + `ThreadSidebar.tsx:307` | `🎓 智能体训练营` | `🎓 新手训练营` |
+| F16 | `BootcampIcon.tsx:5` | `<title>智能体训练营</title>` | `<title>新手训练营</title>` |
+| F17 | `useAuthorization.ts:25` | `🔐 智能体需要权限` | `🔐 智能体需要权限` |
+| F18 | `chatStore.ts:249` | fallback `智能体` | fallback `智能体` |
+| F19 | `SuggestionDrawer.tsx:102` | `等待用户决策` | `等待用户决策` |
+| F20 | `DirectoryPickerModal.tsx:282` | `收起智能体` / `选智能体` | `收起列表` / `选智能体` |
+| F21 | `CatSelector.tsx:39` | `默认智能体 (可选)` | `默认智能体 (可选)` |
+| F22 | `ThreadCatSettings.tsx:83` | `设置默认智能体` | `设置默认智能体` |
+| F23 | `PlanBoardPanel.tsx:202` | `智能体祟祟` | `任务看板` |
+| F24 | `QueuePanel.tsx:258` | fallback `智能体` (2 处) | `智能体` |
+| F25 | `IdeateHeader.tsx:14` | `智能体们各自独立思考中...` | `智能体们各自独立思考中...` |
 
 #### B2. Hub 设置面板
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F26 | `HubRoutingPolicyTab.tsx:103,105` | `猫粮约束` / `猫猫自治路由` / `猫粮` | → 配额 / 智能体 |
-| F27 | `HubEnvFilesTab.tsx:179` | `猫猫模板（只读 seed）` | `智能体模板（只读 seed）` |
-| F28 | `HubEnvFilesTab.tsx:191-193` | `布偶猫/缅因猫/暹罗猫项目指引` | `办公智能体/通用智能体/编码智能体项目指引` |
-| F29 | `HubGovernanceTab.tsx:119` | `猫猫首次被派遣到外部项目时` | `智能体首次被派遣到外部项目时` |
-| F30 | `HubClaudeRescueSection.tsx` | 8 处 `布偶猫救援`/`救活 N 只布偶猫` | `Claude 救援` / `救活 N 个 Claude session` |
-| F31 | `cat-cafe-hub.navigation.tsx:59` | `布偶猫救援` | `Claude 救援` |
-| F32 | `hub-cat-editor.sections.tsx:89` | `铲屎官给的昵称` | `用户自定义昵称` |
-| F33 | `hub-cat-editor.sections.tsx:533` | placeholder `@codex, @缅因猫` | `@codex, @assistant` |
+| F26 | `HubRoutingPolicyTab.tsx:103,105` | `配额约束` / `智能体自治路由` / `配额` | → 配额 / 智能体 |
+| F27 | `HubEnvFilesTab.tsx:179` | `智能体模板（只读 seed）` | `智能体模板（只读 seed）` |
+| F28 | `HubEnvFilesTab.tsx:191-193` | `Claude/Codex/Gemini项目指引` | `办公智能体/通用智能体/编码智能体项目指引` |
+| F29 | `HubGovernanceTab.tsx:119` | `智能体首次被派遣到外部项目时` | `智能体首次被派遣到外部项目时` |
+| F30 | `HubClaudeRescueSection.tsx` | 8 处 `Claude救援`/`救活 N 只Claude` | `Claude 救援` / `救活 N 个 Claude session` |
+| F31 | `office-claw-hub.navigation.tsx:59` | `Claude救援` | `Claude 救援` |
+| F32 | `hub-cat-editor.sections.tsx:89` | `用户给的昵称` | `用户自定义昵称` |
+| F33 | `hub-cat-editor.sections.tsx:533` | placeholder `@codex, @Codex` | `@codex, @assistant` |
 | F34 | `HubLeaderboardTab.tsx` | `CVO 能力等级 🐾` / `夜猫子` | 去 🐾 / `夜间活跃` |
-| F35 | `HubQuotaBoardTab.tsx:210` | `猫粮看板` | `配额看板` |
-| F36 | `config-viewer-tabs.tsx:74` | `A2A 猫猫互调` | `A2A 智能体协作` |
+| F35 | `HubQuotaBoardTab.tsx:210` | `配额看板` | `配额看板` |
+| F36 | `config-viewer-tabs.tsx:74` | `A2A 智能体互调` | `A2A 智能体协作` |
 
 #### B3. 品种名硬编码（必须改为动态读取或 displayName）
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F37 | `AuthorizationCard.tsx:7-10` | `布偶猫/缅因猫/暹罗猫/狸花猫` 硬编码映射 | `办公智能体/通用智能体/编码智能体/确定性智能体` |
-| F38 | `DailyUsageSection.tsx:35-43,92` | `布偶猫 Opus` / `缅因猫 Codex` / `暹罗猫 Gemini` / `猫粮消耗` | 用 displayName，`配额消耗` |
-| F39 | `MessageNavigator.tsx:26-29` | `布偶猫/缅因猫/暹罗猫/狸花猫` label | 用 displayName |
-| F40 | `quota-cards.tsx:80-82,144` | `缅因猫 Codex + GPT-5.2` / `缅因猫 Spark` / `切到缅因猫` | 用 displayName |
-| F41 | `leaderboard-phase-bc.tsx:41` | `猫猫杀 胜场` | `游戏 胜场` |
+| F37 | `AuthorizationCard.tsx:7-10` | `Claude/Codex/Gemini/DARE` 硬编码映射 | `办公智能体/通用智能体/编码智能体/确定性智能体` |
+| F38 | `DailyUsageSection.tsx:35-43,92` | `Claude Opus` / `Codex Codex` / `Gemini Gemini` / `配额消耗` | 用 displayName，`配额消耗` |
+| F39 | `MessageNavigator.tsx:26-29` | `Claude/Codex/Gemini/DARE` label | 用 displayName |
+| F40 | `quota-cards.tsx:80-82,144` | `Codex Codex + GPT-5.2` / `Codex Spark` / `切到Codex` | 用 displayName |
+| F41 | `leaderboard-phase-bc.tsx:41` | `智能体杀 胜场` | `游戏 胜场` |
 
 #### B4. 游戏 + 语音 + 命令
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F42 | `GameLobby.tsx:124,164,191` | `选择参赛猫猫` / `绑定猫猫` / `选一只猫猫` | → 智能体 |
-| F43 | `EventFlow.tsx:116` | 人类玩家显示 `铲屎官` | `用户` |
-| F44 | `useVoiceInput.ts:11-12` | 语音纠错上下文含品种名 + `铲屎官` | 用 displayName + `用户` |
-| F45 | `SuggestionOpenForm.tsx:59` | `建议领取猫猫` | `建议领取智能体` |
-| F46 | `SuggestionDecisionPanel.tsx:34` | `建议猫猫` | `建议智能体` |
+| F42 | `GameLobby.tsx:124,164,191` | `选择参赛智能体` / `绑定智能体` / `选一只智能体` | → 智能体 |
+| F43 | `EventFlow.tsx:116` | 人类玩家显示 `用户` | `用户` |
+| F44 | `useVoiceInput.ts:11-12` | 语音纠错上下文含品种名 + `用户` | 用 displayName + `用户` |
+| F45 | `SuggestionOpenForm.tsx:59` | `建议领取智能体` | `建议领取智能体` |
+| F46 | `SuggestionDecisionPanel.tsx:34` | `建议智能体` | `建议智能体` |
 
 #### B5. Service Worker + 命令 + Socket + Mention
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F47 | `worker/index.ts:32,49` | `猫猫来信` (2 处) | `消息通知` |
-| F48 | `useChatCommands.ts:84,93` | `猫猫配置` / `A2A 猫猫互调` | `智能体配置` / `A2A 智能体协作` |
-| F49 | `useSocket-background-system-info.ts:297` | `proposedBy ?? '猫猫'` | `?? '智能体'` |
-| F50 | `mention-highlight.ts:65,67` | `CO_CREATOR_DISPLAY_NAME = '铲屎官'` + `@铲屎官` pattern | `'用户'` + `@用户` |
+| F47 | `worker/index.ts:32,49` | `智能体来信` (2 处) | `消息通知` |
+| F48 | `useChatCommands.ts:84,93` | `智能体配置` / `A2A 智能体互调` | `智能体配置` / `A2A 智能体协作` |
+| F49 | `useSocket-background-system-info.ts:297` | `proposedBy ?? '智能体'` | `?? '智能体'` |
+| F50 | `mention-highlight.ts:65,67` | `CO_CREATOR_DISPLAY_NAME = '用户'` + `@用户` pattern | `'用户'` + `@用户` |
 
 #### B6. PWA Manifest
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F51 | `manifest.json:3-5` | `"Cat Café"` / `"猫猫"` / `"三只 AI 猫猫的协作空间"` | `"OfficeClaw"` / `"OfficeClaw"` / `"AI team collaboration space"` |
+| F51 | `manifest.json:3-5` | `"Cat Café"` / `"智能体"` / `"三只 AI 智能体的协作空间"` | `"OfficeClaw"` / `"OfficeClaw"` / `"AI team collaboration space"` |
 
 #### B7. Logo / Icon
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| F52 | `CatCafeLogo.tsx` | gradient ID `cat-cafe-gradient`，注释 `三猫流光渐变` | `brand-gradient`，更新注释 |
+| F52 | `CatCafeLogo.tsx` | gradient ID `office-claw-gradient`，注释 `三猫流光渐变` | `brand-gradient`，更新注释 |
 
 #### B8. Showcase 页面（P2，历史演示数据）
 
-`app/showcase/f11-review/page.tsx` 和 `app/showcase/f052-*/page.tsx` 含大量猫品种名和 `铲屎官`。
+`app/showcase/f11-review/page.tsx` 和 `app/showcase/f052-*/page.tsx` 含大量猫品种名和 `用户`。
 这些是历史 demo fixture，不影响正式功能。**建议与主改动分开**，低优处理。
 
 #### B9. 测试文件（随主代码同步改，~20 文件）
@@ -242,8 +242,8 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 | # | 文件 | 命中数 | 改动 |
 |---|------|--------|------|
-| S1 | `BOOTSTRAP.md` | ~12 处 | `Cat Café Skills` → `OfficeClaw Skills`，去 `铲屎官`/`三猫`/`猫猫` |
-| S2 | `refs/shared-rules.md` | ~50 处 | 全面去猫化（`猫`→`agent`，`铲屎官`→`用户`，品种名→displayName） |
+| S1 | `BOOTSTRAP.md` | ~12 处 | `Cat Café Skills` → `OfficeClaw Skills`，去 `用户`/`三猫`/`智能体` |
+| S2 | `refs/shared-rules.md` | ~50 处 | 全面去猫化（`猫`→`agent`，`用户`→`用户`，品种名→displayName） |
 | S3 | `refs/mcp-callbacks.md` | ~32 处 | `$CAT_CAFE_*` → `$OFFICE_CLAW_*`，`猫`→`agent` |
 | S4 | `refs/pr-template.md` | ~10 处 | 去品种名和猫主题签名 |
 | S5 | `refs/review-request-template.md` | ~5 处 | 同上 |
@@ -255,21 +255,21 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 > 前置：Phase M ✅
 
-将 MCP server 注册名从 `cat-cafe-*` 改为 `office-claw-*`，影响 capability 配置。
+将 MCP server 注册名从 `office-claw-*` 改为 `office-claw-*`，影响 capability 配置。
 
 **用户可见点**：安装目录的 `capabilities.json` 配置文件中 server name 可见。
 
 | # | 文件 | 当前 | → 改为 |
 |---|------|------|--------|
-| 1 | `mcp-server/src/collab.ts` | `createBaseServer('cat-cafe-collab-mcp')` | `'office-claw-collab-mcp'` |
-| 2 | `mcp-server/src/memory.ts` | `createBaseServer('cat-cafe-memory-mcp')` | `'office-claw-memory-mcp'` |
-| 3 | `mcp-server/src/signals.ts` | `createBaseServer('cat-cafe-signals-mcp')` | `'office-claw-signals-mcp'` |
-| 4 | `capability-orchestrator.ts` | `CAT_CAFE_SPLIT_SERVER_IDS` 常量 + 3 个 `name: 'cat-cafe-*'` | 改为 `office-claw-*` |
+| 1 | `mcp-server/src/collab.ts` | `createBaseServer('office-claw-collab-mcp')` | `'office-claw-collab-mcp'` |
+| 2 | `mcp-server/src/memory.ts` | `createBaseServer('office-claw-memory-mcp')` | `'office-claw-memory-mcp'` |
+| 3 | `mcp-server/src/signals.ts` | `createBaseServer('office-claw-signals-mcp')` | `'office-claw-signals-mcp'` |
+| 4 | `capability-orchestrator.ts` | `CAT_CAFE_SPLIT_SERVER_IDS` 常量 + 3 个 `name: 'office-claw-*'` | 改为 `office-claw-*` |
 | 5 | `routes/capabilities.ts:359-361` | server description `三猫协作工具` 等 | 更新描述 |
-| 6 | `DareAgentService.ts:81` | `cat-cafe-dare-mcp` 临时文件名 | `office-claw-dare-mcp` |
-| 7 | 日志标签 | `[cat-cafe-collab]` 等 console.error | `[office-claw-collab]` |
+| 6 | `DareAgentService.ts:81` | `office-claw-dare-mcp` 临时文件名 | `office-claw-dare-mcp` |
+| 7 | 日志标签 | `[office-claw-collab]` 等 console.error | `[office-claw-collab]` |
 
-**迁移策略**：capability-orchestrator 读取旧 `cat-cafe-*` 名称时自动迁移到新名称，避免用户升级后 capabilities.json 失效。
+**迁移策略**：capability-orchestrator 读取旧 `office-claw-*` 名称时自动迁移到新名称，避免用户升级后 capabilities.json 失效。
 
 **测试**：`capability-orchestrator.test.js`、`mcp-config-adapters.test.js`、`capabilities-route.test.js`
 
@@ -279,20 +279,20 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 > 前置：Phase M-2
 
-将 `source: 'cat-cafe'` 改为 `source: 'builtin'`。
+将 `source: 'office-claw'` 改为 `source: 'builtin'`。
 
 **用户可见点**：`capabilities.json` 中 `source` 字段；前端 Skill 详情面板。
 
 | # | 文件 | 改动 |
 |---|------|------|
-| 1 | `shared/types/capability.ts` | 类型定义 `'cat-cafe' \| 'external'` → `'builtin' \| 'external'` |
-| 2 | `capability-orchestrator.ts` | 4 处 `source: 'cat-cafe'` |
+| 1 | `shared/types/capability.ts` | 类型定义 `'office-claw' \| 'external'` → `'builtin' \| 'external'` |
+| 2 | `capability-orchestrator.ts` | 4 处 `source: 'office-claw'` |
 | 3 | `routes/skills.ts` | 2 处（类型 + 赋值） |
 | 4 | `web/SkillDetailView.tsx` | 类型引用 |
 | 5 | `web/capability-board-ui.tsx` | 类型引用 |
 | 6 | 测试文件 | ~20 处 |
 
-**迁移策略**：读取 capabilities.json 时兼容旧 `source: 'cat-cafe'`，自动映射为 `'builtin'`。
+**迁移策略**：读取 capabilities.json 时兼容旧 `source: 'office-claw'`，自动映射为 `'builtin'`。
 
 ---
 
@@ -335,15 +335,14 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 > 迁移策略：**Clean Break（首版本，无运行时兼容）**
 > 决策日期：2026-04-11
 
-将用户可见的文件路径中的 `cat-cafe` 改为 `office-claw`。
+将用户可见的文件路径中的 `office-claw` 改为 `office-claw`。
 
 #### 迁移策略决策
 
 本版本为首版本发布，不需要运行时自动迁移逻辑。旧路径不工作是预期行为。
-前序版本的开发者安装新版本前，通过清理脚本 `scripts/clean-legacy-env.sh` + SOP 文档清除旧环境数据。
 
 **不做**：启动时自动检测旧目录 → move → symlink 兼容层。
-**要做**：提供清理脚本 + 迁移 SOP 文档（`docs/migration-from-cat-cafe.md`）。
+**要做**：在当前版本文档中直接声明不提供历史迁移兼容层。
 
 #### M-5 Scope（in scope）
 
@@ -357,17 +356,17 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 | M-5b | API 路径回传 | `config.ts:244` 返回 `.office-claw/redis-dev-sandbox` | `.office-claw/...` | 低 |
 | M-5b | 启动脚本 | `start-macos.sh:43` 默认 `~/.office-claw` | `~/.office-claw` | 低 |
 | M-5b | 安装器 | `build-windows-installer.mjs:33,37` | 更新路径 | 中 |
-| M-5d | 清理脚本 | （新增） | `scripts/clean-legacy-env.sh` | 新增 |
-| M-5d | 迁移 SOP | （新增） | `docs/migration-from-cat-cafe.md` | 新增，F140 关联 |
+| M-5d | 清理脚本 | — | 不提供 | clean break |
+| M-5d | 迁移 SOP | — | 不提供 | clean break |
 
 #### M-5 Out of Scope（Tier 2 延期）
 
 | 类别 | 当前 | 说明 |
 |------|------|------|
-| Package scope | `@cat-cafe/web`、`@cat-cafe/shared` 等 | npm workspace，~423 处非测试引用，用户不可见，收益为零 |
+| Package scope | `@office-claw/web`、`@office-claw/shared` 等 | npm workspace，~423 处非测试引用，用户不可见，收益为零 |
 | API 路由 | `/api/cats/*` | 前端全链路依赖，改了破坏所有消费者 |
 | 内部变量名 | `catId`/`catConfig`/`CAT_CONFIGS` | 纯代码层，改了极易回归 |
-| 运行时自动迁移 | — | 首版本不需要，清理脚本覆盖 |
+| 运行时自动迁移 | — | 首版本不需要，不提供兼容层 |
 | ADR 决策文档内容 | ADR-009 等 | 历史文档保持原样 |
 
 #### M-5 附录：Skills 目录改名影响面
@@ -399,7 +398,7 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 | # | 内容 | 说明 |
 |---|------|------|
 | C1 | `RelayClawAgentService.ts` channelId fallback `'catcafe'` → `'clowder'` | 新 session 目录前缀 |
-| C2 | jiuwenclaw 记忆文件清理 | `~/.jiuwenclaw/agent/memory/` 中旧记忆含 "Cat Cafe" |
+| C2 | jiuwenclaw 记忆文件清理 | `~/.jiuwenclaw/agent/memory/` 中旧记忆含 "OfficeClaw" |
 | C3 | Redis 历史会话数据（可选） | 旧消息中的猫主题内容，自然过期即可 |
 
 ---
@@ -415,7 +414,7 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 | 功能 | Feature | 去除理由 |
 |------|---------|---------|
 | Game/狼人杀 | F101/F107/F119 | 纯娱乐 |
-| Mission Hub / External Projects | F076 | cat-cafe 特色项目管理 |
+| Mission Hub / External Projects | F076 | office-claw 特色项目管理 |
 | Showcase | — | 内部 demo 展示页 |
 | Leaderboard | F075 | 纯 gamification |
 | Voting | F079 | 主要用于趣味投票和游戏 |
@@ -439,7 +438,7 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 | # | 文件 | 改动 |
 |---|------|------|
-| F-2a | `packages/web/src/components/cat-cafe-hub.navigation.tsx` | 移除 leaderboard tab 条目 |
+| F-2a | `packages/web/src/components/office-claw-hub.navigation.tsx` | 移除 leaderboard tab 条目 |
 
 #### F-3. 前端页面路由删除
 
@@ -547,11 +546,11 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 - Phase M-4 — 环境变量名
 - Phase M-5（必须项，clean break） — skills 目录、数据目录、配置文件名 + 清理脚本 + 迁移 SOP
 
-**Tier 1.5（功能裁剪 — 去除 cat-cafe 特色功能入口）**：
+**Tier 1.5（功能裁剪 — 去除 office-claw 特色功能入口）**：
 - Phase F — 非办公功能整体封堵（方案 B+：入口屏蔽 + API 路由摘除 + MCP 工具摘除）
 
 **Tier 2（可延期 — 纯内部实现）**：
-- `@cat-cafe/*` package scope 改名
+- `@office-claw/*` package scope 改名
 - `/api/cats/` 路由名
 - 内部变量名 `catId`/`CAT_CONFIGS` 等
 - Phase F 残留死代码彻底清理（~150 文件，方案 C）
@@ -579,18 +578,18 @@ Tier 1.5:
 ```bash
 # 前端源码零命中（排除测试、showcase）
 grep -rn --include='*.ts' --include='*.tsx' \
-  -E '猫猫|猫粮|铲屎官|布偶猫|缅因猫|暹罗猫|狸花猫|ᓚᘏᗢ|Cat Café' \
+  -E '智能体|配额|用户|Claude|Codex|Gemini|DARE|ᓚᘏᗢ|Cat Café' \
   packages/web/src/ | grep -v '__tests__/' | grep -v '.test.' | grep -v 'showcase/' \
   && echo "FAIL" || echo "PASS"
 
 # 后端用户可见文案零命中（排除 GithubReviewMailParser 历史格式匹配）
 grep -rn --include='*.ts' \
-  -E '猫猫|猫粮|铲屎官|该猫|布偶猫.*(响应|救援|项目)|缅因猫.*(响应|项目)|暹罗猫.*(响应|项目)' \
+  -E '智能体|配额|用户|该猫|Claude.*(响应|救援|项目)|Codex.*(响应|项目)|Gemini.*(响应|项目)' \
   packages/api/src/ | grep -v 'GithubReviewMailParser' | grep -v '// ' \
   && echo "FAIL" || echo "PASS"
 
 # Skill refs 零命中
-grep -rn -E '猫猫|铲屎官|CAT_CAFE_' office-claw-skills/refs/ \
+grep -rn -E '智能体|用户|CAT_CAFE_' office-claw-skills/refs/ \
   && echo "FAIL" || echo "PASS"
 
 # 环境变量零残留
@@ -600,7 +599,7 @@ grep -rn 'CAT_CAFE_' packages/api/src/config/env-registry.ts \
 
 ### 手动验收
 
-1. 新安装用户首次打开 OfficeClaw，全链路无 `cat-cafe` / `Cat Café` / `猫猫` / 猫品种名出现
+1. 新安装用户首次打开 OfficeClaw，全链路无 `office-claw` / `Cat Café` / `智能体` / 猫品种名出现
 2. 升级用户旧配置（`.env`、`capabilities.json`、`~/.office-claw/`）自动兼容，无需手动修改
 3. `pnpm check` + `pnpm test` 全绿
 4. Hub 设置面板 → 环境变量页无 `CAT_CAFE_*` 显示
@@ -609,5 +608,5 @@ grep -rn 'CAT_CAFE_' packages/api/src/config/env-registry.ts \
 
 ## Review 记录
 
-- 2026-04-10 布偶猫初版 + 缅因猫交叉审查：F140 v1 Phase B 清单不完整（仅覆盖 43/129），补齐 Phase A-fix（9 项后端残留）、Phase S（skill refs 117 处）、Phase B 全量清单（52 项），M-4 补齐 2 个遗漏变量，M-5 拆分必须/延期两层
-- 布偶猫补充：McpPromptInjector prompt 注入、quota.ts 品种名标签、SystemPromptBuilder 路径引用、CatCafeLogo gradient ID、配置文件名（office-claw-config.json 等）
+- 2026-04-10 Claude初版 + Codex交叉审查：F140 v1 Phase B 清单不完整（仅覆盖 43/129），补齐 Phase A-fix（9 项后端残留）、Phase S（skill refs 117 处）、Phase B 全量清单（52 项），M-4 补齐 2 个遗漏变量，M-5 拆分必须/延期两层
+- Claude补充：McpPromptInjector prompt 注入、quota.ts 品种名标签、SystemPromptBuilder 路径引用、CatCafeLogo gradient ID、配置文件名（office-claw-config.json 等）

@@ -39,7 +39,7 @@ const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: st
 
 const ACP_MODEL_ACCESS_OPTIONS: Array<{ value: AcpModelAccessMode; label: string }> = [
   { value: 'self_managed', label: 'Agent Teams 自管' },
-  { value: 'clowder_default_profile', label: 'Clowder 下发 default profile' },
+  { value: 'clowder_default_profile', label: 'OfficeClaw 下发 default profile' },
 ];
 
 export function CreateApiKeyProfileSection({

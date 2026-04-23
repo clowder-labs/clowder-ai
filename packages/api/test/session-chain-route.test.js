@@ -365,7 +365,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage',
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -375,7 +375,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/unknown-thread/usage',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -400,7 +400,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -430,7 +430,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage?catId=opus',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -450,7 +450,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage',
-      headers: { 'x-cat-cafe-user': 'user-1', 'x-cat-id': 'opus' },
+      headers: { 'x-office-claw-user': 'user-1', 'x-cat-id': 'opus' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -464,7 +464,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage?catId=codex',
-      headers: { 'x-cat-cafe-user': 'user-1', 'x-cat-id': 'opus' },
+      headers: { 'x-office-claw-user': 'user-1', 'x-cat-id': 'opus' },
     });
     assert.equal(res.statusCode, 403);
     const body = JSON.parse(res.payload);
@@ -481,7 +481,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/usage',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);

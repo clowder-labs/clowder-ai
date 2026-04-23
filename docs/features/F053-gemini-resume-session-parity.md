@@ -9,7 +9,7 @@ updated: 2026-03-03
 
 # F053: Gemini Session/Resume 语义对齐
 
-> **Status**: done | **Owner**: Maine Coon
+> **Status**: done | **Owner**: Codex
 > **Priority**: P1
 > **依赖**: F033（Session Chain 策略）
 > **Updated**: 2026-03-03（Phase A + Phase B 全部落地）
@@ -86,12 +86,12 @@ updated: 2026-03-03
 
 ## Test Evidence（Phase A）
 
-- `pnpm --filter @cat-cafe/api run build`
+- `pnpm --filter @office-claw/api run build`
 - `node --test packages/api/test/gemini-agent-service.test.js`
 - 结果：24 passed, 0 failed（含新增 `passes --resume when sessionId is provided`）
 
 ## Test Evidence（Phase B）
 
-- `pnpm --filter @cat-cafe/api run build`
+- `pnpm --filter @office-claw/api run build`
 - `node --test packages/api/test/invoke-single-cat.test.js --test-name-pattern "resume failure"`
 - 结果：43 passed, 0 failed（含分类与 `resume_failure_stats` 新增用例）

@@ -21,14 +21,14 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-vi.mock('@clowder/shared', () => ({
+vi.mock('@office-claw/shared', () => ({
   CAT_CONFIGS: {
     opus: {
       id: 'opus',
-      displayName: '布偶猫',
+      displayName: 'Claude',
       nickname: '宪宪',
       color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-      mentionPatterns: ['@布偶', '@布偶猫', '@opus'],
+      mentionPatterns: ['@Claude', '@office', '@opus'],
       provider: 'anthropic',
       defaultModel: 'opus',
       avatar: '/a.png',
@@ -49,10 +49,10 @@ import { _resetCatDataCache, useCatData } from '@/hooks/useCatData';
 const API_CATS = [
   {
     id: 'opus',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     nickname: '宪宪',
     color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-    mentionPatterns: ['@布偶', '@布偶猫', '@opus'],
+    mentionPatterns: ['@Claude', '@office', '@opus'],
     breedId: 'ragdoll',
     provider: 'anthropic',
     defaultModel: 'claude-opus-4',
@@ -70,10 +70,10 @@ const API_CATS = [
   },
   {
     id: 'codex',
-    displayName: '缅因猫',
+    displayName: 'Codex',
     nickname: '砚砚',
     color: { primary: '#5B8C5A', secondary: '#D5E8D4' },
-    mentionPatterns: ['@缅因', '@缅因猫', '@codex'],
+    mentionPatterns: ['@Codex', '@assistant', '@codex'],
     breedId: 'maine-coon',
     provider: 'openai',
     defaultModel: 'codex-mini',
@@ -203,7 +203,7 @@ describe('useCatData retry mechanism', () => {
     const initialCats = [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         mentionPatterns: ['@opus'],
         provider: 'anthropic',
         defaultModel: 'claude-opus-4',
@@ -218,7 +218,7 @@ describe('useCatData retry mechanism', () => {
       ...initialCats,
       {
         id: 'codex',
-        displayName: '缅因猫',
+        displayName: 'Codex',
         mentionPatterns: ['@codex'],
         provider: 'openai',
         defaultModel: 'gpt-5.4',

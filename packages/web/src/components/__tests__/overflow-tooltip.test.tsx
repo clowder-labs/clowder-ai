@@ -79,9 +79,9 @@ describe('OverflowTooltip', () => {
     await act(async () => {
       root.render(
         React.createElement(OverflowTooltip, {
-          content: 'D:/workspace/projects/clowder-ai',
+          content: 'D:/workspace/projects/office-claw',
           forceShow: true,
-          children: React.createElement('span', { className: 'truncate' }, 'clowder-ai'),
+          children: React.createElement('span', { className: 'truncate' }, 'office-claw'),
         }),
       );
     });
@@ -102,6 +102,6 @@ describe('OverflowTooltip', () => {
     });
 
     const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
-    expect(tooltip?.textContent).toContain('D:/workspace/projects/clowder-ai');
+    expect(tooltip?.textContent).toContain('D:/workspace/projects/office-claw');
   });
 });

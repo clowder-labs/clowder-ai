@@ -83,8 +83,8 @@ describe('MobileStatusSheet', () => {
     act(() => {
       root.render(React.createElement(MobileStatusSheet, props));
     });
-    expect(container.textContent).toContain('布偶猫');
-    expect(container.textContent).toContain('缅因猫');
+    expect(container.textContent).toContain('Claude');
+    expect(container.textContent).toContain('Codex');
   });
 
   it('shows close button that calls onClose', () => {
@@ -127,7 +127,7 @@ describe('MobileStatusSheet', () => {
     act(() => {
       root.render(React.createElement(MobileStatusSheet, props));
     });
-    expect(container.textContent).toContain('猫猫状态');
+    expect(container.textContent).toContain('智能体状态');
     expect(container.textContent).not.toContain('当前调用');
   });
 });

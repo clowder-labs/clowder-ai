@@ -23,11 +23,11 @@ Branch: fix/invocation-timeout-activity
 
 ## Why
 
-铲屎官原话：
+用户原话：
 
 > `[错误] invocation_timeout`
 >
-> 你们之前加了这个 invocation 的 timeout 有问题，他会把正在工作的猫给干掉。完全正常的猫猫也干掉。
+> 你们之前加了这个 invocation 的 timeout 有问题，他会把正在工作的猫给干掉。完全正常的智能体也干掉。
 
 我本地复现出一个稳定红测：
 - `CLI_TIMEOUT_MS=200`，所以 invocation timeout = 400ms
@@ -47,9 +47,9 @@ Branch: fix/invocation-timeout-activity
   - `active invocations with steady progress should not hit invocation_timeout`
   - 修前 FAIL，修后 PASS
 - 验证命令：
-  - `pnpm --filter @cat-cafe/api build`
+  - `pnpm --filter @office-claw/api build`
   - `node --test packages/api/test/invocation-timeout-guard.test.js`
-  - `pnpm --filter @cat-cafe/api exec tsc --noEmit`
+  - `pnpm --filter @office-claw/api exec tsc --noEmit`
   - `pnpm biome check packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts packages/api/test/invocation-timeout-guard.test.js --diagnostic-level=error`
   - `pnpm check`
 

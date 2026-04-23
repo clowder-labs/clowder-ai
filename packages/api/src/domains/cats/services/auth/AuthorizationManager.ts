@@ -6,9 +6,9 @@
 
 /**
  * Authorization Manager
- * 猫猫授权系统核心 — 规则匹配 + pending 队列 + inFlightWaiters
+ * 智能体授权系统核心 — 规则匹配 + pending 队列 + inFlightWaiters
  *
- * 两层设计（缅因猫 review P1-3 要求）:
+ * 两层设计（Codex review P1-3 要求）:
  * - 持久化层: PendingRequestStore (Redis/内存) + RuleStore + AuditStore
  * - 运行时层: inFlightWaiters (Map<requestId, {resolve, timer}>) — 不可序列化
  */
@@ -19,7 +19,7 @@ import type {
   PermissionRequest,
   PermissionResponse,
   RespondScope,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getPushNotificationService } from '../push/PushNotificationService.js';
 import type { IAuthorizationAuditStore } from '../stores/ports/AuthorizationAuditStore.js';
@@ -58,10 +58,10 @@ export class AuthorizationManager {
   }
 
   /**
-   * 猫猫请求权限 — 完整流程:
+   * 智能体请求权限 — 完整流程:
    * 1. 查规则 → 命中则直接返回
    * 2. 创建 pending record → WebSocket 推送
-   * 3. 等待铲屎官审批 (120s) → 返回结果或 pending
+   * 3. 等待用户审批 (120s) → 返回结果或 pending
    */
   async requestPermission(
     catId: CatId,
@@ -108,7 +108,7 @@ export class AuthorizationManager {
       });
     }
 
-    // Web Push: 即使不在 Cat Cafe 页面也能收到权限请求
+    // Web Push: 即使不在 OfficeClaw 页面也能收到权限请求
     const pushSvc = getPushNotificationService();
     if (pushSvc && userId) {
       pushSvc
@@ -123,11 +123,11 @@ export class AuthorizationManager {
         });
     }
 
-    // Step 3: 等待铲屎官审批
+    // Step 3: 等待用户审批
     return new Promise<PermissionResponse>((resolve) => {
       const timer = setTimeout(() => {
         this.inFlightWaiters.delete(record.requestId);
-        // 超时 → 返回 pending + requestId（铲屎官稍后审批）
+        // 超时 → 返回 pending + requestId（用户稍后审批）
         void this.auditStore.append({
           requestId: record.requestId,
           invocationId: req.invocationId,
@@ -175,7 +175,7 @@ export class AuthorizationManager {
   }
 
   /**
-   * 铲屎官审批 — 更新 record + 可选创建规则 + resolve waiter
+   * 用户审批 — 更新 record + 可选创建规则 + resolve waiter
    */
   async respond(
     requestId: string,
@@ -216,7 +216,7 @@ export class AuthorizationManager {
       decidedBy: userId,
     });
 
-    // Resolve in-flight waiter（猫猫 HTTP 立即返回）
+    // Resolve in-flight waiter（智能体 HTTP 立即返回）
     const waiter = this.inFlightWaiters.get(requestId);
     if (waiter) {
       clearTimeout(waiter.timer);
@@ -230,7 +230,7 @@ export class AuthorizationManager {
     return updated;
   }
 
-  /** 猫猫用 requestId 查询结果 */
+  /** 智能体用 requestId 查询结果 */
   async getRequestStatus(requestId: string): Promise<PendingRequestRecord | null> {
     return this.pendingStore.get(requestId);
   }

@@ -1,4 +1,4 @@
-import { ProviderPluginRegistry } from '@clowder/core';
+import { ProviderPluginRegistry } from '@office-claw/core';
 
 let registry: ProviderPluginRegistry | null = null;
 

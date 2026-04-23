@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { computeSillyStats } from '../../dist/domains/leaderboard/silly-stats.js';
 
-const CAT_NAMES = { opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫' };
+const CAT_NAMES = { opus: 'Claude', codex: 'Codex', gemini: 'Gemini' };
 
 function msg(id, mentions, timestamp, catId = null, content = 'x') {
   return { id, mentions, timestamp, catId, content };
@@ -30,7 +30,7 @@ describe('computeSillyStats', () => {
 
   it('ignores affectionate teasing (亲昵骂)', () => {
     const messages = [
-      msg('1', ['opus'], 1000, null, '笨蛋猫猫哈哈哈'),
+      msg('1', ['opus'], 1000, null, '笨蛋智能体哈哈哈'),
       msg('2', ['opus'], 2000, null, '小绿茶被我抓到了😂'),
       msg('3', ['codex'], 3000, null, '傻猫哈哈哈哈'),
     ];
@@ -65,6 +65,6 @@ describe('computeSillyStats', () => {
     const result = computeSillyStats(messages, CAT_NAMES);
     const entry = result.entries.find((e) => e.catId === 'opus');
     assert.ok(entry);
-    assert.equal(entry.displayName, '布偶猫');
+    assert.equal(entry.displayName, 'Claude');
   });
 });

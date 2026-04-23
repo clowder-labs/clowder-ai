@@ -14,7 +14,7 @@ export function ensureFakeCliOnPath(command) {
   const cached = installed.get(command);
   if (cached) return cached;
 
-  const dir = mkdtempSync(join(tmpdir(), `cat-cafe-${command}-cli-`));
+  const dir = mkdtempSync(join(tmpdir(), `office-claw-${command}-cli-`));
   const file = join(dir, command);
   writeFileSync(file, '#!/bin/sh\nexit 0\n');
   chmodSync(file, 0o755);

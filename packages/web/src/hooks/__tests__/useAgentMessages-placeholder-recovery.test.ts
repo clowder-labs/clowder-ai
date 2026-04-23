@@ -105,7 +105,7 @@ describe('useAgentMessages placeholder recovery', () => {
     root = createRoot(container);
     captured = undefined;
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
     storeState.messages = [];
     storeState.catInvocations = {};
     storeState.activeInvocations = {};
@@ -120,7 +120,7 @@ describe('useAgentMessages placeholder recovery', () => {
     });
     container.remove();
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
   });
 
   it('reuses an existing streaming bubble when thinking arrives after active refs were lost', () => {
@@ -260,9 +260,9 @@ describe('useAgentMessages placeholder recovery', () => {
 
     const debugApi = (
       window as typeof window & {
-        __catCafeDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
+        __officeClawDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
       }
-    ).__catCafeDebug;
+    ).__officeClawDebug;
     const dump = JSON.parse(debugApi!.dumpBubbleTimeline!({ rawThreadId: true })) as {
       events: Array<Record<string, unknown>>;
     };
@@ -341,7 +341,7 @@ describe('useAgentMessages placeholder recovery', () => {
         content: '收到，我来处理',
         origin: 'stream',
         replyTo: 'msg-parent-1',
-        replyPreview: { senderCatId: 'opus', content: '@缅因猫 帮忙看一下' },
+        replyPreview: { senderCatId: 'opus', content: '@Codex 帮忙看一下' },
       });
     });
 
@@ -351,7 +351,7 @@ describe('useAgentMessages placeholder recovery', () => {
         catId: 'codex',
         origin: 'stream',
         replyTo: 'msg-parent-1',
-        replyPreview: { senderCatId: 'opus', content: '@缅因猫 帮忙看一下' },
+        replyPreview: { senderCatId: 'opus', content: '@Codex 帮忙看一下' },
       }),
     );
   });

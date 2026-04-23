@@ -6,7 +6,7 @@
 
 /**
  * ClaudeAgentService Tests (CLI mode)
- * 测试布偶猫 CLI 子进程调用
+ * 测试Claude CLI 子进程调用
  */
 
 import assert from 'node:assert/strict';
@@ -568,8 +568,8 @@ test('passes correct model flag (default and custom)', async () => {
   const args1 = spawnFn1.mock.calls[0].arguments[1];
   const modelIdx1 = args1.indexOf('--model');
   assert.ok(modelIdx1 >= 0);
-  // F32-b: getCatModel('opus') resolves via catRegistry > CAT_CONFIGS fallback.
-  // In test context catRegistry is empty, so this is CAT_CONFIGS['opus'].defaultModel.
+  // F32-b: getCatModel('opus') resolves via officeClawRegistry > OFFICE_CLAW_CONFIGS fallback.
+  // In test context officeClawRegistry is empty, so this is OFFICE_CLAW_CONFIGS['opus'].defaultModel.
   assert.equal(args1[modelIdx1 + 1], 'claude-sonnet-4-5-20250929');
 
   // Custom model (explicit constructor param)
@@ -588,7 +588,7 @@ test('passes correct model flag (default and custom)', async () => {
 
 test('F32-b P1 regression: env var CAT_*_MODEL overrides default when model not passed', async () => {
   // Simulate index.ts pattern: pass catId but NOT model → constructor resolves via getCatModel()
-  // getCatModel() should respect env var > catRegistry > CAT_CONFIGS fallback
+  // getCatModel() should respect env var > officeClawRegistry > OFFICE_CLAW_CONFIGS fallback
   const saved = process.env.CAT_OPUS_MODEL;
   process.env.CAT_OPUS_MODEL = 'env-override-model';
   try {
@@ -689,7 +689,7 @@ test('does not pass --allowedTools — all tools available by default', async ()
 });
 
 test('resolves default MCP server path from API cwd (../mcp-server/dist/index.js)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-'));
+  const root = mkdtempSync(join(tmpdir(), 'office-claw-mcp-path-'));
   const apiCwd = join(root, 'packages', 'api');
   const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
   mkdirSync(apiCwd, { recursive: true });
@@ -705,7 +705,7 @@ test('resolves default MCP server path from API cwd (../mcp-server/dist/index.js
 });
 
 test('resolves default MCP server path from repo root (packages/mcp-server/dist/index.js)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-root-'));
+  const root = mkdtempSync(join(tmpdir(), 'office-claw-mcp-path-root-'));
   const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
   mkdirSync(mcpDistDir, { recursive: true });
   writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
@@ -719,7 +719,7 @@ test('resolves default MCP server path from repo root (packages/mcp-server/dist/
 });
 
 test('resolves default MCP server path from deep tooling cwd (../../packages/mcp-server/dist/index.js)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-deep-'));
+  const root = mkdtempSync(join(tmpdir(), 'office-claw-mcp-path-deep-'));
   const deepCwd = join(root, 'tools', 'runner');
   const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
   mkdirSync(deepCwd, { recursive: true });
@@ -735,7 +735,7 @@ test('resolves default MCP server path from deep tooling cwd (../../packages/mcp
 });
 
 test('returns undefined when no default MCP server candidate exists', () => {
-  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-missing-'));
+  const root = mkdtempSync(join(tmpdir(), 'office-claw-mcp-path-missing-'));
   const apiCwd = join(root, 'packages', 'api');
   mkdirSync(apiCwd, { recursive: true });
 
@@ -748,7 +748,7 @@ test('returns undefined when no default MCP server candidate exists', () => {
 });
 
 test('falls back to default MCP path when OFFICE_CLAW_MCP_SERVER_PATH is empty', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-empty-env-'));
+  const root = mkdtempSync(join(tmpdir(), 'office-claw-mcp-empty-env-'));
   const apiCwd = join(root, 'packages', 'api');
   const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
   mkdirSync(apiCwd, { recursive: true });
@@ -781,7 +781,7 @@ test('falls back to default MCP path when OFFICE_CLAW_MCP_SERVER_PATH is empty',
     const mcpConfigIdx = args.indexOf('--mcp-config');
     assert.ok(mcpConfigIdx >= 0, '--mcp-config should be present when fallback resolves');
     const parsed = JSON.parse(args[mcpConfigIdx + 1]);
-    assert.equal(realpathSync(parsed.mcpServers['cat-cafe'].args[0]), realpathSync(join(mcpDistDir, 'index.js')));
+    assert.equal(realpathSync(parsed.mcpServers['office-claw'].args[0]), realpathSync(join(mcpDistDir, 'index.js')));
   } finally {
     process.chdir(previousCwd);
     if (previousEnv === undefined) {

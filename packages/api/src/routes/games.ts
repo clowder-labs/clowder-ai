@@ -13,7 +13,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getAllCatIdsFromConfig } from '../config/cat-config-loader.js';
+import { getAllCatIdsFromConfig } from '../config/office-claw-config-loader.js';
 import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
 import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
@@ -178,7 +178,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     const seats = buildGameSeats({ humanRole, userId, catIds, playerCount: clampedCount });
 
     // Validate detectiveCatId maps to an actual seat BEFORE creating any persistent resources
-    let resolvedDetectiveSeatId: import('@clowder/shared').SeatId | undefined;
+    let resolvedDetectiveSeatId: import('@office-claw/shared').SeatId | undefined;
     if (humanRole === 'detective' && detectiveCatId) {
       const seat = seats.find((s) => s.actorId === detectiveCatId);
       if (!seat) {
@@ -327,7 +327,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
 
       const view = GameViewBuilder.buildView(
         runtime,
-        viewer as import('@clowder/shared').SeatId | 'god' | `detective:${string}`,
+        viewer as import('@office-claw/shared').SeatId | 'god' | `detective:${string}`,
       );
       return view;
     },
@@ -363,7 +363,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     }
 
     try {
-      const action: import('@clowder/shared').GameAction = {
+      const action: import('@office-claw/shared').GameAction = {
         seatId: seatId as `P${number}`,
         actionName,
         submittedAt: Date.now(),

@@ -50,16 +50,16 @@ describe('preflightRace timeout (short env override)', () => {
   let originalEnv;
 
   before(async () => {
-    originalEnv = process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS;
-    process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS = '100';
+    originalEnv = process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS;
+    process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS = '100';
     // Dynamic import with cache-bust to pick up the env override
     const mod = await import(`../dist/domains/cats/services/agents/invocation/invoke-helpers.js?t=${Date.now()}`);
     shortPreflightRace = mod.preflightRace;
   });
 
   after(() => {
-    if (originalEnv === undefined) delete process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS;
-    else process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS = originalEnv;
+    if (originalEnv === undefined) delete process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS;
+    else process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS = originalEnv;
   });
 
   it('rejects with preflight_timeout when promise hangs past timeout', async () => {

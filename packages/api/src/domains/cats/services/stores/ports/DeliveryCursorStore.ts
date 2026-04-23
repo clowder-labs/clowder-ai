@@ -12,9 +12,9 @@
  * progression can be enforced with string comparison.
  */
 
-import type { CatId } from '@clowder/shared';
-import { catRegistry, createCatId } from '@clowder/shared';
-import type { SessionStore } from '@clowder/shared/utils';
+import type { CatId } from '@office-claw/shared';
+import { officeClawRegistry, createCatId } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('delivery-cursor-store');
@@ -24,7 +24,7 @@ const FALLBACK_CATS: readonly CatId[] = [createCatId('opus'), createCatId('codex
 
 /** Get all cat IDs dynamically from registry, with static fallback */
 function getAllCats(): readonly CatId[] {
-  const ids = catRegistry.getAllIds();
+  const ids = officeClawRegistry.getAllIds();
   return ids.length > 0 ? ids.map((id) => createCatId(id)) : FALLBACK_CATS;
 }
 

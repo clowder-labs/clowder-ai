@@ -130,7 +130,7 @@ describe('F087: Bootcamp thread discovery', () => {
     await createApp();
     // Create a normal thread and a bootcamp thread
     await threadStore.create('test-user', 'Normal thread');
-    const bootcampThread = await threadStore.create('test-user', '🎓 猫猫训练营');
+    const bootcampThread = await threadStore.create('test-user', '🎓 智能体训练营');
     await threadStore.updateBootcampState(bootcampThread.id, {
       v: 1,
       phase: 'phase-3-config-help',

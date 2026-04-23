@@ -70,7 +70,7 @@ export function usesEmbeddedAcpRuntime(input: { id?: string | null; provider?: s
 /**
  * Cat configuration (immutable)
  */
-export interface CatConfig {
+export interface OfficeClawConfigEntry {
   readonly id: CatId;
   readonly name: string;
   readonly displayName: string;
@@ -113,6 +113,8 @@ export interface CatConfig {
   readonly embeddedAcpConfig?: EmbeddedAcpConfig;
 }
 
+export type CatConfig = OfficeClawConfigEntry;
+
 /**
  * Cat runtime state
  */
@@ -126,11 +128,11 @@ export interface CatState {
 
 /**
  * Default configurations for built-in cats.
- * At runtime, catRegistry is the authoritative source (populated at startup).
+ * At runtime, officeClawRegistry is the authoritative source (populated at startup).
  * This constant is retained as fallback for code that hasn't migrated yet
  * and for frontend (which doesn't use the registry).
  */
-export const CAT_CONFIGS: Record<string, CatConfig> = {
+export const OFFICE_CLAW_CONFIGS: Record<string, OfficeClawConfigEntry> = {
   opus: {
     id: createCatId('opus'),
     name: '办公智能体',
@@ -205,17 +207,19 @@ export const CAT_CONFIGS: Record<string, CatConfig> = {
   },
 } as const;
 
+export const CAT_CONFIGS: Record<string, CatConfig> = OFFICE_CLAW_CONFIGS;
+
 /**
  * Find a cat by mention pattern in text.
- * Reads from CAT_CONFIGS (static fallback, frontend-safe).
- * API-side code should use catRegistry directly for dynamic lookups.
+ * Reads from OFFICE_CLAW_CONFIGS (static fallback, frontend-safe).
+ * API-side code should use officeClawRegistry directly for dynamic lookups.
  * @param text - The text to search for mentions
- * @returns The CatConfig if found, undefined otherwise
+ * @returns The OfficeClawConfigEntry if found, undefined otherwise
  */
-export function findCatByMention(text: string): CatConfig | undefined {
+export function findCatByMention(text: string): OfficeClawConfigEntry | undefined {
   const lowerText = text.toLowerCase();
 
-  for (const config of Object.values(CAT_CONFIGS)) {
+  for (const config of Object.values(OFFICE_CLAW_CONFIGS)) {
     for (const pattern of config.mentionPatterns) {
       if (lowerText.includes(pattern.toLowerCase())) {
         return config;
@@ -228,8 +232,8 @@ export function findCatByMention(text: string): CatConfig | undefined {
 
 /**
  * Get all cat IDs from static defaults.
- * API-side code should use catRegistry.getAllIds() instead.
+ * API-side code should use officeClawRegistry.getAllIds() instead.
  */
 export function getAllCatIds(): readonly CatId[] {
-  return Object.values(CAT_CONFIGS).map((config) => config.id);
+  return Object.values(OFFICE_CLAW_CONFIGS).map((config) => config.id);
 }

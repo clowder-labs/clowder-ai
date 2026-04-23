@@ -12,7 +12,7 @@
  * - 有 @ 提及时路由到指定猫 + 更新对话参与者
  * - 无 @ 提及时路由到最近回复的猫 (F078)
  * - 群组 mention: @all/@全体, @全体{breed}, @thread/@本帖 (F078)
- * - 无参与者的新对话默认路由到布偶猫 (opus)
+ * - 无参与者的新对话默认路由到Claude (opus)
  * - 支持中英文提及模式
  * - ideate intent + 多猫 → 并行独立思考 (routeParallel)
  * - execute intent 或单猫 → 串行执行 (routeSerial)
@@ -24,10 +24,10 @@
  * 虽然参数可选（兼容测试），但生产代码必须显式传入。
  */
 
-import type { CatId, MessageContent } from '@clowder/shared';
-import { catRegistry, escapeRegExp } from '@clowder/shared';
-import type { SessionStore } from '@clowder/shared/utils';
-import { getDefaultCatId, isCatAvailable } from '../../../../../config/cat-config-loader.js';
+import type { CatId, MessageContent } from '@office-claw/shared';
+import { officeClawRegistry, escapeRegExp } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
+import { getDefaultCatId, isCatAvailable } from '../../../../../config/office-claw-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { IntentResult } from '../../context/IntentParser.js';
 import { parseIntent, stripIntentTags } from '../../context/IntentParser.js';
@@ -61,9 +61,9 @@ interface ParsedMention {
 
 /**
  * Build mention aliases and speech regex from the current cat configs.
- * Must be called after catRegistry is populated (not at module load time).
+ * Must be called after officeClawRegistry is populated (not at module load time).
  */
-function buildMentionData(configs: Record<string, import('@clowder/shared').CatConfig>) {
+function buildMentionData(configs: Record<string, import('@office-claw/shared').OfficeClawConfigEntry>) {
   const mentionAliases = Array.from(
     new Set(
       Object.values(configs).flatMap((config) => config.mentionPatterns.map((pattern) => pattern.replace(/^@/, ''))),
@@ -213,7 +213,7 @@ export class AgentRouter {
     for (const [catId, service] of agentRegistry.getAllEntries()) {
       this.services[catId] = service;
     }
-    const allConfigs = catRegistry.getAllConfigs();
+    const allConfigs = officeClawRegistry.getAllConfigs();
     const { speechMentionRe } = buildMentionData(allConfigs);
     this.speechMentionRe = speechMentionRe;
   }
@@ -358,7 +358,7 @@ export class AgentRouter {
 
     // 1. Collect all mentionPatterns → catId, sorted by length descending
     const allPatterns: Array<{ pattern: string; catId: CatId }> = [];
-    const allConfigs = catRegistry.getAllConfigs();
+    const allConfigs = officeClawRegistry.getAllConfigs();
     for (const config of Object.values(allConfigs)) {
       for (const pattern of config.mentionPatterns) {
         allPatterns.push({ pattern: pattern.toLowerCase(), catId: config.id });
@@ -465,7 +465,7 @@ export class AgentRouter {
     }
 
     // Breed-scoped patterns: @全体{displayName} and @all-{breedId}
-    const allConfigs = catRegistry.getAllConfigs();
+    const allConfigs = officeClawRegistry.getAllConfigs();
     const breedMap = new Map<string, { displayName: string; catIds: CatId[] }>();
     for (const [catId, config] of Object.entries(allConfigs)) {
       if (!config.breedId) continue;
@@ -506,7 +506,7 @@ export class AgentRouter {
       },
     });
 
-    // Sort longest-first to avoid prefix collisions (@全体布偶猫 before @全体)
+    // Sort longest-first to avoid prefix collisions (@全体Claude before @全体)
     patterns.sort((a, b) => b.pattern.length - a.pattern.length);
 
     for (const { pattern, resolve } of patterns) {

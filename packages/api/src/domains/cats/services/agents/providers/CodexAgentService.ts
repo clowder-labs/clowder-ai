@@ -23,13 +23,13 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
-import { type CatId, createCatId } from '@clowder/shared';
-import { getCatEffort } from '../../../../../config/cat-config-loader.js';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { type CatId, createCatId } from '@office-claw/shared';
+import { getCatEffort } from '../../../../../config/office-claw-config-loader.js';
+import { getCatModel } from '../../../../../config/office-claw-models.js';
 import { type CodexSandboxMode, getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
-import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../../../../utils/office-claw-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -146,14 +146,14 @@ function toTomlString(value: string): string {
 
 /**
  * F041/F043 root fix:
- * Ensure Codex subprocess always receives cat-cafe MCP server config
+ * Ensure Codex subprocess always receives office-claw MCP server config
  * based on the current thread working directory.
  */
-function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
+function buildOfficeClawMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
-  candidateRoots.push(resolveCatCafeHostRoot(process.cwd()));
+  candidateRoots.push(resolveOfficeClawHostRoot(process.cwd()));
 
   let serverPath: string | undefined;
   for (const root of candidateRoots) {
@@ -258,7 +258,7 @@ export class CodexAgentService implements AgentService {
     const effortLevel = getCatEffort(this.catId as string);
     const reasoningArgs = ['--config', `model_reasoning_effort="${effortLevel}"`];
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
-    const catCafeMcpArgs = buildCatCafeMcpConfigArgs(options?.workingDirectory, options?.callbackEnv);
+    const officeClawMcpArgs = buildOfficeClawMcpConfigArgs(options?.workingDirectory, options?.callbackEnv);
     const gitRepoArgs = buildGitRepoArgs(options?.workingDirectory);
     // User-defined CLI args from the member editor — passed as-is, no implicit wrapping.
     // Each entry is split by whitespace (e.g. "--config model_reasoning_effort=\"low\"").
@@ -304,7 +304,7 @@ export class CodexAgentService implements AgentService {
           ...customProviderArgs,
           ...userConfigArgs,
           ...gitRepoArgs,
-          ...catCafeMcpArgs,
+          ...officeClawMcpArgs,
           ...imageArgs,
           ...promptArgs,
         ]
@@ -321,7 +321,7 @@ export class CodexAgentService implements AgentService {
           ...customProviderArgs,
           ...userConfigArgs,
           ...gitRepoArgs,
-          ...catCafeMcpArgs,
+          ...officeClawMcpArgs,
           ...imageArgs,
           ...promptArgs,
         ];
@@ -365,7 +365,7 @@ export class CodexAgentService implements AgentService {
           rawEnv.USERPROFILE = isolatedHome;
         }
       }
-      const codexEnv = withBundledPythonPath(applyAuthMode(rawEnv, authMode), resolveCatCafeHostRoot(process.cwd()));
+      const codexEnv = withBundledPythonPath(applyAuthMode(rawEnv, authMode), resolveOfficeClawHostRoot(process.cwd()));
 
       const semanticCompletionController = new AbortController();
 

@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 function toTextContent(value: unknown): string | null {

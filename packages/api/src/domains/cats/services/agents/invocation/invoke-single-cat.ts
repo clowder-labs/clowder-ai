@@ -20,13 +20,13 @@ import { resolve } from 'node:path';
 import {
   type CatId,
   type ContextHealth,
-  catRegistry,
+  officeClawRegistry,
   type MessageContent,
   resolveEmbeddedRuntimeKind,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
-import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
-import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { resolveBoundAccountRefForCat } from '../../../../../config/office-claw-account-binding.js';
+import { isSessionChainEnabled } from '../../../../../config/office-claw-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { resolveRelayModelContextWindow } from '../../../../../config/relay-model-context-window.js';
 import {
@@ -587,12 +587,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     //   L2 this check = see below
     //   L3 CI guard = hard block (prevents merging PRs with shared-state changes)
     //
-    // Scope: only check the host Cat Café repo (or its worktrees). External projects /
+    // Scope: only check the host OfficeClaw repo (or its worktrees). External projects /
     // fork playgrounds may be routed by this runtime, but they must not inherit
     // shared-state warnings from the repo that launched the API process.
     if (
       process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
-      process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
     ) {
       // L2 behavior is warn-only during interactive invocation. Hard safety still lives
@@ -639,12 +638,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070: Governance gate for external project dispatch
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
-      const catCafeRoot = hostProjectRoot;
+      const officeClawRoot = hostProjectRoot;
       const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
-      await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
+      await tryGovernanceBootstrap(workingDirectory, officeClawRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
-      const catEntry = catRegistry.tryGet(catId as string);
-      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.provider);
+      const catEntry = officeClawRegistry.tryGet(catId as string);
+      const preflight = await checkGovernancePreflight(workingDirectory, officeClawRoot, catEntry?.config.provider);
       if (!preflight.ready) {
         const reasonKind = preflight.needsBootstrap
           ? 'needs_bootstrap'
@@ -679,7 +678,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
-    let capturedMissionPack: import('@clowder/shared').DispatchMissionPack | undefined;
+    let capturedMissionPack: import('@office-claw/shared').DispatchMissionPack | undefined;
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
       try {
         const thread = await preflightRace(
@@ -706,7 +705,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F127 account injection:
     // Members bind to a concrete accountRef (builtin oauth account or generic api_key account).
     // Legacy providerProfileId is still read as a migration fallback.
-    const catConfig = catRegistry.tryGet(catId as string)?.config;
+    const catConfig = officeClawRegistry.tryGet(catId as string)?.config;
     const provider = catConfig?.provider;
     const embeddedRuntimeKind = resolveEmbeddedRuntimeKind({ id: catId as string, provider });
     const embeddedAcpRuntime = embeddedRuntimeKind === 'agentteams_acp';
@@ -1380,7 +1379,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   // 1) api_key + approx health can be noisy on third-party gateways
                   // 2) api_key + compress strategy should not be force-sealed here
                   // Keep context_health observability in both cases.
-                  const provider = catRegistry.tryGet(catId as string)?.config.provider;
+                  const provider = officeClawRegistry.tryGet(catId as string)?.config.provider;
                   const profileMode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
                   const strategy = getSessionStrategy(catId as string);
                   const isAnthropicApiKey = provider === 'anthropic' && profileMode === ANTHROPIC_PROFILE_MODE_API_KEY;
@@ -1817,7 +1816,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       },
       'invokeSingleCat crashed before fallback error emission',
     );
-    // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+    // === CAT_ERROR 审计 (fire-and-forget, 历史 review P2-3) ===
     const durationMs = Date.now() - startTime;
     auditLog
       .append({

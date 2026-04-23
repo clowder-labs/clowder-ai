@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: done (Phase A-D) | **Owner**: Ragdoll | **Priority**: P1 | **PR**: #697, #699, #700, #705
+> **Status**: done (Phase A-D) | **Owner**: Claude | **Priority**: P1 | **PR**: #697, #699, #700, #705
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -193,7 +193,7 @@ export interface FeishuInboundMessage {
 | 飞书群消息量大，机器人被无关消息刷爆 | @Bot 检测 + @all 忽略（KD-7）+ Phase D 权限白名单 |
 | Bot 自身 open_id 获取方式可能因飞书 API 变更 | 双策略：API 查询 + env 配置 fallback（KD-5） |
 | ConnectorSource 扩展 sender 可能影响前端渲染 | sender 字段可选，前端 graceful fallback |
-| 公共层改动（Phase B）影响其他 adapter | sender 参数可选，不传 = 不影响；跨 family review Maine Coon |
+| 公共层改动（Phase B）影响其他 adapter | sender 参数可选，不传 = 不影响；跨 family review Codex |
 | 新增飞书权限（contact/chat）需team lead手动配置 | 文档中列出具体权限名，提醒team lead在开发者后台添加 |
 | 发送者姓名 API 调用频率限制 | 内存 Map 缓存，同一 open_id 只调一次（KD-6） |
 
@@ -208,7 +208,7 @@ export interface FeishuInboundMessage {
 | KD-5 | Bot open_id 双策略获取 | 启动时调 `GET /open-apis/bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env 兜底。原因：open_id 是 app-scoped（同一 bot 不同 app token 看到不同 open_id，见 openclaw/openclaw#40768），env 兜底防 API 失败 | 2026-03-25 |
 | KD-6 | 发送者姓名通过 Contact API 获取 + 内存缓存 | `event.sender` 只有 `sender_id`（含 open_id/user_id/union_id），无 name 字段。需调 `GET /contact/v3/users/:open_id` 获取。用 Map 缓存避免重复调用。需 `contact:user.base:readonly` 权限 | 2026-03-25 |
 | KD-7 | @所有人（@_all）不触发 bot | team lead确认："我@所有人的时候，bot我觉得应该不要响应，而是要明确@bot时候才响应"。`@_all` 在 mentions 中 key 为 `@_all`，与 `@_user_N` 不同，过滤即可 | 2026-03-25 |
-| KD-8 | ~~群聊中禁用 /命令~~ → 群聊支持 /命令 + 每群独立 IM Hub | 初版 KD-8 禁用了群聊 /command，team lead实测发现 `/threads` 被猫猫"扮演系统"回复。PR #699 移除限制，群聊恢复 /slash 命令支持，Hub 标题含群名（`飞书群聊 · {群名} IM Hub`）区分多群 | 2026-03-25 |
+| KD-8 | ~~群聊中禁用 /命令~~ → 群聊支持 /命令 + 每群独立 IM Hub | 初版 KD-8 禁用了群聊 /command，team lead实测发现 `/threads` 被智能体"扮演系统"回复。PR #699 移除限制，群聊恢复 /slash 命令支持，Hub 标题含群名（`飞书群聊 · {群名} IM Hub`）区分多群 | 2026-03-25 |
 | KD-9 | `@sender` 采用 message-level 绑定（`source.sender` 写入 messageStore）而非 thread-level lastSender | 原设计的 `lastSender` 是 thread 级覆盖存储，群聊并发时后到消息会覆盖先到的 sender，导致错 @。改用 message-level：每条入站消息的 `ConnectorSource.sender` 已持久化在 messageStore，deliver 时通过 `triggerMessageId` 回溯原始消息的 sender。详见 KD-9 技术设计章节 | 2026-03-25 |
 | KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（team lead已配） | 2026-03-25 |
 | KD-11 | Connector source 队列禁止 merge | `source === 'connector'` 的消息直接禁止 merge（快速稳妥方案）。QueueEntry 新增可选 `senderMeta` 字段用于 UI 展示，但不参与 merge 判断。这避免群聊中不同 sender 的消息被合并 | 2026-03-25 |
@@ -314,7 +314,7 @@ FeishuAdapter.parseEvent()
 
 ## Review Gate
 
-- Phase A+B: 跨 family review（Maine Coon @codex），公共层改动需额外审查
+- Phase A+B: 跨 family review（Codex @codex），公共层改动需额外审查
 - Phase C: 可与 Phase A+B 合并 review
 - Phase D: 独立 review（涉及权限模型）
 
@@ -464,7 +464,7 @@ interface QueueEntry {
 }
 ```
 
-**merge 策略（采用Maine Coon review 的"快速稳妥"方案）**：
+**merge 策略（采用Codex review 的"快速稳妥"方案）**：
 ```typescript
 // source === 'connector' 直接禁止 merge（不同群用户消息绝不合并）
 // 这比精细 sender 比较更安全，避免任何跨发送者合并风险
@@ -480,7 +480,7 @@ if (
 }
 ```
 
-**sender 链路打通**（解决Maine Coon P1：enqueue 入参缺 sender）：
+**sender 链路打通**（解决Codex P1：enqueue 入参缺 sender）：
 ```typescript
 // ConnectorInvokeTrigger.enqueueWhileActive() — 新增 sender 参数
 private enqueueWhileActive(
@@ -516,7 +516,7 @@ private enqueueWhileActive(
 | messages.ts (Web UI) | `messages.ts:1345-1374` | `stored.id`（非 connector，不需要 sender） |
 | callbacks.ts | `callbacks.ts:548` | `validatedReplyTo ?? autoFilledReplyTo`（回溯 parent invocation 的触发消息，非 connector 场景不需要 sender） |
 
-**类型声明层同步**（P2，Maine Coon review 补充）：
+**类型声明层同步**（P2，Codex review 补充）：
 除业务调用点外，以下类型接口也需同步扩展 `triggerMessageId` 参数：
 - `messages.ts` 的 `OutboundDeliveryHookLike` 接口
 - `callbacks.ts` 的 `CallbackRoutesOptions.outboundHook.deliver` 类型
@@ -529,7 +529,7 @@ private enqueueWhileActive(
 2. **ConnectorThreadBindingStore** — `lastSender` 代码路径删除（不再读写），Redis 历史字段容忍残留不清理（后续单独做迁移）
 3. **RedisConnectorThreadBindingStore** — 同上，代码接口移除 `lastSender`，不再写入
 
-### ConnectorBubble 展示规范（Maine Coon review 确认）
+### ConnectorBubble 展示规范（Codex review 确认）
 
 群聊消息气泡展示：
 - 主标签：`飞书群聊 · {chatName || chatIdSuffix}`

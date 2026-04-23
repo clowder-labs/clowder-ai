@@ -18,7 +18,7 @@ export type {
   AuthProvider,
   AuthSessionInfo,
   ExternalPrincipal,
-} from '@clowder/plugin-api/auth';
+} from '@office-claw/plugin-api/auth';
 
 // ---------------------------------------------------------------------------
 // Platform-only types (not exposed to third-party providers)

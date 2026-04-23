@@ -6,8 +6,8 @@ SCRIPT_PATH="$0"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 CONTENTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUNTIME_ROOT="$CONTENTS_DIR/Resources/runtime"
-APP_SUPPORT_DIR="$HOME/Library/Application Support/ClowderAI"
-LOG_DIR="$HOME/Library/Logs/ClowderAI"
+APP_SUPPORT_DIR="$HOME/Library/Application Support/OfficeClaw"
+LOG_DIR="$HOME/Library/Logs/OfficeClaw"
 RUN_DIR="$APP_SUPPORT_DIR/run"
 CONFIG_DIR="$APP_SUPPORT_DIR/config"
 DATA_DIR="$APP_SUPPORT_DIR/data"
@@ -19,7 +19,7 @@ START_SCRIPT="$RUNTIME_ROOT/scripts/start-bundle.sh"
 show_dialog() {
   local message="$1"
   if command -v osascript >/dev/null 2>&1; then
-    osascript -e "display dialog \"${message}\" buttons {\"OK\"} default button \"OK\" with title \"Clowder AI\""
+    osascript -e "display dialog \"${message}\" buttons {\"OK\"} default button \"OK\" with title \"OfficeClaw\""
   else
     printf '%s\n' "$message"
   fi
@@ -51,19 +51,19 @@ show_start_failure() {
 }
 
 if ! "$START_SCRIPT"; then
-  show_start_failure "Clowder AI failed to start."
+  show_start_failure "OfficeClaw failed to start."
   exit 1
 fi
 
 if [[ ! -f "$STATE_FILE" ]]; then
-  show_start_failure "Clowder AI started without writing runtime state."
+  show_start_failure "OfficeClaw started without writing runtime state."
   exit 1
 fi
 
 FRONTEND_URL="$($NODE_BIN -e 'const fs=require("node:fs");const state=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(state.frontendUrl||"");' "$STATE_FILE" 2>/dev/null || true)"
 
 if [[ -z "$FRONTEND_URL" ]]; then
-  show_start_failure "Clowder AI could not resolve the frontend URL."
+  show_start_failure "OfficeClaw could not resolve the frontend URL."
   exit 1
 fi
 

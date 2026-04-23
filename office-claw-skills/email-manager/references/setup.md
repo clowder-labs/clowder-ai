@@ -28,8 +28,8 @@ python scripts/wincred_store.py set --kind smtp --user "your-email@qq.com" --sec
 命令会返回引用，例如：
 
 ```text
-wincred://Clowder/email-manager/imap/your-email%40qq.com
-wincred://Clowder/email-manager/smtp/your-email%40qq.com
+wincred://OfficeClaw/email-manager/imap/your-email%40qq.com
+wincred://OfficeClaw/email-manager/smtp/your-email%40qq.com
 ```
 
 ## 3. 创建 `config.json`
@@ -39,11 +39,11 @@ wincred://Clowder/email-manager/smtp/your-email%40qq.com
   "imap_host": "imap.qq.com",
   "imap_port": 993,
   "imap_user": "your-email@qq.com",
-  "imap_pass_ref": "wincred://Clowder/email-manager/imap/your-email%40qq.com",
+  "imap_pass_ref": "wincred://OfficeClaw/email-manager/imap/your-email%40qq.com",
   "smtp_host": "smtp.qq.com",
   "smtp_port": 587,
   "smtp_user": "your-email@qq.com",
-  "smtp_pass_ref": "wincred://Clowder/email-manager/smtp/your-email%40qq.com",
+  "smtp_pass_ref": "wincred://OfficeClaw/email-manager/smtp/your-email%40qq.com",
   "smtp_from": "your-email@qq.com"
 }
 ```
@@ -56,12 +56,12 @@ wincred://Clowder/email-manager/smtp/your-email%40qq.com
 $env:IMAP_HOST="imap.qq.com"
 $env:IMAP_PORT="993"
 $env:IMAP_USER="your-email@qq.com"
-$env:IMAP_PASS_REF="wincred://Clowder/email-manager/imap/your-email%40qq.com"
+$env:IMAP_PASS_REF="wincred://OfficeClaw/email-manager/imap/your-email%40qq.com"
 
 $env:SMTP_HOST="smtp.qq.com"
 $env:SMTP_PORT="587"
 $env:SMTP_USER="your-email@qq.com"
-$env:SMTP_PASS_REF="wincred://Clowder/email-manager/smtp/your-email%40qq.com"
+$env:SMTP_PASS_REF="wincred://OfficeClaw/email-manager/smtp/your-email%40qq.com"
 $env:SMTP_FROM="your-email@qq.com"
 ```
 

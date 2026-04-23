@@ -36,7 +36,7 @@ SetFont "Segoe UI" 9
 !endif
 
 !define APP_NAME "OfficeClaw"
-!define COMPANY_KEY "ClowderLabs"
+!define COMPANY_KEY "OfficeClaw"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
 !define AUTOSTART_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
@@ -135,7 +135,7 @@ Function CheckOfficeClawRunning
   ${EndIf}
 
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\OfficeClaw\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
   Pop $1
   ${If} $1 != ""
@@ -144,7 +144,7 @@ Function CheckOfficeClawRunning
   ${EndIf}
 
   ; Check python.exe processes that belong to OfficeClaw (from installed dir tools\python or vendor\.venv)
-  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\OfficeClaw\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
   Pop $1
   ${If} $1 != ""
@@ -795,7 +795,7 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
 
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\OfficeClaw\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
   Pop $1
   ${If} $1 != ""
@@ -804,7 +804,7 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
 
   ; Check python.exe processes that belong to OfficeClaw (from installed dir)
-  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\OfficeClaw\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
   Pop $1
   ${If} $1 != ""
@@ -839,7 +839,7 @@ FunctionEnd
   Pop $0
   nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\installer-seed" rd /s /q "$INSTDIR\installer-seed"'
   Pop $0
-  Delete "$INSTDIR\.clowder-release.json"
+  Delete "$INSTDIR\.office-claw-release.json"
   Delete "$INSTDIR\.env.example"
   Delete "$INSTDIR\package.json"
   Delete "$INSTDIR\pnpm-lock.yaml"

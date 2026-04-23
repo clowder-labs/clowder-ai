@@ -34,7 +34,7 @@ function getCurrentVersion(projectRoot: string): string {
   const packageVersion = readVersionFromJsonFile(resolve(projectRoot, 'package.json'));
   if (packageVersion) return packageVersion;
 
-  const releaseVersion = readVersionFromJsonFile(resolve(projectRoot, '.clowder-release.json'));
+  const releaseVersion = readVersionFromJsonFile(resolve(projectRoot, '.office-claw-release.json'));
   if (releaseVersion) return releaseVersion;
 
   return DEFAULT_VERSION;
@@ -58,7 +58,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
     const curversion = cachedCurversion ?? getCurrentVersion(projectRoot);
     cachedCurversion = curversion;
     try {
-      const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
+      const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']) as string;
       if (!userId) {
         throw new Error('Unauthorized: Missing user ID');
       }

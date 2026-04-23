@@ -16,7 +16,7 @@
  * SessionSealer is responsible for the lifecycle state machine.
  */
 
-import type { CatId, SealResult, SessionStatus } from '@clowder/shared';
+import type { CatId, SealResult, SessionStatus } from '@office-claw/shared';
 import { AuditEventTypes, getEventAuditLog } from '../orchestration/EventAuditLog.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';

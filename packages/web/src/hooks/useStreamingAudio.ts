@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { TtsStreamRequest } from '@clowder/shared';
+import type { TtsStreamRequest } from '@office-claw/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { base64ToBlob, streamTts } from '@/utils/tts-stream';
 

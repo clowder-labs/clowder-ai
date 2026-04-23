@@ -40,7 +40,7 @@ function readClawVersion(): string {
     const packageVersion = readVersionFromJsonFile(packageJsonPath);
     if (packageVersion) return packageVersion;
 
-    const releaseJsonPath = resolve(projectRoot, '.clowder-release.json');
+    const releaseJsonPath = resolve(projectRoot, '.office-claw-release.json');
     const releaseVersion = readVersionFromJsonFile(releaseJsonPath);
     if (releaseVersion) return releaseVersion;
 

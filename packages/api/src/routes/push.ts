@@ -43,7 +43,7 @@ interface PushDeliverySummary {
 }
 
 function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
-  const v = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']);
+  const v = (request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']);
   if (typeof v === 'string' && v.trim().length > 0) return v.trim();
   if (Array.isArray(v) && typeof v[0] === 'string' && v[0].trim().length > 0) return v[0].trim();
   const legacy = request.headers['x-user-id'];

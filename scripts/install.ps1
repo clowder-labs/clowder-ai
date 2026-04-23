@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Clowder AI - Windows Repo-Local Install Helper
+  OfficeClaw - Windows Repo-Local Install Helper
 
 .DESCRIPTION
-  Installs prerequisites and sets up the current checked-out clowder-ai repo.
+  Installs prerequisites and sets up the current checked-out office-claw repo.
   Clone or download the repo first, then run this helper from inside it.
   Steps: env detect -> Node/pnpm install -> Redis -> .env generate -> deps & build
          -> skills mount -> AI CLI tools -> auth config -> verify & optionally start
@@ -91,7 +91,7 @@ function Resolve-ProjectRoot {
     $projectRoot = Split-Path -Parent $ScriptDir
     if (-not (Test-Path (Join-Path $projectRoot "package.json")) -or
         -not (Test-Path (Join-Path $projectRoot "packages/api"))) {
-        Write-Err "Run this helper from a checked-out clowder-ai repo: .\scripts\install.ps1"
+        Write-Err "Run this helper from a checked-out office-claw repo: .\scripts\install.ps1"
         exit 1
     }
     $gitRepoUnavailable = $false
@@ -381,7 +381,7 @@ if (-not $allGood -and -not $SkipBuild) {
 
 Write-Host ""
 Write-Host "  ========================================" -ForegroundColor Green
-Write-Host "  Clowder AI installed!" -ForegroundColor Green
+Write-Host "  OfficeClaw installed!" -ForegroundColor Green
 Write-Host "  ========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Project: $ProjectRoot"

@@ -81,7 +81,7 @@ async function createRealRouter() {
 describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, () => {
   /**
    * Test: Default routing to Claude (opus)
-   * 无提及时默认路由到布偶猫
+   * 无提及时默认路由到Claude
    */
   itOrSkip('routes to Claude (opus) when no @ mention is present', { skip: !hasClaude, timeout: 60_000 }, async () => {
     const router = await createRealRouter();
@@ -113,14 +113,14 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
   });
 
   /**
-   * Test: Routing to Codex via @缅因猫
-   * @缅因 路由到缅因猫 (Codex)
+   * Test: Routing to Codex via @assistant
+   * @assistant 路由到Codex (Codex)
    */
-  itOrSkip('routes to Codex when @缅因 is mentioned', { skip: !hasCodex, timeout: 60_000 }, async () => {
+  itOrSkip('routes to Codex when @assistant is mentioned', { skip: !hasCodex, timeout: 60_000 }, async () => {
     const router = await createRealRouter();
 
     const messages = [];
-    for await (const msg of router.route('test-user-2', '@缅因 说 "你好"')) {
+    for await (const msg of router.route('test-user-2', '@assistant 说 "你好"')) {
       messages.push(msg);
     }
 
@@ -137,14 +137,14 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
   });
 
   /**
-   * Test: Routing to Gemini via @暹罗猫
-   * @暹罗 路由到暹罗猫 (Gemini)
+   * Test: Routing to Gemini via @design
+   * @design 路由到Gemini (Gemini)
    */
-  itOrSkip('routes to Gemini when @暹罗 is mentioned', { skip: !hasGemini, timeout: 60_000 }, async () => {
+  itOrSkip('routes to Gemini when @design is mentioned', { skip: !hasGemini, timeout: 60_000 }, async () => {
     const router = await createRealRouter();
 
     const messages = [];
-    for await (const msg of router.route('test-user-3', '@暹罗 说 "你好"')) {
+    for await (const msg of router.route('test-user-3', '@design 说 "你好"')) {
       messages.push(msg);
     }
 
@@ -203,7 +203,7 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
       const router = await createRealRouter();
 
       const messages = [];
-      for await (const msg of router.route('test-user-5', '@布偶 say "one", @缅因 say "two", @暹罗 say "three"')) {
+      for await (const msg of router.route('test-user-5', '@claude say "one", @assistant say "two", @design say "three"')) {
         messages.push(msg);
       }
 

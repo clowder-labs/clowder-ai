@@ -44,7 +44,7 @@ const REDACT_PATHS = [
   'req.headers["set-cookie"]',
   'req.headers["x-api-key"]',
   'req.headers["x-callback-token"]',
-  'req.headers["x-cat-cafe-hook-token"]',
+  'req.headers["x-office-claw-hook-token"]',
   'req.headers["x-access-key"]',
   'req.headers["x-acs-dingtalk-access-token"]',
   'req.headers["x-goog-api-key"]',

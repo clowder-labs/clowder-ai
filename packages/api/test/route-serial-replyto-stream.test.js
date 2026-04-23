@@ -68,7 +68,7 @@ describe('routeSerial replyTo on stream messages', () => {
     const appendCalls = [];
     const deps = createMockDeps(
       {
-        opus: createMockService('opus', '我先看一下\n@缅因猫 帮忙复核'),
+        opus: createMockService('opus', '我先看一下\n@assistant 帮忙复核'),
         codex: createMockService('codex', '收到，我来复核'),
       },
       appendCalls,
@@ -88,7 +88,7 @@ describe('routeSerial replyTo on stream messages', () => {
     assert.equal(codexText.replyTo, 'msg-1', 'stream text should carry replyTo for live ReplyPill rendering');
     assert.deepEqual(codexText.replyPreview, {
       senderCatId: 'opus',
-      content: '我先看一下\n@缅因猫 帮忙复核',
+      content: '我先看一下\n@assistant 帮忙复核',
     });
   });
 });

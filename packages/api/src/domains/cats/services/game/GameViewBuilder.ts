@@ -20,8 +20,8 @@ import type {
   PendingAction,
   SeatId,
   SeatView,
-} from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+} from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { GameStatsRecorder } from './GameStatsRecorder.js';
 
 export class GameViewBuilder {
@@ -179,7 +179,7 @@ export class GameViewBuilder {
   /** H6: Enrich actorId to "displayName(actorId)" format.
    *  e.g. "office" → "办公智能体(office)", "assistant" → "通用智能体(assistant)" */
   private static enrichDisplayName(actorId: string): string {
-    const entry = catRegistry.tryGet(actorId);
+    const entry = officeClawRegistry.tryGet(actorId);
     if (!entry) return actorId;
     const breed = entry.config.breedDisplayName ?? entry.config.displayName;
     return breed ? `${breed}(${actorId})` : actorId;

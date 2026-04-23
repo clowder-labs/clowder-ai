@@ -221,8 +221,8 @@ describe('ThreadStore', () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
 
     const store = new ThreadStore();
-    const thread = store.create('user-1', 'In project', '/home/user/projects/cat-cafe');
-    assert.equal(thread.projectPath, '/home/user/projects/cat-cafe');
+    const thread = store.create('user-1', 'In project', '/home/user/projects/office-claw');
+    assert.equal(thread.projectPath, '/home/user/projects/office-claw');
   });
 
   test('get() auto-created default thread has projectPath "default"', async () => {
@@ -239,14 +239,14 @@ describe('ThreadStore', () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
 
     const store = new ThreadStore();
-    store.create('alice', 'In cat-cafe', '/projects/cat-cafe');
-    store.create('alice', 'Also cat-cafe', '/projects/cat-cafe');
+    store.create('alice', 'In office-claw', '/projects/office-claw');
+    store.create('alice', 'Also office-claw', '/projects/office-claw');
     store.create('alice', 'In relay', '/projects/relay');
     store.create('alice', 'No project'); // defaults to 'default'
 
-    const catCafeThreads = store.listByProject('alice', '/projects/cat-cafe');
+    const catCafeThreads = store.listByProject('alice', '/projects/office-claw');
     assert.equal(catCafeThreads.length, 2);
-    assert.ok(catCafeThreads.every((t) => t.projectPath === '/projects/cat-cafe'));
+    assert.ok(catCafeThreads.every((t) => t.projectPath === '/projects/office-claw'));
 
     const relayThreads = store.listByProject('alice', '/projects/relay');
     assert.equal(relayThreads.length, 1);

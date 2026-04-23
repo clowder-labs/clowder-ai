@@ -20,7 +20,7 @@
  * and MAX_A2A_DEPTH limit.
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 
 /** F122: Structured result from pushToWorklist — reason explains empty adds */
 export type PushReason = 'not_found' | 'depth_limit' | 'caller_mismatch' | 'all_duplicate';
@@ -104,7 +104,7 @@ export function registerWorklist(
  * Unregister worklist for an invocation. Called by routeSerial on exit.
  * Owner check: only removes if the stored entry matches the caller's entry.
  * This prevents a preempting new invocation's worklist from being deleted
- * by the old invocation's finally block. (缅因猫 R1 P1-1)
+ * by the old invocation's finally block. (Codex R1 P1-1)
  */
 export function unregisterWorklist(threadId: string, owner?: WorklistEntry, parentInvocationId?: string): void {
   const key = registryKey(threadId, parentInvocationId);

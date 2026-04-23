@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { ConnectorRouter } from '../dist/infrastructure/connectors/ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from '../dist/infrastructure/connectors/InboundMessageDedup.js';
@@ -269,8 +269,8 @@ describe('ConnectorRouter', () => {
   });
 
   it('routes by displayName mention for connector messages', async () => {
-    catRegistry.reset();
-    catRegistry.register('office', {
+    officeClawRegistry.reset();
+    officeClawRegistry.register('office', {
       id: 'office',
       name: '办公智能体',
       displayName: '办公智能体',
@@ -292,7 +292,7 @@ describe('ConnectorRouter', () => {
       assert.equal(trigger.calls[0].catId, 'office');
       assert.equal(messageStore.messages[0].mentions[0], 'office');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
     }
   });
 
@@ -468,7 +468,7 @@ describe('ConnectorRouter', () => {
       const result = await router2.route('feishu', 'chat-123', '/where', 'ext-fmt-1');
       assert.equal(result.kind, 'command');
       assert.equal(envelopeCalls.length, 1);
-      assert.equal(envelopeCalls[0].envelope.header, 'Clowder AI');
+      assert.equal(envelopeCalls[0].envelope.header, 'OfficeClaw');
       assert.equal(envelopeCalls[0].envelope.body, 'You are here');
       assert.ok(envelopeCalls[0].envelope.footer); // has timestamp
     });
@@ -875,11 +875,11 @@ describe('ConnectorRouter', () => {
         undefined,
         undefined,
         'group',
-        '猫猫咖啡测试群',
+        '智能体咖啡测试群',
       );
       const hubThread = threadStore.threads.get(result.threadId);
       assert.ok(hubThread);
-      assert.ok(hubThread.title.includes('猫猫咖啡测试群'), `expected chatName in Hub title, got: ${hubThread.title}`);
+      assert.ok(hubThread.title.includes('智能体咖啡测试群'), `expected chatName in Hub title, got: ${hubThread.title}`);
       assert.ok(hubThread.title.includes('IM Hub'));
     });
   });

@@ -165,7 +165,7 @@ describe('InvocationRegistry', () => {
     assert.equal(registry.claimClientMessageId(second.invocationId, 'same-id'), true);
   });
 
-  // --- isLatest() freshness guard (cloud Codex P1 + 缅因猫 R3) ---
+  // --- isLatest() freshness guard (cloud Codex P1 + Codex R3) ---
 
   test('isLatest() returns true for the most recent invocation per thread+cat', async () => {
     const { InvocationRegistry } = await import(
@@ -231,7 +231,7 @@ describe('InvocationRegistry', () => {
     assert.equal(registry.isLatest('nonexistent-id'), false);
   });
 
-  // --- latestByThreadCat cleanup (缅因猫 P2) ---
+  // --- latestByThreadCat cleanup (Codex P2) ---
 
   test('latestByThreadCat cleans up on TTL expiry', async () => {
     const { InvocationRegistry } = await import(

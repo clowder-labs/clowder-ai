@@ -7,12 +7,12 @@
 /**
  * LimbPairingStore — F126 Phase C 设备配对审批
  *
- * 远程节点注册后进入 pending 状态，需要铲屎官审批后才能接入。
+ * 远程节点注册后进入 pending 状态，需要用户审批后才能接入。
  * 审批通过 → 生成 RemoteLimbNode → 注册到 LimbRegistry。
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbCapability } from '@clowder/shared';
+import type { LimbCapability } from '@office-claw/shared';
 
 export interface PairingRequest {
   requestId: string;

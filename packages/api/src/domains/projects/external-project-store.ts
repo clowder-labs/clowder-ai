@@ -9,7 +9,7 @@
  */
 
 import { resolve } from 'node:path';
-import type { CreateExternalProjectInput, ExternalProject } from '@clowder/shared';
+import type { CreateExternalProjectInput, ExternalProject } from '@office-claw/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class ExternalProjectStore {

@@ -6,7 +6,7 @@
 
 /**
  * CodexAgentService Tests (CLI mode)
- * 测试缅因猫 CLI 子进程调用
+ * 测试Codex CLI 子进程调用
  */
 
 import assert from 'node:assert/strict';
@@ -136,7 +136,7 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.ok(!args.includes('approval_policy=\\"on-request\\"'), 'argv should not contain literal backslash escapes');
 });
 
-test('injects cat-cafe MCP config when workingDirectory contains mcp-server', async () => {
+test('injects office-claw MCP config when workingDirectory contains mcp-server', async () => {
   const tmpRoot = mkdtempSync(join(import.meta.dirname ?? '.', '.tmp-mcp-test-'));
   const mcpDistDir = join(tmpRoot, 'packages', 'mcp-server', 'dist');
   mkdirSync(mcpDistDir, { recursive: true });
@@ -165,7 +165,7 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
     const args = spawnFn.mock.calls[0].arguments[1];
     assert.ok(args.includes('mcp_servers.office-claw.command="node"'));
     const mcpArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.office-claw.args=['));
-    assert.ok(mcpArgsConfig, 'must inject cat-cafe mcp args config');
+    assert.ok(mcpArgsConfig, 'must inject office-claw mcp args config');
     assert.match(mcpArgsConfig, /packages\/mcp-server\/dist\/index\.js/);
     assert.ok(args.includes('mcp_servers.office-claw.enabled=true'));
     assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_API_URL="http://127.0.0.1:3004"'));
@@ -838,7 +838,7 @@ test('maps command execution lifecycle into tool_use and tool_result', async () 
         id: 'cmd-1',
         type: 'command_execution',
         command: '/bin/zsh -lc pwd',
-        aggregated_output: '/home/user/projects/cat-cafe\n',
+        aggregated_output: '/home/user/projects/office-claw\n',
         exit_code: 0,
         status: 'completed',
       },
@@ -858,7 +858,7 @@ test('maps command execution lifecycle into tool_use and tool_result', async () 
   assert.equal(toolUse.toolInput.command, '/bin/zsh -lc pwd');
 
   assert.ok(toolResult, 'should emit tool_result for command_execution completion');
-  assert.match(toolResult.content, /\/home\/user\/projects\/cat-cafe/);
+  assert.match(toolResult.content, /\/home\/user\/projects\/office-claw/);
   assert.match(toolResult.content, /exit_code:\s*0/);
 });
 
@@ -1047,7 +1047,7 @@ test('systemPrompt is preserved and codex --image is used when contentBlocks con
 
   const promise = collect(
     service.invoke('describe this image', {
-      systemPrompt: '你是缅因猫，由 OpenAI 提供的 AI 猫猫。',
+      systemPrompt: '你是Codex，由 OpenAI 提供的 AI 智能体。',
       contentBlocks: [{ type: 'image', url: '/uploads/cat.png' }],
       uploadDir: '/tmp',
     }),
@@ -1063,7 +1063,7 @@ test('systemPrompt is preserved and codex --image is used when contentBlocks con
   assert.ok(String(args[imageIdx + 1]).includes('cat.png'));
   const promptArg = args.at(-1); // last arg is the prompt
   assert.ok(
-    promptArg.includes('缅因猫'),
+    promptArg.includes('Codex'),
     `systemPrompt should be preserved in prompt when images present, got: ${promptArg.slice(0, 120)}`,
   );
 });

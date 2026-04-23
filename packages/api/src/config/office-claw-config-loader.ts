@@ -5,22 +5,22 @@
  */
 
 /**
- * Cat Config Loader
+ * OfficeClaw Config Loader
  * 从 office-claw-template.json / .office-claw/office-claw-catalog.json 加载 Breed+Variant 配置。
- * Node-only — 前端继续用 shared 包的 CAT_CONFIGS 常量。
+ * Node-only — 前端继续用 shared 包的 OFFICE_CLAW_CONFIGS 常量。
  */
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
-  CAT_CONFIGS,
-  catRegistry,
+  OFFICE_CLAW_CONFIGS,
+  officeClawRegistry,
   createCatId,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import type {
   CatBreed,
-  CatCafeConfig,
-  CatConfig,
+  OfficeClawConfig,
+  OfficeClawConfigEntry,
   CatFeatures,
   CatId,
   CatVariant,
@@ -29,12 +29,12 @@ import type {
   MissionHubSelfClaimScope,
   ReviewPolicy,
   Roster,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
-import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../utils/office-claw-root.js';
 import { isClientAllowed } from '../utils/client-visibility.js';
-import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
+import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './office-claw-catalog-store.js';
 
 const log = createModuleLogger('cat-config');
 
@@ -45,7 +45,7 @@ const log = createModuleLogger('cat-config');
  * not the repo root. Resolve relative to this file instead to keep behavior
  * stable across different launch directories.
  */
-const DEFAULT_CAT_TEMPLATE_PATH = resolve(resolveCatCafeHostRoot(process.cwd()), 'office-claw-template.json');
+const DEFAULT_CAT_TEMPLATE_PATH = resolve(resolveOfficeClawHostRoot(process.cwd()), 'office-claw-template.json');
 
 const cliConfigSchema = z.object({
   command: z.string().min(1),
@@ -209,7 +209,7 @@ const reviewPolicySchema = z.object({
   excludeUnavailable: z.boolean(),
 });
 
-// Note: Roster, RosterEntry, ReviewPolicy types imported from @clowder/shared above
+// Note: Roster, RosterEntry, ReviewPolicy types imported from @office-claw/shared above
 
 /** F067: Owner config schema */
 const coCreatorConfigSchema = z.object({
@@ -331,7 +331,7 @@ function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
  * Default resolution: office-claw-config.json is the base, .office-claw/office-claw-catalog.json is a delta overlay.
  * Catalog fields override config fields (deep merge); config fields absent from catalog are preserved.
  */
-export function loadCatConfig(filePath?: string): CatCafeConfig {
+export function loadCatConfig(filePath?: string): OfficeClawConfig {
   let raw: string;
   let resolvedPath = filePath;
   if (filePath) {
@@ -387,12 +387,12 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
   }
 
   // Zod output has mutable arrays + plain string catId;
-  // CatCafeConfig has readonly arrays + branded CatId.
+  // OfficeClawConfig has readonly arrays + branded CatId.
   // The shapes match at runtime after validation.
-  return result.data as unknown as CatCafeConfig;
+  return result.data as unknown as OfficeClawConfig;
 }
 
-export function bootstrapDefaultCatCatalog(templatePath?: string): CatCafeConfig {
+export function bootstrapDefaultCatCatalog(templatePath?: string): OfficeClawConfig {
   const resolvedTemplatePath = templatePath ?? process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH;
   const projectRoot = dirname(resolvedTemplatePath);
   const catalogPath = bootstrapCatCatalog(projectRoot, resolvedTemplatePath);
@@ -408,14 +408,14 @@ export function getDefaultVariant(breed: CatBreed): CatVariant {
 
 /**
  * F32-b: Register ALL variants as independent cats.
- * Each variant becomes a CatConfig entry keyed by its catId.
+ * Each variant becomes a OfficeClawConfigEntry entry keyed by its catId.
  * Default variant inherits breed-level mentionPatterns; others default to @catId when unspecified.
  * @throws Error on duplicate catId (fail-fast at startup)
  */
-export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
+export function toAllCatConfigs(config: OfficeClawConfig): Record<string, OfficeClawConfigEntry> {
   const result: Record<
     string,
-    CatConfig & {
+    OfficeClawConfigEntry & {
       contextBudget?: ContextBudget;
       providerProfileId?: string;
     }
@@ -504,7 +504,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         ...(variant.variantLabel != null ? { variantLabel: variant.variantLabel } : {}),
         isDefaultVariant: isDefault,
         ...(teamStrengths != null ? { teamStrengths } : {}),
-        // R1 fix: preserve null (explicit no-caution) in CatConfig; only omit if undefined
+        // R1 fix: preserve null (explicit no-caution) in OfficeClawConfigEntry; only omit if undefined
         ...(caution !== undefined ? { caution } : {}),
         ...(variant.strengths != null ? { strengths: variant.strengths } : {}),
         ...(variant.sessionChain !== undefined
@@ -519,7 +519,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
 }
 
 /** Backward-compat alias — now registers all variants, not just defaults */
-export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
+export function toFlatConfigs(config: OfficeClawConfig): Record<string, OfficeClawConfigEntry> {
   return toAllCatConfigs(config);
 }
 
@@ -542,7 +542,7 @@ export function getAllCatIdsFromConfig(): readonly string[] {
  * F32-b P4c: Uses longest-match-first to avoid prefix collisions
  * (e.g. `@布偶sonnet` must match Sonnet variant, not breed-level `@布偶`).
  */
-export function findBreedByMention(config: CatCafeConfig, text: string): { breed: CatBreed; catId: CatId } | undefined {
+export function findBreedByMention(config: OfficeClawConfig, text: string): { breed: CatBreed; catId: CatId } | undefined {
   const lower = text.toLowerCase();
 
   // Collect all patterns with their resolution targets
@@ -574,10 +574,10 @@ export function findBreedByMention(config: CatCafeConfig, text: string): { breed
 
 // ── F24 Feature Toggle ──────────────────────────────────────────────
 
-let _cachedConfig: CatCafeConfig | null = null;
+let _cachedConfig: OfficeClawConfig | null = null;
 let _configLoadFailed = false;
 
-function getCachedConfig(): CatCafeConfig | null {
+function getCachedConfig(): OfficeClawConfig | null {
   if (_configLoadFailed) return null;
   if (!_cachedConfig) {
     try {
@@ -597,7 +597,7 @@ function getCachedConfig(): CatCafeConfig | null {
  * Build an index mapping every catId (including variant-level) to its parent breed.
  * Used by isSessionChainEnabled() to correctly resolve features for variants.
  */
-export function buildCatIdToBreedIndex(config: CatCafeConfig): Map<string, CatBreed> {
+export function buildCatIdToBreedIndex(config: OfficeClawConfig): Map<string, CatBreed> {
   const index = new Map<string, CatBreed>();
   for (const breed of config.breeds) {
     for (const variant of breed.variants) {
@@ -616,7 +616,7 @@ export function buildCatIdToBreedIndex(config: CatCafeConfig): Map<string, CatBr
 
 // Cache bound to config reference — rebuilt if different config is passed (e.g. tests)
 let _catIdToBreed: Map<string, CatBreed> | null = null;
-let _catIdToBreedSource: CatCafeConfig | null = null;
+let _catIdToBreedSource: OfficeClawConfig | null = null;
 
 /**
  * Check if F24 session chain is enabled for a cat.
@@ -624,12 +624,12 @@ let _catIdToBreedSource: CatCafeConfig | null = null;
  * Gracefully returns true if config file is unreadable (availability over strictness).
  *
  * F32-b: Now resolves variant catIds to their parent breed via index.
- * Design constraint: Cat Cafe config is loaded once at startup, no hot-reload.
+ * Design constraint: OfficeClaw config is loaded once at startup, no hot-reload.
  *
  * @param catId - The cat to check (e.g. 'opus', 'codex', 'opus-45')
  * @param config - Optional config override (for testing)
  */
-export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeConfig): boolean {
+export function isSessionChainEnabled(catId: CatId | string, config?: OfficeClawConfig): boolean {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return true; // Config unreadable → default enabled (Cloud P1 fix)
   const id = catId as string;
@@ -654,7 +654,7 @@ export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeCon
  */
 export function getConfigSessionStrategy(
   catId: string,
-  config?: CatCafeConfig,
+  config?: OfficeClawConfig,
 ): CatFeatures['sessionStrategy'] | undefined {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return undefined;
@@ -675,7 +675,7 @@ export function getConfigSessionStrategy(
  * Get Mission Hub self-claim scope from office-claw-config.json for a cat.
  * Defaults to 'disabled' when not configured.
  */
-export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfig): MissionHubSelfClaimScope {
+export function getMissionHubSelfClaimScope(catId: string, config?: OfficeClawConfig): MissionHubSelfClaimScope {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE;
 
@@ -695,10 +695,10 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 let _defaultCatId: CatId | null = null;
 
 function getFallbackDefaultCatId(): CatId {
-  const registered = catRegistry.getAllIds();
+  const registered = officeClawRegistry.getAllIds();
   if (registered.length > 0) return registered[0]!;
 
-  const builtin = Object.keys(CAT_CONFIGS)[0];
+  const builtin = Object.keys(OFFICE_CLAW_CONFIGS)[0];
   if (builtin) return createCatId(builtin);
 
   throw new Error('No available cats to resolve default catId');
@@ -749,9 +749,9 @@ export function getDefaultCatId(): CatId {
 
 /** catId → variant index (lazy, rebuilt on config change) */
 let _catIdToVariant: Map<string, CatVariant> | null = null;
-let _catIdToVariantSource: CatCafeConfig | null = null;
+let _catIdToVariantSource: OfficeClawConfig | null = null;
 
-function buildCatIdToVariantIndex(config: CatCafeConfig): Map<string, CatVariant> {
+function buildCatIdToVariantIndex(config: OfficeClawConfig): Map<string, CatVariant> {
   const index = new Map<string, CatVariant>();
   for (const breed of config.breeds) {
     for (const variant of breed.variants) {
@@ -778,7 +778,7 @@ export type CliEffortLevel = 'low' | 'medium' | 'high' | 'max' | 'xhigh';
  *   codex (openai):     'xhigh'
  *   others:             'high'
  */
-export function getCatEffort(catId: string, config?: CatCafeConfig): CliEffortLevel {
+export function getCatEffort(catId: string, config?: OfficeClawConfig): CliEffortLevel {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return 'max';
 
@@ -828,7 +828,7 @@ const DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE: MissionHubSelfClaimScope = 'disabled
  * Get roster from config. Returns empty object for v1 configs.
  * F032: Used by reviewer matching to check roles, availability, family.
  */
-export function getRoster(config?: CatCafeConfig): Roster {
+export function getRoster(config?: OfficeClawConfig): Roster {
   if (_cachedRoster && !config) return _cachedRoster;
 
   const cfg = config ?? getCachedConfig();
@@ -839,14 +839,14 @@ export function getRoster(config?: CatCafeConfig): Roster {
 
   // v2 config has roster — TypeScript narrows type after version check
   _cachedRoster = cfg.roster;
-  return _cachedRoster;
+  return cfg.roster;
 }
 
 /**
  * Get review policy from config. Returns defaults for v1 configs.
  * F032: Used by reviewer matching to determine matching strategy.
  */
-export function getReviewPolicy(config?: CatCafeConfig): ReviewPolicy {
+export function getReviewPolicy(config?: OfficeClawConfig): ReviewPolicy {
   if (_cachedReviewPolicy && !config) return _cachedReviewPolicy;
 
   const cfg = config ?? getCachedConfig();
@@ -857,14 +857,14 @@ export function getReviewPolicy(config?: CatCafeConfig): ReviewPolicy {
 
   // v2 config has reviewPolicy — TypeScript narrows type after version check
   _cachedReviewPolicy = cfg.reviewPolicy;
-  return _cachedReviewPolicy;
+  return cfg.reviewPolicy;
 }
 
 /**
  * Resolve a cat's provider from config breeds.
  * Returns undefined if catId is not found in config.
  */
-function getCatProvider(catId: string, config?: CatCafeConfig): string | undefined {
+function getCatProvider(catId: string, config?: OfficeClawConfig): string | undefined {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return undefined;
 
@@ -879,10 +879,10 @@ function getCatProvider(catId: string, config?: CatCafeConfig): string | undefin
 
 /**
  * Check if a cat is available (has quota AND its provider is visible).
- * F032: 铲屎官 40 美刀教训 — 没猫粮的猫不要找！
+ * F032: 用户 40 美刀教训 — 没配额的猫不要找！
  * Client-visibility: hidden providers must not be routable via @mention.
  */
-export function isCatAvailable(catId: string, config?: CatCafeConfig): boolean {
+export function isCatAvailable(catId: string, config?: OfficeClawConfig): boolean {
   const roster = getRoster(config);
   const entry = roster[catId];
   // If not in roster, assume available (backward compat)
@@ -899,7 +899,7 @@ export function isCatAvailable(catId: string, config?: CatCafeConfig): boolean {
  * Get a cat's family from roster.
  * F032: Used for "different family" rule in reviewer matching.
  */
-export function getCatFamily(catId: string, config?: CatCafeConfig): string | undefined {
+export function getCatFamily(catId: string, config?: OfficeClawConfig): string | undefined {
   const roster = getRoster(config);
   return roster[catId]?.family;
 }
@@ -908,7 +908,7 @@ export function getCatFamily(catId: string, config?: CatCafeConfig): string | un
  * Check if a cat has a specific role.
  * F032: Used to check if a cat can be a reviewer, architect, etc.
  */
-export function catHasRole(catId: string, role: string, config?: CatCafeConfig): boolean {
+export function catHasRole(catId: string, role: string, config?: OfficeClawConfig): boolean {
   const roster = getRoster(config);
   const entry = roster[catId];
   return entry?.roles.includes(role) ?? false;
@@ -918,7 +918,7 @@ export function catHasRole(catId: string, role: string, config?: CatCafeConfig):
  * Check if a cat is the lead of its family.
  * F032: Used for "prefer lead" rule in reviewer matching.
  */
-export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
+export function isCatLead(catId: string, config?: OfficeClawConfig): boolean {
   const roster = getRoster(config);
   return roster[catId]?.lead ?? false;
 }
@@ -934,7 +934,7 @@ let _cachedCoCreator: CoCreatorConfig | null = null;
  * Get coCreator config from office-claw-config.json.
  * Returns a default config with @co-creator/@用户 patterns when not configured.
  */
-export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
+export function getCoCreatorConfig(config?: OfficeClawConfig): CoCreatorConfig {
   if (_cachedCoCreator && !config) return _cachedCoCreator;
 
   const cfg = config ?? getCachedConfig();
@@ -945,14 +945,14 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
   }
 
   _cachedCoCreator = cfg.coCreator;
-  return _cachedCoCreator;
+  return cfg.coCreator;
 }
 
 /**
  * Get all co-creator mention patterns (lowercased, with @ prefix).
  * Always includes @co-creator and @用户 as fallback patterns in addition to configured ones.
  */
-export function getCoCreatorMentionPatterns(config?: CatCafeConfig): readonly string[] {
+export function getCoCreatorMentionPatterns(config?: OfficeClawConfig): readonly string[] {
   const coCreator = getCoCreatorConfig(config);
   const patterns = new Set(coCreator.mentionPatterns.map((p: string) => p.toLowerCase()));
   // Always include legacy patterns for backward compat

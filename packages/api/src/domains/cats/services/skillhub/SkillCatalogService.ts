@@ -8,10 +8,9 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { resolveCatCafeHostRoot } from '../../../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../../../utils/office-claw-root.js';
 import { parseFrontmatterString } from './frontmatter-parser.js';
 import { loadInstalledRegistry } from './InstalledSkillRegistry.js';
-import { ensureSkillStorageMigrated } from './SkillStorageMigration.js';
 import {
   resolveOfficialSkillsRoot,
   resolveUserSkillsRoot,
@@ -167,7 +166,7 @@ function normalizeText(value: string): string {
 }
 
 function resolveSkillRoots(options?: SkillCatalogServiceOptions): SkillRoots {
-  const hostRoot = options?.hostRoot ? resolve(options.hostRoot) : resolveCatCafeHostRoot(process.cwd());
+  const hostRoot = options?.hostRoot ? resolve(options.hostRoot) : resolveOfficeClawHostRoot(process.cwd());
   return {
     hostRoot,
     officialSkillsRoot: resolveOfficialSkillsRoot(hostRoot),
@@ -339,7 +338,6 @@ async function collectRelatedFiles(skillDir: string): Promise<string[]> {
 
 async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): Promise<ResolvedSkillEntry[]> {
   const roots = resolveSkillRoots(options);
-  await ensureSkillStorageMigrated(roots.hostRoot);
   const [officialSkillNames, userSkillNames, bootstrapEntries, manifestMeta, installedRegistry] = await Promise.all([
     listSkillDirs(roots.officialSkillsRoot),
     listSkillDirs(roots.userSkillsRoot),

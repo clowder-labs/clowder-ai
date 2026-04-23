@@ -13,7 +13,7 @@ import type { Thread } from '@/stores/chat-types';
 import type { StorageLike } from './collapse-state';
 import type { ThreadGroup } from './thread-utils';
 
-export const PROJECT_PIN_KEY = 'cat-cafe:sidebar:pinned-projects';
+export const PROJECT_PIN_KEY = 'office-claw:sidebar:pinned-projects';
 
 /**
  * Get the N most recently active threads (cross-project).

@@ -19,7 +19,7 @@ import {
   DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS,
   resolveBundledAgentTeamsExecutable,
 } from './agent-teams-bundle.js';
-import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from './office-claw-root.js';
 import { filterAllowedClients } from './client-visibility.js';
 
 type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw' | 'acp';
@@ -41,7 +41,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   {
     id: 'acp',
     label: 'ACP',
-    command: `${resolveBundledAgentTeamsExecutable(resolveCatCafeHostRoot(process.cwd()))} ${DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS.join(' ')}`,
+    command: `${resolveBundledAgentTeamsExecutable(resolveOfficeClawHostRoot(process.cwd()))} ${DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS.join(' ')}`,
   },
 ];
 
@@ -64,7 +64,7 @@ function commandExists(command: string): Promise<boolean> {
 }
 
 async function acpRuntimeAvailable(): Promise<boolean> {
-  return bundledAgentTeamsRuntimeAvailable(resolveCatCafeHostRoot(process.cwd()));
+  return bundledAgentTeamsRuntimeAvailable(resolveOfficeClawHostRoot(process.cwd()));
 }
 
 function relayClawSidecarAvailable(): boolean {

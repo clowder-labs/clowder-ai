@@ -9,7 +9,7 @@
  *
  * Tests:
  * 1. Typing "@op" filters to opus-matching cats only
- * 2. Typing "@xyz" yields empty list with "无匹配猫猫" message
+ * 2. Typing "@xyz" yields empty list with "无匹配智能体" message
  * 3. Enter on empty filtered results does not insert newline (P2-1 fix)
  * 4. detectMenuTrigger returns filter string
  */
@@ -20,9 +20,9 @@ import type { CatData } from '@/hooks/useCatData';
 const MANY_CATS: CatData[] = [
   {
     id: 'opus',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-    mentionPatterns: ['布偶', 'opus'],
+    mentionPatterns: ['claude', 'opus'],
     provider: 'anthropic',
     defaultModel: 'opus',
     avatar: '/a.png',
@@ -32,9 +32,9 @@ const MANY_CATS: CatData[] = [
   },
   {
     id: 'codex',
-    displayName: '缅因猫',
+    displayName: 'Codex',
     color: { primary: '#5B8C5A', secondary: '#D5E8D4' },
-    mentionPatterns: ['缅因', 'codex'],
+    mentionPatterns: ['assistant', 'codex'],
     provider: 'openai',
     defaultModel: 'codex',
     avatar: '/b.png',
@@ -44,9 +44,9 @@ const MANY_CATS: CatData[] = [
   },
   {
     id: 'gemini',
-    displayName: '暹罗猫',
+    displayName: 'Gemini',
     color: { primary: '#5B9BD5', secondary: '#D6E9F8' },
-    mentionPatterns: ['暹罗', 'gemini'],
+    mentionPatterns: ['design', 'gemini'],
     provider: 'google',
     defaultModel: 'gemini',
     avatar: '/c.png',
@@ -56,7 +56,7 @@ const MANY_CATS: CatData[] = [
   },
   {
     id: 'sonnet',
-    displayName: '布偶猫',
+    displayName: 'Claude',
     variantLabel: 'Sonnet',
     color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
     mentionPatterns: ['sonnet'],

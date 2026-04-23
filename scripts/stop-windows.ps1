@@ -76,7 +76,7 @@ if (-not $configuredRedisUrl -and $env:REDIS_URL) {
 $redisAuthFromCM = [bool]($runtimeState -and $runtimeState.RedisAuthFromCredentialManager)
 if ($redisAuthFromCM) {
     try {
-        $storedPassword = Read-ClowderCredential -Path "redis/password"
+        $storedPassword = Read-OfficeClawCredential -Path "redis/password"
         if ($storedPassword) {
             $escapedPwd = [System.Uri]::EscapeDataString($storedPassword)
             $configuredRedisUrl = "redis://:${escapedPwd}@localhost:${RedisPort}"
@@ -108,19 +108,19 @@ function Get-ProcessCommandLine {
     }
 }
 
-function Test-ClowderOwnedProcess {
-    param([int]$ProcessId, [string]$ClowderProjectRoot)
-    if (-not $ClowderProjectRoot) {
+function Test-OfficeClawOwnedProcess {
+    param([int]$ProcessId, [string]$OfficeClawProjectRoot)
+    if (-not $OfficeClawProjectRoot) {
         return $false
     }
     $commandLine = Get-ProcessCommandLine -ProcessId $ProcessId
     if (-not $commandLine) {
         return $false
     }
-    $normalizedRoot = $ClowderProjectRoot.TrimEnd('\', '/') + '\'
+    $normalizedRoot = $OfficeClawProjectRoot.TrimEnd('\', '/') + '\'
     return (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle $normalizedRoot) -or
-        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + '"')) -or
-        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + "'"))
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($OfficeClawProjectRoot + '"')) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($OfficeClawProjectRoot + "'"))
 }
 
 function Stop-PortProcess {
@@ -131,9 +131,9 @@ function Stop-PortProcess {
         $stopped = $false
         foreach ($conn in $connections) {
             $isManagedPid = $managedPid -and ($conn.OwningProcess -eq $managedPid)
-            $isClowderOwned = $isManagedPid -or (Test-ClowderOwnedProcess -ProcessId $conn.OwningProcess -ClowderProjectRoot $ProjectRoot)
-            if (-not $isClowderOwned) {
-                Write-Warn "Skipping non-Clowder $Name listener on port $Port (PID $($conn.OwningProcess))"
+            $isOfficeClawOwned = $isManagedPid -or (Test-OfficeClawOwnedProcess -ProcessId $conn.OwningProcess -OfficeClawProjectRoot $ProjectRoot)
+            if (-not $isOfficeClawOwned) {
+                Write-Warn "Skipping non-OfficeClaw $Name listener on port $Port (PID $($conn.OwningProcess))"
                 continue
             }
             Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
@@ -143,7 +143,7 @@ function Stop-PortProcess {
             Remove-Item $PidFile -ErrorAction SilentlyContinue
             Write-Ok "Stopped $Name (port $Port)"
         } else {
-            Write-Warn "$Name (port $Port) - no Clowder-owned listener found"
+            Write-Warn "$Name (port $Port) - no OfficeClaw-owned listener found"
         }
     } else {
         Write-Warn "$Name (port $Port) - not running"
@@ -206,15 +206,15 @@ if ($configuredRedisUrl -and -not (Test-LocalRedisUrl -RedisUrl $configuredRedis
                     break
                 }
                 $isManagedPid = $managedRedisPid -and ($conn.OwningProcess -eq $managedRedisPid)
-                $isClowderOwned = $isManagedPid -or (Test-ClowderOwnedProcess -ProcessId $conn.OwningProcess -ClowderProjectRoot $ProjectRoot)
-                if (-not $isClowderOwned) {
-                    Write-Warn "Skipping non-Clowder Redis listener on port $RedisPort (PID $($conn.OwningProcess))"
+                $isOfficeClawOwned = $isManagedPid -or (Test-OfficeClawOwnedProcess -ProcessId $conn.OwningProcess -OfficeClawProjectRoot $ProjectRoot)
+                if (-not $isOfficeClawOwned) {
+                    Write-Warn "Skipping non-OfficeClaw Redis listener on port $RedisPort (PID $($conn.OwningProcess))"
                     continue
                 }
                 $ownedRedisConnections += $conn
             }
             if ($ownedRedisConnections.Count -eq 0) {
-                Write-Warn "Redis (port $RedisPort) - no Clowder-owned listener found"
+                Write-Warn "Redis (port $RedisPort) - no OfficeClaw-owned listener found"
             } else {
                 $redisCli = $redisCommands.CliPath
                 $redisAuthArgs = Get-RedisAuthArgs -RedisUrl $configuredRedisUrl
@@ -235,7 +235,7 @@ if ($configuredRedisUrl -and -not (Test-LocalRedisUrl -RedisUrl $configuredRedis
     }
 }
 
-# Stop orphaned Python processes spawned by Clowder (relayclaw sidecar, ACP agent-teams, etc.)
+# Stop orphaned Python processes spawned by OfficeClaw (relayclaw sidecar, ACP agent-teams, etc.)
 if ($ProjectRoot) {
     try {
         $pythonProcesses = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue
@@ -243,17 +243,17 @@ if ($ProjectRoot) {
         foreach ($proc in $pythonProcesses) {
             if (-not $proc.CommandLine) { continue }
             $cmdLine = $proc.CommandLine
-            $isClowderPython = (
+            $isOfficeClawPython = (
                 (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle $ProjectRoot) -or
                 (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools\python\python.exe") -or
                 (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools/python/python.exe") -or
                 (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor\jiuwenclaw") -or
                 (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor/jiuwenclaw")
             )
-            if (-not $isClowderPython) { continue }
-            if (-not (Test-ClowderOwnedProcess -ProcessId $proc.ProcessId -ClowderProjectRoot $ProjectRoot)) {
-                # Command line matched a Clowder-like pattern but process is not owned by this project
-                Write-Warn "Skipping non-Clowder Python process (PID $($proc.ProcessId))"
+            if (-not $isOfficeClawPython) { continue }
+            if (-not (Test-OfficeClawOwnedProcess -ProcessId $proc.ProcessId -OfficeClawProjectRoot $ProjectRoot)) {
+                # Command line matched a OfficeClaw-like pattern but process is not owned by this project
+                Write-Warn "Skipping non-OfficeClaw Python process (PID $($proc.ProcessId))"
                 continue
             }
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue

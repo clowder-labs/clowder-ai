@@ -30,9 +30,9 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-        mentionPatterns: ['布偶', 'opus'],
+        mentionPatterns: ['Claude', 'opus'],
         provider: 'anthropic',
         defaultModel: 'opus',
         avatar: '/a.png',
@@ -41,9 +41,9 @@ vi.mock('@/hooks/useCatData', () => ({
       },
       {
         id: 'codex',
-        displayName: '缅因猫',
+        displayName: 'Codex',
         color: { primary: '#4CAF50', secondary: '#C8E6C9' },
-        mentionPatterns: ['缅因', 'codex'],
+        mentionPatterns: ['Codex', 'codex'],
         provider: 'openai',
         defaultModel: 'codex',
         avatar: '/b.png',
@@ -100,8 +100,8 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     enterWhisperMode();
 
     const chips = getWhisperChips();
-    const opusChip = chips.find((b) => b.textContent?.includes('布偶猫'));
-    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    const opusChip = chips.find((b) => b.textContent?.includes('Claude'));
+    const codexChip = chips.find((b) => b.textContent?.includes('Codex'));
 
     expect(opusChip).toBeDefined();
     expect(codexChip).toBeDefined();
@@ -118,13 +118,13 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     enterWhisperMode();
 
     const chips = getWhisperChips();
-    const opusChip = chips.find((b) => b.textContent?.includes('布偶猫'));
-    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    const opusChip = chips.find((b) => b.textContent?.includes('Claude'));
+    const codexChip = chips.find((b) => b.textContent?.includes('Codex'));
 
-    // opus (executing) should NOT be selected (no bg-amber-50)
+    // executing target should not be selected (no bg-amber-50)
     expect(opusChip?.className).toContain('cursor-not-allowed');
     expect(opusChip?.className).not.toContain('bg-amber-50');
-    // codex (idle) should be auto-selected
+    // idle target should be auto-selected
     expect(codexChip?.className).toContain('bg-amber-50');
   });
 
@@ -137,7 +137,7 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     enterWhisperMode();
 
     const chips = getWhisperChips();
-    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    const codexChip = chips.find((b) => b.textContent?.includes('Codex'));
     expect(codexChip?.textContent).toContain('⏳');
   });
 
@@ -162,8 +162,8 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     enterWhisperMode();
 
     const chips = getWhisperChips();
-    const opusChip = chips.find((b) => b.textContent?.includes('布偶猫'));
-    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    const opusChip = chips.find((b) => b.textContent?.includes('Claude'));
+    const codexChip = chips.find((b) => b.textContent?.includes('Codex'));
 
     expect(opusChip?.disabled).toBe(true);
     expect(codexChip?.disabled).toBe(false);

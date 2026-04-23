@@ -28,7 +28,7 @@ describe('saveUploadedImages', () => {
   let uploadDir;
 
   beforeEach(async () => {
-    uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-upload-'));
+    uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-upload-'));
   });
 
   afterEach(async () => {
@@ -140,7 +140,7 @@ describe('saveUploadedAttachments', () => {
   let uploadDir;
 
   beforeEach(async () => {
-    uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-attachment-upload-'));
+    uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-attachment-upload-'));
   });
 
   afterEach(async () => {
@@ -271,7 +271,7 @@ describe('extractImagePaths', () => {
     const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
     const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
 
-    const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-workspace-image-root-'));
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'office-claw-workspace-image-root-'));
     const entry = ensureRegisteredWorktreeRoot(workspaceRoot, 'workspace');
     const blocks = [
       {
@@ -314,7 +314,7 @@ describe('extractUploadRefs', () => {
     const { extractUploadRefs } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
     const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
 
-    const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-workspace-file-root-'));
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'office-claw-workspace-file-root-'));
     const entry = ensureRegisteredWorktreeRoot(workspaceRoot, 'workspace');
     const blocks = [
       {
@@ -530,7 +530,7 @@ describe('multipart image target routing', () => {
   const broadcastedAgentMessages = [];
 
   beforeEach(async () => {
-    uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-image-target-'));
+    uploadDir = await mkdtemp(join(tmpdir(), 'office-claw-image-target-'));
     routeExecutionCalls.length = 0;
     broadcastedAgentMessages.length = 0;
 
@@ -585,7 +585,7 @@ describe('multipart image target routing', () => {
   });
 
   it('rejects multipart image messages before routing', async () => {
-    const boundary = '----cat-cafe-test-boundary';
+    const boundary = '----office-claw-test-boundary';
     const payload = Buffer.concat([
       Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="content"\r\n\r\n请看图\r\n`),
       Buffer.from(

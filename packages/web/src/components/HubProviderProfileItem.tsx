@@ -16,7 +16,7 @@ import { useConfirm } from './useConfirm';
 
 const ACP_MODEL_ACCESS_OPTIONS: Array<{ value: AcpModelAccessMode; label: string }> = [
   { value: 'self_managed', label: 'Agent Teams 自管' },
-  { value: 'clowder_default_profile', label: 'Clowder 下发 default' },
+  { value: 'clowder_default_profile', label: 'OfficeClaw 下发 default' },
 ];
 export interface ProfileEditPayload {
   displayName: string;
@@ -310,7 +310,7 @@ export function HubProviderProfileItem({
           {summaryText(profile) ? <p className="text-sm text-[#727D8F]">{summaryText(profile)}</p> : null}
           {profile.kind === 'acp' ? (
             <p className="text-xs leading-5 text-[#727D8F]">
-              模型接入: {profile.modelAccessMode === 'clowder_default_profile' ? 'Clowder default profile' : 'Agent Teams 自管'}
+              模型接入: {profile.modelAccessMode === 'clowder_default_profile' ? 'OfficeClaw default profile' : 'Agent Teams 自管'}
             </p>
           ) : (
             <div className="space-y-2">

@@ -16,7 +16,7 @@ related_features: [F049, F037]
 
 # F058: Mission Control Enhancements
 
-> **Status**: in-progress | **Owner**: 布偶猫/宪宪
+> **Status**: in-progress | **Owner**: Claude/宪宪
 
 ## What
 

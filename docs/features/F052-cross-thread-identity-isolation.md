@@ -8,7 +8,7 @@ created: 2026-03-02
 
 # F052: 跨线程身份隔离与消息溯源
 
-> **Status**: done | **Owner**: Ragdoll
+> **Status**: done | **Owner**: Claude
 > **Priority**: P1
 > **依赖**: F043 Phase A（cross_post_message 已落地）
 > **Evolved from**: F043（跨线程传输能力）
@@ -19,12 +19,12 @@ created: 2026-03-02
 
 > **一句话**：跨线程消息应该像组间传话，不是身份混乱。
 
-Cat Café 的每条 Thread 是一条独立工作流。多条 Thread 并行时，猫猫需要跨线程通知、传话、交接。F043 `cross_post_message` 解决了"传输"，但传过去的消息**没有来源标记**——收件方分不清是本线程的猫说的，还是别线程的猫传过来的。
+Cat Café 的每条 Thread 是一条独立工作流。多条 Thread 并行时，智能体需要跨线程通知、传话、交接。F043 `cross_post_message` 解决了"传输"，但传过去的消息**没有来源标记**——收件方分不清是本线程的猫说的，还是别线程的猫传过来的。
 
 ### team experience（2026-03-02 Thread `thread_mm8nkwlcwmwhmfgz`）
 
 > "我们没做跨线程的身份隔离！别线程的 codex 他顶着 codex 的名字"
-> "我得知道是Maine Coon本地还是其他线程来的？"
+> "我得知道是Codex本地还是其他线程来的？"
 > "我们自己的 context build 的时候...似乎没自动组装别的线程的 codex 的话？"
 > "ux 安全 context 等等等，其实我们的机制都还没跟上这个 mcp"
 
@@ -112,13 +112,13 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 
 ```
 // 本地消息（不变）
-[msgId] [14:30 Maine Coon] 内容...
+[msgId] [14:30 Codex] 内容...
 
 // 跨线程消息（新增来源标注）
-[msgId] [14:30 Maine Coon ← from thread:mm806zbc] 内容...
+[msgId] [14:30 Codex ← from thread:mm806zbc] 内容...
 ```
 
-猫猫看到 `← from thread:xxx` 就知道这条不是本线程产生的。不自动注入来源线程的上下文——猫可以按需调用 `get_thread_context(threadId=xxx)` 主动拉。
+智能体看到 `← from thread:xxx` 就知道这条不是本线程产生的。不自动注入来源线程的上下文——猫可以按需调用 `get_thread_context(threadId=xxx)` 主动拉。
 
 #### B2: UX 展示
 
@@ -152,7 +152,7 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 
 | ID | 需求点（team experience/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "我得知道是Maine Coon本地还是其他线程来的" | AC-A1, AC-B1, AC-B2 | test + UI badge | [x] |
+| R1 | "我得知道是Codex本地还是其他线程来的" | AC-A1, AC-B1, AC-B2 | test + UI badge | [x] |
 | R2 | "别线程 codex at 我们的 codex 他无法 a2a" | AC-A2, AC-A3 | test（跨线程 @codex 触发 + 同线程不触发） | [x] |
 | R3 | "但是调用 sonnet 是可以的"（不能回归） | AC-A2 | test（跨线程 @sonnet 仍正常） | [x] |
 | R4 | "ux 安全 context 等等等机制都还没跟上" | AC-A1, AC-B1 | test（context 标注 + 溯源字段） | [x] |
@@ -176,7 +176,7 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 - **Evolved from**: F043（`cross_post_message` 传输能力，PR #174 已合入）
 - **Related**: F046 Phase D（@ routing 卫生，但 F052 不依赖它）
 - **Related**: F050（A2A 外部 Agent 接入，F052 的身份模型影响 F050 的跨 agent 消息）
-- **Evolves into**: F056（设计语言猫猫化 — 跨线程气泡作为打样）、F057（Thread 可发现性 — badge 增强）
+- **Evolves into**: F056（设计语言智能体化 — 跨线程气泡作为打样）、F057（Thread 可发现性 — badge 增强）
 
 ## Risk
 
@@ -188,15 +188,15 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 
 ## Review Gate
 
-- Phase A: 跨家族 review（Maine Coon codex 或 gpt52）
-- Phase B: 前端部分额外需要Siamese视觉 review
+- Phase A: 跨家族 review（Codex codex 或 gpt52）
+- Phase B: 前端部分额外需要Gemini视觉 review
 
 ## Cross-Cat Audit
 
-| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+| 智能体 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|---------|------|
-| Ragdoll (Opus) | F052 spec, F043 spec, team experience thread | ① 核心问题=跨线程消息无来源标记+A2A误杀 ② 交付物解决了 ③ team lead在UI看到蓝色badge+codex被正确A2A触发 | [x] 签收 |
-| Maine Coon (Codex) | F052 spec, 代码diff(16 files), 测试覆盖 | R1: 2P1(WS路径遗漏) → R2: 1P1(后台线程遗漏) → R3: 0P1/P2 放行 | [x] 放行 |
+| Claude (Opus) | F052 spec, F043 spec, team experience thread | ① 核心问题=跨线程消息无来源标记+A2A误杀 ② 交付物解决了 ③ team lead在UI看到蓝色badge+codex被正确A2A触发 | [x] 签收 |
+| Codex (Codex) | F052 spec, 代码diff(16 files), 测试覆盖 | R1: 2P1(WS路径遗漏) → R2: 1P1(后台线程遗漏) → R3: 0P1/P2 放行 | [x] 放行 |
 
 ## Known Bugs
 
@@ -211,7 +211,7 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 - 异猫跨线程消息：**正常**（catId 不同 → 不被过滤）
 - 这解释了为什么跨线程通讯"有时正常、有时失灵"
 
-**独立验证**: Ragdoll(Opus 4.6) 定位 + Maine Coon(GPT-5.4) 独立复核确认
+**独立验证**: Claude(Opus 4.6) 定位 + Codex(GPT-5.4) 独立复核确认
 
 **修复方向**: 对 `extra.crossPost` 消息豁免 self-filter：
 ```typescript

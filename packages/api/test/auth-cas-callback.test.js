@@ -77,7 +77,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('completes CAS callback login and refreshes maas models', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -119,16 +119,16 @@ describe('authRoutes CAS callback flow', () => {
     assert.equal(callbackResponse.statusCode, 200);
     assert.equal(callbackResponse.json().success, true);
     assert.equal(callbackResponse.json().userId, 'domain-001:alice');
-    assert.equal(callbackResponse.headers['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(callbackResponse.headers['x-office-claw-user'], 'domain-001:alice');
     assert.equal(refreshCount, 1);
-    assert.equal(refreshHeaders?.['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(refreshHeaders?.['x-office-claw-user'], 'domain-001:alice');
     assert.equal(refreshHeaders?.['x-refresh'], 'true');
     assert.ok(sessions.has('domain-001:alice'));
 
     const isLoginResponse = await app.inject({
       method: 'GET',
       url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      headers: { 'x-office-claw-user': 'domain-001:alice' },
     });
 
     assert.equal(isLoginResponse.statusCode, 200);
@@ -142,7 +142,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('requires a ticket for the CAS callback', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-missing-ticket-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-missing-ticket-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -173,7 +173,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('always resolves callback identity from ticket validation', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-ticket-priority-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-ticket-priority-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -217,7 +217,7 @@ describe('authRoutes CAS callback flow', () => {
     assert.equal(callbackResponse.json().userId, 'domain-001:alice');
     assert.equal(ticketValidateCount, 1);
     assert.equal(refreshCount, 0);
-    assert.equal(callbackResponse.headers['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(callbackResponse.headers['x-office-claw-user'], 'domain-001:alice');
     assert.equal(sessions.has('wrong-domain:wrong-user'), false);
 
     sessions.clear();
@@ -227,7 +227,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('treats a non-null subscription in ticket-validate as already subscribed', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-subscription-opened-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-subscription-opened-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -275,7 +275,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('keeps CAS session pending until invitation code is submitted', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-pending-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-pending-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -327,14 +327,14 @@ describe('authRoutes CAS callback flow', () => {
     assert.equal(callbackResponse.json().success, true);
     assert.equal(callbackResponse.json().needCode, true);
     assert.equal(refreshCount, 0);
-    assert.equal(callbackResponse.headers['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(callbackResponse.headers['x-office-claw-user'], 'domain-001:alice');
     assert.equal(sessions.has('domain-001:alice'), false);
     assert.equal(subscriptionAttempt, 0);
 
     const pendingState = await app.inject({
       method: 'GET',
       url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      headers: { 'x-office-claw-user': 'domain-001:alice' },
     });
 
     assert.equal(pendingState.statusCode, 200);
@@ -344,13 +344,13 @@ describe('authRoutes CAS callback flow', () => {
     const invitationResponse = await app.inject({
       method: 'POST',
       url: '/api/login/invitation',
-      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      headers: { 'x-office-claw-user': 'domain-001:alice' },
       payload: { promotionCode: 'promo-123' },
     });
 
     assert.equal(invitationResponse.statusCode, 200);
     assert.equal(invitationResponse.json().success, true);
-    assert.equal(invitationResponse.headers['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(invitationResponse.headers['x-office-claw-user'], 'domain-001:alice');
     assert.equal(refreshCount, 1);
     assert.ok(sessions.has('domain-001:alice'));
     assert.equal(subscriptionAttempt, 1);
@@ -362,7 +362,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('submits invitation directly as long as the stored CAS credential and promotion code exist', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-direct-subscription-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-direct-subscription-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -421,7 +421,7 @@ describe('authRoutes CAS callback flow', () => {
     const invitationResponse = await app.inject({
       method: 'POST',
       url: '/api/login/invitation',
-      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      headers: { 'x-office-claw-user': 'domain-001:alice' },
       payload: { promotionCode: 'promo-direct' },
     });
 
@@ -438,7 +438,7 @@ describe('authRoutes CAS callback flow', () => {
   });
 
   it('redirects to invitation page when ticket-validate omits modelInfo', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-no-model-info-'));
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-cas-no-model-info-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -492,7 +492,7 @@ describe('authRoutes CAS callback flow', () => {
     const pendingState = await app.inject({
       method: 'GET',
       url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      headers: { 'x-office-claw-user': 'domain-001:alice' },
     });
 
     assert.equal(pendingState.statusCode, 200);

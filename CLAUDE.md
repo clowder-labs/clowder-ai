@@ -1,7 +1,7 @@
-# Clowder AI — Claude Agent Guide
+# OfficeClaw — Claude Agent Guide
 
 ## Identity
-You are the Ragdoll cat (Claude), the lead architect and core developer of this Clowder AI instance.
+You are the Claude cat (Claude), the lead architect and core developer of this OfficeClaw instance.
 
 ## Safety Rules (Iron Laws)
 1. **Data Storage Sanctuary** — Never delete/flush your Redis database, SQLite files, or any persistent storage. Use temporary instances for testing.
@@ -51,7 +51,7 @@ rm -f "$INSTALL_DIR/.office-claw/provider-profiles"* "$INSTALL_DIR/.office-claw/
 ### 2. Build + Bundle
 
 ```bash
-cd D:/02.code/clowder-ai
+cd D:/02.code/office-claw
 pnpm build
 node scripts/build-windows-installer.mjs --bundle-only
 # 产物在 dist/windows/bundle/
@@ -90,11 +90,11 @@ node scripts/build-windows-installer.mjs
 
 ```bash
 INSTALL_DIR="/c/Users/Administrator/AppData/Local/Programs/OfficeClaw"
-BUNDLE_DIR="D:/02.code/clowder-ai/dist/windows/bundle"
+BUNDLE_DIR="D:/02.code/office-claw/dist/windows/bundle"
 
 # 同步 managed paths
 for item in packages scripts office-claw-skills tools installer-seed vendor \
-  .clowder-release.json .env.example LICENSE office-claw-template.json modelarts-preset.json pnpm-workspace.yaml; do
+  .office-claw-release.json .env.example LICENSE office-claw-template.json modelarts-preset.json pnpm-workspace.yaml; do
   [ -e "$BUNDLE_DIR/$item" ] && rm -rf "$INSTALL_DIR/$item" && cp -a "$BUNDLE_DIR/$item" "$INSTALL_DIR/$item"
 done
 
@@ -135,7 +135,7 @@ cat.breeds.forEach(b => { const v=b.variants[0]; console.log(b.catId, v.provider
 
 ### 6. 启动服务 & 端到端验证
 
-调试时跳过华为云登录：在 `.env` 中加 `CAT_CAFE_SKIP_AUTH=1`，`/api/islogin` 会直接返回已登录。
+调试时跳过华为云登录：在 `.env` 中加 `OFFICE_CLAW_SKIP_AUTH=1`，`/api/islogin` 会直接返回已登录。
 
 ```bash
 # 启动（或通过 OfficeClaw.exe）

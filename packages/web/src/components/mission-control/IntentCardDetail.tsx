@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { IntentCard, RiskSignal, SizeBand } from '@clowder/shared';
+import type { IntentCard, RiskSignal, SizeBand } from '@office-claw/shared';
 import { useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { BucketBadge, SourceBadge } from './TriageBadge';

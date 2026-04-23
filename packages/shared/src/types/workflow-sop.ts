@@ -5,7 +5,7 @@
  */
 
 // F073 P1: Mission Hub 告示牌 — WorkflowSop types
-// 告示牌哲学：存信息，不控制流程。猫看了自己决定行动。
+// 告示牌哲学：存信息，不控制流程。智能体看了自己决定行动。
 
 export type SopStage = 'kickoff' | 'impl' | 'quality_gate' | 'review' | 'merge' | 'completion';
 

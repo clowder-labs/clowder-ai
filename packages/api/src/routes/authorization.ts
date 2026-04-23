@@ -5,11 +5,11 @@
  */
 
 /**
- * Authorization Management Routes — 铲屎官审批 + 规则管理 + 审计查询
+ * Authorization Management Routes — 用户审批 + 规则管理 + 审计查询
  * 安全: X-Office-Claw-User header
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';
@@ -50,7 +50,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
   const { authManager, ruleStore, auditStore, socketManager } = opts;
   const jiuwenPermissionBridge = opts.jiuwenPermissionBridge ?? getJiuwenPermissionBridge();
 
-  // POST /api/authorization/respond — 铲屎官审批
+  // POST /api/authorization/respond — 用户审批
   app.post('/api/authorization/respond', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) {

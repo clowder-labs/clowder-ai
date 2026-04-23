@@ -17,8 +17,8 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/zts212653/clowder-ai.git
-cd clowder-ai
+git clone https://github.com/zts212653/office-claw.git
+cd office-claw
 
 # 2. Install
 pnpm install
@@ -36,9 +36,9 @@ pnpm start
 #   pnpm start:direct
 ```
 
-`pnpm start` uses the **runtime worktree** architecture: it creates an isolated `../cat-cafe-runtime` worktree (on first run), syncs it to `origin/main`, builds, starts Redis, and launches Frontend (port 3003) + API (port 3004). This keeps your development checkout clean.
+`pnpm start` uses the **runtime worktree** architecture: it creates an isolated `../office-claw-runtime` worktree (on first run), syncs it to `origin/main`, builds, starts Redis, and launches Frontend (port 3003) + API (port 3004). This keeps your development checkout clean.
 
-> **Tip:** If `pnpm start` fails because `../cat-cafe-runtime` already exists, use `pnpm start:direct` instead — it runs directly in your current checkout without creating a worktree. You can also set a custom path: `CAT_CAFE_RUNTIME_DIR=../my-runtime pnpm start`.
+> **Tip:** If `pnpm start` fails because `../office-claw-runtime` already exists, use `pnpm start:direct` instead — it runs directly in your current checkout without creating a worktree. You can also set a custom path: `OFFICE_CLAW_RUNTIME_DIR=../my-runtime pnpm start`.
 
 Open `http://localhost:3003` and start talking to your team.
 
@@ -48,12 +48,12 @@ Open `http://localhost:3003` and start talking to your team.
 
 ## How `pnpm start` Works (Runtime Worktree)
 
-Clowder uses a **runtime worktree** to keep your dev checkout clean:
+OfficeClaw uses a **runtime worktree** to keep your dev checkout clean:
 
 ```
 your-projects/
-├── clowder-ai/             # Your development checkout (feature branches, edits)
-└── cat-cafe-runtime/       # Auto-created runtime worktree (tracks origin/main)
+├── office-claw/             # Your development checkout (feature branches, edits)
+└── office-claw-runtime/       # Auto-created runtime worktree (tracks origin/main)
 ```
 
 | Command | What it does |
@@ -66,9 +66,9 @@ your-projects/
 | `pnpm runtime:sync` | Only sync worktree to origin/main (no start) |
 | `pnpm runtime:status` | Show worktree path, branch, HEAD, ahead/behind |
 
-First run creates `../cat-cafe-runtime` automatically. Subsequent runs do a fast-forward sync then start.
+First run creates `../office-claw-runtime` automatically. Subsequent runs do a fast-forward sync then start.
 
-> **Custom runtime path:** Set `CAT_CAFE_RUNTIME_DIR` to use a different location: `CAT_CAFE_RUNTIME_DIR=../my-clowder-runtime pnpm start`
+> **Custom runtime path:** Set `OFFICE_CLAW_RUNTIME_DIR` to use a different location: `OFFICE_CLAW_RUNTIME_DIR=../my-runtime pnpm start`
 
 ## Configuration
 
@@ -79,13 +79,13 @@ If you use API keys directly, at least one model provider is needed for a workin
 > **Using CLI auth?** If you've already authenticated via `claude`, `codex`, or `gemini` CLI tools, you can skip API keys — the CLI subscription handles authentication. API keys are only needed for direct API access.
 
 ```bash
-# Claude (Ragdoll cat / 布偶猫) — recommended as primary
+# Claude — recommended as primary
 ANTHROPIC_API_KEY=your-anthropic-api-key
 
-# GPT / Codex (Maine Coon / 缅因猫) — code review specialist
+# GPT / Codex — code review specialist
 OPENAI_API_KEY=your-openai-api-key
 
-# Gemini (Siamese / 暹罗猫) — visual design
+# Gemini — visual design
 GOOGLE_API_KEY=...
 ```
 
@@ -109,11 +109,11 @@ NEXT_PUBLIC_API_URL=http://localhost:3004
 
 ## Optional Features
 
-Clowder works out of the box with model access (API keys or CLI auth) and Redis (or `--memory` mode). Everything below is opt-in.
+OfficeClaw works out of the box with model access (API keys or CLI auth) and Redis (or `--memory` mode). Everything below is opt-in.
 
 ### Voice Input / Output
 
-Talk to your cats hands-free. Requires local ASR/TTS services.
+Talk to your agents hands-free. Requires local ASR/TTS services.
 
 ```bash
 ASR_ENABLED=1
@@ -138,7 +138,7 @@ These services are disabled by default. Set the corresponding `*_ENABLED=1` flag
 **Starting voice services:**
 ```bash
 # TTS (Text-to-Speech) — requires Python 3, creates venv at ~/.office-claw/tts-venv
-./scripts/tts-server.sh                    # default: Qwen3-TTS (三猫声线)
+./scripts/tts-server.sh                    # default: Qwen3-TTS (multi-agent presets)
 TTS_PROVIDER=edge-tts ./scripts/tts-server.sh  # edge-tts fallback (no GPU needed)
 
 # ASR (Speech-to-Text) — requires Python 3 + ffmpeg
@@ -207,7 +207,7 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 
 ### GitHub PR Review Notifications
 
-Get notified when GitHub review emails arrive (polls IMAP). Review comments are automatically routed to the right cat and thread.
+Get notified when GitHub review emails arrive (polls IMAP). Review comments are automatically routed to the right agent and thread.
 
 ```bash
 # QQ Mail example
@@ -233,15 +233,15 @@ GITHUB_MCP_PAT=ghp_...
 ```
 
 **How routing works (3-tier):**
-1. **PR Registration** (primary): Cats register PRs via `register_pr_tracking` MCP tool when they open a PR. When a review email arrives, it routes directly to that cat's thread.
-2. **Title Tag** (fallback): If no registration found, the system looks for a cat name tag in the PR title (e.g., `[宪宪🐾]`) and routes to that cat's Review Inbox.
-3. **Triage** (last resort): If no cat can be identified, the review goes to a Triage thread for manual assignment.
+1. **PR Registration** (primary): Agents register PRs via `register_pr_tracking` MCP tool when they open a PR. When a review email arrives, it routes directly to that agent's thread.
+2. **Title Tag** (fallback): If no registration found, the system looks for an agent name tag in the PR title and routes to that agent's Review Inbox.
+3. **Triage** (last resort): If no agent can be identified, the review goes to a Triage thread for manual assignment.
 
 Review content is fetched via GitHub API (using `GITHUB_MCP_PAT`) for automatic severity extraction (P0/P1/P2 labeling).
 
 ### Web Push Notifications
 
-Browser push notifications when cats need your attention.
+Browser push notifications when agents need your attention.
 
 ```bash
 VAPID_PUBLIC_KEY=...
@@ -257,11 +257,11 @@ Project knowledge (decisions, lessons, discussions) is stored locally in SQLite 
 
 Each project gets its own `evidence.sqlite` file (auto-created on first run) with FTS5 full-text search. Data stays on your machine.
 
-Cats use `search_evidence` and `reflect` MCP tools to query this store. No configuration needed — it works out of the box.
+Agents use `search_evidence` and `reflect` MCP tools to query this store. No configuration needed — it works out of the box.
 
 ## Agent CLI Configuration
 
-Each agent CLI (Claude Code, Codex, Gemini CLI) has its own configuration. Clowder provides project-level MCP server configs that connect agents to the platform:
+Each agent CLI (Claude Code, Codex, Gemini CLI) has its own configuration. OfficeClaw provides project-level MCP server configs that connect agents to the platform:
 
 - **Claude Code**: reads `.mcp.json` for MCP servers, `CLAUDE.md` for project instructions
 - **Codex CLI**: reads `.codex/config.toml` for MCP servers, `AGENTS.md` for project instructions
@@ -269,7 +269,7 @@ Each agent CLI (Claude Code, Codex, Gemini CLI) has its own configuration. Clowd
 
 ### Codex CLI — "Stuck in a Box" Fix
 
-If Codex (Maine Coon / 缅因猫) reports being unable to access files or tools, it's likely running in sandbox mode. Add these settings to your **user-level** Codex config (`~/.codex/config.toml`):
+If Codex reports being unable to access files or tools, it's likely running in sandbox mode. Add these settings to your **user-level** Codex config (`~/.codex/config.toml`):
 
 ```toml
 approval_policy = "on-request"         # ask before dangerous ops
@@ -365,7 +365,7 @@ pnpm threads:autosave:status           # Check autosave status
 pnpm threads:autosave:uninstall        # Remove autosave cron job
 
 # === Alpha Worktree (pre-release testing) ===
-pnpm alpha:init         # Create alpha worktree (../cat-cafe-alpha)
+pnpm alpha:init         # Create alpha worktree (../office-claw-alpha)
 pnpm alpha:sync         # Sync alpha worktree to origin/main
 pnpm alpha:start        # Start alpha environment (ports 3011/3012)
 pnpm alpha:status       # Show alpha worktree status
@@ -375,7 +375,7 @@ pnpm alpha:test         # Run alpha integration tests
 ## Troubleshooting
 
 **`pnpm start` fails with "target path exists"?**
-- The runtime worktree path `../cat-cafe-runtime` is already occupied by another project or directory
+- The runtime worktree path `../office-claw-runtime` is already occupied by another project or directory
 - **Quick fix:** Use `pnpm start:direct` to bypass the worktree and run directly in your checkout
 - **Alternative:** Set a custom runtime path: `CAT_CAFE_RUNTIME_DIR=../my-clowder-runtime pnpm start`
 - If you don't need Redis: `pnpm start:direct -- --memory`

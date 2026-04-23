@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -126,7 +126,7 @@ describe('MissionControlPage', () => {
           {
             id: 'imported-f010',
             userId: 'u_test',
-            title: 'F010 手机端猫猫',
+            title: 'F010 手机端智能体',
             summary: '来自 docs/ROADMAP.md',
             priority: 'p1',
             tags: ['source:docs-backlog', 'feature:f010'],
@@ -168,7 +168,7 @@ describe('MissionControlPage', () => {
       '/api/backlog/import-active-features',
       expect.objectContaining({ method: 'POST' }),
     );
-    expect(container.textContent).toContain('F010 手机端猫猫');
+    expect(container.textContent).toContain('F010 手机端智能体');
   });
 
   it('moves item from open to dispatched through suggest and approve flow', async () => {

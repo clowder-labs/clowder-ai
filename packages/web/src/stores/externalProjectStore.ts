@@ -12,7 +12,7 @@ import type {
   RefluxPattern,
   ResolutionItem,
   Slice,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import { create } from 'zustand';
 
 interface ExternalProjectState {

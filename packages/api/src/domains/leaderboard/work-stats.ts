@@ -8,7 +8,7 @@
  * F075 — Work stats computation from git log
  * Pure functions: git log output → ranked work stats
  */
-import type { RankedCat, WorkStats } from '@clowder/shared';
+import type { RankedCat, WorkStats } from '@office-claw/shared';
 
 const ANTHROPIC_SUFFIX = process.env.ANTHROPIC_SUFFIX!;
 const OPENAI_SUFFIX = process.env.OPENAI_SUFFIX!;

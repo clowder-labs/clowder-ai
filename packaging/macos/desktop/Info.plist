@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Clowder AI</string>
+    <string>OfficeClaw</string>
     <key>CFBundleDisplayName</key>
-    <string>Clowder AI</string>
+    <string>OfficeClaw</string>
     <key>CFBundleIdentifier</key>
-    <string>com.clowder.ai</string>
+    <string>ai.officeclaw.desktop</string>
     <key>CFBundleVersion</key>
     <string>__VERSION__</string>
     <key>CFBundleShortVersionString</key>
@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>ClowderAI</string>
+    <string>OfficeClaw</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>CFBundleIconFile</key>

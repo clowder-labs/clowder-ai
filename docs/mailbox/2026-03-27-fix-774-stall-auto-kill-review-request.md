@@ -20,18 +20,18 @@ review-target-id: fix-774-stall-auto-kill
 - `cli-spawn.test.js` — 3 个回归测试
 
 ## Why
-Codex CLI 间歇性在 `turn.started` 后静默 30 分钟。根因：OpenAI API 响应流 hang，Codex CLI 无内置超时。Cat Café 的 liveness probe 在 ~5 分钟就检测到 idle-silent stall，但只报告不行动。唯一安全网是 30 分钟超时。
+Codex CLI 间歇性在 `turn.started` 后静默 30 分钟。根因：OpenAI API 响应流 hang，Codex CLI 无内置超时。OfficeClaw 的 liveness probe 在 ~5 分钟就检测到 idle-silent stall，但只报告不行动。唯一安全网是 30 分钟超时。
 
 6 个真实超时样本（3/24-3/27），全部 processAlive=true + CPU flat + idle-silent。同期 Claude 零超时。
 
 ## Original Requirements（必填）
 > @opus 你看现在砚砚还有这样的bug 很奇怪 比如你at 他 竟然没生效 ，然后截图是第二种！你at 他 他没任何反应直到 30分钟超时
 > @opus 你可以现在开个新的issue好好排查一下 最好拉上砚砚一起
-- 来源：铲屎官 2026-03-27 00:53 / 01:10 消息
+- 来源：用户 2026-03-27 00:53 / 01:10 消息
 - **请对照上面的摘录判断：30 分钟超时是否被有效缩短**
 
 ## Tradeoff
-- **未做 retry**：stall-kill 后的自动重试是更大的变更（涉及 QueueProcessor 状态机），留后续 PR。当前用户需手动重新 @ 猫猫。
+- **未做 retry**：stall-kill 后的自动重试是更大的变更（涉及 QueueProcessor 状态机），留后续 PR。当前用户需手动重新 @ 智能体。
 - **全局启用而非 per-provider**：数据显示 Claude CLI 永远不进 idle-silent（stderr thinking 持续触发 probe activity），所以全局启用不影响 Claude。测试 #3 验证了这一点。
 
 ## Open Questions
@@ -58,10 +58,10 @@ node --test cli-spawn.test.js process-liveness-probe.test.js queue-processor.tes
   → 100/100 pass, 0 failed ✅
 pnpm lint → 0 errors ✅
 pnpm biome check --diagnostic-level=error → 0 errors ✅
-pnpm --filter @cat-cafe/api exec tsc --noEmit → exit 0 ✅
+pnpm --filter @office-claw/api exec tsc --noEmit → exit 0 ✅
 ```
 
 ### 相关文档
 - Issue: #774
-- Joint investigation: #774 comment (缅因猫 + 布偶猫联合排查)
+- Joint investigation: #774 comment (Codex + Claude联合排查)
 - Related: #768 (phantom replying, already fixed via PR #769)

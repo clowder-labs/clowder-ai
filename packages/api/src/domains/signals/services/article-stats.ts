@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle } from '@clowder/shared';
+import type { SignalArticle } from '@office-claw/shared';
 
 export interface SignalArticleStats {
   readonly todayCount: number;

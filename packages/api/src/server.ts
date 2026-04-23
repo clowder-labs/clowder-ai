@@ -1,15 +1,15 @@
-import type { ClowderProviderPlugin } from '@clowder/core';
+import type { OfficeClawProviderPlugin } from '@office-claw/core';
 
-export interface ClowderServerOptions {
+export interface OfficeClawServerOptions {
   port?: number;
   host?: string;
   redisUrl?: string;
   memoryStore?: boolean;
-  plugins?: ClowderProviderPlugin[];
+  plugins?: OfficeClawProviderPlugin[];
   projectRoot?: string;
 }
 
-export async function createClowderServer(options: ClowderServerOptions = {}): Promise<{
+export async function createOfficeClawServer(options: OfficeClawServerOptions = {}): Promise<{
   start: () => Promise<string>;
   close: () => Promise<void>;
 }> {

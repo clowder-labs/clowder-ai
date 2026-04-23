@@ -8,7 +8,7 @@ import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type {
   CatBreed,
-  CatCafeConfig,
+  OfficeClawConfig,
   CatColor,
   EmbeddedAcpConfig,
   CatProvider,
@@ -16,12 +16,12 @@ import type {
   CliConfig,
   CoCreatorConfig,
   ContextBudget,
-} from '@clowder/shared';
-import { CAT_CONFIGS, createCatId } from '@clowder/shared';
-import { clearBudgetCache } from './cat-budgets.js';
-import { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } from './cat-catalog-store.js';
-import { _resetCachedConfig, loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';
-import { clearVoiceCache } from './cat-voices.js';
+} from '@office-claw/shared';
+import { OFFICE_CLAW_CONFIGS, createCatId } from '@office-claw/shared';
+import { clearBudgetCache } from './office-claw-budgets.js';
+import { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } from './office-claw-catalog-store.js';
+import { _resetCachedConfig, loadCatConfig, toAllCatConfigs } from './office-claw-config-loader.js';
+import { clearVoiceCache } from './office-claw-voices.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 
 export interface RuntimeCatInput {
@@ -122,7 +122,7 @@ function resolveEmbeddedAcpExecutablePath(
   return fromConfig || undefined;
 }
 
-function readOrBootstrapCatalog(projectRoot: string): CatCafeConfig {
+function readOrBootstrapCatalog(projectRoot: string): OfficeClawConfig {
   const templatePath = resolveProjectTemplatePath(projectRoot);
   bootstrapCatCatalog(projectRoot, templatePath);
   const catalog = readCatCatalog(projectRoot);
@@ -138,7 +138,7 @@ function isSeedCat(projectRoot: string, catId: string): boolean {
     const seedCats = toAllCatConfigs(loadCatConfig(templatePath));
     return Object.hasOwn(seedCats, catId);
   } catch {
-    return Object.hasOwn(CAT_CONFIGS, catId);
+    return Object.hasOwn(OFFICE_CLAW_CONFIGS, catId);
   }
 }
 
@@ -148,12 +148,12 @@ function invalidateRuntimeCatalogCaches(): void {
   clearVoiceCache();
 }
 
-function validatePersistedCatalog(projectRoot: string): CatCafeConfig {
+function validatePersistedCatalog(projectRoot: string): OfficeClawConfig {
   invalidateRuntimeCatalogCaches();
   return loadCatConfig(join(projectRoot, '.office-claw', 'office-claw-catalog.json'));
 }
 
-function assertUniqueMentionAliases(catalog: CatCafeConfig): void {
+function assertUniqueMentionAliases(catalog: OfficeClawConfig): void {
   const aliasHolders = new Map<string, string>();
   for (const [catId, config] of Object.entries(toAllCatConfigs(catalog))) {
     for (const mentionPattern of config.mentionPatterns) {
@@ -179,8 +179,8 @@ function assertUniqueMentionAliases(catalog: CatCafeConfig): void {
   }
 }
 
-function writeAndValidateCatalog(projectRoot: string, catalog: unknown): CatCafeConfig {
-  const candidate = catalog as CatCafeConfig;
+function writeAndValidateCatalog(projectRoot: string, catalog: unknown): OfficeClawConfig {
+  const candidate = catalog as OfficeClawConfig;
   assertUniqueMentionAliases(candidate);
   const catalogPath = resolveCatCatalogPath(projectRoot);
   const tempPath = `${catalogPath}.tmp-${process.pid}-${Date.now()}`;
@@ -200,7 +200,7 @@ function writeAndValidateCatalog(projectRoot: string, catalog: unknown): CatCafe
   return validatePersistedCatalog(projectRoot);
 }
 
-function findBreedVariant(catalog: CatCafeConfig, catId: string): BreedVariantLocation | null {
+function findBreedVariant(catalog: OfficeClawConfig, catId: string): BreedVariantLocation | null {
   for (const [breedIndex, breed] of catalog.breeds.entries()) {
     for (const [variantIndex, variant] of breed.variants.entries()) {
       const resolvedCatId = variant.catId ?? breed.catId;
@@ -265,7 +265,7 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
   } as unknown as CatBreed;
 }
 
-function cloneCatalog(catalog: CatCafeConfig): Record<string, any> {
+function cloneCatalog(catalog: OfficeClawConfig): Record<string, any> {
   return structuredClone(catalog) as Record<string, any>;
 }
 
@@ -284,13 +284,13 @@ function buildDefaultRuntimeRosterEntry(
   };
 }
 
-export function readRuntimeCatCatalog(projectRoot: string): CatCafeConfig {
+export function readRuntimeCatCatalog(projectRoot: string): OfficeClawConfig {
   return readOrBootstrapCatalog(projectRoot);
 }
 
-export function createRuntimeCat(projectRoot: string, input: RuntimeCatInput): CatCafeConfig {
+export function createRuntimeCat(projectRoot: string, input: RuntimeCatInput): OfficeClawConfig {
   const catalog = cloneCatalog(readOrBootstrapCatalog(projectRoot));
-  if (findBreedVariant(catalog as unknown as CatCafeConfig, input.catId)) {
+  if (findBreedVariant(catalog as unknown as OfficeClawConfig, input.catId)) {
     throw new Error(`Cat "${input.catId}" already exists in runtime catalog`);
   }
   const nextBreed = createBreedFromInput(input) as unknown as Record<string, any>;
@@ -309,9 +309,9 @@ export function createRuntimeCat(projectRoot: string, input: RuntimeCatInput): C
   return writeAndValidateCatalog(projectRoot, catalog);
 }
 
-export function updateRuntimeCat(projectRoot: string, catId: string, patch: RuntimeCatUpdate): CatCafeConfig {
+export function updateRuntimeCat(projectRoot: string, catId: string, patch: RuntimeCatUpdate): OfficeClawConfig {
   const catalog = cloneCatalog(readOrBootstrapCatalog(projectRoot));
-  const located = findBreedVariant(catalog as unknown as CatCafeConfig, catId);
+  const located = findBreedVariant(catalog as unknown as OfficeClawConfig, catId);
   if (!located) {
     throw new Error(`Cat "${catId}" not found in runtime catalog`);
   }
@@ -520,7 +520,7 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
   return writeAndValidateCatalog(projectRoot, catalog);
 }
 
-export function updateRuntimeCoCreator(projectRoot: string, patch: RuntimeCoCreatorUpdate): CatCafeConfig {
+export function updateRuntimeCoCreator(projectRoot: string, patch: RuntimeCoCreatorUpdate): OfficeClawConfig {
   const catalog = cloneCatalog(readOrBootstrapCatalog(projectRoot));
   if (catalog.version !== 2) {
     throw new Error('Owner config requires a version 2 runtime catalog');
@@ -577,12 +577,12 @@ export function updateRuntimeCoCreator(projectRoot: string, patch: RuntimeCoCrea
   return writeAndValidateCatalog(projectRoot, catalog);
 }
 
-export function deleteRuntimeCat(projectRoot: string, catId: string): CatCafeConfig {
+export function deleteRuntimeCat(projectRoot: string, catId: string): OfficeClawConfig {
   if (isSeedCat(projectRoot, catId)) {
     throw new Error(`Cannot delete seed cat "${catId}" from runtime catalog`);
   }
   const catalog = cloneCatalog(readOrBootstrapCatalog(projectRoot));
-  const located = findBreedVariant(catalog as unknown as CatCafeConfig, catId);
+  const located = findBreedVariant(catalog as unknown as OfficeClawConfig, catId);
   if (!located) {
     throw new Error(`Cat "${catId}" not found in runtime catalog`);
   }

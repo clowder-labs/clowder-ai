@@ -73,7 +73,7 @@ describe('#774 CLI timeout retry on session resume', () => {
           yield {
             type: 'error',
             catId: 'codex',
-            error: '缅因猫 CLI 响应超时 (300s, 未收到首帧)',
+            error: 'Codex CLI 响应超时 (300s, 未收到首帧)',
             timestamp: Date.now(),
           };
           yield { type: 'done', catId: 'codex', timestamp: Date.now() };
@@ -146,7 +146,7 @@ describe('#774 CLI timeout retry on session resume', () => {
         yield {
           type: 'error',
           catId: 'codex',
-          error: '缅因猫 CLI 响应超时 (300s)',
+          error: 'Codex CLI 响应超时 (300s)',
           timestamp: Date.now(),
         };
         yield { type: 'done', catId: 'codex', timestamp: Date.now() };
@@ -208,7 +208,7 @@ describe('#774 CLI timeout retry on session resume', () => {
         yield {
           type: 'error',
           catId: 'codex',
-          error: '缅因猫 CLI 响应超时 (300s, 未收到首帧)',
+          error: 'Codex CLI 响应超时 (300s, 未收到首帧)',
           timestamp: Date.now(),
         };
         yield { type: 'done', catId: 'codex', timestamp: Date.now() };

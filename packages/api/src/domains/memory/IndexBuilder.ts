@@ -34,7 +34,7 @@ const KIND_DIRS: Record<string, EvidenceKind> = {
   episodes: 'lesson',
   postmortems: 'lesson',
   guides: 'plan',
-  stories: 'lesson', // 猫猫的 soul — 名字故事、经历、成长记忆
+  stories: 'lesson', // 智能体的 soul — 名字故事、经历、成长记忆
 };
 
 /** Higher number = higher priority for anchor ownership */

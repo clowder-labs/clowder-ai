@@ -736,7 +736,7 @@ export function useAgentMessages() {
         setCatInvocation(msg.catId, { invocationId: undefined });
         // Always remove the finishing cat's invocation slot, regardless of isFinal.
         // isFinal=false means "more cats coming" but THIS cat is done — its slot must go.
-        // Without this, non-final cats (e.g. 缅因猫 in 缅因猫→布偶猫 sequence) leave
+        // Without this, non-final agents in a serial handoff sequence leave
         // orphan slots that keep ThreadExecutionBar showing "执行中" until F5 refresh.
         if (msg.invocationId) {
           const slotState = useChatStore.getState();

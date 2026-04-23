@@ -87,7 +87,7 @@ export function isCliTimeoutError(message: string | undefined): boolean {
  * clears, and the thread is permanently "busy."
  */
 export const PREFLIGHT_TIMEOUT_MS =
-  Number(process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS ?? process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS) || 30_000;
+  Number(process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS) || 30_000;
 
 /**
  * Race a promise against a preflight timeout and an optional AbortSignal.

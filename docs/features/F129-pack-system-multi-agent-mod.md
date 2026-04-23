@@ -8,17 +8,17 @@ created: 2026-03-19
 
 # F129: Pack System — Multi-Agent 共创世界的 Mod 生态
 
-> **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: spec | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
-> "如果我是一个金融从业者，我用你们如何构建一套金融的猫猫协作？如何分享？如果我是一个喜欢 AI 恋爱的玩家我要怎么样？如果我是一个跑团爱好者？如果我是律师？……me & world & cats，我可以是任何身份的我。"
+> "如果我是一个金融从业者，我用你们如何构建一套金融的智能体协作？如何分享？如果我是一个喜欢 AI 恋爱的玩家我要怎么样？如果我是一个跑团爱好者？如果我是律师？……me & world & cats，我可以是任何身份的我。"
 > — team lead，2026-03-19
 
 > "好像无意间搞出了团队 skills 或者说 multi-agent 的 skills 体系，和单 agent 的差别在于 shared-rules.md"
 > — team lead，2026-03-19
 
-Cat Café 的 coding 基石已经成熟（120+ features，cat-config + skills + shared-rules 体系经过验证）。但 Cat Café 从来不只是 coding 协作平台——是 **Cats & U**，猫猫和你，一起创造，一起生活。
+Cat Café 的 coding 基石已经成熟（120+ features，cat-config + skills + shared-rules 体系经过验证）。但 Cat Café 从来不只是 coding 协作平台——是 **OfficeClaw**，智能体和你，一起创造，一起生活。
 
 开源后，用户需要的不是"可扩展的多 agent 编码框架"，而是"带上我的猫，和我们的故事来入住"。金融人、律师、跑团爱好者、AI 恋爱玩家——每个人都有自己的 **Me × World × Cats** 组合。Pack System 让这些组合可定义、可分享、可组合。
 
@@ -39,7 +39,7 @@ Experience = Me（本地私有） × Pack（可分享） + Growth（私有生长
 
 - **Me** = 用户自己，不打包
 - **Pack** = 一个完整的"多 agent 共创世界"定义
-- **Growth** = 用户和猫猫一起长出来的私有关系/记忆
+- **Growth** = 用户和智能体一起长出来的私有关系/记忆
 
 ### 四层架构
 
@@ -48,7 +48,7 @@ Experience = Me（本地私有） × Pack（可分享） + Growth（私有生长
 | **Core Rails** | 平台宪法（身份不可污染、陪伴是桥不是笼） | 不可覆盖 |
 | **Pack** | 一个完整的 multi-agent 协作世界定义 | 社区分享 |
 | **World Driver** | Pack 内的世界运转声明（resolver: code/llm/hybrid） | 随 Pack 分享 |
-| **Growth** | 用户和猫猫的私有关系/记忆 | 本地私有 |
+| **Growth** | 用户和智能体的私有关系/记忆 | 本地私有 |
 
 ### Pack 内部结构（Directory Convention）
 
@@ -71,7 +71,7 @@ my-pack/
 > **⚠️ 命名约定（KD-8）**：Pack 内不使用 `shared-rules.md`（避免与平台真相源同名冲突，违反 P4）。
 > 协作规范拆为两个文件：`guardrails.yaml`（硬约束）和 `defaults.yaml`（默认行为）。
 
-### 信任边界：双轨模型（KD-9，Maine Coon GPT-5.4 提出）
+### 信任边界：双轨模型（KD-9，Codex GPT-5.4 提出）
 
 Pack 内容**不原样注入** SystemPromptBuilder。走 "schema 解析 → 代码编译 → canonical prompt block" 管道。社区包只能填数据槽，不能直接写系统级指令。
 
@@ -187,8 +187,8 @@ cafe pack publish                                    # 发布
 
 - **Related**: F032（Agent Plugin Architecture — 内部 registry 基座）
 - **Related**: F059（开源计划 — Pack 是开源生态的核心分发单元）
-- **Related**: F093（Cats & U 世界引擎 — World Layer 架构，Pack 是其分享机制）
-- **Related**: F127（猫猫管理重构 — 动态创建猫，Pack masks 的运行时基础）
+- **Related**: F093（OfficeClaw 世界引擎 — World Layer 架构，Pack 是其分享机制）
+- **Related**: F127（智能体管理重构 — 动态创建猫，Pack masks 的运行时基础）
 
 ## Risk
 
@@ -207,12 +207,12 @@ cafe pack publish                                    # 发布
 | KD-2 | Pack = 声明式 mod，不是代码插件 | 零代码覆盖 90% 创作需求；同权脚本插件在 lesson-07 已列为禁区 | 2026-03-19 |
 | KD-3 | Core Identity Layer 不可插件化 | F093 铁律：身份不可污染，信任是地基 | 2026-03-19 |
 | KD-4 | shared-rules 是 Pack 的灵魂，不是 masks | team lead洞察：multi-agent 和 single-agent 的分水岭是协作规范 | 2026-03-19 |
-| KD-5 | Experience = Me × Pack + Growth | Maine Coon提出：Me 不打包、Growth 私有、只有 Pack 可分享 | 2026-03-19 |
-| KD-6 | World Driver 声明 resolver: code/llm/hybrid | Maine Coon提出：不同世界有不同运转方式，需要显式声明 | 2026-03-19 |
+| KD-5 | Experience = Me × Pack + Growth | Codex提出：Me 不打包、Growth 私有、只有 Pack 可分享 | 2026-03-19 |
+| KD-6 | World Driver 声明 resolver: code/llm/hybrid | Codex提出：不同世界有不同运转方式，需要显式声明 | 2026-03-19 |
 | KD-7 | v1 先 Git URL 安装，不做 marketplace | 去中心化更符合"种子自由生长"，降低首发基建成本 | 2026-03-19 |
-| KD-8 | Pack 内不使用 `shared-rules.md`，拆为 `guardrails.yaml` + `defaults.yaml` | Maine Coon P1 review：同名文件撞平台真相源，违反 P4（F024 同类教训） | 2026-03-19 |
-| KD-9 | 双轨信任边界：Pack 内容走 schema→编译管道，不原样注入 prompt | Maine Coon P1 review：schema 校验挡不住语义级 prompt injection；Core Rails 是编译边界不是优先级更高的 prompt | 2026-03-19 |
+| KD-8 | Pack 内不使用 `shared-rules.md`，拆为 `guardrails.yaml` + `defaults.yaml` | Codex P1 review：同名文件撞平台真相源，违反 P4（F024 同类教训） | 2026-03-19 |
+| KD-9 | 双轨信任边界：Pack 内容走 schema→编译管道，不原样注入 prompt | Codex P1 review：schema 校验挡不住语义级 prompt injection；Core Rails 是编译边界不是优先级更高的 prompt | 2026-03-19 |
 
 ## Review Gate
 
-- Phase A: 跨家族 review（Maine Coon GPT-5.4）
+- Phase A: 跨家族 review（Codex GPT-5.4）

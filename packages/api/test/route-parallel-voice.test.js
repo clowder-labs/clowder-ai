@@ -69,7 +69,7 @@ function createMockDeps(services, appendCalls) {
 // Setup: init VoiceBlockSynthesizer singleton with mock TTS provider
 // ---------------------------------------------------------------------------
 
-const tmpDir = path.join(os.tmpdir(), 'cat-cafe-rp-voice-test');
+const tmpDir = path.join(os.tmpdir(), 'office-claw-rp-voice-test');
 
 before(async () => {
   // Clean stale cache

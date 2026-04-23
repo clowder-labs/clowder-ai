@@ -1,14 +1,14 @@
 /**
  * Agent Service Types
- * Defines the core contract for agent services in the Clowder platform.
+ * Defines the core contract for agent services in the OfficeClaw platform.
  * Moved from packages/api/src/domains/cats/services/types.ts
  */
 
-import type { CatId, MessageContent } from '@clowder/shared';
+import type { CatId, MessageContent } from '@office-claw/shared';
 
 // ── Provider Profile Types ──
 // Minimal runtime profile interfaces that plugins receive via AgentServiceOptions.
-// The full CRUD/storage types remain in @clowder/api.
+// The full CRUD/storage types remain in @office-claw/api.
 
 export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp';
 export type ProviderProfileAuthType = 'oauth' | 'api_key' | 'none';

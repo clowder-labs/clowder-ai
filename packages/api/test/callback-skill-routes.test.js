@@ -19,7 +19,7 @@ describe('callback-skill-routes', () => {
 
   beforeEach(async () => {
     originalEnv = { ...process.env };
-    tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-skill-callbacks-'));
+    tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-skill-callbacks-'));
     process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const skillsRoot = join(tempRoot, 'office-claw-skills');

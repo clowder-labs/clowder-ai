@@ -8,27 +8,27 @@ status: done
 completed: 2026-03-10
 ---
 
-# F081 — Bubble Continuity & Rendering Observability（猫猫气泡连续性与可观测性）
+# F081 — Bubble Continuity & Rendering Observability（智能体气泡连续性与可观测性）
 
-> **Status**: done | **Owner**: Ragdoll
+> **Status**: done | **Owner**: Claude
 
 ## Why
 
 team lead连续报了同一类痛点，但它们表面上长得像不同 bug：
 
-1. Ragdoll明明在 Claude Code session 里已经回答了，主区却没有 assistant 气泡
-2. 先看到了Ragdoll回答，切到别的 thread 再切回来，刚才已经看到的气泡又没了
-3. 右侧 `task_progress / 猫猫祟祟` 还活着，主区 `💭 心里话` 却消失
+1. Claude明明在 Claude Code session 里已经回答了，主区却没有 assistant 气泡
+2. 先看到了Claude回答，切到别的 thread 再切回来，刚才已经看到的气泡又没了
+3. 右侧 `task_progress / 智能体祟祟` 还活着，主区 `💭 心里话` 却消失
 4. 有时最后又显示 `CLI 响应超时 (1800s)`，把“UI 丢气泡”和“后端真的静默超时”混成一团
-5. 更离奇的是，Ragdoll在较早时刻就应已产出回复，但主区直到team lead后续再发一句提示词后，上一条 assistant 气泡才“闪现回来”，呈现出明显的错位回放 / 迟到补写
+5. 更离奇的是，Claude在较早时刻就应已产出回复，但主区直到team lead后续再发一句提示词后，上一条 assistant 气泡才“闪现回来”，呈现出明显的错位回放 / 迟到补写
 6. 同一条 assistant 气泡并非“补回来就稳定了”，而是切到别的 thread 再切回来后还能再次消失，呈现出反复出现 / 反复消失的非单调可见性
 7. 当team lead绕过 Cat Café，直接在 Claude CLI 里 `resume/continue` 同一 session 时，session 会自行消费 `[对话历史增量 - 未发送过 N 条]` 并在外部推进状态；随后主区气泡可能出现迟到、错位或与前端当前可见状态不一致
-8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
+8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进智能体咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
 9. `F081` 第一刀之后，主区又暴露出另一种瞬时“双影”：有时会短暂看到两条自己的消息，或者两条同样的 assistant 回复；但 `F5` 之后又只剩一条，说明服务器真相源通常只有一条，重复更像前端本地 reconcile 留下的临时 duplicate
 10. 进一步追查后发现，这类残余“双影”并不都来自 hydration；前台在 `thinking / rich_block / tool` 这类系统占位路径里，一旦 `activeRefs` 先丢了，却又没有先认领 store 里现存的 streaming bubble，就会重新起一个新的 assistant placeholder，形成短暂重复
 11. 继续收尾时又发现另一种更隐蔽的症状：主区的 streaming 气泡有时会在中途停止增长，除非 `F5` 才能看到更完整的最终内容；这说明不只是“会不会多起一个泡”，还可能是“后续 chunk 写到了已经失效的旧 message id”
 
-这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
+这说明我们现在缺的不是单点补丁，而是**智能体气泡生命周期的真相源**：
 
 - 气泡是从哪条链路来的：live socket / background route / draft merge / persisted history
 - 哪个时刻被创建、续写、替换、清空
@@ -36,11 +36,11 @@ team lead连续报了同一类痛点，但它们表面上长得像不同 bug：
 
 team experience可以概括成一句：
 
-> 渲染不出来也好，跑着突然没了也罢，都要能抓住Ragdoll的猫尾巴。
+> 渲染不出来也好，跑着突然没了也罢，都要能抓住Claude的猫尾巴。
 
 ## What
 
-把“猫猫气泡为什么出现 / 消失 / 没恢复”升级为一个完整 Feature，包含两条主线：
+把“智能体气泡为什么出现 / 消失 / 没恢复”升级为一个完整 Feature，包含两条主线：
 
 ### 1. Bubble Continuity
 
@@ -128,7 +128,7 @@ team experience可以概括成一句：
 ## Key Decisions
 
 - **这是 Feature，不是散装 UX debt**
-  - 原因：team lead能直接感知，且会反复影响对猫猫是否“真的在工作”的判断
+  - 原因：team lead能直接感知，且会反复影响对智能体是否“真的在工作”的判断
 - **可观测性是本 Feature 的一部分，不是附属品**
   - 原因：没有证据链，气泡连续性问题会反复“猜修复”
 - **先做最小真 debug mode，不做庞大平台**
@@ -172,9 +172,9 @@ team experience可以概括成一句：
 
 ## Detective Notes
 
-### 2026-03-07 Maine Coon侦探现场
+### 2026-03-07 Codex侦探现场
 
-- 两条看似不同的Ragdoll session：`7ef0ef90-ac7c-4672-85f1-e1dd8d9ee444` 与 `bfe74a71-e28f-456d-83e4-ae8c5c4bce14`
+- 两条看似不同的Claude session：`7ef0ef90-ac7c-4672-85f1-e1dd8d9ee444` 与 `bfe74a71-e28f-456d-83e4-ae8c5c4bce14`
 - 一条由 Cat Café runtime 驱动，一条由外部 Claude Code `resume` 直接驱动
 - 进程树向下追到最深处后，两条最终都落在同一个具体 test worker：`test/antigravity-smoke.test.js`
 - 这个 smoke test 不在单独的 opt-in 命令里，而是直接包含在 `packages/api` 默认 `pnpm test` 的 `node --test test/*.test.js` 套件中；只要机器上 `<local-browser-automation-endpoint>` 有 Antigravity 在监听，它就会自动参战
@@ -183,12 +183,12 @@ team experience可以概括成一句：
 - `sample` 结果显示两个 worker 都不是在忙 CPU，而是在事件循环里 `kevent` 空等
 - `lsof` 结果显示两个最深 worker 都保持着到 `127.0.0.1:9000` 的 `ESTABLISHED` TCP 连接
 - `curl http://<local-browser-automation-endpoint>/json/version` 返回正常，说明 Antigravity 端口活着，但 smoke test 路径没有按预期收敛退出
-- 初步推断：这不是“前端把测试刷屏吃掉了”，而是 `antigravity-smoke` 自身存在沉默挂住/句柄未清理问题，随后被Ragdoll的 CLI 静默超时和主区渲染缺失放大成更像“猫没在回话”的体验
+- 初步推断：这不是“前端把测试刷屏吃掉了”，而是 `antigravity-smoke` 自身存在沉默挂住/句柄未清理问题，随后被Claude的 CLI 静默超时和主区渲染缺失放大成更像“猫没在回话”的体验
 - 更强嫌疑点：`CDP connect → send → receive round trip` 这条测试把 `await client.disconnect()` 放在断言之后；如果 `pollResponse()` 返回 `null` 或中途抛错，WebSocket 可能不会被关闭，测试 worker 会留下对 `:9000` 的活连接
 - 因此，后续修复需要同时覆盖两条线：一条是 `F081` 的气泡连续性/可观测性，另一条是 `antigravity-smoke` 的资源清理与硬 watchdog
 - `Codex app` 这条线也新增了一条高价值证据：
-  - 当前会话的 `CODEX_THREAD_ID=019cc8e5-d8bb-7411-90f8-d5e276399145` 被确认可以手动 bind 进猫猫咖啡
-  - 但 bind 成功后，猫猫咖啡主区仍然看不到这条 `Codex app` 会话里既有的聊天历史
+  - 当前会话的 `CODEX_THREAD_ID=019cc8e5-d8bb-7411-90f8-d5e276399145` 被确认可以手动 bind 进智能体咖啡
+  - 但 bind 成功后，智能体咖啡主区仍然看不到这条 `Codex app` 会话里既有的聊天历史
   - 这说明 continuity/hydration 问题并不只发生在 live socket 途中，也发生在“已知 thread id / session id 的历史回灌”这条恢复路径上
   - 进一步查明后发现：这不是单纯的 Redis 丢消息，也不只是前端少渲染，而是 `bind` 当前只把 `cliSessionId` 写进 session chain，用于未来 `--resume`；主区仍只读 `messageStore + draftStore`，两者之间没有“外部 transcript/jsonl -> 主区时间线”的 backfill 桥
   - 当前第一刀治疗已经在独立 worktree 验证通过：`bind` 响应会返回 `historyImport: { status, importedCount, reason? }`，并在 bind 时 best-effort 扫描我们自己 sealed session 的 transcript，把可导入的 `user/assistant` turn 回灌进 `messageStore`
@@ -227,7 +227,7 @@ team experience可以概括成一句：
   - “同 invocation 的 richer server bubble 会替换本地 placeholder”
   - “invocation_created 晚到时，会把 active / background placeholder bubble 绑定到正确的 `stream.invocationId`”
 
-### 2026-03-08 Maine Coon侦探补刀：残余瞬时双影
+### 2026-03-08 Codex侦探补刀：残余瞬时双影
 
 - team lead继续报告：有时前端仍会短暂看到两条自己的消息或两条同样的 assistant 回复，但 `F5` 后又只剩一条
 - 这说明后端真相源通常没有重复，剩余问题更像前端本地 store 的瞬时 duplicate

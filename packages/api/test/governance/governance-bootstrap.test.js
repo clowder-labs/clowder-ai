@@ -22,7 +22,7 @@ describe('GovernanceBootstrapService', () => {
   let targetProject;
 
   beforeEach(async () => {
-    catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
+    catCafeRoot = await mkdtemp(join(tmpdir(), 'office-claw-root-'));
     targetProject = await mkdtemp(join(tmpdir(), 'target-project-'));
     // Create office-claw-skills source directory (bootstrap symlinks to it)
     await mkdir(join(catCafeRoot, 'office-claw-skills'), { recursive: true });

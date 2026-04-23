@@ -13,14 +13,14 @@
  */
 
 /**
- * Ensure catRegistry has the three built-in cats registered.
+ * Ensure officeClawRegistry has the three built-in cats registered.
  * Safe to call multiple times (skips if already registered).
  */
 export async function ensureCatRegistryPopulated() {
-  const { catRegistry, CAT_CONFIGS } = await import('@clowder/shared');
-  for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-    if (!catRegistry.has(id)) {
-      catRegistry.register(id, config);
+  const { officeClawRegistry, OFFICE_CLAW_CONFIGS } = await import('@office-claw/shared');
+  for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+    if (!officeClawRegistry.has(id)) {
+      officeClawRegistry.register(id, config);
     }
   }
 }

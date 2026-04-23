@@ -20,12 +20,12 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@clowder/shared';
-import type { SessionStore } from '@clowder/shared/utils';
+import type { CatId, MessageContent } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getAllCatIdsFromConfig, getDefaultCatId } from '../config/cat-config-loader.js';
+import { getAllCatIdsFromConfig, getDefaultCatId } from '../config/office-claw-config-loader.js';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';

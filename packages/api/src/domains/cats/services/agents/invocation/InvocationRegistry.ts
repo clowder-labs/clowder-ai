@@ -18,7 +18,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 
 /**
  * A registered invocation record
@@ -140,7 +140,7 @@ export class InvocationRegistry {
   /**
    * Check if an invocationId is the latest for its thread+cat slot.
    * Stale callbacks from preempted invocations return false.
-   * (Cloud Codex P1 + 缅因猫 R3 suggestion)
+   * (Cloud Codex P1 + Codex R3 suggestion)
    */
   isLatest(invocationId: string): boolean {
     const record = this.records.get(invocationId);

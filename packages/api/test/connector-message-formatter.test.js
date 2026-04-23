@@ -32,15 +32,15 @@ describe('ConnectorMessageFormatter', () => {
     const formatter = new mod.ConnectorMessageFormatter();
 
     const envelope = formatter.format({
-      catDisplayName: '布偶猫/宪宪',
+      catDisplayName: 'Claude/宪宪',
       threadShortId: 'T12',
       threadTitle: '飞书登录bug排查',
       featId: 'F088',
       body: '看了一下回调逻辑，问题出在 OAuth token 过期。',
-      deepLinkUrl: 'https://cafe.clowder-ai.com/t/abc123',
+      deepLinkUrl: 'https://cafe.office-claw.com/t/abc123',
     });
 
-    assert.equal(envelope.header, '布偶猫/宪宪');
+    assert.equal(envelope.header, 'Claude/宪宪');
     assert.equal(envelope.subtitle, '飞书登录bug排查 · F088');
     assert.equal(envelope.body, '看了一下回调逻辑，问题出在 OAuth token 过期。');
     assert.equal(envelope.footer, '');
@@ -51,11 +51,11 @@ describe('ConnectorMessageFormatter', () => {
     const formatter = new mod.ConnectorMessageFormatter();
 
     const envelope = formatter.format({
-      catDisplayName: '缅因猫/砚砚',
+      catDisplayName: 'Codex/砚砚',
       threadShortId: 'T7',
       threadTitle: '周报整理',
       body: '已整理完毕。',
-      deepLinkUrl: 'https://cafe.clowder-ai.com/t/def456',
+      deepLinkUrl: 'https://cafe.office-claw.com/t/def456',
     });
 
     assert.equal(envelope.subtitle, '周报整理');
@@ -67,10 +67,10 @@ describe('ConnectorMessageFormatter', () => {
     const formatter = new mod.ConnectorMessageFormatter();
 
     const envelope = formatter.format({
-      catDisplayName: '布偶猫/宪宪',
+      catDisplayName: 'Claude/宪宪',
       threadShortId: 'T3',
       body: '收到。',
-      deepLinkUrl: 'https://cafe.clowder-ai.com/t/ghi789',
+      deepLinkUrl: 'https://cafe.office-claw.com/t/ghi789',
     });
 
     assert.equal(envelope.subtitle, '');
@@ -81,7 +81,7 @@ describe('ConnectorMessageFormatter', () => {
     const formatter = new mod.ConnectorMessageFormatter();
 
     const envelope = formatter.format({
-      catDisplayName: '布偶猫/宪宪',
+      catDisplayName: 'Claude/宪宪',
       threadShortId: 'T1',
       body: 'Hello!',
     });
@@ -111,7 +111,7 @@ describe('ConnectorMessageFormatter', () => {
     const formatter = new mod.ConnectorMessageFormatter();
 
     const envelope = formatter.format({
-      catDisplayName: '布偶猫/宪宪',
+      catDisplayName: 'Claude/宪宪',
       threadShortId: 'T5',
       threadTitle: 'Test',
       body: 'Content',

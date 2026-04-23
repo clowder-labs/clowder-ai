@@ -165,7 +165,7 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       );
 
       assert.equal(envSource.status, 0, envSource.stderr || envSource.stdout);
-      assert.equal(envSource.stdout.trim(), 'Clowder AI');
+      assert.equal(envSource.stdout.trim(), 'OfficeClaw');
     } finally {
       rmSync(exportDir, { recursive: true, force: true });
     }

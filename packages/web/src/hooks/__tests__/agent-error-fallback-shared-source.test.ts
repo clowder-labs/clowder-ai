@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
   vi.resetModules();
-  vi.doUnmock('@clowder/shared');
+  vi.doUnmock('@office-claw/shared');
 });
 
 describe('agent-error-fallback shared delegation', () => {
@@ -18,7 +18,7 @@ describe('agent-error-fallback shared delegation', () => {
     const mockGetRateLimitMessage = vi.fn(() => 'shared-rate-limit-message');
     const mockGetFriendlyAgentErrorMessage = vi.fn(() => 'shared-friendly-message');
 
-    vi.doMock('@clowder/shared', () => ({
+    vi.doMock('@office-claw/shared', () => ({
       MODEL_ARTS_RATE_LIMIT_ERROR_CODE: 'SHARED_RATE_LIMIT',
       MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE: 'SHARED_SENSITIVE',
       isRateLimitError: mockIsRateLimitError,

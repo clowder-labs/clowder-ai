@@ -6,7 +6,7 @@
 
 /**
  * Claude Agent Service
- * 使用 Claude CLI 子进程调用布偶猫 (Opus)
+ * 使用 Claude CLI 子进程调用Claude (Opus)
  *
  * CLI 调用方式:
  *   claude -p "..." --output-format stream-json --verbose
@@ -24,9 +24,9 @@
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
-import { type CatId, createCatId } from '@clowder/shared';
-import { getCatEffort } from '../../../../../config/cat-config-loader.js';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { type CatId, createCatId } from '@office-claw/shared';
+import { getCatEffort } from '../../../../../config/office-claw-config-loader.js';
+import { getCatModel } from '../../../../../config/office-claw-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
@@ -143,8 +143,8 @@ interface ClaudeAgentServiceOptions {
 /**
  * Resolve default MCP server path for monorepo layouts.
  * Supports API started from:
- * - repo root (cwd=.../cat-cafe)
- * - packages/api (cwd=.../cat-cafe/packages/api)
+ * - repo root (cwd=.../office-claw)
+ * - packages/api (cwd=.../office-claw/packages/api)
  * - API dist/src subdirs in some tooling (best-effort fallback)
  */
 export function resolveDefaultClaudeMcpServerPath(cwd = process.cwd()): string | undefined {
@@ -239,13 +239,13 @@ export class ClaudeAgentService implements AgentService {
     if (options?.callbackEnv && this.mcpServerPath) {
       if (IS_WINDOWS) {
         if (!this.mcpConfigFilePath || !existsSync(this.mcpConfigFilePath)) {
-          const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-'));
+          const dir = mkdtempSync(join(tmpdir(), 'office-claw-mcp-'));
           this.mcpConfigFilePath = join(dir, 'mcp-config.json');
           writeFileSync(
             this.mcpConfigFilePath,
             JSON.stringify({
               mcpServers: {
-                'cat-cafe': { command: 'node', args: [this.mcpServerPath] },
+                'office-claw': { command: 'node', args: [this.mcpServerPath] },
               },
             }),
             'utf-8',
@@ -257,7 +257,7 @@ export class ClaudeAgentService implements AgentService {
           '--mcp-config',
           JSON.stringify({
             mcpServers: {
-              'cat-cafe': { command: 'node', args: [this.mcpServerPath] },
+              'office-claw': { command: 'node', args: [this.mcpServerPath] },
             },
           }),
         );

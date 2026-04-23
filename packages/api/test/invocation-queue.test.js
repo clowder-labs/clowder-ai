@@ -90,12 +90,12 @@ describe('InvocationQueue', () => {
   // ── Merge ──
 
   it('merges same-source same-target consecutive entries', () => {
-    const r1 = queue.enqueue(entry({ content: '猫猫' }));
+    const r1 = queue.enqueue(entry({ content: '智能体' }));
     assert.equal(r1.outcome, 'enqueued');
 
     const r2 = queue.enqueue(entry({ content: '你好' }));
     assert.equal(r2.outcome, 'merged');
-    assert.equal(r2.entry.content, '猫猫\n你好');
+    assert.equal(r2.entry.content, '智能体\n你好');
     assert.equal(queue.size('t1', 'u1'), 1);
   });
 
@@ -188,13 +188,13 @@ describe('InvocationQueue', () => {
   // ── Merge rollback ──
 
   it('rollbackMerge restores pre-merge content', () => {
-    queue.enqueue(entry({ content: '猫猫' }));
+    queue.enqueue(entry({ content: '智能体' }));
     const r2 = queue.enqueue(entry({ content: '你好' }));
     assert.equal(r2.outcome, 'merged');
-    assert.equal(r2.entry.content, '猫猫\n你好');
+    assert.equal(r2.entry.content, '智能体\n你好');
 
     queue.rollbackMerge('t1', 'u1', r2.entry.id);
-    assert.equal(queue.list('t1', 'u1')[0].content, '猫猫');
+    assert.equal(queue.list('t1', 'u1')[0].content, '智能体');
   });
 
   // ── Move / reorder ──

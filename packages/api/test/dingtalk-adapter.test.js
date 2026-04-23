@@ -273,7 +273,7 @@ describe('DingTalkAdapter', () => {
       });
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         subtitle: 'T1 测试会话',
         body: 'Hello world',
         origin: 'direct',
@@ -285,8 +285,8 @@ describe('DingTalkAdapter', () => {
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].msgType, 'markdown');
       const markdown = JSON.parse(sendCalls[0].content);
-      assert.equal(markdown.title, '🐱 布偶猫');
-      assert.match(markdown.text, /^\*\*🐱 布偶猫\*\*\n\nT1 测试会话\n\nHello world/);
+      assert.equal(markdown.title, '🐱 Claude');
+      assert.match(markdown.text, /^\*\*🐱 Claude\*\*\n\nT1 测试会话\n\nHello world/);
     });
 
     it('sends via AI Card when available', async () => {
@@ -302,7 +302,7 @@ describe('DingTalkAdapter', () => {
       });
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         subtitle: 'T1 测试会话',
         body: 'Hello world',
         origin: 'direct',
@@ -365,7 +365,7 @@ describe('DingTalkAdapter', () => {
       adapter._injectStreamingCard(async () => {});
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         body: 'Callback message',
         origin: 'callback',
       };
@@ -608,10 +608,10 @@ describe('DingTalkAdapter', () => {
         sendCalls.push(params);
       });
 
-      await adapter.sendRichMessage('staff_001', 'Some text', [], '布偶猫');
+      await adapter.sendRichMessage('staff_001', 'Some text', [], 'Claude');
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].msgType, 'markdown');
-      assert.ok(sendCalls[0].content.includes('布偶猫'));
+      assert.ok(sendCalls[0].content.includes('Claude'));
     });
   });
 });

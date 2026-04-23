@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
 const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const defaultOutputDir = resolve(repoRoot, 'dist', 'macos');
-const appName = 'Clowder AI';
+const appName = 'OfficeClaw';
 
 function parseArgs(argv) {
   const options = {
@@ -126,9 +126,9 @@ function estimateDmgSizeMegabytes(appPath) {
 function writeReadme(stagingDir) {
   const readmePath = join(stagingDir, 'README.txt');
   const content = [
-    'Clowder AI macOS Preview',
+    'OfficeClaw macOS Preview',
     '',
-    '1. Drag Clowder AI.app into Applications.',
+    '1. Drag OfficeClaw.app into Applications.',
     '2. Open it from Applications.',
     '3. This preview build is unsigned and may trigger Gatekeeper warnings.',
     '4. The app currently falls back to a shell launcher when the native Swift launcher cannot be built.',
@@ -175,7 +175,7 @@ function createDmg(options) {
 
   mkdirSync(options.outputDir, { recursive: true });
   const stagingDir = mkdtempSync(join(tmpdir(), 'clowder-macos-dmg-'));
-  const dmgPath = join(options.outputDir, `Clowder-AI-${rootPackageJson.version}.dmg`);
+  const dmgPath = join(options.outputDir, `OfficeClaw-AI-${rootPackageJson.version}.dmg`);
   const imageSize = estimateDmgSizeMegabytes(options.appPath);
 
   try {

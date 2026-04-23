@@ -46,7 +46,7 @@ describe('readClaudeMcpConfig', () => {
       file,
       JSON.stringify({
         mcpServers: {
-          'cat-cafe': { command: 'node', args: ['./mcp/index.js'], env: { PORT: '3000' } },
+          'office-claw': { command: 'node', args: ['./mcp/index.js'], env: { PORT: '3000' } },
           filesystem: { command: 'npx', args: ['-y', '@mcp/fs'] },
         },
       }),
@@ -55,7 +55,7 @@ describe('readClaudeMcpConfig', () => {
     const result = await readClaudeMcpConfig(file);
     assert.equal(result.length, 2);
 
-    const cafe = result.find((s) => s.name === 'cat-cafe');
+    const cafe = result.find((s) => s.name === 'office-claw');
     assert.ok(cafe);
     assert.equal(cafe.command, 'node');
     assert.deepEqual(cafe.args, ['./mcp/index.js']);
@@ -204,7 +204,7 @@ describe('readGeminiMcpConfig', () => {
       file,
       JSON.stringify({
         mcpServers: {
-          'cat-cafe': { command: 'node', args: ['./mcp/index.js'] },
+          'office-claw': { command: 'node', args: ['./mcp/index.js'] },
         },
         otherSetting: true,
       }),
@@ -212,7 +212,7 @@ describe('readGeminiMcpConfig', () => {
 
     const result = await readGeminiMcpConfig(file);
     assert.equal(result.length, 1);
-    assert.equal(result[0].name, 'cat-cafe');
+    assert.equal(result[0].name, 'office-claw');
     assert.equal(result[0].command, 'node');
   });
 
@@ -249,14 +249,14 @@ describe('writeClaudeMcpConfig', () => {
   it('writes enabled servers to .mcp.json', async () => {
     const file = join(dir, '.mcp.json');
     await writeClaudeMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
+      { name: 'office-claw', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: 'external' },
     ]);
 
     const raw = await readFile(file, 'utf-8');
     const data = JSON.parse(raw);
     // Only enabled servers are written (Claude has no enabled field)
-    assert.ok(data.mcpServers['cat-cafe']);
+    assert.ok(data.mcpServers['office-claw']);
     assert.equal(data.mcpServers.disabled, undefined);
   });
 
@@ -338,13 +338,13 @@ describe('writeGeminiMcpConfig', () => {
   it('writes enabled servers to settings.json', async () => {
     const file = join(dir, 'settings.json');
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
+      { name: 'office-claw', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: 'external' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
     // Only enabled servers (Gemini has no enabled field)
-    assert.ok(data.mcpServers['cat-cafe']);
+    assert.ok(data.mcpServers['office-claw']);
     assert.equal(data.mcpServers.disabled, undefined);
   });
 
@@ -359,7 +359,7 @@ describe('writeGeminiMcpConfig', () => {
     assert.ok(data.mcpServers.test);
   });
 
-  it('injects callback env placeholders for managed cat-cafe servers', async () => {
+  it('injects callback env placeholders for managed office-claw servers', async () => {
     const file = join(dir, 'settings.json');
     await writeGeminiMcpConfig(file, [
       { name: 'office-claw-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'builtin' },
@@ -375,13 +375,13 @@ describe('writeGeminiMcpConfig', () => {
     });
   });
 
-  it('injects callback env placeholders for preserved legacy cat-cafe server', async () => {
+  it('injects callback env placeholders for preserved legacy office-claw server', async () => {
     const file = join(dir, 'settings.json');
     await writeFile(
       file,
       JSON.stringify({
         mcpServers: {
-          'cat-cafe': { command: 'node', args: ['legacy-index.js'] },
+          'office-claw': { command: 'node', args: ['legacy-index.js'] },
         },
       }),
     );
@@ -391,7 +391,7 @@ describe('writeGeminiMcpConfig', () => {
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
-    assert.deepEqual(data.mcpServers['cat-cafe'].env, {
+    assert.deepEqual(data.mcpServers['office-claw'].env, {
       OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
       OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
       OFFICE_CLAW_CALLBACK_TOKEN: '${OFFICE_CLAW_CALLBACK_TOKEN}',
@@ -414,12 +414,12 @@ describe('writeGeminiMcpConfig', () => {
 
     await writeGeminiMcpConfig(file, [
       { name: 'pencil', command: '/new/pencil', args: ['--app', 'antigravity'], enabled: true, source: 'external' },
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
+      { name: 'office-claw', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
     assert.equal(data.mcpServers.pencil, undefined, 'project Gemini config should not contain pencil');
-    assert.ok(data.mcpServers['cat-cafe'], 'cat-cafe server should still be written');
+    assert.ok(data.mcpServers['office-claw'], 'office-claw server should still be written');
   });
 });
 
@@ -443,19 +443,19 @@ describe('P1-2: writers preserve non-managed MCP servers', () => {
       JSON.stringify({
         mcpServers: {
           'user-custom': { command: 'my-server', args: ['--port', '9999'] },
-          'cat-cafe': { command: 'node', args: ['old-server.js'] },
+          'office-claw': { command: 'node', args: ['old-server.js'] },
         },
       }),
     );
 
-    // Cat Cafe orchestrator writes only managed servers
+    // OfficeClaw orchestrator writes only managed servers
     await writeClaudeMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
+      { name: 'office-claw', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
-    // cat-cafe should be updated
-    assert.deepEqual(data.mcpServers['cat-cafe'].args, ['new-server.js']);
+    // office-claw should be updated
+    assert.deepEqual(data.mcpServers['office-claw'].args, ['new-server.js']);
     // user-custom should still be there!
     assert.ok(data.mcpServers['user-custom'], 'User MCP server should be preserved');
     assert.equal(data.mcpServers['user-custom'].command, 'my-server');
@@ -502,18 +502,18 @@ enabled = true
         theme: 'dark',
         mcpServers: {
           'user-tool': { command: 'my-tool', args: [] },
-          'cat-cafe': { command: 'node', args: ['old-server.js'] },
+          'office-claw': { command: 'node', args: ['old-server.js'] },
         },
       }),
     );
 
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
+      { name: 'office-claw', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
-    // cat-cafe updated
-    assert.deepEqual(data.mcpServers['cat-cafe'].args, ['new-server.js']);
+    // office-claw updated
+    assert.deepEqual(data.mcpServers['office-claw'].args, ['new-server.js']);
     // user-tool preserved
     assert.ok(data.mcpServers['user-tool'], 'User MCP server should be preserved');
     assert.equal(data.mcpServers['user-tool'].command, 'my-tool');
@@ -537,7 +537,7 @@ describe('round-trip: read → write → read', () => {
   it('Claude .mcp.json round-trips correctly', async () => {
     const servers = [
       {
-        name: 'cat-cafe',
+        name: 'office-claw',
         command: 'node',
         args: ['./mcp/index.js'],
         env: { PORT: '3000' },
@@ -552,7 +552,7 @@ describe('round-trip: read → write → read', () => {
     const roundTripped = await readClaudeMcpConfig(file);
 
     assert.equal(roundTripped.length, 2);
-    assert.equal(roundTripped[0].name, 'cat-cafe');
+    assert.equal(roundTripped[0].name, 'office-claw');
     assert.equal(roundTripped[0].command, 'node');
     assert.deepEqual(roundTripped[0].env, { PORT: '3000' });
   });
@@ -585,7 +585,7 @@ describe('round-trip: read → write → read', () => {
   it('Gemini settings.json round-trips correctly', async () => {
     const servers = [
       {
-        name: 'cat-cafe',
+        name: 'office-claw',
         command: 'node',
         args: ['index.js'],
         enabled: true,

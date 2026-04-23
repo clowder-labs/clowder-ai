@@ -46,7 +46,7 @@ describe('relayclaw security config route', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/config/relayclaw/security',
-      headers: { 'x-cat-cafe-user': 'security-admin' },
+      headers: { 'x-office-claw-user': 'security-admin' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -81,7 +81,7 @@ describe('relayclaw security config route', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/config/relayclaw/security',
-      headers: { 'x-cat-cafe-user': 'security-admin' },
+      headers: { 'x-office-claw-user': 'security-admin' },
       payload: {
         permissions: {
           enabled: false,
@@ -124,7 +124,7 @@ describe('relayclaw security config route', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/config/relayclaw/security',
-      headers: { 'x-cat-cafe-user': 'security-admin' },
+      headers: { 'x-office-claw-user': 'security-admin' },
     });
 
     assert.equal(res.statusCode, 502);
@@ -208,7 +208,7 @@ describe('relayclaw security config route', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/config/relayclaw/security',
-      headers: { 'x-cat-cafe-user': 'security-admin' },
+      headers: { 'x-office-claw-user': 'security-admin' },
       payload: {
         permissions: {
           enabled: false,
@@ -323,7 +323,7 @@ describe('relayclaw security config route', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/config/relayclaw/security',
-      headers: { 'x-cat-cafe-user': 'security-admin' },
+      headers: { 'x-office-claw-user': 'security-admin' },
       payload: {
         permissions: {
           enabled: true,

@@ -11,7 +11,7 @@
  * using presets for role distribution and the standard phase sequence.
  */
 
-import type { ActionDefinition, GameDefinition, PhaseDefinition, RoleDefinition, WinCondition } from '@clowder/shared';
+import type { ActionDefinition, GameDefinition, PhaseDefinition, RoleDefinition, WinCondition } from '@office-claw/shared';
 import { WEREWOLF_ROLES } from './WerewolfRoles.js';
 
 /** Role distribution for a specific player count */
@@ -40,7 +40,7 @@ function buildPhases(): PhaseDefinition[] {
     // Resolve / announce: system-driven, keep short
     { name: 'night_resolve', type: 'resolve', timeoutMs: 5000, autoAdvance: true },
     { name: 'day_announce', type: 'announce', timeoutMs: 15000, autoAdvance: true },
-    // Multi-actor phases: 铲屎官要求至少 3 分钟，7 人串行 LLM 可能需要更多
+    // Multi-actor phases: 用户要求至少 3 分钟，7 人串行 LLM 可能需要更多
     { name: 'day_discuss', type: 'day_discuss', actingRole: '*', timeoutMs: 180000, autoAdvance: true },
     { name: 'day_vote', type: 'day_vote', actingRole: '*', timeoutMs: 120000, autoAdvance: true },
     { name: 'day_pk', type: 'day_discuss', actingRole: '*', timeoutMs: 120000, autoAdvance: true },

@@ -40,7 +40,7 @@ describe('push notification policy', () => {
   it('forces system notification for decision-like content', () => {
     const payload: PushNotificationPayload = {
       tag: 'cat-reply-thread-1',
-      title: '猫猫需要你决策',
+      title: '智能体需要你决策',
       body: '请确认是否允许合入',
     };
     expect(shouldForceSystemNotification(payload)).toBe(true);
@@ -49,7 +49,7 @@ describe('push notification policy', () => {
   it('does not force generic reply when focused', () => {
     const payload: PushNotificationPayload = {
       tag: 'cat-reply-thread-1',
-      title: '猫猫回复了',
+      title: '智能体回复了',
       body: '这里是普通回复',
     };
     expect(shouldForceSystemNotification(payload)).toBe(false);

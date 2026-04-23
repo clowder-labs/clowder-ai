@@ -6,7 +6,7 @@
 
 /**
  * GeminiAgentService Tests (CLI dual adapter mode)
- * 测试暹罗猫 CLI 子进程调用 (gemini-cli + antigravity-desktop)
+ * 测试Gemini CLI 子进程调用 (gemini-cli + antigravity-desktop)
  */
 
 import assert from 'node:assert/strict';

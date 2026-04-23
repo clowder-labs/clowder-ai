@@ -73,7 +73,7 @@ function SendWithImageRunner({
     if (called.current) return;
     called.current = true;
     const file = new File([new Uint8Array([1, 2, 3])], 'cat.png', { type: 'image/png' });
-    handleSend('@布偶 看图', [file]).then(onDone);
+    handleSend('@Claude 看图', [file]).then(onDone);
   }, [handleSend, onDone]);
 
   return null;

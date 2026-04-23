@@ -10,14 +10,14 @@
  */
 
 import {
-  CAT_CONFIGS,
+  OFFICE_CLAW_CONFIGS,
   type CatId,
-  catRegistry,
+  officeClawRegistry,
   type MessageContent,
   type RichBlock,
   type RichBlockBase,
-} from '@clowder/shared';
-import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
+} from '@office-claw/shared';
+import { getCatContextBudget } from '../../../../../config/office-claw-budgets.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
 import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
@@ -53,7 +53,7 @@ export interface PersistenceContext {
   /** Error details for diagnostics */
   errors: Array<{ catId: string; error: string }>;
   /** F088-P3: Rich blocks consumed during this invocation, for outbound delivery */
-  richBlocks?: import('@clowder/shared').RichBlock[];
+  richBlocks?: import('@office-claw/shared').RichBlock[];
 }
 
 /** Common options for both strategies */
@@ -255,7 +255,7 @@ const DIRECT_MENTION_SEPARATOR_RE = /^[\s,.:;!?()[\]{}<>，。！？、：；（
  * Keeps the original message unchanged when the mention is not a true line-start/direct address.
  */
 export function stripLeadingDirectCatMention(message: string, catId: CatId): string {
-  const config = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+  const config = officeClawRegistry.tryGet(catId as string)?.config ?? OFFICE_CLAW_CONFIGS[catId as string];
   const patterns = [...(config?.mentionPatterns ?? [])].sort((a, b) => b.length - a.length);
   if (patterns.length === 0) return message.trim();
 

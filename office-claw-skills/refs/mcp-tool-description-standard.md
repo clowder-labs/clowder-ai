@@ -25,7 +25,7 @@ GOTCHA: {陷阱提醒，例如"不要用 create_rich_block 手动拼"}.
 
 ### 好的 vs 差的 description
 
-**差**（金渐层踩坑的根因）：
+**差**（OpenCode踩坑的根因）：
 ```
 Generate a document (PDF/DOCX/MD) from Markdown content using Pandoc.
 The generated file is automatically saved and attached to the current
@@ -34,7 +34,7 @@ message as a file RichBlock.
 - 没说"什么时候用"
 - 没说"不要用 create_rich_block 手动拼"
 - 没说产物会自动投递到 IM
-- 金渐层看不到正确用法 → 自己 DIY → 飞书收不到文件
+- OpenCode看不到正确用法 → 自己 DIY → 飞书收不到文件
 
 **好**：
 ```
@@ -93,4 +93,4 @@ return errorResult('Invalid format "xlsx". Expected one of: pdf, docx, md. Examp
 - 《知识工程实践指南》：*(internal reference removed)*
 - Anthropic Skills Best Practices：`writing-skills/anthropic-best-practices.md`
 - MCP 官方规范：`https://modelcontextprotocol.io/specification`
-- 金渐层 MCP description 优化审查：thread `thread_mn1u0ygkt76bzxks`
+- OpenCode MCP description 优化审查：thread `thread_mn1u0ygkt76bzxks`

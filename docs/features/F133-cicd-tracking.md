@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪
 
-> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: in-progress | **Owner**: OpenCode | **Priority**: P2
 
 ## Why
 
@@ -16,9 +16,9 @@ team experience（2026-03-23 thread `ci/cd github tracking`）：
 
 > "你看看我们现在 GitHub 的 Tracking，它能 Tracking CI/CD 的执行结果吗？"
 > "这个 ci cd tracking 应该也和现在的 github 一样消息投递到我们的 channel 或者叫消息管道"
-> "我们的 ci cd 基本只有月初有额度...clowder-ai 都得看 ci cd 过，发版本更是，这个 sop 流程也得好好思考"
+> "我们的 ci cd 基本只有月初有额度...office-claw 都得看 ci cd 过，发版本更是，这个 sop 流程也得好好思考"
 
-核心场景：开源仓库 `clowder-ai` 有免费 GitHub Actions 额度，CI/CD 绿灯是发版的前提条件。自有仓库 `cat-cafe` 月初有额度时同理。当前 PR Tracking 系统只追踪 Review 通知（IMAP 邮件轮询），CI/CD 结果完全盲区——猫猫提交 PR 后不知道 CI 是否通过，需要手动去 GitHub 页面看。
+核心场景：开源仓库 `office-claw` 有免费 GitHub Actions 额度，CI/CD 绿灯是发版的前提条件。自有仓库 `office-claw` 月初有额度时同理。当前 PR Tracking 系统只追踪 Review 通知（IMAP 邮件轮询），CI/CD 结果完全盲区——智能体提交 PR 后不知道 CI 是否通过，需要手动去 GitHub 页面看。
 
 ## What
 
@@ -49,7 +49,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 复用点：
 1. **ConnectorSource 协议** — 只换 `connector: 'github-ci'`，前端 ConnectorBubble 已按类型渲染不同图标
 2. **投递管道** — messageStore → socket broadcast → ConnectorInvokeTrigger，抽共享 `deliverConnectorMessage()` helper
-3. **注册入口** — 猫猫还是 `register_pr_tracking`，轮询只查已注册 PR
+3. **注册入口** — 智能体还是 `register_pr_tracking`，轮询只查已注册 PR
 4. **只新增**：`CiCdCheckPoller` 类 + `CiCdRouter` 类 + `github-ci-bootstrap.ts`
 
 **KD-2: 数据源选择 GitHub API 轮询（PR 级 rollup），而非 IMAP 邮件或 raw Checks API**
@@ -62,7 +62,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | API 成本 | N/A | 每 PR 多次（suites + runs） | **1 次 `gh pr view` 拿全** |
 | 开源友好 | 差 | 好 | 好 |
 
-**Design Gate 决策（Maine Coon 2026-03-23）**：不用 `check-suites` 或 `check-runs` 做主轮询入口。GitHub 的 CI 有两套体系（Checks API + commit statuses），raw Checks API 只覆盖前者，会漏掉仍走旧式 `commit status` 的 CI 提供方。
+**Design Gate 决策（Codex 2026-03-23）**：不用 `check-suites` 或 `check-runs` 做主轮询入口。GitHub 的 CI 有两套体系（Checks API + commit statuses），raw Checks API 只覆盖前者，会漏掉仍走旧式 `commit status` 的 CI 提供方。
 
 主轮询入口：`gh pr view <pr> -R <repo> --json headRefOid,state,mergedAt,statusCheckRollup`
 - 一次请求同时拿到 `headSha`、PR 生命周期状态、聚合 CI 结果
@@ -71,7 +71,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 
 **KD-3: 只 track 已注册 PR，零噪音**
 
-未注册的 PR 不轮询。猫猫通过 `register_pr_tracking` 注册 PR 时，系统开始追踪该 PR 的 CI/CD 状态。注册入口不变，复用现有 MCP tool。v1 默认 `ciTrackingEnabled: true`。
+未注册的 PR 不轮询。智能体通过 `register_pr_tracking` 注册 PR 时，系统开始追踪该 PR 的 CI/CD 状态。注册入口不变，复用现有 MCP tool。v1 默认 `ciTrackingEnabled: true`。
 
 **KD-5: 独立 CiCdRouter，不塞 ReviewRouter**
 
@@ -132,7 +132,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
    - 新建 `github-ci-bootstrap.ts`，在 `index.ts` 里和 review watcher 并排启动
    - lifecycle 和日志独立，不复用 review bootstrap 的名字和语义
 
-7. **测试矩阵**（Maine Coon R2 补充，必测场景）
+7. **测试矩阵**（Codex R2 补充，必测场景）
    - T1: `open→fail→success` 同 SHA 去重 — fail 通知一次，success 通知一次，不重复
    - T2: `new push` 重置 fingerprint — SHA 变化后即使结论相同也重新通知
    - T3: `merged/closed` 自动 remove — PR 关闭后从 tracking store 移除，停止轮询
@@ -148,7 +148,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
    - `refs/cicd-tracking.md`：CI/CD 通知格式、处理策略、配置说明
 
 3. **发版 SOP 闭环**
-   - clowder-ai Outbound PR：合入前需等 CI 通过
+   - office-claw Outbound PR：合入前需等 CI 通过
    - Release 发版：tag 前需确认 CI/CD 全绿
    - Hotfix：cherry-pick PR 也需 CI 验证
 
@@ -199,7 +199,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | CI/CD 通知复用现有 Review 消息管道（messageStore → socket → trigger） | 投递体验一致；不需要新建管道；ConnectorSource 协议已支持 | 2026-03-23 |
-| KD-2 | 数据源用 PR 级 rollup（`gh pr view --json statusCheckRollup`），不用 raw Checks API | 一次请求拿 headSha + lifecycle + 聚合状态；覆盖 Checks + commit statuses 两套体系；Maine Coon Design Gate 提出 | 2026-03-23 |
+| KD-2 | 数据源用 PR 级 rollup（`gh pr view --json statusCheckRollup`），不用 raw Checks API | 一次请求拿 headSha + lifecycle + 聚合状态；覆盖 Checks + commit statuses 两套体系；Codex Design Gate 提出 | 2026-03-23 |
 | KD-3 | 只 track 已注册 PR | 零噪音；复用现有 register_pr_tracking 入口 | 2026-03-23 |
 | KD-4 | CI 失败唤醒猫（priority: normal），CI 成功只投递消息 | 失败需要猫处理；成功是信息性的；v1 不用 urgent，后续需要再做策略 | 2026-03-23 |
 | KD-5 | 独立 CiCdRouter，不塞 ReviewRouter | ReviewRouter 把 review 专属的去重/内容抓取/格式化混在一起，硬塞 CI 会耦死两个数据源；抽共享 deliverConnectorMessage() helper | 2026-03-23 |
@@ -209,11 +209,11 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 
 ## Design Gate 讨论归档
 
-**参与者**: 金渐层 (@opencode) + Maine Coon (@gpt52, GPT-5.4)
+**参与者**: OpenCode (@opencode) + Codex (@gpt52, GPT-5.4)
 **Thread**: `thread_mn2krkok6nflpavy`（ci/cd github tracking）
 **日期**: 2026-03-23
 
-**Maine Coon核心贡献**:
+**Codex核心贡献**:
 1. 发现 raw Checks API (`check-suites/runs`) 只覆盖 Checks，会漏 commit statuses → 改用 PR 级 `statusCheckRollup`
 2. 提出 `PrTrackingStore` 缺少 patch/update 接口 → 新增 `patchCiState()`
 3. 发现 `ProcessedEmailStore` 5min 窗口去重不适合 CI 状态迁移 → 改用 `headSha + aggregateBucket` 去重
@@ -223,11 +223,11 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 7. PR lifecycle: open 持续轮询，merged/closed 才停
 8. required checks 为空时 fallback 到 all checks
 
-**Maine Coon R2 补充**:
+**Codex R2 补充**:
 9. 字段命名：用 `lastCiBucket`（`gh pr checks` 的 bucket 语义 pass/fail/pending），不用 `lastCiConclusion`（覆盖含 pending 的全状态空间）
 10. 必测场景矩阵：T1 同 SHA 去重、T2 new push 重置、T3 merged/closed remove、T4 required 为空 fallback
 
 ## Review Gate
 
-- Phase A: Maine Coon review（coding 落地 + test 覆盖）
+- Phase A: Codex review（coding 落地 + test 覆盖）
 - Phase B: team lead确认 SOP 流程变更

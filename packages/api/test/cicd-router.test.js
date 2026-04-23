@@ -64,7 +64,7 @@ function noopLog() {
  */
 function makePollResult(overrides = {}) {
   return {
-    repoFullName: 'zts212653/cat-cafe',
+    repoFullName: 'zts212653/office-claw',
     prNumber: 42,
     headSha: 'abc1234567890',
     prState: 'open',
@@ -119,7 +119,7 @@ describe('CiCdRouter', () => {
     it('delivers CI failure message to tracked thread (AC-A1)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -142,7 +142,7 @@ describe('CiCdRouter', () => {
     it('delivers CI success message to tracked thread (AC-A3)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -162,7 +162,7 @@ describe('CiCdRouter', () => {
     it('returns full formatted content in notified result (P2-1 regression)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -186,7 +186,7 @@ describe('CiCdRouter', () => {
     it('skips pending CI without sending message', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -207,7 +207,7 @@ describe('CiCdRouter', () => {
     it('same SHA + same bucket notifies only once (AC-A4)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -228,7 +228,7 @@ describe('CiCdRouter', () => {
     it('fail then success on same SHA notifies both (AC-A5)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -256,7 +256,7 @@ describe('CiCdRouter', () => {
     it('SHA change re-notifies even for same conclusion (AC-A9)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -282,7 +282,7 @@ describe('CiCdRouter', () => {
     it('merged PR is removed from tracking store (AC-A8)', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -294,14 +294,14 @@ describe('CiCdRouter', () => {
       assert.strictEqual(result.kind, 'skipped');
       assert.ok(result.reason.includes('merged'));
 
-      const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+      const entry = prTrackingStore.get('zts212653/office-claw', 42);
       assert.strictEqual(entry, null);
     });
 
     it('closed PR is removed from tracking store', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -313,7 +313,7 @@ describe('CiCdRouter', () => {
       assert.strictEqual(result.kind, 'skipped');
       assert.ok(result.reason.includes('closed'));
 
-      const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+      const entry = prTrackingStore.get('zts212653/office-claw', 42);
       assert.strictEqual(entry, null);
     });
   });
@@ -324,7 +324,7 @@ describe('CiCdRouter', () => {
     it('CI delivery does not change registeredAt', async () => {
       const router = createRouter();
       const registered = prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -334,7 +334,7 @@ describe('CiCdRouter', () => {
 
       await router.route(makePollResult({ aggregateBucket: 'fail' }));
 
-      const updated = prTrackingStore.get('zts212653/cat-cafe', 42);
+      const updated = prTrackingStore.get('zts212653/office-claw', 42);
       assert.ok(updated, 'entry should still exist after CI delivery');
       assert.strictEqual(updated.registeredAt, originalRegisteredAt);
       assert.ok(updated.lastCiFingerprint);
@@ -348,13 +348,13 @@ describe('CiCdRouter', () => {
     it('skips PR when ciTrackingEnabled is false', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
         userId: 'user-1',
       });
-      prTrackingStore.patchCiState('zts212653/cat-cafe', 42, { ciTrackingEnabled: false });
+      prTrackingStore.patchCiState('zts212653/office-claw', 42, { ciTrackingEnabled: false });
 
       const result = await router.route(makePollResult());
 
@@ -370,7 +370,7 @@ describe('CiCdRouter', () => {
     it('broadcasts connector_message to thread room', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -393,7 +393,7 @@ describe('CiCdRouter', () => {
     it('pending poll updates headSha without notifying', async () => {
       const router = createRouter();
       prTrackingStore.register({
-        repoFullName: 'zts212653/cat-cafe',
+        repoFullName: 'zts212653/office-claw',
         prNumber: 42,
         catId: 'opus',
         threadId: 'thread-abc',
@@ -402,7 +402,7 @@ describe('CiCdRouter', () => {
 
       await router.route(makePollResult({ headSha: 'new-sha', aggregateBucket: 'pending' }));
 
-      const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+      const entry = prTrackingStore.get('zts212653/office-claw', 42);
       assert.ok(entry, 'entry should exist with updated headSha');
       assert.strictEqual(entry.headSha, 'new-sha');
       assert.strictEqual(messageMock.messages.length, 0);

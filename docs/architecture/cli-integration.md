@@ -7,15 +7,15 @@ created: 2026-02-26
 
 # CLI 集成架构：Claude Code / Codex / Gemini CLI
 
-> Cat Cafe 项目如何对接三个不同厂商的 AI CLI 工具
-> 作者：Ragdoll | 最后更新：2026-02-07
+> OfficeClaw 项目如何对接三个不同厂商的 AI CLI 工具
+> 作者：Claude | 最后更新：2026-02-07
 
 ## 概述
 
-Cat Cafe 需要调用三个不同厂商的 AI Agent：
-- **Ragdoll** → Claude Code CLI (`claude`)
-- **Maine Coon** → OpenAI Codex CLI (`codex`)
-- **Siamese** → Google Gemini CLI (`gemini`)
+OfficeClaw 需要调用三个不同厂商的 AI Agent：
+- **Claude** → Claude Code CLI (`claude`)
+- **Codex** → OpenAI Codex CLI (`codex`)
+- **Gemini** → Google Gemini CLI (`gemini`)
 
 这三个 CLI 有不同的调用方式、输出格式和 Session 管理机制。本文档记录我们的集成方案和踩过的坑。
 
@@ -32,7 +32,7 @@ Cat Cafe 需要调用三个不同厂商的 AI Agent：
                 ▼                 ▼                 ▼
 ┌───────────────────┐ ┌───────────────────┐ ┌───────────────────┐
 │ ClaudeAgentService│ │ CodexAgentService │ │ GeminiAgentService│
-│  (Ragdoll Opus)     │ │  (Maine Coon Codex)    │ │  (Siamese Gemini)   │
+│  (Claude Opus)     │ │  (Codex Codex)    │ │  (Gemini Gemini)   │
 └─────────┬─────────┘ └─────────┬─────────┘ └─────────┬─────────┘
           │                     │                     │
           └─────────────────────┼─────────────────────┘
@@ -175,7 +175,7 @@ claude -p "prompt" \
 ```
 
 **特殊处理：**
-- **MCP 支持**：通过 `--mcp-config` 注入我们的 MCP Server，让 Claude 能回调 Cat Cafe
+- **MCP 支持**：通过 `--mcp-config` 注入我们的 MCP Server，让 Claude 能回调 OfficeClaw
 - **图片传递**：通过 `--images` flag 传递本地图片路径
 - **Session 恢复**：通过 `--resume <sessionId>` 恢复上下文
 
@@ -477,7 +477,7 @@ packages/api/src/
 │   ├── cat-models.ts         # 模型配置读取
 │   └── cat-config-loader.ts  # JSON 配置加载
 └── domains/cats/services/
-    ├── ClaudeAgentService.ts # Ragdoll
-    ├── CodexAgentService.ts  # Maine Coon
-    └── GeminiAgentService.ts # Siamese
+    ├── ClaudeAgentService.ts # Claude
+    ├── CodexAgentService.ts  # Codex
+    └── GeminiAgentService.ts # Gemini
 ```

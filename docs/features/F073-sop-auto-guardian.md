@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F073: SOP Auto-Guardian — 流程自闭环守护
 
-> **Status**: done | **Owner**: Ragdoll
+> **Status**: done | **Owner**: Claude
 > **Created**: 2026-03-07
 > **Priority**: P1
 
@@ -16,7 +16,7 @@ created: 2026-03-07
 
 ## Why
 
-team lead反复手动提醒猫猫 SOP 步骤，这是系统设计缺陷，不是管理问题。
+team lead反复手动提醒智能体 SOP 步骤，这是系统设计缺陷，不是管理问题。
 
 **核心痛点**（team experience 2026-03-07）：
 
@@ -28,7 +28,7 @@ team lead反复手动提醒猫猫 SOP 步骤，这是系统设计缺陷，不是
 ## 设计哲学（team lead定调 + 全猫共识 2026-03-07）
 
 > **"外化上下文和接力棒，不外包判断力。"**
-> "A2A 出口检查之所以有效，是因为它外化了'传球意识'，但没有夺走猫的判断力。F073 也应该复制这个成功模式。" —— Maine Coon (GPT-5.4)
+> "A2A 出口检查之所以有效，是因为它外化了'传球意识'，但没有夺走猫的判断力。F073 也应该复制这个成功模式。" —— Codex (GPT-5.4)
 
 ### 三条设计原则
 
@@ -51,7 +51,7 @@ team lead反复手动提醒猫猫 SOP 步骤，这是系统设计缺陷，不是
 
 #### P0: Hook 健壮性 + Skill 层规则（PR #271，已实现）
 
-Ragdoll专属的止血层：
+Claude专属的止血层：
 - `sop-stage-bookmark.sh` — PostToolUse hook 记录 SOP 阶段
 - `f24-post-compact-bootstrap.sh` — 压缩后恢复 SOP 阶段 + TTL 30min + 诊断日志
 - `worktree/SKILL.md` — 创建前 main 双向同步检查
@@ -116,7 +116,7 @@ workflow:
 |----|---------------------------|---------|----------|------|
 | R1 | "压缩后提醒他的那个是不是也得拉出来看看为什么呢" | AC-1 | 诊断报告 + 修复验证 | [x] P0 |
 | R2 | "先更新 feat/backlog 在 main 上 commit push 然后才能开 worktree" | AC-2 | skill 检查步骤 | [x] P0 |
-| R3 | "feat close 是需要其他猫猫帮你做一次愿景守护的吧" | AC-3 | skill @ 模板 | [x] P0 |
+| R3 | "feat close 是需要其他智能体帮你做一次愿景守护的吧" | AC-3 | skill @ 模板 | [x] P0 |
 | R4 | "写完之后自己守护愿景...通知我你合入了就行" | AC-4 | 端到端验证（本 Feature） | [x] P0 |
 | R5 | "特别是上下文压缩之后" | AC-5 | hook + resume capsule | [x] P1 |
 | R6 | "所有猫都能用的综合机制"（team lead追问） | AC-6 | Mission Hub 共享 | [x] P1 |
@@ -164,7 +164,7 @@ workflow:
 | # | 决策 | 选择 | 放弃的方案 | 理由 | 日期 |
 |---|------|------|-----------|------|------|
 | KD-1 | 设计哲学 | 告示牌（信息共享） | 控制器（强制状态机） | team lead："不想让猫变成 workflow node" | 2026-03-07 |
-| KD-2 | 阶段存储 | Mission Hub（所有猫共享） | `/tmp/` 文件（Ragdoll专属） | 跨猫可见 + 压缩不丢失 | 2026-03-07 |
+| KD-2 | 阶段存储 | Mission Hub（所有猫共享） | `/tmp/` 文件（Claude专属） | 跨猫可见 + 压缩不丢失 | 2026-03-07 |
 | KD-3 | 门禁范围 | 只守 worktree + close | 每步硬约束 | 信任猫的判断力，随模型能力松绑 | 2026-03-07 |
 | KD-4 | attested vs verified | 区分猫声明和系统验证 | 假装全自动 | 诚实比好看重要 | 2026-03-07 |
 | KD-5 | Phase 顺序 | 告示牌→接力→门禁→加速器 | 先做状态机 | 先可见性，后可靠性，最后硬约束 | 2026-03-07 |
@@ -196,7 +196,7 @@ workflow:
 | P0 R1 | 云端 Codex | P1: push status check | 2026-03-07 |
 | P0 R2 | 云端 Codex | P1: bidirectional sync | 2026-03-07 |
 | P0 R3 | 云端 Codex | 通过 | 2026-03-07 |
-| P4 R1 | Maine Coon (Codex) | 2P1+1P2 → R2 全修 → 放行 | 2026-03-08 |
+| P4 R1 | Codex (Codex) | 2P1+1P2 → R2 全修 → 放行 | 2026-03-08 |
 | P4 Cloud | 云端 Codex | 通过 (0 issues) | 2026-03-08 |
 | Close | Opus 4.5 + Codex + GPT-5.4 | 三猫愿景守护 → P2 descope → 放行 | 2026-03-08 |
 
@@ -204,7 +204,7 @@ workflow:
 
 ### 四猫共识 + GPT Pro 研究收敛（2026-03-07）
 
-**参与者**：Opus 4.6、Opus 4.5、Codex（Maine Coon）、GPT-5.4（Maine Coon）、GPT Pro（外部研究）
+**参与者**：Opus 4.6、Opus 4.5、Codex（Codex）、GPT-5.4（Codex）、GPT Pro（外部研究）
 
 **GPT Pro 核心建议**：补"执行账本"（Stage + Baton + Resume Capsule），Mission Hub 当真相源，hook 当加速器不当唯一记忆体。
 
@@ -215,4 +215,4 @@ workflow:
 
 **team lead定调**：
 > "我不想让你们变成一个 workflow 的 node，这样没有灵魂。"
-> "要相信未来的猫猫们会更聪明。"
+> "要相信未来的智能体们会更聪明。"

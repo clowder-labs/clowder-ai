@@ -69,7 +69,7 @@ describe('ThreadCatSettings', () => {
     await flush();
 
     // Click the settings button to open popover
-    const settingsBtn = container.querySelector('button[title="设置默认猫猫"]');
+    const settingsBtn = container.querySelector('button[title="设置默认智能体"]');
     expect(settingsBtn).toBeTruthy();
     act(() => {
       (settingsBtn as HTMLElement).click();
@@ -81,8 +81,8 @@ describe('ThreadCatSettings', () => {
     expect(popover?.className).toContain('ui-overlay-card');
 
     // Popover should now be open — CatSelector renders cat chips from fallback CAT_CONFIGS
-    // Find and click the 布偶猫 chip
-    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
+    // Find and click the Claude chip
+    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     expect(catChip).toBeTruthy();
     act(() => {
       catChip?.click();
@@ -108,7 +108,7 @@ describe('ThreadCatSettings', () => {
     await flush();
 
     // Open popover
-    const settingsBtn = container.querySelector('button[title="设置默认猫猫"]');
+    const settingsBtn = container.querySelector('button[title="设置默认智能体"]');
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
@@ -126,14 +126,14 @@ describe('ThreadCatSettings', () => {
     await flush();
 
     // Open popover
-    const settingsBtn = container.querySelector('button[title="设置默认猫猫"]');
+    const settingsBtn = container.querySelector('button[title="设置默认智能体"]');
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
     await flush();
 
     // Select a cat
-    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
+    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     act(() => {
       catChip?.click();
     });
@@ -158,14 +158,14 @@ describe('ThreadCatSettings', () => {
     await flush();
 
     // Open popover
-    const settingsBtn = container.querySelector('button[title="设置默认猫猫"]');
+    const settingsBtn = container.querySelector('button[title="设置默认智能体"]');
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
     await flush();
 
     // Select a cat
-    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
+    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     act(() => {
       catChip?.click();
     });
@@ -193,7 +193,7 @@ describe('ThreadCatSettings', () => {
     await flush();
 
     // Open popover
-    const settingsBtn = container.querySelector('button[title="设置默认猫猫"]');
+    const settingsBtn = container.querySelector('button[title="设置默认智能体"]');
     act(() => {
       (settingsBtn as HTMLElement).click();
     });

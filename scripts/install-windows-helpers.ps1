@@ -369,10 +369,10 @@ public static class WinCredNative {
     }
 }
 
-function Read-ClowderCredential {
+function Read-OfficeClawCredential {
     param([Parameter(Mandatory)][string]$Path)
     Initialize-WinCredNative
-    $target = "Clowder/$Path"
+    $target = "OfficeClaw/$Path"
     $credPtr = [IntPtr]::Zero
     $ok = [WinCredNative]::CredRead($target, 1, 0, [ref]$credPtr)
     if (-not $ok) {
@@ -391,13 +391,13 @@ function Read-ClowderCredential {
     }
 }
 
-function Write-ClowderCredential {
+function Write-OfficeClawCredential {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$Secret
     )
     Initialize-WinCredNative
-    $target = "Clowder/$Path"
+    $target = "OfficeClaw/$Path"
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($Secret)
     $blob = [Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
     try {
@@ -630,7 +630,7 @@ function Ensure-WindowsRedis {
     Write-Warn "Redis not found - attempting portable install into .office-claw/redis/windows"
     try {
         $layout = Resolve-PortableRedisLayout -ProjectRoot $ProjectRoot
-        $headers = @{ "User-Agent" = "ClowderAI-Installer" }
+        $headers = @{ "User-Agent" = "OfficeClaw-Installer" }
         $redisReleaseApi = if ($env:OFFICE_CLAW_WINDOWS_REDIS_RELEASE_API) {
             $env:OFFICE_CLAW_WINDOWS_REDIS_RELEASE_API.Trim()
         } else {

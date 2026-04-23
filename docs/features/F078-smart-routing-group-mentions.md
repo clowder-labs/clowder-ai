@@ -9,7 +9,7 @@ completed: 2026-03-07
 
 # F078: Smart Routing & Group Mentions
 
-> **Status**: done | **Owner**: Ragdoll
+> **Status**: done | **Owner**: Claude
 
 ## Why
 
@@ -23,7 +23,7 @@ Four routing improvements:
 
 2. **@all / @全体** -- Route to all available cats.
 
-3. **@全体{breed}** -- Route to all variants of a breed (e.g. @全体Ragdoll -> opus, sonnet, opus-45).
+3. **@全体{breed}** -- Route to all variants of a breed (e.g. @全体Claude -> opus, sonnet, opus-45).
 
 4. **@thread / @本帖 / @全体参与者** -- Route to all current thread participants.
 
@@ -32,9 +32,9 @@ Four routing improvements:
 - [x] AC-A1: Message without @mention routes to the cat that most recently replied in the thread
 - [x] AC-A2: New thread without participants defaults to opus (unchanged)
 - [x] AC-A3: `@all` or `@全体` routes to all available cats
-- [x] AC-A4: `@全体Ragdoll` / `@all-ragdoll` routes to all ragdoll variants
-- [x] AC-A5: `@全体Maine Coon` / `@all-maine-coon` routes to all maine-coon variants
-- [x] AC-A6: `@全体Siamese` / `@all-siamese` routes to all siamese variants
+- [x] AC-A4: `@全体Claude` / `@all-ragdoll` routes to all ragdoll variants
+- [x] AC-A5: `@全体Codex` / `@all-maine-coon` routes to all maine-coon variants
+- [x] AC-A6: `@全体Gemini` / `@all-siamese` routes to all siamese variants
 - [x] AC-A7: `@thread` / `@本帖` / `@全体参与者` routes to all thread participants
 - [x] AC-A8: Group mentions respect cat availability (skip unavailable cats)
 - [x] AC-A9: Existing individual @mention behavior unchanged

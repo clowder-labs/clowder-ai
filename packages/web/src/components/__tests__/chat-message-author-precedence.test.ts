@@ -66,7 +66,7 @@ describe('ChatMessage author precedence', () => {
       if (id !== 'gpt52') return undefined;
       return {
         id: 'gpt52',
-        displayName: '缅因猫',
+        displayName: 'Codex',
         nickname: '砚砚',
         variantLabel: 'GPT-5.2',
         color: { primary: '#5B8C5A', secondary: '#E6F2E6' },
@@ -99,8 +99,8 @@ describe('ChatMessage author precedence', () => {
     });
 
     expect(container.textContent).toContain('cross-posted review');
-    expect(container.textContent).toContain('缅因猫（GPT-5.2）');
-    expect(container.textContent).not.toContain('铲屎官');
+    expect(container.textContent).toContain('Codex（GPT-5.2）');
+    expect(container.textContent).not.toContain('用户');
   });
 
   it('uses configured co-creator name and avatar for plain user messages', async () => {
@@ -123,7 +123,7 @@ describe('ChatMessage author precedence', () => {
     });
 
     expect(container.textContent).toContain('始皇帝');
-    expect(container.textContent).not.toContain('铲屎官');
+    expect(container.textContent).not.toContain('用户');
     const avatar = container.querySelector('img[alt="始皇帝"]') as HTMLImageElement | null;
     expect(avatar?.getAttribute('src')).toBe('/uploads/qin-owner.png');
   });

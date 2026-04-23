@@ -16,7 +16,7 @@ export const callbackEvidenceSearchInputSchema = {
   query: z.string().trim().min(1).describe('Evidence query string'),
   limit: z.number().int().min(1).max(20).optional().describe('Maximum number of results (default: 5)'),
   budget: z.enum(['low', 'mid', 'high']).optional().describe('Recall budget profile'),
-  tags: z.string().optional().describe('Comma-separated tags (example: project:cat-cafe,kind:decision)'),
+  tags: z.string().optional().describe('Comma-separated tags (example: project:office-claw,kind:decision)'),
   tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).optional().describe('Tag matching strategy'),
 };
 

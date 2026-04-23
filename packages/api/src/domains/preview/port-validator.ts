@@ -6,7 +6,7 @@
 
 import type { PortValidationOptions, PortValidationResult } from './types.js';
 
-/** Clowder AI 自身服务端口 — 硬编码保底 */
+/** OfficeClaw 自身服务端口 — 硬编码保底 */
 export const DEFAULT_EXCLUDED_PORTS = [
   3001,
   3002, // Hub frontend + API
@@ -22,7 +22,7 @@ export const DEFAULT_EXCLUDED_PORTS = [
 ];
 
 /**
- * Collect Clowder AI service ports from runtime environment variables.
+ * Collect OfficeClaw service ports from runtime environment variables.
  * These are merged with the hardcoded fallback list for defense in depth.
  */
 export function collectRuntimePorts(): number[] {
@@ -73,7 +73,7 @@ export function validatePort(rawPort: number | string, opts: PortValidationOptio
   }
 
   if (excludedPorts.includes(port)) {
-    return { allowed: false, reason: `Port ${port} is excluded (Clowder AI service port)` };
+    return { allowed: false, reason: `Port ${port} is excluded (OfficeClaw service port)` };
   }
 
   return { allowed: true };

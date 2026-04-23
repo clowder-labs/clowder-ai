@@ -83,7 +83,7 @@ const CAT_SESSION_COLORS: Record<string, { border: string; badgeBg: string; badg
   dare: { border: 'border-dare-primary/40', badgeBg: 'bg-dare-light', badgeText: 'text-dare-dark' },
   // Maine-coon variants: green family, different shades
   gpt52: { border: 'border-[#66BB6A66]', badgeBg: 'bg-[#C8E6C9]', badgeText: 'text-[#2E7D32]' },
-  // Ragdoll variants: purple family, different shades
+  // Claude variants: purple family, different shades
   'opus-45': { border: 'border-[#7E57C266]', badgeBg: 'bg-[#E1D5F0]', badgeText: 'text-[#5E35B1]' },
   sonnet: { border: 'border-[#B39DDB66]', badgeBg: 'bg-[#EDE7F6]', badgeText: 'text-[#6A1B9A]' },
 };

@@ -46,10 +46,10 @@ describe('formatThreadAsMarkdown', () => {
   test('formats thread with title and messages', () => {
     const thread = makeThread({ title: '第一次测试', participants: ['opus'] });
     const messages = [
-      makeMessage({ content: '你好布偶猫', timestamp: new Date('2026-02-07T10:30:00').getTime() }),
+      makeMessage({ content: '你好Claude', timestamp: new Date('2026-02-07T10:30:00').getTime() }),
       makeMessage({
         catId: 'opus',
-        content: '你好铲屎官！',
+        content: '你好用户！',
         timestamp: new Date('2026-02-07T10:31:00').getTime(),
         id: 'msg-2',
       }),
@@ -59,10 +59,10 @@ describe('formatThreadAsMarkdown', () => {
 
     assert.ok(md.includes('# 对话记录: 第一次测试'));
     assert.ok(md.includes('thread-1'));
-    assert.ok(md.includes('布偶猫'));
-    assert.ok(md.includes('你好布偶猫'));
-    assert.ok(md.includes('你好铲屎官！'));
-    assert.ok(md.includes('铲屎官'));
+    assert.ok(md.includes('Claude'));
+    assert.ok(md.includes('你好Claude'));
+    assert.ok(md.includes('你好用户！'));
+    assert.ok(md.includes('用户'));
   });
 
   test('handles empty messages with only header', () => {
@@ -91,9 +91,9 @@ describe('formatThreadAsMarkdown', () => {
 
     const md = formatThreadAsMarkdown(thread, messages);
 
-    assert.ok(md.includes('铲屎官'));
-    assert.ok(md.includes('布偶猫'));
-    assert.ok(md.includes('缅因猫'));
+    assert.ok(md.includes('用户'));
+    assert.ok(md.includes('Claude'));
+    assert.ok(md.includes('Codex'));
     assert.ok(md.includes('请问一下'));
     assert.ok(md.includes('我来回答'));
     assert.ok(md.includes('我也来'));
@@ -129,10 +129,10 @@ describe('formatThreadAsText', () => {
   test('formats thread as plain text without Markdown syntax', () => {
     const thread = makeThread({ title: '纯文本测试', participants: ['opus'] });
     const messages = [
-      makeMessage({ content: '你好布偶猫', timestamp: new Date('2026-02-07T10:30:00').getTime() }),
+      makeMessage({ content: '你好Claude', timestamp: new Date('2026-02-07T10:30:00').getTime() }),
       makeMessage({
         catId: 'opus',
-        content: '你好铲屎官！',
+        content: '你好用户！',
         timestamp: new Date('2026-02-07T10:31:00').getTime(),
         id: 'msg-2',
       }),
@@ -149,8 +149,8 @@ describe('formatThreadAsText', () => {
     assert.ok(!txt.includes('**'), 'Should not contain Markdown bold markers');
 
     // Should include message content
-    assert.ok(txt.includes('你好布偶猫'));
-    assert.ok(txt.includes('你好铲屎官！'));
+    assert.ok(txt.includes('你好Claude'));
+    assert.ok(txt.includes('你好用户！'));
   });
 
   test('handles empty messages', () => {

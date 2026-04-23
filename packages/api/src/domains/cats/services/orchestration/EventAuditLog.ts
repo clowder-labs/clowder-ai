@@ -182,7 +182,7 @@ export class EventAuditLog {
   }
 }
 
-/** Common event types for Clowder AI */
+/** Common event types for OfficeClaw */
 export const AuditEventTypes = {
   /** 辩论/讨论冠军宣判 */
   DEBATE_WINNER: 'debate_winner',
@@ -213,7 +213,7 @@ export const AuditEventTypes = {
   AGENT_RESPONDED: 'agent_responded',
   /** 调用发生错误 */
   CAT_ERROR: 'cat_error',
-  /** 猫猫互调 handoff */
+  /** 智能体互调 handoff */
   A2A_HANDOFF: 'a2a_handoff',
   /** CLI 工具执行开始（command_execution started） */
   CLI_TOOL_STARTED: 'cli_tool_started',

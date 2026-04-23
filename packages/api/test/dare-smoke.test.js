@@ -9,7 +9,7 @@
  *
  * Actually invokes the DARE CLI in headless mode to verify end-to-end integration.
  * Requires:
- *   - DARE repo at DARE_PATH (or /tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine)
+ *   - DARE repo at DARE_PATH (or /tmp/office-claw-reviews/Deterministic-Agent-Runtime-Engine)
  *   - OPENROUTER_API_KEY in env
  *
  * Skip condition: if DARE_PATH is unset AND the default path doesn't exist,
@@ -26,7 +26,7 @@ import {
 } from '../dist/domains/cats/services/agents/providers/DareAgentService.js';
 
 // Prefer vendored dare in this repo, then env DARE_PATH, then legacy /tmp path.
-const LEGACY_DARE_PATH = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
+const LEGACY_DARE_PATH = '/tmp/office-claw-reviews/Deterministic-Agent-Runtime-Engine';
 const vendorPath = resolveVendorDarePath();
 const vendorHasDare = existsSync(`${vendorPath}/client/__main__.py`);
 const DARE_PATH = resolvePreferredDarePath() || (vendorHasDare ? vendorPath : LEGACY_DARE_PATH);

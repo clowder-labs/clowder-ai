@@ -7,7 +7,7 @@ export interface LocalSecretBackend {
 }
 
 const SECRET_SCHEME = 'wincred://';
-const SECRET_NAMESPACE = 'Clowder';
+const SECRET_NAMESPACE = 'OfficeClaw';
 const CONNECTOR_SECRET_ENV_VARS = new Set([
   'TELEGRAM_BOT_TOKEN',
   'FEISHU_APP_SECRET',
@@ -317,6 +317,6 @@ export function decodeSecretRefForTests(ref: string): string | null {
 export function decodeProviderProfileIdFromRef(ref: string): string | null {
   const parsed = parseSecretRef(ref);
   if (!parsed) return null;
-  const match = parsed.target.match(/^Clowder\/profiles\/([^/]+)\/(?:apiKey|env)$/);
+  const match = parsed.target.match(/^OfficeClaw\/profiles\/([^/]+)\/(?:apiKey|env)$/);
   return match ? decodeSecretPathSegment(match[1] ?? '') : null;
 }

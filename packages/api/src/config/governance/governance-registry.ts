@@ -9,12 +9,12 @@
  *
  * Tracks which external projects have been bootstrapped,
  * their governance pack versions, and sync timestamps.
- * Stored at `.office-claw/governance-registry.json` in the Cat Cafe root.
+ * Stored at `.office-claw/governance-registry.json` in the OfficeClaw root.
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
-import type { GovernanceHealthSummary, GovernancePackMeta } from '@clowder/shared';
+import type { GovernanceHealthSummary, GovernancePackMeta } from '@office-claw/shared';
 import { pathsEqual } from '../../utils/project-path.js';
 import { GOVERNANCE_PACK_VERSION } from './governance-pack.js';
 

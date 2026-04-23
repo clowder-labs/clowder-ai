@@ -987,7 +987,7 @@ describe('ModelsPanel search', () => {
     expect(headerValueInput).not.toBeNull();
 
     await changeInputValue(headerKeyInput!, 'X-App-Id');
-    await changeInputValue(headerValueInput!, 'cat-cafe');
+    await changeInputValue(headerValueInput!, 'office-claw');
     await clickButton(submitButton!);
     await flushEffects();
 
@@ -1000,7 +1000,7 @@ describe('ModelsPanel search', () => {
     );
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
-    expect(payload.headers).toEqual({ 'X-App-Id': 'cat-cafe' });
+    expect(payload.headers).toEqual({ 'X-App-Id': 'office-claw' });
   });
 
   it('submits create-model icon when random icon is generated', async () => {

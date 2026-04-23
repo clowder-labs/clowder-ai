@@ -43,7 +43,7 @@ describe('workspace file/raw endpoint (integration)', () => {
 
     // Find this worktree's ID
     const worktrees = await listWorktrees();
-    const thisWt = worktrees.find((w) => w.root.endsWith('cat-cafe-f063p2b4'));
+    const thisWt = worktrees.find((w) => w.root.endsWith('office-claw-f063p2b4'));
     // Fallback: use the main worktree if this one isn't found
     const wt = thisWt ?? worktrees[0];
     worktreeId = wt.id;
@@ -69,7 +69,7 @@ describe('workspace file/raw endpoint (integration)', () => {
     // Clean up test files — find the worktree root from the resolved path
     const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
     const worktrees = await listWorktrees();
-    const thisWt = worktrees.find((w) => w.root.endsWith('cat-cafe-f063p2b4'));
+    const thisWt = worktrees.find((w) => w.root.endsWith('office-claw-f063p2b4'));
     const wt = thisWt ?? worktrees[0];
     await rm(join(wt.root, TEST_DIR), { recursive: true, force: true });
   });

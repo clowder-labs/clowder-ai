@@ -50,18 +50,18 @@ describe('applyTermDictionary', () => {
     expect(applyTermDictionary('re base')).toBe('rebase');
   });
 
-  it('corrects cat names (proven misrecognitions)', () => {
-    expect(applyTermDictionary('免因猫帮我review')).toBe('缅因猫帮我review');
-    expect(applyTermDictionary('面因猫说')).toBe('缅因猫说');
-    expect(applyTermDictionary('棉因猫')).toBe('缅因猫');
-    expect(applyTermDictionary('绵因猫')).toBe('缅因猫');
-    expect(applyTermDictionary('免疫猫')).toBe('缅因猫');
-    expect(applyTermDictionary('先罗猫')).toBe('暹罗猫');
-    expect(applyTermDictionary('仙罗猫')).toBe('暹罗猫');
-    expect(applyTermDictionary('产屎官')).toBe('铲屎官');
-    expect(applyTermDictionary('铲史官')).toBe('铲屎官');
-    expect(applyTermDictionary('铲是官')).toBe('铲屎官');
-    expect(applyTermDictionary('不偶猫很可爱')).toBe('布偶猫很可爱');
+  it('corrects agent name misrecognitions', () => {
+    expect(applyTermDictionary('免因帮我review')).toBe('Codex帮我review');
+    expect(applyTermDictionary('面因说')).toBe('Codex说');
+    expect(applyTermDictionary('棉因')).toBe('Codex');
+    expect(applyTermDictionary('绵因')).toBe('Codex');
+    expect(applyTermDictionary('免疫')).toBe('Codex');
+    expect(applyTermDictionary('先罗')).toBe('Gemini');
+    expect(applyTermDictionary('仙罗')).toBe('Gemini');
+    expect(applyTermDictionary('产屎官')).toBe('用户');
+    expect(applyTermDictionary('铲史官')).toBe('用户');
+    expect(applyTermDictionary('铲是官')).toBe('用户');
+    expect(applyTermDictionary('不偶很可靠')).toBe('Claude很可靠');
   });
 
   it('corrects nickname homophones (砚砚 yàn variants)', () => {
@@ -184,9 +184,9 @@ describe('correctTranscription', () => {
     expect(correctTranscription(input)).toBe(expected);
   });
 
-  it('handles realistic voice input with cat names', () => {
-    const input = '嗯让免因猫帮我 review 一下那个克劳德的 web socket 代码';
-    const expected = '让缅因猫帮我 review 一下 Claude的 WebSocket 代码';
+  it('handles realistic voice input with agent names', () => {
+    const input = '嗯让免因帮我 review 一下那个克劳德的 web socket 代码';
+    const expected = '让Codex帮我 review 一下 Claude的 WebSocket 代码';
     expect(correctTranscription(input)).toBe(expected);
   });
 

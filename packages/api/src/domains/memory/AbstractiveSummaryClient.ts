@@ -10,7 +10,7 @@
  * Design: Opus outputs NATURAL LANGUAGE (what it's good at).
  * Program parses the output into structured segments (what code is good at).
  *
- * 铲屎官原话："我们就不能让他返回自然语言直接帮他加格式吗？格式就是程序加。"
+ * 用户原话："我们就不能让他返回自然语言直接帮他加格式吗？格式就是程序加。"
  */
 
 export interface AbstractiveInput {
@@ -53,7 +53,7 @@ interface ProviderProfile {
 }
 
 // ─── System Prompt: natural language output ──────────────────────
-const SYSTEM_PROMPT = `You are a thread summarizer for Clowder AI, an AI-collaborative project management system.
+const SYSTEM_PROMPT = `You are a thread summarizer for OfficeClaw, an AI-collaborative project management system.
 
 IMPORTANT: You are a SUMMARIZER, not a conversation participant. Do NOT respond to the messages — summarize them.
 

@@ -138,13 +138,13 @@ describe('TelegramAdapter', () => {
       });
 
       const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
-      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+      await adapter.sendRichMessage('1001', 'text', blocks, 'Claude');
 
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].chatId, '1001');
       assert.deepEqual(sendCalls[0].opts, { parse_mode: 'HTML' });
       assert.ok(sendCalls[0].text.includes('<b>'));
-      assert.ok(sendCalls[0].text.includes('布偶猫'));
+      assert.ok(sendCalls[0].text.includes('Claude'));
       assert.ok(sendCalls[0].text.includes('Review'));
     });
 
@@ -166,7 +166,7 @@ describe('TelegramAdapter', () => {
           ],
         },
       ];
-      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+      await adapter.sendRichMessage('1001', 'text', blocks, 'Claude');
 
       assert.ok(sendCalls[0].text.includes('✅ Done'));
       assert.ok(sendCalls[0].text.includes('☐ Pending'));
@@ -270,7 +270,7 @@ describe('TelegramAdapter', () => {
       });
 
       const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
-      await adapter.sendRichMessage('1001', 'Cat reply text here', blocks, '布偶猫');
+      await adapter.sendRichMessage('1001', 'Cat reply text here', blocks, 'Claude');
 
       assert.equal(sendCalls.length, 1);
       assert.ok(sendCalls[0].text.includes('Cat reply text here'), 'textContent must appear in output');

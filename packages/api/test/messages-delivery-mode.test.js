@@ -97,7 +97,7 @@ describe('POST /api/messages deliveryMode', () => {
       url: '/api/messages',
       headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: {
-        content: '你好猫猫',
+        content: '你好智能体',
         threadId: 'thread-1',
         deliveryMode: 'queue',
       },
@@ -289,7 +289,7 @@ describe('POST /api/messages deliveryMode', () => {
   it('multipart request with deliveryMode=force → cancels and executes immediately', async () => {
     deps.invocationTracker.has.mock.mockImplementation(() => true);
 
-    const boundary = '----cat-cafe-test-boundary';
+    const boundary = '----office-claw-test-boundary';
     const payload = Buffer.concat([
       Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="content"\r\n\r\n强制发送\r\n`),
       Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="threadId"\r\n\r\nthread-1\r\n`),
@@ -372,7 +372,7 @@ describe('POST /api/messages deliveryMode', () => {
     // then ends normally (no throw) — this is the exact scenario砚砚 identified.
     deps.router.routeExecution.mock.mockImplementation(async function* () {
       yield { type: 'text', catId: 'opus', content: 'partial output', timestamp: Date.now() };
-      // External cancel happens here (e.g., force-send from铲屎官)
+      // External cancel happens here (e.g., force-send from用户)
       controller.abort();
       // Generator ends normally — no throw. The for-await break exits the loop,
       // but post-loop code must NOT run ack+succeeded.

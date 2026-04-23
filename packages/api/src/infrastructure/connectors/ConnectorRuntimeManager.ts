@@ -1,10 +1,10 @@
 import { resolve } from 'node:path';
-import type { CatId, ConnectorSource } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
-import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../utils/office-claw-root.js';
 import { findMonorepoRoot } from '../../utils/monorepo-root.js';
 import { FRONTEND_DEFAULT_USER_ID } from '../../utils/request-identity.js';
 import {
@@ -822,7 +822,7 @@ function mergeConnectorConfig(
 
 async function createSharedContext(config: ConnectorGatewayConfig, deps: ConnectorGatewayDeps): Promise<SharedContext> {
   const { log } = deps;
-  const hostRoot = deps.hostRoot ?? resolveCatCafeHostRoot(process.cwd());
+  const hostRoot = deps.hostRoot ?? resolveOfficeClawHostRoot(process.cwd());
   const bindingStore =
     deps.bindingStore ??
     (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());

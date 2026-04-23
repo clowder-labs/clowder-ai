@@ -21,7 +21,7 @@ const {
   getProviderProfile,
   resolveAnthropicRuntimeProfile,
 } = await import('../dist/config/provider-profiles.js');
-const { createRuntimeCat, updateRuntimeCat } = await import('../dist/config/runtime-cat-catalog.js');
+const { createRuntimeCat, updateRuntimeCat } = await import('../dist/config/runtime-office-claw-catalog.js');
 
 /** @param {string} prefix */
 async function makeTmpDir(prefix) {

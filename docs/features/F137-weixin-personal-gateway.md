@@ -8,16 +8,16 @@ created: 2026-07-19
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
 
-> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: in-progress | **Owner**: OpenCode | **Priority**: P1
 >
-> **分工**：金渐层（@opencode）实现 → Maine Coon（@codex）review → Ragdoll（@opus）愿景守护
-> 实现过程中不 @ Ragdoll，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
+> **分工**：OpenCode（@opencode）实现 → Codex（@codex）review → Claude（@opus）愿景守护
+> 实现过程中不 @ Claude，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
 
 ## Why
 
 F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微信），但team lead的个人微信——12 亿用户量级的国民级 IM——一直无法接入。2026 年 7 月，腾讯微信正式开放 **iLink Bot 协议**（灰度中），允许个人微信号直接与 AI Bot 交互（扫码登录、长轮询收消息、HTTP 发消息），无需企业资质、无需公网 URL、无需 XML/AES 加解密。
 
-team experience：*"那我们是不是可以学习 @tencent-weixin/openclaw-weixin 这个的实现模式！把我们的猫猫接入微信！！？"*
+team experience：*"那我们是不是可以学习 @tencent-weixin/openclaw-weixin 这个的实现模式！把我们的智能体接入微信！！？"*
 
 team experience：*"你也得复用那些基础设施，就不要自己做一套"*
 
@@ -153,7 +153,7 @@ team lead确认已被灰度到 ClawBot（iLink Bot）功能。
 ### Phase A（文本双向）
 - [x] AC-A1: 扫码登录流程完整（获取 QR → 扫码 → 获取 bot_token → 持久化）
 - [x] AC-A2: 微信个人号 DM 消息入站解析正确（文本消息）
-- [x] AC-A3: 猫猫回复通过 WeixinAdapter 发送到微信（文本，含 context_token 缓存）
+- [x] AC-A3: 智能体回复通过 WeixinAdapter 发送到微信（文本，含 context_token 缓存）
 - [x] AC-A4: 长消息自动分块（>2000 字符）
 - [x] AC-A5: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
 - [ ] AC-A6: /new /threads /use /where 命令在微信内正常工作
@@ -177,13 +177,13 @@ team lead确认已被灰度到 ClawBot（iLink Bot）功能。
 - 7 测试覆盖所有状态转换 (idle→fetching→waiting→scanned→confirmed→error→expired)
 - 自动轮询铁律：`setInterval(2500ms)` + `setTimeout(60000ms)`，扫码后零用户干预
 - Pencil 绘制 SVG 图标，无 emoji
-- Maine Coon (codex) R2 放行 + 云端 Codex review 无 P1/P2
+- Codex (codex) R2 放行 + 云端 Codex review 无 P1/P2
 
 ## 需求点 Checklist
 
 | ID | 需求点（team experience/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "把我们的猫猫接入微信" | AC-A1~A7 | test + manual DM | [ ] |
+| R1 | "把我们的智能体接入微信" | AC-A1~A7 | test + manual DM | [ ] |
 | R2 | "你也得复用那些基础设施，就不要自己做一套" | AC-A5, AC-C4 | code review: 公共层 diff = 0 | [ ] |
 | R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [ ] |
 | R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [x] |
@@ -218,8 +218,8 @@ team lead确认已被灰度到 ClawBot（iLink Bot）功能。
 
 **现象**（2026-07-24 Alpha 实测，3 次复现）：
 - ✅ 微信扫码登录成功 → 长轮询启动
-- ✅ 微信发消息 → iLink `getupdates` 正常接收 → ConnectorRouter 路由 → 创建 thread + binding → 猫猫 invocation 创建 → 猫猫处理完成
-- ❌ 猫猫回复 **从未** 到达微信端 — 微信 DM 窗口无任何新消息
+- ✅ 微信发消息 → iLink `getupdates` 正常接收 → ConnectorRouter 路由 → 创建 thread + binding → 智能体 invocation 创建 → 智能体处理完成
+- ❌ 智能体回复 **从未** 到达微信端 — 微信 DM 窗口无任何新消息
 
 **证据链**（来自 `api.2026-03-23.1.log`, PID 72430）：
 
@@ -238,7 +238,7 @@ team lead确认已被灰度到 ClawBot（iLink Bot）功能。
 
 **Redis binding 已确认存在**：
 ```
-cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
+office-claw:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
   connectorId: weixin
   externalChatId: o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
   threadId: thread_mn45go5om80e4v98
@@ -264,7 +264,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 **状态**: 🟢 Fixed — PR #704 + #708 + #710 + #711 累积修复，E2E 三轮验证通过 (2026-03-24)
 
-**现象**：team lead发第一条微信消息 → 猫猫回复 → 微信收到 ✅。发第二条 → 猫猫回复 → 微信收不到 ❌（或延迟 3-5 分钟才收到）。
+**现象**：team lead发第一条微信消息 → 智能体回复 → 微信收到 ✅。发第二条 → 智能体回复 → 微信收不到 ❌（或延迟 3-5 分钟才收到）。
 
 **根因（多层）**：
 1. **iLink `context_token` 单次消费**（PR #704）：第一次 `sendmessage` + `FINISH` 后 token 作废，后续用同一 token 被静默丢弃
@@ -291,7 +291,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 ### BUG-4：A→B→C 接力链只送达 A，B/C 静默丢失
 
-**现象**：team lead在微信端发消息触发 A→B→C 猫猫接力链时，只收到 A 的回复，B 和 C 的回复静默丢失。iLink API 均返回 200 OK。
+**现象**：team lead在微信端发消息触发 A→B→C 智能体接力链时，只收到 A 的回复，B 和 C 的回复静默丢失。iLink API 均返回 200 OK。
 
 **根因**：`context_token` 单次消费（iLink 协议约束）+ 3s debounce 阻塞 deliver loop。A 的 `flushReply()` 消费 token 后删除，B/C 的 `sendReply()` 到达时已无 token，静默跳过（`WeixinAdapter.ts:519-524`）。
 
@@ -313,6 +313,6 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 ## Review Gate
 
-- Phase A: 跨 family review（Maine Coon @codex）
-- Phase B: 跨 family review（Maine Coon @codex）— AES 加解密需额外审查
+- Phase A: 跨 family review（Codex @codex）
+- Phase B: 跨 family review（Codex @codex）— AES 加解密需额外审查
 - Phase C: 前端走 Design Gate（IM Hub 配置向导 UX → team lead确认）

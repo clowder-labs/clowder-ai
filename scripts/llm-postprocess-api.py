@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LLM post-processing server for Cat Cafe voice input (MLX backend, Apple Silicon native).
+LLM post-processing server for local voice input (MLX backend, Apple Silicon native).
 Takes raw ASR text and returns corrected text using a local LLM.
 
 Pipeline position:  Whisper ASR → **LLM post-edit** → term dictionary → filler removal
@@ -31,7 +31,7 @@ MAX_INPUT_CHARS = 2000  # Voice messages shouldn't be longer than this
 
 log = logging.getLogger("llm-postprocess")
 
-app = FastAPI(title="Cat Cafe LLM Post-Process Server")
+app = FastAPI(title="OfficeClaw LLM Post-Process Server")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -55,7 +55,7 @@ _generate_lock = asyncio.Lock()
 SYSTEM_PROMPT = (
     "你是语音转文字后处理器。你的唯一任务是修正输入文本中的语音识别错误。\n"
     "规则：\n"
-    "1. 修正同音字/谐音错误（如「先先」→「宪宪」，「免因猫」→「缅因猫」）\n"
+    "1. 修正同音字/谐音错误（如模型名、智能体名、术语名的误识别）\n"
     "2. 修正明显的断句和标点问题\n"
     "3. 保留原意、原始语序和说话风格\n"
     "4. 不要添加、删除或改写任何内容\n"
@@ -139,7 +139,7 @@ async def health():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Cat Cafe LLM Post-Process Server (MLX)")
+    parser = argparse.ArgumentParser(description="OfficeClaw LLM Post-Process Server (MLX)")
     parser.add_argument(
         "--model",
         default="mlx-community/Qwen3.5-35B-A3B-4bit",
@@ -156,7 +156,7 @@ def main():
     signal.signal(signal.SIGTERM, handle_sigterm)
 
     model_ref["path"] = args.model
-    log.info("=== Cat Cafe LLM Post-Process Server (MLX) ===")
+    log.info("=== OfficeClaw LLM Post-Process Server (MLX) ===")
     log.info("Model: %s | Port: %d", args.model, args.port)
     log.info("Loading model (first run downloads from HuggingFace)...")
 

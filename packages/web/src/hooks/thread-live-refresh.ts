@@ -4,7 +4,7 @@
  *
  */
 
-export const THREAD_LIVE_REFRESH_EVENT = 'cat-cafe:thread-live-refresh';
+export const THREAD_LIVE_REFRESH_EVENT = 'office-claw:thread-live-refresh';
 
 export type ThreadLiveRefreshScope = 'all' | 'messages' | 'panels';
 

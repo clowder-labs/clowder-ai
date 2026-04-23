@@ -6,11 +6,11 @@
 
 /**
  * F075 Phase B — In-memory game record store
- * Tracks game results (猫猫杀, 谁是卧底, etc.) and computes stats.
+ * Tracks game results (智能体杀, 谁是卧底, etc.) and computes stats.
  */
 
 import { randomUUID } from 'node:crypto';
-import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@clowder/shared';
+import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@office-claw/shared';
 
 export class GameStore {
   private records: GameRecord[] = [];

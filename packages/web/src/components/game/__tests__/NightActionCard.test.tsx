@@ -4,7 +4,7 @@
  *
  */
 
-import type { SeatView } from '@clowder/shared';
+import type { SeatView } from '@office-claw/shared';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';

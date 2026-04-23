@@ -28,7 +28,7 @@ describe('RedisSummaryStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisSummaryStore.js');
     RedisSummaryStore = storeModule.RedisSummaryStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
@@ -58,7 +58,7 @@ describe('RedisSummaryStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
   it('create stores summary with JSON arrays and listByThread returns it', async () => {
     const summary = await store.create({
       threadId: 'test-thread-s1',
-      topic: '讨论猫粮选择',
+      topic: '讨论配额选择',
       conclusions: ['选择 A 品牌', '每月采购'],
       openQuestions: ['预算上限？'],
       createdBy: 'opus',
@@ -66,7 +66,7 @@ describe('RedisSummaryStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
     assert.ok(summary.id);
     assert.equal(summary.threadId, 'test-thread-s1');
-    assert.equal(summary.topic, '讨论猫粮选择');
+    assert.equal(summary.topic, '讨论配额选择');
     assert.deepEqual(summary.conclusions, ['选择 A 品牌', '每月采购']);
     assert.deepEqual(summary.openQuestions, ['预算上限？']);
 

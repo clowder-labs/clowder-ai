@@ -11,7 +11,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, type RichBlock, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@clowder/shared';
+import { type CatId, type RichBlock, officeClawRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@office-claw/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -404,7 +404,7 @@ async function flushResult(
   const lines: string[] = [`## 共识总结结果汇总`, '', `**问题**: ${result.request.question}`, ''];
 
   for (const resp of result.responses) {
-    const entry = catRegistry.tryGet(resp.catId);
+    const entry = officeClawRegistry.tryGet(resp.catId);
     const catName = entry?.config.displayName ?? resp.catId;
     if (resp.status === 'received') {
       lines.push(`### ${catName}`);
@@ -494,14 +494,14 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
     // Validate all targets are registered cats
     const targetCatIds: CatId[] = [];
     for (const target of body.targets) {
-      if (!catRegistry.has(target)) {
+      if (!officeClawRegistry.has(target)) {
         return reply.status(400).send({ error: `Unknown cat: ${target}` });
       }
       targetCatIds.push(createCatId(target));
     }
 
     // Validate callbackTo
-    if (!catRegistry.has(body.callbackTo)) {
+    if (!officeClawRegistry.has(body.callbackTo)) {
       return reply.status(400).send({ error: `Unknown callbackTo cat: ${body.callbackTo}` });
     }
 

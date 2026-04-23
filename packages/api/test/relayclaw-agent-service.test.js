@@ -624,7 +624,7 @@ describe('RelayClawAgentService', () => {
     }
   });
 
-  it('passes project directory, uploaded files, and cat-cafe MCP config in the WS request', async () => {
+  it('passes project directory, uploaded files, and office-claw MCP config in the WS request', async () => {
     let capturedRequest = null;
     const service = new RelayClawAgentService(
       {
@@ -650,8 +650,8 @@ describe('RelayClawAgentService', () => {
     );
 
     for await (const _ of service.invoke('Inspect the uploaded image', {
-      workingDirectory: '/usr/code/cat-cafe-runtime',
-      uploadDir: '/tmp/cat-cafe-uploads',
+      workingDirectory: '/usr/code/office-claw-runtime',
+      uploadDir: '/tmp/office-claw-uploads',
       contentBlocks: [{ type: 'image', url: '/uploads/test-image.png' }],
       callbackEnv: {
         OFFICE_CLAW_API_URL: 'http://127.0.0.1:3004',
@@ -665,11 +665,11 @@ describe('RelayClawAgentService', () => {
     }
 
     assert.ok(capturedRequest);
-    assert.equal(capturedRequest.params.project_dir, '/usr/code/cat-cafe-runtime');
+    assert.equal(capturedRequest.params.project_dir, '/usr/code/office-claw-runtime');
     const expectedUploadPath =
       process.platform === 'win32'
-        ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png'
-        : '/tmp/cat-cafe-uploads/test-image.png';
+        ? 'D:\\tmp\\office-claw-uploads\\test-image.png'
+        : '/tmp/office-claw-uploads/test-image.png';
     assert.deepEqual(capturedRequest.params.files, {
       uploaded: [
         {
@@ -679,17 +679,17 @@ describe('RelayClawAgentService', () => {
         },
       ],
     });
-    const normalizedCommand = String(capturedRequest.params.cat_cafe_mcp.command).replaceAll('\\', '/');
+    const normalizedCommand = String(capturedRequest.params.office_claw_mcp.command).replaceAll('\\', '/');
     assert.match(normalizedCommand, /(^node$|\/node(?:\.exe)?$)/);
-    assert.ok(Array.isArray(capturedRequest.params.cat_cafe_mcp.args));
-    const normalizedMcpPath = String(capturedRequest.params.cat_cafe_mcp.args[0]).replaceAll('\\', '/');
+    assert.ok(Array.isArray(capturedRequest.params.office_claw_mcp.args));
+    const normalizedMcpPath = String(capturedRequest.params.office_claw_mcp.args[0]).replaceAll('\\', '/');
     assert.ok(
       normalizedMcpPath.endsWith('/packages/mcp-server/dist/index.js'),
-      'cat-cafe MCP should point at the local MCP server bundle',
+      'office-claw MCP should point at the local MCP server bundle',
     );
-    assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
+    assert.equal(capturedRequest.params.office_claw_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
     assert.equal(
-      capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
+      capturedRequest.params.office_claw_mcp.env.OFFICE_CLAW_MCP_EXCLUDED_TOOLS,
       [
         'limb_list_available',
         'limb_invoke',
@@ -709,7 +709,7 @@ describe('RelayClawAgentService', () => {
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(
       normalizedQuery,
-      /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/,
+      /\[Local image path: D:\/tmp\/office-claw-uploads\/test-image\.png\]|\[Local image path: \/tmp\/office-claw-uploads\/test-image\.png\]/,
     );
   });
 
@@ -881,7 +881,7 @@ describe('RelayClawAgentService', () => {
     );
 
     for await (const _ of service.invoke('Read the uploaded file', {
-      uploadDir: '/tmp/cat-cafe-uploads',
+      uploadDir: '/tmp/office-claw-uploads',
       contentBlocks: [
         {
           type: 'file',
@@ -897,8 +897,8 @@ describe('RelayClawAgentService', () => {
     assert.ok(capturedRequest);
     const expectedUploadPath =
       process.platform === 'win32'
-        ? 'D:\\tmp\\cat-cafe-uploads\\file-1234-report.pdf'
-        : '/tmp/cat-cafe-uploads/file-1234-report.pdf';
+        ? 'D:\\tmp\\office-claw-uploads\\file-1234-report.pdf'
+        : '/tmp/office-claw-uploads/file-1234-report.pdf';
     assert.deepEqual(capturedRequest.params.files, {
       uploaded: [
         {
@@ -911,7 +911,7 @@ describe('RelayClawAgentService', () => {
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(
       normalizedQuery,
-      /\[Local file path: D:\/tmp\/cat-cafe-uploads\/file-1234-report\.pdf\] \(report\.pdf\)|\[Local file path: \/tmp\/cat-cafe-uploads\/file-1234-report\.pdf\] \(report\.pdf\)/,
+      /\[Local file path: D:\/tmp\/office-claw-uploads\/file-1234-report\.pdf\] \(report\.pdf\)|\[Local file path: \/tmp\/office-claw-uploads\/file-1234-report\.pdf\] \(report\.pdf\)/,
     );
   });
 

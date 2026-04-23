@@ -24,7 +24,7 @@ test('install script allows repo-shaped directories without .git', () => {
   try {
     mkdirSync(join(projectRoot, 'scripts'), { recursive: true });
     mkdirSync(join(projectRoot, 'packages', 'api'), { recursive: true });
-    writeFileSync(join(projectRoot, 'package.json'), '{"name":"clowder-ai"}\n', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), '{"name":"office-claw"}\n', 'utf8');
 
     const output = runSourceOnlySnippet(`
 resolved="$(resolve_project_dir_from "${join(projectRoot, 'scripts', 'install.sh')}")"

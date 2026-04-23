@@ -8,11 +8,11 @@
  * System Prompt Builder
  * 为每次 CLI 调用构建身份注入 prompt（~150-200 tokens）
  *
- * 纯函数，无副作用。读取 CAT_CONFIGS 生成身份上下文。
+ * 纯函数，无副作用。读取 OFFICE_CLAW_CONFIGS 生成身份上下文。
  */
 
-import type { CatConfig, CatId } from '@clowder/shared';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import type { OfficeClawConfigEntry, CatId } from '@office-claw/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import {
   catHasRole,
   getCoCreatorConfig,
@@ -20,8 +20,8 @@ import {
   getRoster,
   isCatAvailable,
   isCatLead,
-} from '../../../../config/cat-config-loader.js';
-import { getCatModel } from '../../../../config/cat-models.js';
+} from '../../../../config/office-claw-config-loader.js';
+import { getCatModel } from '../../../../config/office-claw-models.js';
 import type {
   BootcampStateV1,
   ThreadMentionRoutingFeedback,
@@ -110,22 +110,22 @@ export interface InvocationContext {
   bootcampState?: BootcampStateV1;
 }
 
-/** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
-function getAllConfigs(): Record<string, CatConfig> {
-  const registryConfigs = catRegistry.getAllConfigs();
-  return Object.keys(registryConfigs).length > 0 ? registryConfigs : CAT_CONFIGS;
+/** Get all cat configs — registry first, fallback to static OFFICE_CLAW_CONFIGS */
+function getAllConfigs(): Record<string, OfficeClawConfigEntry> {
+  const registryConfigs = officeClawRegistry.getAllConfigs();
+  return Object.keys(registryConfigs).length > 0 ? registryConfigs : OFFICE_CLAW_CONFIGS;
 }
 
 /** Get a single cat config by ID */
-function getConfig(catId: string): CatConfig | undefined {
-  const entry = catRegistry.tryGet(catId);
+function getConfig(catId: string): OfficeClawConfigEntry | undefined {
+  const entry = officeClawRegistry.tryGet(catId);
   if (entry) return entry.config;
-  return CAT_CONFIGS[catId];
+  return OFFICE_CLAW_CONFIGS[catId];
 }
 
 interface CallableCatEntry {
   readonly id: string;
-  readonly config: CatConfig;
+  readonly config: OfficeClawConfigEntry;
 }
 
 interface CallableMentionsResult {
@@ -134,7 +134,7 @@ interface CallableMentionsResult {
   readonly uniqueHandleExample: string | null;
 }
 
-function pickVariantMention(id: string, config: CatConfig): string {
+function pickVariantMention(id: string, config: OfficeClawConfigEntry): string {
   const expected = `@${id}`.toLowerCase();
   const byId = config.mentionPatterns.find((p) => p.toLowerCase() === expected);
   if (byId) return byId;
@@ -186,7 +186,7 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
   return { mentions, hasDuplicateDisplayNames, uniqueHandleExample };
 }
 
-function formatHandleFreeLabel(catId: string, config: CatConfig | undefined): string {
+function formatHandleFreeLabel(catId: string, config: OfficeClawConfigEntry | undefined): string {
   if (!config) return catId;
   return `${config.displayName}(${catId})`;
 }

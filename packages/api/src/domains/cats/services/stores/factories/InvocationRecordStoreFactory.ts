@@ -10,7 +10,7 @@
  * 无 → InvocationRecordStore (内存，现有行为不变)
  */
 
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { InvocationRecordStore } from '../ports/InvocationRecordStore.js';
 import { RedisInvocationRecordStore } from '../redis/RedisInvocationRecordStore.js';
 

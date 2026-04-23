@@ -40,7 +40,7 @@ export interface WorkStats {
   bugFixes: RankedCat[];
 }
 
-/** Phase B: "笨蛋猫猫" entry */
+/** Phase B: "笨蛋智能体" entry */
 export interface SillyCatEntry {
   catId: string;
   displayName: string;

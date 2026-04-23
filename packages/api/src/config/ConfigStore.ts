@@ -11,7 +11,7 @@
  * of select configuration keys without server restart.
  */
 
-import { clearBudgetCache } from './cat-budgets.js';
+import { clearBudgetCache } from './office-claw-budgets.js';
 
 export type ConfigSnapshotPath = readonly [string, ...string[]];
 

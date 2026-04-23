@@ -78,7 +78,7 @@ class RedisRecorder {
 
 describe('ArticleStoreService', () => {
   it('stores markdown file and updates daily inbox json', async () => {
-    const tempRoot = mkdtempSync('/tmp/cat-cafe-signals-store-');
+    const tempRoot = mkdtempSync('/tmp/office-claw-signals-store-');
     const paths = createPaths(tempRoot);
 
     try {
@@ -124,7 +124,7 @@ describe('ArticleStoreService', () => {
   });
 
   it('uses deterministic id from URL when articleId is not provided', async () => {
-    const tempRoot = mkdtempSync('/tmp/cat-cafe-signals-store-');
+    const tempRoot = mkdtempSync('/tmp/office-claw-signals-store-');
     const paths = createPaths(tempRoot);
 
     try {
@@ -143,7 +143,7 @@ describe('ArticleStoreService', () => {
   });
 
   it('writes redis indexes when redis client is provided', async () => {
-    const tempRoot = mkdtempSync('/tmp/cat-cafe-signals-store-');
+    const tempRoot = mkdtempSync('/tmp/office-claw-signals-store-');
     const paths = createPaths(tempRoot);
 
     try {

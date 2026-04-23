@@ -6,7 +6,7 @@
 
 /**
  * Session Manual Bind Tests
- * F24 Phase B / BACKLOG #72: 铲屎官手动绑定 CLI Session ID
+ * F24 Phase B / BACKLOG #72: 用户手动绑定 CLI Session ID
  *
  * PATCH /api/threads/:threadId/sessions/:catId/bind
  * Body: { cliSessionId: string }

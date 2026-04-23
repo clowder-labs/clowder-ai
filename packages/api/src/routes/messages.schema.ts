@@ -10,7 +10,7 @@
  * Extracted from parse-multipart.ts for better organization.
  */
 
-import { catIdSchema } from '@clowder/shared';
+import { catIdSchema } from '@office-claw/shared';
 import { z } from 'zod';
 
 /**

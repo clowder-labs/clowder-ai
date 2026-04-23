@@ -8,11 +8,11 @@
  * RemoteLimbNode — F126 Phase C
  *
  * ILimbNode proxy that forwards invoke/healthCheck to a remote HTTP endpoint.
- * Remote nodes register themselves via /api/limb/register, then Clowder AI
+ * Remote nodes register themselves via /api/limb/register, then OfficeClaw
  * creates a RemoteLimbNode to represent them in the LimbRegistry.
  */
 
-import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@clowder/shared';
+import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@office-claw/shared';
 
 export interface RemoteLimbNodeConfig {
   nodeId: string;

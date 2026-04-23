@@ -10,7 +10,7 @@
  * Builds structured mission context from thread metadata and formats
  * it for system prompt injection when dispatching cats to external projects.
  */
-import type { DispatchMissionPack } from '@clowder/shared';
+import type { DispatchMissionPack } from '@office-claw/shared';
 
 export interface ThreadContext {
   title?: string | undefined;

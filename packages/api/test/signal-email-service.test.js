@@ -91,7 +91,7 @@ describe('signal email service', () => {
     });
 
     const result = await service.sendDailyDigest({
-      subject: '🐱 Clowder AI 信号日报 - 2026-02-19',
+      subject: '🐱 OfficeClaw 信号日报 - 2026-02-19',
       html: '<h1>Digest</h1>',
       text: 'Digest',
     });
@@ -101,7 +101,7 @@ describe('signal email service', () => {
     assert.equal(sendMailCalls.length, 1);
     assert.equal(sendMailCalls[0].from, 'OfficeClaw Signals <noreply@example.com>');
     assert.equal(sendMailCalls[0].to, 'owner@example.com');
-    assert.equal(sendMailCalls[0].subject, '🐱 Clowder AI 信号日报 - 2026-02-19');
+    assert.equal(sendMailCalls[0].subject, '🐱 OfficeClaw 信号日报 - 2026-02-19');
     assert.equal(sendMailCalls[0].html, '<h1>Digest</h1>');
     assert.equal(sendMailCalls[0].text, 'Digest');
   });

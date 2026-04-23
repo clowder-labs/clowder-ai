@@ -18,9 +18,9 @@
  * invocation as before.
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { getDefaultCatId } from '../config/office-claw-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import { hasWorklist, pushToWorklist } from '../domains/cats/services/agents/routing/WorklistRegistry.js';

@@ -21,7 +21,7 @@ import { unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type { RichBlock } from '@clowder/shared';
+import type { RichBlock } from '@office-claw/shared';
 import { resolveFeishuOpenApiBaseUrl } from '../feishu-open-platform.js';
 
 const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();
@@ -66,7 +66,7 @@ export interface FeishuMediaPayload {
   type: 'image' | 'file' | 'audio';
   imageKey?: string;
   fileKey?: string;
-  /** Fallback URL when platform key is not available (outbound from Clowder AI) */
+  /** Fallback URL when platform key is not available (outbound from OfficeClaw) */
   url?: string;
   /** Absolute filesystem path for upload (from mediaPathResolver) */
   absPath?: string;
@@ -498,7 +498,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
         .split('/')
         .pop()
         ?.replace(/\.\w+$/, '') ?? 'audio';
-    const opusPath = join(tmpdir(), `cat-cafe-feishu-${baseName}-${Date.now()}.opus`);
+    const opusPath = join(tmpdir(), `office-claw-feishu-${baseName}-${Date.now()}.opus`);
     try {
       await execFileAsync('ffmpeg', ['-i', absPath, '-acodec', 'libopus', '-ac', '1', '-ar', '16000', '-y', opusPath], {
         timeout: 30_000,
@@ -549,7 +549,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       const ext = contentType.includes('png') ? 'png' : contentType.includes('gif') ? 'gif' : 'jpg';
       const buffer = Buffer.from(await res.arrayBuffer());
       if (buffer.length === 0) return null;
-      const filePath = join(tmpdir(), `cat-cafe-feishu-dl-${Date.now()}.${ext}`);
+      const filePath = join(tmpdir(), `office-claw-feishu-dl-${Date.now()}.${ext}`);
       await writeFile(filePath, buffer);
       this.log.info({ url, filePath, bytes: buffer.length }, '[FeishuAdapter] downloadToTempFile: success');
       return filePath;

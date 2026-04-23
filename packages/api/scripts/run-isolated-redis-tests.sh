@@ -41,7 +41,7 @@ if [[ $# -gt 0 ]]; then
   CMD=("$@")
 fi
 
-DATADIR="$(mktemp -d -t cat-cafe-redis-test.XXXXXX)"
+DATADIR="$(mktemp -d -t office-claw-redis-test.XXXXXX)"
 PIDFILE="${DATADIR}/redis.pid"
 LOGFILE="${DATADIR}/redis.log"
 

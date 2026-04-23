@@ -17,7 +17,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { RICH_BLOCK_RULES } from '../domains/cats/services/context/rich-block-rules.js';
-import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../utils/office-claw-root.js';
 
 /** Strip YAML frontmatter (between --- delimiters) from markdown content. */
 function stripFrontmatter(content: string): string {
@@ -27,7 +27,7 @@ function stripFrontmatter(content: string): string {
 
 /** Resolve path to a refs file in the skills refs directory. */
 function refsPath(fileName: string): string {
-  return resolve(resolveCatCafeHostRoot(process.cwd()), 'office-claw-skills', 'refs', fileName);
+  return resolve(resolveOfficeClawHostRoot(process.cwd()), 'office-claw-skills', 'refs', fileName);
 }
 
 /**

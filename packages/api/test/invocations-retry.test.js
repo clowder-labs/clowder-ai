@@ -66,7 +66,7 @@ async function setupRetryScenario(routerOverride, trackerOverride) {
   const storedMsg = messageStore.append({
     userId: 'user-1',
     catId: null,
-    content: '@布偶猫 hello retry',
+    content: '@claude hello retry',
     mentions: ['opus'],
     timestamp: Date.now(),
     threadId: 'thread-1',
@@ -133,7 +133,7 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     const storedMsg = messageStore.append({
       userId: 'user-1',
       catId: null,
-      content: '@布偶猫 queued msg',
+      content: '@claude queued msg',
       mentions: ['opus'],
       timestamp: Date.now(),
       threadId: 'thread-q',
@@ -194,7 +194,7 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     const storedMsg = messageStore.append({
       userId: 'user-1',
       catId: null,
-      content: '@布偶猫 retry race',
+      content: '@claude retry race',
       mentions: ['opus'],
       timestamp: Date.now(),
       threadId: 'thread-race',

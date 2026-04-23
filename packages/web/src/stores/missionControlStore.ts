@@ -4,7 +4,7 @@
  *
  */
 
-import type { BacklogItem, ThreadPhase } from '@clowder/shared';
+import type { BacklogItem, ThreadPhase } from '@office-claw/shared';
 import { create } from 'zustand';
 
 interface MissionControlState {

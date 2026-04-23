@@ -1,6 +1,6 @@
 <div align="center">
 
-# Clowder AI
+# OfficeClaw
 
 **Multi-Agent Collaboration Platform — Let AI Teams Work for You**
 
@@ -18,11 +18,11 @@
 
 ## Introduction
 
-Clowder AI is a multi-agent collaboration platform that organizes multiple AI Agents into a real team. The core engine **JiuwenClaw** is built with Python, extending large model capabilities to everyday communication apps.
+OfficeClaw is a multi-agent collaboration platform that organizes multiple AI Agents into a real team. The core engine **JiuwenClaw** is built with Python, extending large model capabilities to everyday communication apps.
 
 Supports various models from Huawei Cloud MaaS platform, enabling collaborative development, code review, and task management through a unified interface.
 
-> **Most frameworks help you call Agents, Clowder helps them work together.**
+> **Most frameworks help you call Agents, OfficeClaw helps them work together.**
 
 ## Quick Start
 
@@ -30,8 +30,8 @@ Supports various models from Huawei Cloud MaaS platform, enabling collaborative 
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-org/clowder-ai.git
-cd clowder-ai
+git clone https://github.com/your-org/office-claw.git
+cd office-claw
 
 # 2. Install dependencies
 pnpm install

@@ -270,7 +270,7 @@ export function WorkspacePanel() {
   const [jsxPreview, setJsxPreview] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80), persisted
-  const [treeBasis, setTreeBasis, resetTreeBasis] = usePersistedState('cat-cafe:treeBasis', 40);
+  const [treeBasis, setTreeBasis, resetTreeBasis] = usePersistedState('office-claw:treeBasis', 40);
   const panelRef = useRef<HTMLElement>(null);
   const handleVerticalResize = useCallback(
     (delta: number) => {

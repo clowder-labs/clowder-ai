@@ -7,7 +7,7 @@
 /**
  * Cursor Store Atomicity & Fallback Tests
  *
- * Red→Green tests for cloud Codex + 缅因猫 findings:
+ * Red→Green tests for cloud Codex + Codex findings:
  * P1: Redis recovery regression — ack low value after Redis recovers
  *     with empty key while in-memory holds higher cursor
  * P2: Redis null doesn't fall back to in-memory cursor
@@ -131,7 +131,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
     });
 
     test('delivery cursor: CAS noop syncs Redis high value to memory (prevents fallback regression)', async () => {
-      // Scenario from 缅因猫 R3: Redis has msg-010, ack msg-001 (CAS noop).
+      // Scenario from Codex R3: Redis has msg-010, ack msg-001 (CAS noop).
       // Without fix, memory gets polluted with msg-001. Then if Redis goes
       // down, fallback reads msg-001 instead of msg-010.
       let redisWorking = true;
@@ -334,7 +334,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
     });
 
     test('delivery cursor: Redis stale value does not regress high memory cursor', async () => {
-      // 缅因猫 R5 P1: Redis has msg-005, Redis down, ack msg-010 (memory),
+      // Codex R5 P1: Redis has msg-005, Redis down, ack msg-010 (memory),
       // Redis recovers (still msg-005). getCursor must return msg-010 not msg-005.
       let redisWorking = true;
       const redisStore = {};

@@ -29,7 +29,7 @@ import { useProjectPins } from './use-project-pins';
 import { WechatGroupInvite } from './WechatGroupInvite';
 
 const MAX_SIDEBAR_RESTORE_FRAMES = 90;
-const SIDEBAR_SCROLL_STORAGE_KEY = 'cat-cafe:sidebar-scroll:v1';
+const SIDEBAR_SCROLL_STORAGE_KEY = 'office-claw:sidebar-scroll:v1';
 const MAX_SESSIONS = 200;
 
 function readSidebarScrollTop(): number {
@@ -204,8 +204,8 @@ export function ThreadSidebar({
     const refresh = () => {
       void loadThreads();
     };
-    window.addEventListener('cat-cafe:threads-refresh', refresh);
-    return () => window.removeEventListener('cat-cafe:threads-refresh', refresh);
+    window.addEventListener('office-claw:threads-refresh', refresh);
+    return () => window.removeEventListener('office-claw:threads-refresh', refresh);
   }, [loadThreads]);
 
   useEffect(() => {

@@ -5,7 +5,7 @@
  */
 
 /**
- * Unified API client for Clowder AI frontend.
+ * Unified API client for OfficeClaw frontend.
  *
  * - Auto-prepends NEXT_PUBLIC_API_URL
  * - Auto-injects session credential on every request
@@ -28,17 +28,17 @@ function isLoopbackHost(hostname: string | undefined): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1';
 }
 
-const CLOWDER_AI_COM = process.env.NEXT_PUBLIC_PROD_API_URL!;
-const CAFE_HOST = process.env.NEXT_PUBLIC_PROD_FRONTEND_HOST!;
-const API_CLOWDER_HOST = process.env.API_CLOWDER_HOST!;
+const PROD_API_HOST = process.env.NEXT_PUBLIC_PROD_API_URL!;
+const PROD_FRONTEND_HOST = process.env.NEXT_PUBLIC_PROD_FRONTEND_HOST!;
+const OFFICE_CLAW_API_HOST = process.env.OFFICE_CLAW_API_HOST!;
 const DEFAULT_API_CLIENT_URL = process.env.DEFAULT_API_CLIENT_URL!;
 
 function resolveApiUrl(): string {
   const location = getBrowserLocation();
 
-  // Cloudflare Tunnel: API 走 api.clowder-ai.com，Access cookie 在 .clowder-ai.com 上共享
-  if (location?.hostname === CAFE_HOST) {
-    return API_CLOWDER_HOST;
+  // Cloudflare Tunnel: API 走 api.office-claw.com，Access cookie 在 .office-claw.com 上共享
+  if (location?.hostname === PROD_FRONTEND_HOST) {
+    return OFFICE_CLAW_API_HOST;
   }
   if (isLoopbackHost(location?.hostname)) {
     const frontendPort = Number(location?.port ?? '') || 3003;
@@ -91,7 +91,7 @@ export async function apiFetch(path: string, init?: ApiFetchOptions): Promise<Re
       headers,
       signal: controller.signal,
       // Cloudflare Access: 跨子域名请求需要 credentials 才能带 CF_Authorization cookie
-      credentials: API_URL.includes(CLOWDER_AI_COM) ? 'include' : (init?.credentials ?? 'same-origin'),
+      credentials: API_URL.includes(PROD_API_HOST) ? 'include' : (init?.credentials ?? 'same-origin'),
     });
     return response;
   } finally {

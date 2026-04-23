@@ -16,7 +16,7 @@ describe('tintedLight', () => {
   });
 
   it('returns near-white for low ratio with a colored accent', () => {
-    // Ragdoll primary #7C9FD4 at 0.08 toward white
+    // Claude primary #7C9FD4 at 0.08 toward white
     // R: 255 + (124 - 255) * 0.08 = 255 - 10.48 = 244.52 → 245
     // G: 255 + (159 - 255) * 0.08 = 255 - 7.68 = 247.32 → 247
     // B: 255 + (212 - 255) * 0.08 = 255 - 3.44 = 251.56 → 252

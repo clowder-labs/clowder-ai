@@ -8,10 +8,10 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: in-progress | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: in-progress | **Owner**: Claude | **Priority**: P1
 >
-> **分工**：金渐层（@opencode）实现 → Maine Coon（@codex）review → Ragdoll（@opus）愿景守护
-> 实现过程中不 @ Ragdoll，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
+> **分工**：OpenCode（@opencode）实现 → Codex（@codex）review → Claude（@opus）愿景守护
+> 实现过程中不 @ Claude，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
 
 ## Why
 
@@ -200,7 +200,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 
 ### Phase A（DingTalk Adapter — DM 基础）
 - [x] AC-A1: 钉钉企业内部应用 DM 消息入站解析正确（text + richText）
-- [x] AC-A2: 猫猫回复通过 DingTalkAdapter 发送到钉钉（text + markdown）
+- [x] AC-A2: 智能体回复通过 DingTalkAdapter 发送到钉钉（text + markdown）
 - [x] AC-A3: AI Card 正确渲染猫名 header + 正文 + deep link
 - [x] AC-A4: AI Card 流式（create → streaming update → finish，300ms throttle）
 - [x] AC-A5: 图片/音频双向收发
@@ -227,7 +227,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 ### Phase B（WeCom Bot Adapter）
 - [ ] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
 - [ ] AC-B2: Bot DM 消息入站解析正确（text + image + voice）
-- [ ] AC-B3: 猫猫回复通过 `replyStream` 流式发送（真流式）
+- [ ] AC-B3: 智能体回复通过 `replyStream` 流式发送（真流式）
 - [ ] AC-B4: 模板卡片发送 + 更新
 - [ ] AC-B5: 图片/语音双向收发（SDK 内置）
 - [ ] AC-B6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
@@ -236,7 +236,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [ ] AC-C1: 回调 URL 验证（echostr challenge + AES 解密）通过
 - [ ] AC-C2: SHA1 签名校验 + AES-256-CBC 消息解密正确
 - [ ] AC-C3: XML → JSON 转换正确（`fast-xml-parser`）
-- [ ] AC-C4: 猫猫回复通过 `message/send` API 发送（text + markdown + 图文卡片）
+- [ ] AC-C4: 智能体回复通过 `message/send` API 发送（text + markdown + 图文卡片）
 - [ ] AC-C5: 图片/语音通过临时素材 API 收发
 - [ ] AC-C6: final-only 模式（无 streaming），长回复分块发送
 - [ ] AC-C7: 公共层零改动
@@ -296,7 +296,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 
 ## Review Gate
 
-- Phase A: 跨 family review（Maine Coon）
-- Phase B: 跨 family review（Maine Coon）
-- Phase C: 跨 family review（Maine Coon）— AES/XML 安全实现需额外审查
+- Phase A: 跨 family review（Codex）
+- Phase B: 跨 family review（Codex）
+- Phase C: 跨 family review（Codex）— AES/XML 安全实现需额外审查
 - Phase D: 可与 Phase C 合并 review

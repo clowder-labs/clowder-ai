@@ -46,20 +46,20 @@ describe('backlog-doc-import parser', () => {
     const markdown = [
       '| ID | 名称 | Status | Owner | Source | Link |',
       '|----|------|--------|-------|--------|------|',
-      '| F010 | 手机端猫猫 | in-progress | 三猫 | internal | [F010](features/F010.md) |',
-      '| F044 | Channel System | spec | 布偶猫 | community | [F044](features/F044.md) |',
+      '| F010 | 手机端智能体 | in-progress | 三猫 | internal | [F010](features/F010.md) |',
+      '| F044 | Channel System | spec | Claude | community | [F044](features/F044.md) |',
     ].join('\n');
 
     const rows = parseActiveFeaturesFromBacklog(markdown);
     assert.equal(rows.length, 2);
     assert.equal(rows[0].id, 'F010');
-    assert.equal(rows[0].name, '手机端猫猫');
+    assert.equal(rows[0].name, '手机端智能体');
     assert.equal(rows[0].status, 'in-progress');
     assert.equal(rows[0].owner, '三猫');
     assert.equal(rows[0].link, 'features/F010.md');
     assert.equal(rows[1].id, 'F044');
     assert.equal(rows[1].status, 'spec');
-    assert.equal(rows[1].owner, '布偶猫');
+    assert.equal(rows[1].owner, 'Claude');
     assert.equal(rows[1].link, 'features/F044.md');
   });
 
@@ -68,12 +68,12 @@ describe('backlog-doc-import parser', () => {
     const markdown = [
       '| ID | Status | 名称 | Owner | Link |',
       '|----|--------|------|-------|------|',
-      '| F010 | in-progress | 手机端猫猫 | 三猫 | [F010](a.md) |',
+      '| F010 | in-progress | 手机端智能体 | 三猫 | [F010](a.md) |',
     ].join('\n');
 
     const rows = parseActiveFeaturesFromBacklog(markdown);
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].name, '手机端猫猫');
+    assert.equal(rows[0].name, '手机端智能体');
     assert.equal(rows[0].status, 'in-progress');
   });
 
@@ -114,7 +114,7 @@ describe('backlog-doc-import parser', () => {
 describe('parseFeatureDocStatus', () => {
   test('returns done for Status: done in markdown', async () => {
     const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
-    const md = '> **Status**: done\n> **Owner**: 布偶猫';
+    const md = '> **Status**: done\n> **Owner**: Claude';
     assert.strictEqual(parseFeatureDocStatus(md), 'done');
   });
 
@@ -143,7 +143,7 @@ describe('parseFeatureDocStatus', () => {
 
   test('returns frontmatter status when body has no Status line', async () => {
     const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
-    const md = ['---', 'status: in-progress', '---', '', '# F064 — A2A Exit Check', '', '> **Owner**: 布偶猫'].join(
+    const md = ['---', 'status: in-progress', '---', '', '# F064 — A2A Exit Check', '', '> **Owner**: Claude'].join(
       '\n',
     );
     assert.strictEqual(parseFeatureDocStatus(md), 'in-progress');
@@ -254,7 +254,7 @@ describe('buildBacklogInputFromFeature initialStatus', () => {
       id: 'F064',
       name: 'A2A Exit Check',
       status: 'in-progress',
-      owner: '布偶猫',
+      owner: 'Claude',
       link: 'features/F064.md',
     };
     const input = buildBacklogInputFromFeature(row, 'user1');
@@ -263,14 +263,14 @@ describe('buildBacklogInputFromFeature initialStatus', () => {
 
   test('spec feature gets no initialStatus (defaults to open)', async () => {
     const { buildBacklogInputFromFeature } = await import('../dist/routes/backlog-doc-import.js');
-    const row = { id: 'F055', name: 'Routing', status: 'spec', owner: '布偶猫' };
+    const row = { id: 'F055', name: 'Routing', status: 'spec', owner: 'Claude' };
     const input = buildBacklogInputFromFeature(row, 'user1');
     assert.strictEqual(input.initialStatus, undefined);
   });
 
   test('in-review feature gets initialStatus dispatched', async () => {
     const { buildBacklogInputFromFeature } = await import('../dist/routes/backlog-doc-import.js');
-    const row = { id: 'F063', name: 'Hub Explorer', status: 'in-review', owner: '布偶猫' };
+    const row = { id: 'F063', name: 'Hub Explorer', status: 'in-review', owner: 'Claude' };
     const input = buildBacklogInputFromFeature(row, 'user1');
     assert.strictEqual(input.initialStatus, 'dispatched');
   });

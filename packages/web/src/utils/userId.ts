@@ -11,11 +11,11 @@
  * `sessionId` is the opaque auth credential used for API requests.
  */
 
-const STORAGE_KEY = 'cat-cafe-userId';
-const SESSION_KEY = 'cat-cafe-sessionId';
-const SKIP_AUTH_KEY = 'cat-cafe-isskip';
+const STORAGE_KEY = 'office-claw-userId';
+const SESSION_KEY = 'office-claw-sessionId';
+const SKIP_AUTH_KEY = 'office-claw-isskip';
 const CAN_CREATE_MODEL_KEY = 'can-create-model';
-const USER_NAME_KEY = 'cat-cafe-userName';
+const USER_NAME_KEY = 'office-claw-userName';
 const DEFAULT_USER = 'default-user';
 
 export function getUserId(): string {

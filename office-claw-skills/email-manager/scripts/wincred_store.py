@@ -13,7 +13,7 @@ from urllib.parse import quote, unquote, urlparse
 ERROR_NOT_FOUND = 1168
 CRED_TYPE_GENERIC = 1
 CRED_PERSIST_LOCAL_MACHINE = 2
-NAMESPACE = "Clowder"
+NAMESPACE = "OfficeClaw"
 PREFIX = f"wincred://{NAMESPACE}/email-manager/"
 
 
@@ -215,4 +215,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

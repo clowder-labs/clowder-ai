@@ -11,16 +11,16 @@
  * A2A support: after each cat completes, its response is checked for @mentions.
  * If a mention is detected and depth allows, the mentioned cat is appended to the
  * worklist — extending the chain within the SAME function call. This preserves
- * previousResponses continuity and correct isFinal semantics (缅因猫 P1-1, P1-2).
+ * previousResponses continuity and correct isFinal semantics (Codex P1-1, P1-2).
  *
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import type { CatConfig, CatId } from '@clowder/shared';
-import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@clowder/shared';
-import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
-import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
-import { getCatVoice } from '../../../../../config/cat-voices.js';
+import type { OfficeClawConfigEntry, CatId } from '@office-claw/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry, getFriendlyAgentErrorMessage, classifyError } from '@office-claw/shared';
+import { getCatContextBudget } from '../../../../../config/office-claw-budgets.js';
+import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/office-claw-config-loader.js';
+import { getCatVoice } from '../../../../../config/office-claw-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
@@ -164,8 +164,8 @@ export async function* routeSerial(
       }
 
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
-      const catConfig: CatConfig | undefined =
-        catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+      const catConfig: OfficeClawConfigEntry | undefined =
+        officeClawRegistry.tryGet(catId as string)?.config ?? OFFICE_CLAW_CONFIGS[catId as string];
       const isRelayClaw = catConfig?.provider === 'relayclaw';
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
@@ -364,7 +364,7 @@ export async function* routeSerial(
       let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
-      const streamRichBlocks: import('@clowder/shared').RichBlock[] = [];
+      const streamRichBlocks: import('@office-claw/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
       let ownInvocationId: string | undefined;
       // F111 Phase B: Streaming TTS chunker for real-time voice (voiceMode only)
@@ -669,7 +669,7 @@ export async function* routeSerial(
           previousResponses.push({ catId, content: storedContent });
         }
 
-        // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
+        // A2A mention detection (Codex P1-3: only after full text accumulated)
         // Line-start @mention = always actionable (no keyword gate)
         a2aMentions = parseA2AMentions(storedContent, catId);
         if (a2aMentions.length === 0 && storedContent.includes('@')) {
@@ -765,7 +765,7 @@ export async function* routeSerial(
         mentionsUser = storedContent ? detectUserMention(storedContent) : false;
 
         // Store with actual mentions — degrade on failure to ensure done reaches frontend
-        // (缅因猫 review P1-2: Redis failure must not block done yield)
+        // (Codex review P1-2: Redis failure must not block done yield)
         let storedMsgId: string | undefined;
         try {
           const storedMsg = await deps.messageStore.append({
@@ -881,7 +881,7 @@ export async function* routeSerial(
           const pendingCat = worklist[wi]!;
           if (wi < targetCats.length) continue; // Skip original targets — not A2A
 
-          // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+          // === A2A_HANDOFF 审计 (fire-and-forget, Codex review P2-3) ===
           const auditLog = getEventAuditLog();
           auditLog
             .append({
@@ -899,8 +899,8 @@ export async function* routeSerial(
               log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
             });
 
-          const nextConfig: CatConfig | undefined =
-            catRegistry.tryGet(pendingCat as string)?.config ?? CAT_CONFIGS[pendingCat as string];
+          const nextConfig: OfficeClawConfigEntry | undefined =
+            officeClawRegistry.tryGet(pendingCat as string)?.config ?? OFFICE_CLAW_CONFIGS[pendingCat as string];
           yield {
             type: 'a2a_handoff' as AgentMessageType,
             catId,
@@ -1129,7 +1129,7 @@ export async function* routeSerial(
       }
 
       // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
-      // MUST always reach here regardless of append success (缅因猫 review P1-2)
+      // MUST always reach here regardless of append success (Codex review P1-2)
       if (doneMsg) {
         const isFinal = index === worklist.length - 1;
         yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
@@ -1142,7 +1142,7 @@ export async function* routeSerial(
     }
   } finally {
     // F27: Always unregister worklist, even on error/abort.
-    // Pass owner ref so preempting new invocation's worklist is not deleted (缅因猫 R1 P1-1)
+    // Pass owner ref so preempting new invocation's worklist is not deleted (Codex R1 P1-1)
     unregisterWorklist(threadId, worklistEntry, options.parentInvocationId);
 
     // done-guarantee safety net: If loop exited without yielding a final done

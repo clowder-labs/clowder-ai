@@ -3,7 +3,7 @@
  * when it finishes, even if isFinal=false (meaning more cats are coming).
  *
  * Root cause: removeActiveInvocation was gated by `if (msg.isFinal)`, so non-final
- * cats (e.g. 缅因猫 finishing before 布偶猫 starts) never had their slots removed,
+ * cats (e.g. Codex finishing before Claude starts) never had their slots removed,
  * causing ThreadExecutionBar to show "执行中" until F5 refresh.
  *
  * Fix: slot removal runs on every done(), isFinal only gates global state cleanup.

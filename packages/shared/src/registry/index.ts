@@ -8,11 +8,13 @@
  * Registry exports
  */
 
-export type { CatRegistryEntry } from './CatRegistry.js';
+export type { CatRegistryEntry, OfficeClawRegistryEntry } from './CatRegistry.js';
 export {
   assertKnownCatId,
-  CatRegistry,
   catRegistry,
+  CatRegistry,
+  officeClawRegistry,
+  OfficeClawRegistry,
 } from './CatRegistry.js';
 
 export { catIdSchema } from './cat-id-schema.js';

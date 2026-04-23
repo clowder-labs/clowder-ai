@@ -90,7 +90,7 @@ export function registerFullToolset(server: McpServer): void {
  */
 const COMPACT_DESCRIPTIONS: Record<string, string> = {
   // Collab
-  office_claw_post_message: 'Post an async message to Clowder AI chat mid-task.',
+  office_claw_post_message: 'Post an async message to OfficeClaw chat mid-task.',
   office_claw_get_pending_mentions: 'Get recent @-mentions for you. Call ack_mentions after processing.',
   office_claw_ack_mentions: 'Acknowledge processed mentions up to a message ID.',
   office_claw_get_thread_context: 'Get recent messages from a thread. Pass threadId for cross-thread.',

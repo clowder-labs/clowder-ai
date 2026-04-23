@@ -4,7 +4,7 @@
  *
  */
 
-import type { ErrorFallbackMetadata } from '@repo/shared';
+import type { ErrorFallbackMetadata } from '@office-claw/shared';
 
 /** Content block types matching backend MessageContent */
 export interface TextContent {

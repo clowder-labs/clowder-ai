@@ -3,9 +3,9 @@ import {
   ProviderPluginRegistry,
   type AgentService,
   type AgentServiceFactoryContext,
-  type ClowderProviderPlugin,
+  type OfficeClawProviderPlugin,
   type McpConfigWriter,
-} from '@clowder/core';
+} from '@office-claw/core';
 import { A2AAgentService } from '../../domains/cats/services/agents/providers/A2AAgentService.js';
 import { AntigravityAgentService } from '../../domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { ClaudeAgentService } from '../../domains/cats/services/agents/providers/ClaudeAgentService.js';
@@ -24,7 +24,7 @@ import {
   writeGeminiMcpConfig,
 } from '../capabilities/mcp-config-adapters.js';
 
-export const anthropicPlugin: ClowderProviderPlugin = {
+export const anthropicPlugin: OfficeClawProviderPlugin = {
   name: 'anthropic',
   providers: ['anthropic'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -42,7 +42,7 @@ export const anthropicPlugin: ClowderProviderPlugin = {
   mcpConfigWriter: writeClaudeMcpConfig as unknown as McpConfigWriter,
 };
 
-export const openaiPlugin: ClowderProviderPlugin = {
+export const openaiPlugin: OfficeClawProviderPlugin = {
   name: 'openai',
   providers: ['openai'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -60,7 +60,7 @@ export const openaiPlugin: ClowderProviderPlugin = {
   mcpConfigWriter: writeCodexMcpConfig as unknown as McpConfigWriter,
 };
 
-export const googlePlugin: ClowderProviderPlugin = {
+export const googlePlugin: OfficeClawProviderPlugin = {
   name: 'google',
   providers: ['google'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -84,7 +84,7 @@ export const googlePlugin: ClowderProviderPlugin = {
   },
 };
 
-export const darePlugin: ClowderProviderPlugin = {
+export const darePlugin: OfficeClawProviderPlugin = {
   name: 'dare',
   providers: ['dare'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -101,7 +101,7 @@ export const darePlugin: ClowderProviderPlugin = {
   binding: { builtinClient: 'dare', expectedProtocol: 'openai' },
 };
 
-export const opencodePlugin: ClowderProviderPlugin = {
+export const opencodePlugin: OfficeClawProviderPlugin = {
   name: 'opencode',
   providers: ['opencode'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -118,7 +118,7 @@ export const opencodePlugin: ClowderProviderPlugin = {
   binding: { builtinClient: 'opencode', expectedProtocol: 'anthropic' },
 };
 
-export const antigravityPlugin: ClowderProviderPlugin = {
+export const antigravityPlugin: OfficeClawProviderPlugin = {
   name: 'antigravity',
   providers: ['antigravity'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -129,7 +129,7 @@ export const antigravityPlugin: ClowderProviderPlugin = {
   },
 };
 
-export const relayclawPlugin: ClowderProviderPlugin = {
+export const relayclawPlugin: OfficeClawProviderPlugin = {
   name: 'relayclaw',
   providers: ['relayclaw'],
   async createAgentService(ctx: AgentServiceFactoryContext): Promise<AgentService> {
@@ -165,7 +165,7 @@ export const relayclawPlugin: ClowderProviderPlugin = {
   },
 };
 
-export const acpPlugin: ClowderProviderPlugin = {
+export const acpPlugin: OfficeClawProviderPlugin = {
   name: 'acp',
   providers: ['acp'],
   async createAgentService(ctx: AgentServiceFactoryContext): Promise<AgentService> {
@@ -189,7 +189,7 @@ export const acpPlugin: ClowderProviderPlugin = {
   },
 };
 
-export const a2aPlugin: ClowderProviderPlugin = {
+export const a2aPlugin: OfficeClawProviderPlugin = {
   name: 'a2a',
   providers: ['a2a'],
   createAgentService(ctx: AgentServiceFactoryContext): AgentService {
@@ -202,7 +202,7 @@ export const a2aPlugin: ClowderProviderPlugin = {
   },
 };
 
-export const BUILTIN_PLUGINS: readonly ClowderProviderPlugin[] = [
+export const BUILTIN_PLUGINS: readonly OfficeClawProviderPlugin[] = [
   anthropicPlugin,
   openaiPlugin,
   googlePlugin,
@@ -215,7 +215,7 @@ export const BUILTIN_PLUGINS: readonly ClowderProviderPlugin[] = [
 ];
 
 export interface CreateProviderPluginRegistryOptions {
-  extraPlugins?: readonly ClowderProviderPlugin[];
+  extraPlugins?: readonly OfficeClawProviderPlugin[];
   searchPaths?: string[];
 }
 

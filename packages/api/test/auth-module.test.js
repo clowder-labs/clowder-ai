@@ -16,7 +16,7 @@ describe('auth module', () => {
 
   test('accepts arbitrary provider ids without hardcoded kind unions', async () => {
     const authModule = await createAuthModule({
-      env: { CAT_CAFE_AUTH_PROVIDER: 'corp-oidc' },
+      env: { OFFICE_CLAW_AUTH_PROVIDER: 'corp-oidc' },
       providers: [
         {
           id: 'corp-oidc',
@@ -40,8 +40,8 @@ describe('auth module', () => {
     const fixtureModuleUrl = pathToFileURL(resolve(new URL('.', import.meta.url).pathname, 'fixtures/custom-auth-provider.mjs')).href;
     const authModule = await createAuthModule({
       env: {
-        CAT_CAFE_AUTH_PROVIDER: 'external-sso',
-        CAT_CAFE_AUTH_PROVIDER_MODULES: fixtureModuleUrl,
+        OFFICE_CLAW_AUTH_PROVIDER: 'external-sso',
+        OFFICE_CLAW_AUTH_PROVIDER_MODULES: fixtureModuleUrl,
       },
     });
 
@@ -52,7 +52,7 @@ describe('auth module', () => {
 
   test('throws a helpful error when env selects an unregistered provider', async () => {
     await assert.rejects(
-      () => createAuthModule({ env: { CAT_CAFE_AUTH_PROVIDER: 'missing-provider' } }),
+      () => createAuthModule({ env: { OFFICE_CLAW_AUTH_PROVIDER: 'missing-provider' } }),
       /missing-provider/,
     );
   });
@@ -60,7 +60,7 @@ describe('auth module', () => {
   test('calls bootstrap on the active provider if defined', async () => {
     let bootstrapped = false;
     const authModule = await createAuthModule({
-      env: { CAT_CAFE_AUTH_PROVIDER: 'boot-test' },
+      env: { OFFICE_CLAW_AUTH_PROVIDER: 'boot-test' },
       providers: [
         {
           id: 'boot-test',

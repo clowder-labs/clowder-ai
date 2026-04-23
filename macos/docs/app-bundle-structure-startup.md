@@ -22,14 +22,14 @@ It is the execution companion to `macos/docs/app-packaging-design.md`.
 ## Proposed `.app` Layout
 
 ```text
-Clowder AI.app/
+OfficeClaw.app/
   Contents/
     Info.plist
     MacOS/
-      ClowderAI
+      OfficeClaw
     Resources/
       runtime/
-        .clowder-release.json
+        .office-claw-release.json
         package.json
         scripts/
           start-bundle.sh
@@ -63,7 +63,7 @@ Clowder AI.app/
 
 ## Layout Rules
 
-- `Contents/MacOS/ClowderAI`
+- `Contents/MacOS/OfficeClaw`
   - native launcher executable
   - contains no mutable runtime state
 - `Contents/Resources/runtime/`
@@ -81,7 +81,7 @@ Clowder AI.app/
 All mutable state moves into user directories.
 
 ```text
-~/Library/Application Support/ClowderAI/
+~/Library/Application Support/OfficeClaw/
   config/
     env
   data/
@@ -92,7 +92,7 @@ All mutable state moves into user directories.
     web.pid
     mcp-server.pid
 
-~/Library/Logs/ClowderAI/
+~/Library/Logs/OfficeClaw/
   launcher.log
   api.log
   web.log
@@ -196,8 +196,8 @@ Suggested `runtime-state.json` format:
   "frontendPort": 3003,
   "apiPort": 3004,
   "pidFiles": {
-    "api": "~/Library/Application Support/ClowderAI/run/api.pid",
-    "web": "~/Library/Application Support/ClowderAI/run/web.pid"
+    "api": "~/Library/Application Support/OfficeClaw/run/api.pid",
+    "web": "~/Library/Application Support/OfficeClaw/run/web.pid"
   },
   "startedAt": "2026-03-29T12:00:00.000Z"
 }
@@ -206,8 +206,8 @@ Suggested `runtime-state.json` format:
 ## Startup Sequence
 
 ```text
-User double-clicks Clowder AI.app
-  -> macOS launches ClowderAI
+User double-clicks OfficeClaw.app
+  -> macOS launches OfficeClaw
   -> launcher resolves bundle paths
   -> launcher prepares user dirs
   -> launcher acquires single-instance lock
@@ -280,7 +280,7 @@ The macOS bundle design intentionally mirrors parts of the Windows packaging mod
 
 - runtime package staging in `scripts/build-windows-installer.mjs`
 - release metadata generation in `scripts/build-windows-installer.mjs`
-- runtime state driven desktop shell behavior in `packaging/windows/desktop/ClowderDesktop.cs`
+- runtime state driven desktop shell behavior in `packaging/windows/desktop/OfficeClawDesktop.cs`
 
 The macOS implementation should reuse the staging ideas, but not the Windows-specific launcher or installer technology.
 

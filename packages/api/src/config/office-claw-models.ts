@@ -5,21 +5,21 @@
  */
 
 /**
- * Cat Model Configuration
+ * Agent Model Configuration
  * F32-b: Dynamic env key resolution — CAT_{CATID}_MODEL (uppercased, hyphens → underscores)
  *
- * 优先级: 环境变量 > catRegistry (from office-claw-config.json) > CAT_CONFIGS 硬编码
+ * 优先级: 环境变量 > officeClawRegistry (from office-claw-config.json) > OFFICE_CLAW_CONFIGS 硬编码
  *
  * 环境变量 examples:
- *   CAT_OPUS_MODEL      → 布偶猫模型
- *   CAT_OPUS_45_MODEL   → 布偶猫 4.5 模型 (F32-b variant)
- *   CAT_CODEX_MODEL     → 缅因猫模型
- *   CAT_GEMINI_MODEL    → 暹罗猫模型
+ *   CAT_OPUS_MODEL      → Claude 模型
+ *   CAT_OPUS_45_MODEL   → Claude 4.5 模型 (F32-b variant)
+ *   CAT_CODEX_MODEL     → Codex 模型
+ *   CAT_GEMINI_MODEL    → Gemini 模型
  *
  * 或直接修改项目根目录的 office-claw-config.json
  */
 
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 
 /**
  * F32-b: Generate dynamic env key from catId.
@@ -30,9 +30,9 @@ function getCatModelEnvKey(catId: string): string {
 }
 
 /**
- * 获取猫的实际模型
- * F32-b: Dynamic env key + catRegistry as primary source
- * 优先级: 环境变量 > catRegistry (from office-claw-config.json) > CAT_CONFIGS 硬编码
+ * 获取智能体的实际模型
+ * F32-b: Dynamic env key + officeClawRegistry as primary source
+ * 优先级: 环境变量 > officeClawRegistry (from office-claw-config.json) > OFFICE_CLAW_CONFIGS 硬编码
  */
 export function getCatModel(catName: string): string {
   // 1. 环境变量最高优先 (dynamic key: CAT_{CATID}_MODEL)
@@ -42,14 +42,14 @@ export function getCatModel(catName: string): string {
     return envValue;
   }
 
-  // 2. catRegistry (populated from office-claw-config.json at startup)
-  const entry = catRegistry.tryGet(catName);
+  // 2. officeClawRegistry (populated from office-claw-config.json at startup)
+  const entry = officeClawRegistry.tryGet(catName);
   if (entry) {
     return entry.config.defaultModel;
   }
 
   // 3. 硬编码默认值 (legacy fallback)
-  const config = CAT_CONFIGS[catName];
+  const config = OFFICE_CLAW_CONFIGS[catName];
   if (config) {
     return config.defaultModel;
   }
@@ -58,11 +58,11 @@ export function getCatModel(catName: string): string {
 }
 
 /**
- * 获取所有猫的模型配置 (用于 ConfigRegistry)
+ * 获取所有智能体的模型配置 (用于 ConfigRegistry)
  */
 export function getAllCatModels(): Record<string, string> {
   const result: Record<string, string> = {};
-  const allIds = catRegistry.getAllIds().length > 0 ? catRegistry.getAllIds().map(String) : Object.keys(CAT_CONFIGS);
+  const allIds = officeClawRegistry.getAllIds().length > 0 ? officeClawRegistry.getAllIds().map(String) : Object.keys(OFFICE_CLAW_CONFIGS);
   for (const catName of allIds) {
     result[catName] = getCatModel(catName);
   }

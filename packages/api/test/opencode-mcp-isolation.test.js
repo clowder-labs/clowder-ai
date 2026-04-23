@@ -29,10 +29,10 @@ const STEP_FINISH = {
   part: { type: 'step-finish', reason: 'stop', cost: 0.01, tokens: { total: 5000 } },
 };
 
-// Cat Cafe MCP env var names used in assertions below
+// OfficeClaw MCP env var names used in assertions below
 
 describe('MCP Tool Namespace Isolation (AC-10)', () => {
-  // ── buildEnv does not pass Cat Cafe MCP env vars ──
+  // ── buildEnv does not pass OfficeClaw MCP env vars ──
 
   test('buildEnv does not forward OFFICE_CLAW_MCP_* env vars to child process', async () => {
     const proc = createMockProcess();
@@ -43,7 +43,7 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
       model: 'claude-haiku-4-5',
     });
 
-    // Simulate callbackEnv with Cat Cafe MCP vars mixed in
+    // Simulate callbackEnv with OfficeClaw MCP vars mixed in
     const callbackEnv = {
       OFFICE_CLAW_ANTHROPIC_API_KEY: 'sk-test',
       OFFICE_CLAW_ANTHROPIC_BASE_URL: 'http://proxy:9877/slug',
@@ -59,12 +59,12 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     const opts = spawnFn.mock.calls[0].arguments[2];
     const childEnv = opts.env;
 
-    // Cat Cafe MCP vars should either be absent or passthrough as-is
+    // OfficeClaw MCP vars should either be absent or passthrough as-is
     // (they are harmless because opencode doesn't read them),
     // but they must NOT be mapped to opencode's own MCP config vars.
     // opencode reads MCP config from opencode.json, not env vars.
 
-    // Verify no OPENCODE_MCP_* vars were created from Cat Cafe vars
+    // Verify no OPENCODE_MCP_* vars were created from OfficeClaw vars
     const opencodeMcpKeys = Object.keys(childEnv).filter(
       (k) => k.startsWith('OPENCODE_MCP_') || k === 'MCP_SERVER_URL',
     );
@@ -117,11 +117,11 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     assert.ok(!('OPENCODE_BASE_URL' in childEnv), 'OPENCODE_BASE_URL should be deleted from child env');
   });
 
-  // ── Process boundary: opencode reads MCP config from opencode.json, not Cat Cafe ──
+  // ── Process boundary: opencode reads MCP config from opencode.json, not OfficeClaw ──
 
   test('opencode MCP config is file-based (opencode.json), not env-based', () => {
     // Verify that generateOpenCodeConfig does NOT produce an mcp section.
-    // opencode reads MCP config from opencode.json; Cat Cafe serves MCP via
+    // opencode reads MCP config from opencode.json; OfficeClaw serves MCP via
     // its own mcp-server package. The config template must NOT bridge them.
     const config = generateOpenCodeConfig({
       apiKey: 'sk-test',
@@ -129,20 +129,20 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
       model: 'claude-sonnet-4-6',
     });
 
-    // No MCP section means no Cat Cafe tools leak into opencode's namespace
+    // No MCP section means no OfficeClaw tools leak into opencode's namespace
     assert.strictEqual(config.mcp, undefined, 'generated config must not have mcp section');
     assert.strictEqual(config.provider.anthropic.options.apiKey, undefined, 'apiKey must stay in env');
 
-    // Verify Cat Cafe MCP tool prefix convention is distinct from opencode's tools
-    // (opencode tools: bash/read/write/..., Cat Cafe MCP: office_claw_*)
+    // Verify OfficeClaw MCP tool prefix convention is distinct from opencode's tools
+    // (opencode tools: bash/read/write/..., OfficeClaw MCP: office_claw_*)
     const serialized = JSON.stringify(config);
     assert.ok(!serialized.includes('cat_cafe'), 'no cat_cafe references in opencode config');
-    assert.ok(!serialized.includes('cat-cafe'), 'no cat-cafe references in opencode config');
+    assert.ok(!serialized.includes('office-claw'), 'no office-claw references in opencode config');
   });
 
-  // ── No Cat Cafe MCP tool names in opencode's internal toolset ──
+  // ── No OfficeClaw MCP tool names in opencode's internal toolset ──
 
-  test('opencode internal tools do not collide with Cat Cafe MCP tool names', () => {
+  test('opencode internal tools do not collide with OfficeClaw MCP tool names', () => {
     const opencodeTools = [
       'bash',
       'read',
@@ -181,9 +181,9 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     const overlap = opencodeTools.filter((t) => catCafeMcpTools.includes(t));
     assert.strictEqual(overlap.length, 0, `tool name collision detected: ${overlap}`);
 
-    // Also verify by prefix convention: Cat Cafe uses office_claw_ prefix
+    // Also verify by prefix convention: OfficeClaw uses office_claw_ prefix
     for (const tool of opencodeTools) {
-      assert.ok(!tool.startsWith('office_claw_'), `opencode tool "${tool}" collides with Cat Cafe MCP namespace`);
+      assert.ok(!tool.startsWith('office_claw_'), `opencode tool "${tool}" collides with OfficeClaw MCP namespace`);
     }
   });
 });

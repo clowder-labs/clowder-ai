@@ -73,7 +73,7 @@ function SendRunner({
   useEffect(() => {
     if (called.current) return;
     called.current = true;
-    handleSend('@布偶 @缅因 看图', undefined, overrideThreadId, undefined, undefined, sendOptions).then(onDone);
+    handleSend('@Claude @Codex 看图', undefined, overrideThreadId, undefined, undefined, sendOptions).then(onDone);
   }, [handleSend, onDone, overrideThreadId, sendOptions]);
 
   return null;

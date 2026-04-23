@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { catRegistry, createCatId } from '@clowder/shared';
+import { officeClawRegistry, createCatId } from '@office-claw/shared';
 
 const {
   loadCatConfig,
@@ -23,7 +23,7 @@ const {
   getDefaultCatId,
   buildCatIdToBreedIndex,
   _resetCachedConfig,
-} = await import('../dist/config/cat-config-loader.js');
+} = await import('../dist/config/office-claw-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
 function writeTempConfig(data) {
@@ -41,11 +41,11 @@ function validConfig() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫'],
+        mentionPatterns: ['@opus', '@claude'],
         roleDescription: '主架构师',
         defaultVariantId: 'opus-default',
         variants: [
@@ -97,14 +97,14 @@ describe('cat-config-loader', () => {
       const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const runtimeConfig = validConfig();
-      runtimeConfig.breeds[0].displayName = '运行时布偶猫';
+      runtimeConfig.breeds[0].displayName = '运行时Claude';
       writeFileSync(join(runtimeDir, 'office-claw-catalog.json'), JSON.stringify(runtimeConfig));
 
       const saved = process.env.CAT_TEMPLATE_PATH;
       process.env.CAT_TEMPLATE_PATH = templatePath;
       try {
         const config = loadCatConfig();
-        assert.equal(config.breeds[0].displayName, '运行时布偶猫');
+        assert.equal(config.breeds[0].displayName, '运行时Claude');
       } finally {
         if (saved === undefined) {
           delete process.env.CAT_TEMPLATE_PATH;
@@ -129,7 +129,7 @@ describe('cat-config-loader', () => {
       const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const catalog = validConfig();
-      catalog.breeds[0].displayName = '运行时布偶猫';
+      catalog.breeds[0].displayName = '运行时Claude';
       delete catalog.breeds[0].teamStrengths;
       delete catalog.breeds[0].caution;
       writeFileSync(join(runtimeDir, 'office-claw-catalog.json'), JSON.stringify(catalog));
@@ -139,7 +139,7 @@ describe('cat-config-loader', () => {
       try {
         const config = loadCatConfig();
         // Catalog override: displayName comes from catalog
-        assert.equal(config.breeds[0].displayName, '运行时布偶猫', 'catalog displayName overrides base');
+        assert.equal(config.breeds[0].displayName, '运行时Claude', 'catalog displayName overrides base');
         // Base preservation: fields absent from catalog are preserved from base
         assert.equal(
           config.breeds[0].teamStrengths,
@@ -293,8 +293,8 @@ describe('cat-config-loader', () => {
       config.breeds.push({
         id: 'dare-test',
         catId: 'dare',
-        name: '狸花猫',
-        displayName: '狸花猫',
+        name: 'DARE',
+        displayName: 'DARE',
         avatar: '/avatars/dare.png',
         color: { primary: '#D4A76A', secondary: '#F5EBD7' },
         mentionPatterns: ['@dare'],
@@ -321,7 +321,7 @@ describe('cat-config-loader', () => {
       // F32-a: catId is no longer restricted to opus/codex/gemini
       const custom = validConfig();
       custom.breeds[0].catId = 'foobar';
-      custom.breeds[0].mentionPatterns = ['@foobar', '@布偶猫'];
+      custom.breeds[0].mentionPatterns = ['@foobar', '@claude'];
       const path = writeTempConfig(custom);
       const config = loadCatConfig(path);
       assert.equal(config.breeds[0].catId, 'foobar');
@@ -339,16 +339,16 @@ describe('cat-config-loader', () => {
   });
 
   describe('toFlatConfigs', () => {
-    it('produces Record matching CatConfig shape', () => {
+    it('produces Record matching OfficeClawConfigEntry shape', () => {
       const path = writeTempConfig(validConfig());
       const config = loadCatConfig(path);
       const flat = toFlatConfigs(config);
 
       assert.ok(flat.opus);
-      assert.equal(flat.opus.displayName, '布偶猫');
+      assert.equal(flat.opus.displayName, 'Claude');
       assert.equal(flat.opus.provider, 'anthropic');
       assert.equal(flat.opus.mcpSupport, true);
-      assert.deepEqual(flat.opus.mentionPatterns, ['@opus', '@布偶猫']);
+      assert.deepEqual(flat.opus.mentionPatterns, ['@opus', '@claude']);
       assert.equal(flat.opus.personality, '温柔');
     });
 
@@ -357,11 +357,11 @@ describe('cat-config-loader', () => {
       cfg.breeds.push({
         id: 'maine-coon',
         catId: 'codex',
-        name: '缅因猫',
-        displayName: '缅因猫',
+        name: 'Codex',
+        displayName: 'Codex',
         avatar: '/avatars/codex.png',
         color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
-        mentionPatterns: ['@codex', '@缅因猫'],
+        mentionPatterns: ['@codex', '@assistant'],
         roleDescription: '代码审查专家',
         defaultVariantId: 'codex-default',
         variants: [
@@ -389,7 +389,7 @@ describe('cat-config-loader', () => {
     it('finds breed by mention pattern', () => {
       const path = writeTempConfig(validConfig());
       const config = loadCatConfig(path);
-      const result = findBreedByMention(config, '你好 @布偶猫 帮我看看');
+      const result = findBreedByMention(config, '你好 @claude 帮我看看');
       assert.ok(result);
       assert.equal(result.breed.id, 'ragdoll');
     });
@@ -410,26 +410,26 @@ describe('cat-config-loader', () => {
     });
 
     it('longest-match-first: variant pattern wins over breed prefix (R28 regression)', () => {
-      // @布偶45 must match opus-45 variant, not breed-level @布偶
+      // @claude45 must match opus-45 variant, not breed-level @claude
       const cfg = multiVariantConfig();
-      cfg.breeds[0].variants[1].mentionPatterns = ['@opus-45', '@布偶45'];
-      cfg.breeds[0].mentionPatterns = ['@opus', '@布偶猫', '@布偶'];
+      cfg.breeds[0].variants[1].mentionPatterns = ['@opus-45', '@claude45'];
+      cfg.breeds[0].mentionPatterns = ['@opus', '@claude', '@claude'];
       const config2 = loadCatConfig(writeTempConfig(cfg));
-      const result = findBreedByMention(config2, '@布偶45 帮忙');
+      const result = findBreedByMention(config2, '@claude45 帮忙');
       assert.ok(result);
       assert.equal(String(result.catId), 'opus-45');
     });
 
-    it('longest-match-first: project config @布偶sonnet resolves to sonnet', () => {
+    it('longest-match-first: project config @claudesonnet resolves to sonnet', () => {
       const config = loadCatConfig();
-      const result = findBreedByMention(config, '@布偶sonnet 帮忙');
+      const result = findBreedByMention(config, '@claudesonnet 帮忙');
       assert.ok(result);
       assert.equal(String(result.catId), 'sonnet');
     });
 
     it('breed-level short pattern still works when no prefix collision', () => {
       const config = loadCatConfig();
-      const result = findBreedByMention(config, '@布偶 帮忙');
+      const result = findBreedByMention(config, '@claude 帮忙');
       assert.ok(result);
       assert.equal(String(result.catId), 'opus');
     });
@@ -540,11 +540,11 @@ function multiVariantConfig() {
       {
         id: 'ragdoll',
         catId: 'opus',
-        name: '布偶猫',
-        displayName: '布偶猫',
+        name: 'Claude',
+        displayName: 'Claude',
         avatar: '/avatars/opus.png',
         color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-        mentionPatterns: ['@opus', '@布偶猫', '@布偶'],
+        mentionPatterns: ['@opus', '@claude', '@claude'],
         roleDescription: '主架构师',
         defaultVariantId: 'opus-default',
         variants: [
@@ -559,8 +559,8 @@ function multiVariantConfig() {
           {
             id: 'opus-45',
             catId: 'opus-45',
-            displayName: '布偶猫 4.5',
-            mentionPatterns: ['@opus-45', '@布偶猫4.5'],
+            displayName: 'Claude 4.5',
+            mentionPatterns: ['@opus-45', '@claude4.5'],
             provider: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
@@ -572,11 +572,11 @@ function multiVariantConfig() {
       {
         id: 'siamese',
         catId: 'gemini',
-        name: '暹罗猫',
-        displayName: '暹罗猫',
+        name: 'Gemini',
+        displayName: 'Gemini',
         avatar: '/avatars/gemini.png',
         color: { primary: '#D4A574', secondary: '#F5E6D3' },
-        mentionPatterns: ['@gemini', '@暹罗猫'],
+        mentionPatterns: ['@gemini', '@design'],
         roleDescription: '视觉设计',
         defaultVariantId: 'gemini-default',
         features: { sessionChain: false },
@@ -608,15 +608,15 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
   it('default variant inherits breed mentionPatterns', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
-    assert.deepEqual(all.opus.mentionPatterns, ['@opus', '@布偶猫', '@布偶']);
+    assert.deepEqual(all.opus.mentionPatterns, ['@opus', '@claude', '@claude']);
   });
 
   it('non-default variant uses its own mentionPatterns plus auto-added displayName', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
-    // displayName '布偶猫 4.5' (with space) differs from alias '@布偶猫4.5' (no space),
+    // displayName 'Claude 4.5' (with space) differs from alias '@claude4.5' (no space),
     // so toAllCatConfigs auto-appends it as a valid mention pattern.
-    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5', '@布偶猫 4.5']);
+    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@claude4.5', '@Claude 4.5']);
   });
 
   it('non-default variant with no mentionPatterns gets @catId fallback pattern', () => {
@@ -656,8 +656,8 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
   it('variant overrides displayName', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
-    assert.equal(all.opus.displayName, '布偶猫');
-    assert.equal(all['opus-45'].displayName, '布偶猫 4.5');
+    assert.equal(all.opus.displayName, 'Claude');
+    assert.equal(all['opus-45'].displayName, 'Claude 4.5');
   });
 
   it('variants without avatar/color inherit breed-level values', () => {
@@ -680,7 +680,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     const cfg = multiVariantConfig();
     // Make second variant use same catId as default (no catId override → inherits breed)
     delete cfg.breeds[0].variants[1].catId;
-    cfg.breeds[0].variants[1].mentionPatterns = ['@opus', '@布偶猫4.5'];
+    cfg.breeds[0].variants[1].mentionPatterns = ['@opus', '@claude4.5'];
     assert.throws(() => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))), /Duplicate catId "opus"/);
   });
 
@@ -754,11 +754,11 @@ describe('F32-b: getDefaultCatId', () => {
 
   it('falls back to the first registered runtime cat when config load fails', () => {
     const savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    const savedRegistry = catRegistry.getAllConfigs();
+    const savedRegistry = officeClawRegistry.getAllConfigs();
     const missingPath = join(tmpdir(), `missing-cat-template-${Date.now()}.json`);
 
-    catRegistry.reset();
-    catRegistry.register('office', {
+    officeClawRegistry.reset();
+    officeClawRegistry.register('office', {
       id: createCatId('office'),
       name: '办公智能体',
       displayName: '办公智能体',
@@ -780,9 +780,9 @@ describe('F32-b: getDefaultCatId', () => {
       const id = getDefaultCatId();
       assert.equal(id, 'office');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(savedRegistry)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
       if (savedTemplatePath === undefined) {
         delete process.env.CAT_TEMPLATE_PATH;
@@ -797,7 +797,7 @@ describe('F32-b: getDefaultCatId', () => {
 describe('F32-b: mentionPattern validation', () => {
   it('rejects breed mentionPatterns without @ prefix', () => {
     const cfg = multiVariantConfig();
-    cfg.breeds[0].mentionPatterns = ['opus', '@布偶猫'];
+    cfg.breeds[0].mentionPatterns = ['opus', '@claude'];
     const path = writeTempConfig(cfg);
     assert.throws(() => loadCatConfig(path), /Invalid cat config/);
   });
@@ -811,21 +811,21 @@ describe('F32-b: mentionPattern validation', () => {
 
   it('accepts breed mentionPatterns without canonical @catId (custom aliases allowed)', () => {
     const cfg = multiVariantConfig();
-    cfg.breeds[0].mentionPatterns = ['@布偶猫', '@布偶'];
+    cfg.breeds[0].mentionPatterns = ['@claude', '@claude'];
     const path = writeTempConfig(cfg);
     const config = loadCatConfig(path);
     const allConfigs = toAllCatConfigs(config);
-    assert.deepEqual(allConfigs.opus.mentionPatterns, ['@布偶猫', '@布偶']);
+    assert.deepEqual(allConfigs.opus.mentionPatterns, ['@claude', '@claude']);
   });
 
   it('accepts variant mentionPatterns without canonical @catId (custom aliases allowed)', () => {
     const cfg = multiVariantConfig();
-    cfg.breeds[0].variants[1].mentionPatterns = ['@布偶猫4.5'];
+    cfg.breeds[0].variants[1].mentionPatterns = ['@claude4.5'];
     const path = writeTempConfig(cfg);
     const config = loadCatConfig(path);
     const allConfigs = toAllCatConfigs(config);
-    // displayName '布偶猫 4.5' auto-appended (differs from alias '@布偶猫4.5' by space)
-    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5', '@布偶猫 4.5']);
+    // displayName 'Claude 4.5' auto-appended (differs from alias '@claude4.5' by space)
+    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@claude4.5', '@Claude 4.5']);
   });
 });
 
@@ -907,11 +907,11 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     const sonnet = all.sonnet;
     assert.ok(sonnet, 'sonnet cat config exists');
     assert.equal(sonnet.breedId, 'ragdoll');
-    assert.equal(sonnet.displayName, '布偶猫');
+    assert.equal(sonnet.displayName, 'Claude');
     assert.equal(sonnet.variantLabel, 'Sonnet');
     assert.equal(sonnet.isDefaultVariant, false);
     assert.deepEqual(sonnet.color, { primary: '#B39DDB', secondary: '#EDE7F6' });
-    assert.deepEqual(sonnet.mentionPatterns, ['@sonnet', '@布偶sonnet']);
+    assert.deepEqual(sonnet.mentionPatterns, ['@sonnet', '@claudesonnet']);
   });
 
   it('Sonnet does not share avatar/color with default opus', () => {
@@ -934,8 +934,8 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all.gemini);
     assert.ok(all.gemini25);
     assert.ok(all.dare); // F050: DARE external agent (dragon-li)
-    assert.ok(all.antigravity); // F061: Bengal cat (Antigravity CDP bridge)
-    assert.ok(all['antig-opus']); // F061: Bengal cat Claude variant
+    assert.ok(all.antigravity); // F061: Antigravity CDP bridge
+    assert.ok(all['antig-opus']); // F061: Antigravity Claude variant
     assert.ok(all.opencode); // F105: OpenCode external agent
   });
 

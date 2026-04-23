@@ -60,12 +60,12 @@ describe('F041 Config Round-Trip', () => {
   });
 
   it('capabilities.json → CLI configs → read back preserves servers', async () => {
-    // Seed capabilities.json with cat-cafe + external
+    // Seed capabilities.json with office-claw + external
     const config = {
       version: /** @type {1} */ (1),
       capabilities: [
         {
-          id: 'cat-cafe',
+          id: 'office-claw',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
           source: /** @type {'builtin'} */ ('builtin'),
@@ -105,8 +105,8 @@ describe('F041 Config Round-Trip', () => {
 
     // Claude/Gemini: only enabled servers (no 'enabled' field in these formats)
     assert.ok(
-      claudeServers.find((s) => s.name === 'cat-cafe'),
-      'Claude should have cat-cafe',
+      claudeServers.find((s) => s.name === 'office-claw'),
+      'Claude should have office-claw',
     );
     assert.ok(
       claudeServers.find((s) => s.name === 'filesystem'),
@@ -115,15 +115,15 @@ describe('F041 Config Round-Trip', () => {
     assert.ok(!claudeServers.find((s) => s.name === 'disabled-tool'), 'Claude should NOT have disabled tool');
 
     assert.ok(
-      geminiServers.find((s) => s.name === 'cat-cafe'),
-      'Gemini should have cat-cafe',
+      geminiServers.find((s) => s.name === 'office-claw'),
+      'Gemini should have office-claw',
     );
     assert.ok(!geminiServers.find((s) => s.name === 'disabled-tool'), 'Gemini should NOT have disabled tool');
 
     // Codex: all servers with explicit enabled field
     assert.ok(
-      codexServers.find((s) => s.name === 'cat-cafe'),
-      'Codex should have cat-cafe',
+      codexServers.find((s) => s.name === 'office-claw'),
+      'Codex should have office-claw',
     );
     const disabledInCodex = codexServers.find((s) => s.name === 'disabled-tool');
     assert.ok(disabledInCodex, 'Codex should have disabled-tool (with enabled=false)');
@@ -233,7 +233,7 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
       version: /** @type {1} */ (1),
       capabilities: [
         {
-          id: 'cat-cafe',
+          id: 'office-claw',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
           source: /** @type {'builtin'} */ ('builtin'),
@@ -280,8 +280,8 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
       'filesystem should be REMOVED from Claude config after disable',
     );
     assert.ok(
-      claude.find((s) => s.name === 'cat-cafe'),
-      'cat-cafe should still be present',
+      claude.find((s) => s.name === 'office-claw'),
+      'office-claw should still be present',
     );
 
     const gemini = await readGeminiMcpConfig(paths.google);
@@ -303,7 +303,7 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
       version: /** @type {1} */ (1),
       capabilities: [
         {
-          id: 'cat-cafe',
+          id: 'office-claw',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
           source: /** @type {'builtin'} */ ('builtin'),
@@ -411,7 +411,7 @@ describe('F041 Discovery Consistency', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('bootstrap discovers external servers and includes split cat-cafe servers', async () => {
+  it('bootstrap discovers external servers and includes split office-claw servers', async () => {
     // Seed Claude config with external server
     const claudeFile = join(dir, '.mcp.json');
     await writeFile(
@@ -430,7 +430,7 @@ describe('F041 Discovery Consistency', () => {
       geminiConfig: join(dir, 'nonexistent.json'),
     });
 
-    // Should have: cat-cafe split(3) + pencil + jetbrains (discovered)
+    // Should have: office-claw split(3) + pencil + jetbrains (discovered)
     assert.equal(config.capabilities.length, 5);
 
     const catCafeCollab = config.capabilities.find((c) => c.id === 'office-claw-collab');
@@ -472,7 +472,7 @@ describe('F041 Discovery Consistency', () => {
       geminiConfig: geminiFile,
     });
 
-    // cat-cafe + shared (deduplicated — first wins = claude version)
+    // office-claw + shared (deduplicated — first wins = claude version)
     const shared = config.capabilities.filter((c) => c.id === 'shared');
     assert.equal(shared.length, 1, 'Should deduplicate by name');
     assert.deepEqual(shared[0].mcpServer?.args, ['shared-v1.js'], 'First discovery wins');

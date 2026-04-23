@@ -6,14 +6,14 @@
 
 /**
  * opencode Config Template Generator
- * Generates opencode.json configuration for Cat Cafe runtime.
+ * Generates opencode.json configuration for OfficeClaw runtime.
  *
  * opencode reads its config from opencode.json (per-project or ~/.config/opencode/).
  * This generator produces a config with:
  * - Anthropic provider (via proxy) — legacy builtin-only path
  * - Custom provider support via OPENCODE_CONFIG env var + {env:VAR} credential injection
  * - Optional OMOC plugin (oh-my-opencode)
- * - No Cat Cafe MCP tools (isolation by design)
+ * - No OfficeClaw MCP tools (isolation by design)
  *
  * Custom provider flow (F189):
  *   1. invoke-single-cat.ts calls writeOpenCodeRuntimeConfig() before each invoke

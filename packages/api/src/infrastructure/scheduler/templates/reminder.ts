@@ -4,7 +4,7 @@
  *
  */
 
-import { getDefaultCatId } from '../../../config/cat-config-loader.js';
+import { getDefaultCatId } from '../../../config/office-claw-config-loader.js';
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 

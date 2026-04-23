@@ -4,7 +4,7 @@
  *
  */
 
-import type { ConnectorThreadBinding } from '@clowder/shared';
+import type { ConnectorThreadBinding } from '@office-claw/shared';
 
 export interface IConnectorThreadBindingStore {
   bind(

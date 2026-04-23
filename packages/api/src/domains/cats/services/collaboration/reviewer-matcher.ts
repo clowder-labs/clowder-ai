@@ -8,19 +8,19 @@
  * Reviewer Matcher
  * F032: Dynamic reviewer selection based on roster, availability, and thread activity.
  *
- * Rules (铲屎官 confirmed):
+ * Rules (用户 confirmed):
  * 1. Must be different from author
  * 2. Must have 'peer-reviewer' role
- * 3. Must be available (有猫粮！40 美刀教训)
+ * 3. Must be available (有配额！40 美刀教训)
  * 4. Prefer different family
  * 5. Prefer lead
  * 6. Prefer active in current thread
  * 7. Degrade to same-family lead if no cross-family reviewer available
  */
 
-import type { CatId, ReviewPolicy, Roster } from '@clowder/shared';
-import { createCatId } from '@clowder/shared';
-import { getDefaultCatId, getReviewPolicy, getRoster } from '../../../../config/cat-config-loader.js';
+import type { CatId, ReviewPolicy, Roster } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
+import { getDefaultCatId, getReviewPolicy, getRoster } from '../../../../config/office-claw-config-loader.js';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('reviewer-matcher');
@@ -86,7 +86,7 @@ export async function resolveReviewer(options: ReviewerMatchOptions): Promise<Re
     ([id, entry]) => id !== authorId && entry.roles.includes('peer-reviewer'),
   );
 
-  // 2. Filter by availability (铲屎官 40 美刀教训！)
+  // 2. Filter by availability (用户 40 美刀教训！)
   const availableReviewers = policy.excludeUnavailable
     ? allReviewers.filter(([_, entry]) => entry.available !== false)
     : allReviewers;
@@ -210,7 +210,7 @@ export function canReview(reviewer: CatId, author: CatId): { canReview: boolean;
   if (policy.excludeUnavailable && reviewerEntry.available === false) {
     return {
       canReview: false,
-      reason: `"${reviewerId}" is not available (没猫粮！)`,
+      reason: `"${reviewerId}" is not available (没配额！)`,
     };
   }
 

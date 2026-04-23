@@ -39,14 +39,14 @@ vi.mock('../ContextHealthBar', () => ({
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [
-      { id: 'opus', displayName: '布偶猫', color: { primary: '#7C3AED', secondary: '#EDE9FE' } },
-      { id: 'codex', displayName: '缅因猫', color: { primary: '#059669', secondary: '#D1FAE5' } },
+      { id: 'opus', displayName: 'Claude', color: { primary: '#7C3AED', secondary: '#EDE9FE' } },
+      { id: 'codex', displayName: 'Codex', color: { primary: '#059669', secondary: '#D1FAE5' } },
     ],
     isLoading: false,
     getCatById: (id: string) => {
       const map: Record<string, unknown> = {
-        opus: { id: 'opus', displayName: '布偶猫' },
-        codex: { id: 'codex', displayName: '缅因猫' },
+        opus: { id: 'opus', displayName: 'Claude' },
+        codex: { id: 'codex', displayName: 'Codex' },
       };
       return map[id];
     },
@@ -650,8 +650,8 @@ describe('F24: SessionChainPanel', () => {
       expect(select).not.toBeNull();
       const options = Array.from(select!.querySelectorAll('option'));
       const optionTexts = options.map((o) => o.textContent);
-      expect(optionTexts.some((t) => t?.includes('缅因猫'))).toBe(true);
-      expect(optionTexts.some((t) => t?.includes('布偶猫'))).toBe(false);
+      expect(optionTexts.some((t) => t?.includes('Codex'))).toBe(true);
+      expect(optionTexts.some((t) => t?.includes('Claude'))).toBe(false);
     });
   });
 

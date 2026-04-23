@@ -8,7 +8,7 @@
  * A2A Protocol Types — F050 Phase 3
  *
  * Minimal subset of Google's Agent-to-Agent Protocol (v1.0)
- * for Clowder AI to communicate with remote agents.
+ * for OfficeClaw to communicate with remote agents.
  * Spec: https://a2a-protocol.org/latest/specification/
  */
 
@@ -63,7 +63,7 @@ export interface A2AAgentCard {
   capabilities?: string[];
 }
 
-// ─── Clowder AI A2A Configuration ──────────────────────────────
+// ─── OfficeClaw A2A Configuration ──────────────────────────────
 
 /** Configuration for connecting to a remote A2A agent */
 export interface A2AAgentConfig {

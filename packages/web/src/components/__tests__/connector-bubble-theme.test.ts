@@ -117,7 +117,7 @@ describe('ConnectorBubble theme', () => {
         connector: 'github-review',
         label: 'GitHub Review',
         icon: '🔔',
-        url: 'https://github.com/zts212653/cat-cafe/pull/97',
+        url: 'https://github.com/zts212653/office-claw/pull/97',
       },
     };
 
@@ -141,7 +141,7 @@ describe('ConnectorBubble theme', () => {
         connector: 'github-ci',
         label: 'GitHub CI/CD',
         icon: 'github',
-        url: 'https://github.com/zts212653/cat-cafe/actions/runs/123',
+        url: 'https://github.com/zts212653/office-claw/actions/runs/123',
       },
     };
 
@@ -185,7 +185,7 @@ describe('ConnectorBubble theme', () => {
     const message: ChatMessage = {
       id: 'm-mm',
       type: 'connector',
-      content: '3 只猫猫已回复',
+      content: '3 只智能体已回复',
       timestamp: Date.now(),
       source: {
         connector: 'multi-mention-result',

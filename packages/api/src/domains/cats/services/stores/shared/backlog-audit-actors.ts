@@ -4,7 +4,7 @@
  *
  */
 
-import type { BacklogAuditActor, CreateBacklogItemInput } from '@clowder/shared';
+import type { BacklogAuditActor, CreateBacklogItemInput } from '@office-claw/shared';
 
 export function makeUserActor(userId: string): BacklogAuditActor {
   return { kind: 'user', id: userId };

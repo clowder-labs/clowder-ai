@@ -11,7 +11,7 @@
  * 超时的节点自动标记为 offline，能力从可用列表移除。
  */
 
-import type { LimbNodeStatus } from '@clowder/shared';
+import type { LimbNodeStatus } from '@office-claw/shared';
 import type { LimbRegistry } from './LimbRegistry.js';
 
 export type StatusChangeCallback = (nodeId: string, from: LimbNodeStatus, to: LimbNodeStatus) => void;

@@ -8,12 +8,12 @@ created: 2026-03-04
 
 # F055: A2A MCP Structured Routing（结构化路由 + targetCats）
 
-> **Status**: spec | **Owner**: Ragdoll (Opus 4.6)
+> **Status**: spec | **Owner**: Claude (Opus 4.6)
 > **Created**: 2026-03-04
 
 ## Why
 
-猫猫们在 CLI 文本里写 `@队友` 的格式经常出错（行中 @、忘记换行、冒号后紧跟 @），导致 A2A 路由失败，team lead变成人工转发站。
+智能体们在 CLI 文本里写 `@队友` 的格式经常出错（行中 @、忘记换行、冒号后紧跟 @），导致 A2A 路由失败，team lead变成人工转发站。
 
 **根因**：CLI 纯文本输出是自由格式，@ mention 靠文本解析是软约束，模型生成惯性导致格式不遵守。
 
@@ -69,7 +69,7 @@ created: 2026-03-04
 - [ ] AC-1: `post-message` callback schema 支持 `targetCats?: CatId[]`
 - [ ] AC-2: `targetCats` 非空时直接路由，不再依赖文本解析
 - [ ] AC-3: `targetCats` 为空时 fallback 到行首 @ 文本解析（Phase 1 兼容）
-- [ ] AC-4: A2A 提示词更新，教猫猫用结构化字段
+- [ ] AC-4: A2A 提示词更新，教智能体用结构化字段
 - [ ] AC-5: Claude / Codex / Gemini 三条路径行为一致
 - [ ] AC-6: 消息可见性不变（debug=全量, play=chain scope）
 - [ ] AC-7: 现有 A2A 回归测试不红（兼容旧文本 @ 模式）
@@ -115,8 +115,8 @@ created: 2026-03-04
 | 风险 | 缓解 |
 |------|------|
 | Claude CLI `-p` 模式下 function calling 不稳定 | Phase 1 保留文本 fallback |
-| 旧版 runtime 猫猫不支持新字段 | 字段可选，向后兼容 |
-| 提示词更新后猫猫仍用旧方式 | 双通道并存，不丢路由 |
+| 旧版 runtime 智能体不支持新字段 | 字段可选，向后兼容 |
+| 提示词更新后智能体仍用旧方式 | 双通道并存，不丢路由 |
 
 ---
 

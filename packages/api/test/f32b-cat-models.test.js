@@ -12,12 +12,12 @@ import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { getCatModel, getAllCatModels } = await import('../dist/config/cat-models.js');
+const { getCatModel, getAllCatModels } = await import('../dist/config/office-claw-models.js');
 
 describe('F32-b: getCatModel dynamic env key', () => {
-  it('resolves default model from CAT_CONFIGS fallback', () => {
-    // Without catRegistry population from office-claw-config.json, falls through to CAT_CONFIGS
-    // catRegistry IS populated by setup-cat-registry.js, so it reads from there
+  it('resolves default model from OFFICE_CLAW_CONFIGS fallback', () => {
+    // Without officeClawRegistry population from office-claw-config.json, falls through to OFFICE_CLAW_CONFIGS
+    // officeClawRegistry IS populated by setup-cat-registry.js, so it reads from there
     const model = getCatModel('opus');
     assert.ok(typeof model === 'string');
     assert.ok(model.length > 0);
@@ -45,7 +45,7 @@ describe('F32-b: getCatModel dynamic env key', () => {
     }
   });
 
-  it('throws for unknown cat (no env, no registry, no CAT_CONFIGS)', () => {
+  it('throws for unknown cat (no env, no registry, no OFFICE_CLAW_CONFIGS)', () => {
     assert.throws(() => getCatModel('nonexistent-cat-xyz'), /No model configured/);
   });
 

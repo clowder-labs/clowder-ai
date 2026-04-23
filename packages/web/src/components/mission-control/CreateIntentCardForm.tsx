@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { IntentCard, RiskSignal, SourceTag } from '@clowder/shared';
+import type { IntentCard, RiskSignal, SourceTag } from '@office-claw/shared';
 import { useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

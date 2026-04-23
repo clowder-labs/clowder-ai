@@ -10,12 +10,12 @@ import { describe, it } from 'node:test';
 const { SignalArticleQueryService } = await import('../dist/domains/signals/services/article-query-service.js');
 
 const TEST_PATHS = {
-  rootDir: '/tmp/cat-cafe-test-root',
-  configDir: '/tmp/cat-cafe-test-root/config',
-  libraryDir: '/tmp/cat-cafe-test-root/library',
-  inboxDir: '/tmp/cat-cafe-test-root/inbox',
-  logsDir: '/tmp/cat-cafe-test-root/logs',
-  sourcesFile: '/tmp/cat-cafe-test-root/config/sources.yaml',
+  rootDir: '/tmp/office-claw-test-root',
+  configDir: '/tmp/office-claw-test-root/config',
+  libraryDir: '/tmp/office-claw-test-root/library',
+  inboxDir: '/tmp/office-claw-test-root/inbox',
+  logsDir: '/tmp/office-claw-test-root/logs',
+  sourcesFile: '/tmp/office-claw-test-root/config/sources.yaml',
 };
 
 function createRecord(id, fetchedAt) {

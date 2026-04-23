@@ -7,12 +7,12 @@
 /**
  * Context Assembler
  * 从 messageStore 历史消息组装上下文字符串，prepend 到猫的 prompt 中。
- * 解决跨猫历史不可见问题 (猫咖狼人杀 bug report 的核心修复)。
+ * 解决跨猫历史不可见问题 (OfficeClaw狼人杀 bug report 的核心修复)。
  *
  * formatMessage() 也被 export route 复用 (聊天记录导出)。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 import { isDelivered, type StoredMessage } from '../stores/ports/MessageStore.js';
 
@@ -42,13 +42,13 @@ const DEFAULT_MAX_TOTAL_TOKENS = 2000;
 
 /**
  * Get display name for a message sender.
- * catId === null → user ("用户"), otherwise look up CAT_CONFIGS.
+ * catId === null → user ("用户"), otherwise look up OFFICE_CLAW_CONFIGS.
  * For variant cats (e.g. sonnet, opus-45), includes variantLabel to distinguish same-family members.
  */
 function getSenderName(catId: string | null): string {
   if (catId === null) return '用户';
-  const entry = catRegistry.tryGet(catId);
-  const config = entry?.config ?? CAT_CONFIGS[catId];
+  const entry = officeClawRegistry.tryGet(catId);
+  const config = entry?.config ?? OFFICE_CLAW_CONFIGS[catId];
   if (!config) return catId;
   const variantLabel = config.variantLabel?.trim();
   if (!variantLabel) return config.displayName;
@@ -113,7 +113,7 @@ export function assembleContext(messages: StoredMessage[], options?: ContextAsse
 
   // F117: exclude undelivered messages (queued/canceled) from prompt context
   // Also exclude system-generated messages (userId='system') — these are display-only
-  // (e.g. persisted error badges) and must not re-enter the prompt as "铲屎官" messages.
+  // (e.g. persisted error badges) and must not re-enter the prompt as "用户" messages.
   // Defense: also exclude legacy error messages that were incorrectly persisted with
   // userId=user by route-parallel.ts (context poisoning bug, fixed in PR #992).
   // Only filter cat messages (catId !== null) starting with [错误] — user messages are legit.

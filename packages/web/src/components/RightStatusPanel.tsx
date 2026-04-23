@@ -34,7 +34,7 @@ export interface RightStatusPanelProps {
     evidence: number;
     followup: number;
   };
-  /** Panel width in px (clowder-ai#28: drag-to-resize). Falls back to 288 (w-72). */
+  /** Panel width in px (office-claw#28: drag-to-resize). Falls back to 288 (w-72). */
   width?: number;
   /** Hide the status panel (mirrors WorkspacePanel's close button) */
   onClose?: () => void;

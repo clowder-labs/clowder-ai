@@ -18,7 +18,7 @@ import { UploadSkillModal } from './UploadSkillModal';
 const INSTALLED = '我的技能';
 const SKILL_PLAZA = '技能广场';
 const UPLOAD_SUCCESS_LABEL = '技能上传成功';
-const SKILL_PLAZA_RISK_ACK_KEY = 'cat-cafe:skills-plaza-risk-ack:v1';
+const SKILL_PLAZA_RISK_ACK_KEY = 'office-claw:skills-plaza-risk-ack:v1';
 const RISK_TITLE = '风险提示';
 const RISK_MESSAGE =
   '请注意，部分技能来源于第三方，当您使用第三方外部技能时，您承诺将严格遵守第三方的相关条款（包括但不限于license协议）。华为云不对第三方产品的合规性和安全性保证，请您使用前慎重考虑并评估风险。';

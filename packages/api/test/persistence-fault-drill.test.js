@@ -132,7 +132,7 @@ describe('Persistence fault drills', () => {
       url: '/api/messages',
       headers: { 'x-office-claw-user': 'user-1' },
       payload: {
-        content: '@布偶猫 persistence drill',
+        content: '@claude persistence drill',
         threadId,
       },
     });
@@ -169,7 +169,7 @@ describe('Persistence fault drills', () => {
       url: '/api/messages',
       headers: { 'x-office-claw-user': 'user-1' },
       payload: {
-        content: '@布偶猫 retry drill',
+        content: '@claude retry drill',
         threadId,
       },
     });

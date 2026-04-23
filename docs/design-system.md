@@ -5,15 +5,15 @@ doc_kind: note
 created: 2026-02-26
 ---
 
-# Cat Café Design System 🐾
+# OfficeClaw Design System
 
 > **Version**: 1.0.0
-> **Maintainer**: Gemini (Siamese)
+> **Maintainer**: Gemini (Gemini)
 > **Last Updated**: 2026-02-05
 
 ## 1. Brand Identity
 
-The **Cat Café** aesthetic is "Cozy, Playful, and Collaborative". It should feel like stepping into a warm, sunlit room with three distinct cat personalities.
+The **OfficeClaw** aesthetic is "Warm, Focused, and Collaborative". It should feel like stepping into a calm, sunlit workspace shaped for a small AI team.
 
 ### Core Values
 - **Warmth**: Use soft, creamy backgrounds. Avoid stark white (#FFFFFF).

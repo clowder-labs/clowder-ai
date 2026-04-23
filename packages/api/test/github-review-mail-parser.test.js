@@ -18,19 +18,19 @@ import {
 
 describe('parseGithubReviewSubject', () => {
   it('parses review with approval', () => {
-    const subject = '[zts212653/cat-cafe] @codex-bot approved pull request #42: [布偶猫🐾] feat(audit): add timestamps';
+    const subject = '[zts212653/office-claw] @codex-bot approved pull request #42: [Claude🐾] feat(audit): add timestamps';
     const result = parseGithubReviewSubject(subject);
 
     assert.ok(result);
     assert.strictEqual(result.prNumber, 42);
-    assert.strictEqual(result.repository, 'zts212653/cat-cafe');
+    assert.strictEqual(result.repository, 'zts212653/office-claw');
     assert.strictEqual(result.reviewType, 'approved');
     assert.strictEqual(result.reviewer, 'codex-bot');
-    assert.strictEqual(result.title, '[布偶猫🐾] feat(audit): add timestamps');
+    assert.strictEqual(result.title, '[Claude🐾] feat(audit): add timestamps');
   });
 
   it('parses review with changes requested', () => {
-    const subject = '[zts212653/cat-cafe] @codex-bot requested changes on pull request #24: [缅因猫🐾] fix: typo';
+    const subject = '[zts212653/office-claw] @codex-bot requested changes on pull request #24: [Codex🐾] fix: typo';
     const result = parseGithubReviewSubject(subject);
 
     assert.ok(result);
@@ -40,7 +40,7 @@ describe('parseGithubReviewSubject', () => {
   });
 
   it('parses comment notification', () => {
-    const subject = '[zts212653/cat-cafe] @user123 commented on pull request #99: [暹罗猫🐾] design: new UI';
+    const subject = '[zts212653/office-claw] @user123 commented on pull request #99: [Gemini🐾] design: new UI';
     const result = parseGithubReviewSubject(subject);
 
     assert.ok(result);
@@ -57,12 +57,12 @@ describe('parseGithubReviewSubject', () => {
   });
 
   it('parses Re: reply with explicit (PR #N) marker (cloud Codex review email)', () => {
-    const subject = 'Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks + pauseReasonhydration (PR #96)';
+    const subject = 'Re: [zts212653/office-claw] fix(F039): queue contentBlocks + pauseReasonhydration (PR #96)';
     const result = parseGithubReviewSubject(subject);
 
     assert.ok(result);
     assert.strictEqual(result.prNumber, 96);
-    assert.strictEqual(result.repository, 'zts212653/cat-cafe');
+    assert.strictEqual(result.repository, 'zts212653/office-claw');
     assert.strictEqual(result.reviewType, 'unknown');
     assert.strictEqual(result.reviewer, undefined);
     assert.strictEqual(result.title, 'fix(F039): queue contentBlocks + pauseReasonhydration');
@@ -78,12 +78,12 @@ describe('parseGithubReviewSubject', () => {
   });
 
   it('parses legacy Re: ... (#N) subject when email source contains review signal', () => {
-    const subject = 'Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)';
+    const subject = 'Re: [zts212653/office-claw] fix(quota): browser refresh fallback (#182)';
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)',
+      'Subject: Re: [zts212653/office-claw] fix(quota): browser refresh fallback (#182)',
       '',
-      'chatgpt-codex-connector[bot] reviewed (zts212653/cat-cafe#182)',
+      'chatgpt-codex-connector[bot] reviewed (zts212653/office-claw#182)',
       "Codex Review: Didn't find any major issues.",
     ].join('\n');
 
@@ -95,16 +95,16 @@ describe('parseGithubReviewSubject', () => {
     const result = parseGithubReviewFromSubjectAndSource(subject, source);
     assert.ok(result);
     assert.strictEqual(result.prNumber, 182);
-    assert.strictEqual(result.repository, 'zts212653/cat-cafe');
+    assert.strictEqual(result.repository, 'zts212653/office-claw');
     assert.strictEqual(result.reviewType, 'reviewed');
     assert.strictEqual(result.reviewer, 'chatgpt-codex-connector[bot]');
   });
 
   it('keeps rejecting legacy Re: ... (#N) subject without review signal', () => {
-    const subject = 'Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)';
+    const subject = 'Re: [zts212653/office-claw] fix(quota): browser refresh fallback (#182)';
     const source = [
       'From: GitHub <notifications@github.com>',
-      'Subject: Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)',
+      'Subject: Re: [zts212653/office-claw] fix(quota): browser refresh fallback (#182)',
       '',
       'Random thread chatter without review markers.',
     ].join('\n');
@@ -165,16 +165,16 @@ describe('parseGithubReviewSubject', () => {
 });
 
 describe('extractCatFromTitle', () => {
-  it('extracts 布偶猫', () => {
-    assert.strictEqual(extractCatFromTitle('[布偶猫🐾] feat: something'), '布偶猫');
+  it('extracts Claude', () => {
+    assert.strictEqual(extractCatFromTitle('[Claude🐾] feat: something'), 'Claude');
   });
 
-  it('extracts 缅因猫', () => {
-    assert.strictEqual(extractCatFromTitle('[缅因猫🐾] fix: bug'), '缅因猫');
+  it('extracts Codex', () => {
+    assert.strictEqual(extractCatFromTitle('[Codex🐾] fix: bug'), 'Codex');
   });
 
-  it('extracts 暹罗猫', () => {
-    assert.strictEqual(extractCatFromTitle('[暹罗猫🐾] design: UI'), '暹罗猫');
+  it('extracts Gemini', () => {
+    assert.strictEqual(extractCatFromTitle('[Gemini🐾] design: UI'), 'Gemini');
   });
 
   it('returns null for missing cat tag', () => {
@@ -182,51 +182,51 @@ describe('extractCatFromTitle', () => {
   });
 
   it('returns null for incomplete tag', () => {
-    assert.strictEqual(extractCatFromTitle('[布偶猫] missing emoji'), null);
+    assert.strictEqual(extractCatFromTitle('[Claude] missing emoji'), null);
   });
 
   // ── Nickname signature formats (CLAUDE.md 签名规范) ──
 
-  it('extracts 布偶猫 from [宪宪/Opus-46🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('fix(F39): bugfix [宪宪/Opus-46🐾]'), '布偶猫');
+  it('extracts Claude from [宪宪/Opus-46🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix(F39): bugfix [宪宪/Opus-46🐾]'), 'Claude');
   });
 
-  it('extracts 布偶猫 from [宪宪/Opus-45🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('feat: something [宪宪/Opus-45🐾]'), '布偶猫');
+  it('extracts Claude from [宪宪/Opus-45🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('feat: something [宪宪/Opus-45🐾]'), 'Claude');
   });
 
-  it('extracts 布偶猫 from [宪宪/Sonnet🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('fix: thing [宪宪/Sonnet🐾]'), '布偶猫');
+  it('extracts Claude from [宪宪/Sonnet🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix: thing [宪宪/Sonnet🐾]'), 'Claude');
   });
 
-  it('extracts 缅因猫 from [砚砚/Codex🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('review: code [砚砚/Codex🐾]'), '缅因猫');
+  it('extracts Codex from [砚砚/Codex🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('review: code [砚砚/Codex🐾]'), 'Codex');
   });
 
-  it('extracts 缅因猫 from [砚砚/GPT-52🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('fix: test [砚砚/GPT-52🐾]'), '缅因猫');
+  it('extracts Codex from [砚砚/GPT-52🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix: test [砚砚/GPT-52🐾]'), 'Codex');
   });
 
-  it('extracts 缅因猫 from [Spark🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('feat: spark thing [Spark🐾]'), '缅因猫');
+  it('extracts Codex from [Spark🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('feat: spark thing [Spark🐾]'), 'Codex');
   });
 
-  it('extracts 暹罗猫 from [烁烁🐾]', () => {
-    assert.strictEqual(extractCatFromTitle('design: new UI [烁烁🐾]'), '暹罗猫');
+  it('extracts Gemini from [烁烁🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('design: new UI [烁烁🐾]'), 'Gemini');
   });
 });
 
 describe('catTagToCatId', () => {
-  it('maps 布偶猫 to opus', () => {
-    assert.strictEqual(catTagToCatId('布偶猫'), 'opus');
+  it('maps Claude to opus', () => {
+    assert.strictEqual(catTagToCatId('Claude'), 'opus');
   });
 
-  it('maps 缅因猫 to codex', () => {
-    assert.strictEqual(catTagToCatId('缅因猫'), 'codex');
+  it('maps Codex to codex', () => {
+    assert.strictEqual(catTagToCatId('Codex'), 'codex');
   });
 
-  it('maps 暹罗猫 to gemini', () => {
-    assert.strictEqual(catTagToCatId('暹罗猫'), 'gemini');
+  it('maps Gemini to gemini', () => {
+    assert.strictEqual(catTagToCatId('Gemini'), 'gemini');
   });
 });
 

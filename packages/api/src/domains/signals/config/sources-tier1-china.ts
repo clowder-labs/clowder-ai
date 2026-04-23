@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@clowder/shared';
+import type { SignalSource } from '@office-claw/shared';
 
 // ── Signal Source Base URLs (信号源域名) ───────────────────────────
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL!;

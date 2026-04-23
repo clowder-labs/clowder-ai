@@ -1,9 +1,9 @@
 /**
- * Clowder Provider Plugin Contract
- * Every @clowder/provider-* package must export a default conforming to this interface.
+ * OfficeClaw Provider Plugin Contract
+ * Every @office-claw/provider-* package must export a default conforming to this interface.
  */
 
-import type { CatConfig, CatId } from '@clowder/shared';
+import type { CatConfig, CatId } from '@office-claw/shared';
 import type {
   AgentService,
   BuiltinAccountClient,
@@ -62,10 +62,10 @@ export type McpConfigWriter = (filePath: string, servers: Array<Record<string, u
 export type McpConfigReader = (filePath: string) => Promise<Array<Record<string, unknown>>>;
 
 /**
- * The contract that every @clowder/provider-* package must implement.
+ * The contract that every @office-claw/provider-* package must implement.
  * Exported as the default export of the package.
  */
-export interface ClowderProviderPlugin {
+export interface OfficeClawProviderPlugin {
   /** Human-readable plugin name for diagnostics */
   name: string;
 

@@ -7,7 +7,7 @@
 
 
 /**
- * Clowder AI MCP Server — Collab Surface
+ * OfficeClaw MCP Server — Collab Surface
  * 只暴露协作核心工具（消息、上下文、任务、权限）。
  */
 
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerCollabToolset } from './server-toolsets.js';
-import { initCatCafeDir } from './utils/path-validator.js';
+import { initOfficeClawDir } from './utils/path-validator.js';
 
 function createBaseServer(name: string): McpServer {
   return new McpServer({
@@ -36,7 +36,7 @@ export function createCollabServer(): McpServer {
 }
 
 async function main(): Promise<void> {
-  initCatCafeDir();
+  initOfficeClawDir();
   const server = createCollabServer();
   const transport = new StdioServerTransport();
   console.error('[office-claw-collab] MCP Server starting...');

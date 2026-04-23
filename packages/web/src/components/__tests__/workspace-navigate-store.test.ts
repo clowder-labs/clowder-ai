@@ -38,27 +38,27 @@ describe('workspace navigate store (F131)', () => {
   });
 
   it('setWorkspaceWorktreeId skips destructive reset when id is unchanged', () => {
-    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'cat-cafe');
-    expect(useChatStore.getState().workspaceWorktreeId).toBe('cat-cafe');
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'office-claw');
+    expect(useChatStore.getState().workspaceWorktreeId).toBe('office-claw');
     expect(useChatStore.getState().workspaceOpenFilePath).toBe('src/app.ts');
     expect(useChatStore.getState().workspaceOpenTabs).toEqual(['src/app.ts']);
 
-    useChatStore.getState().setWorkspaceWorktreeId('cat-cafe');
+    useChatStore.getState().setWorkspaceWorktreeId('office-claw');
 
     const state = useChatStore.getState();
-    expect(state.workspaceWorktreeId).toBe('cat-cafe');
+    expect(state.workspaceWorktreeId).toBe('office-claw');
     expect(state.workspaceOpenFilePath).toBe('src/app.ts');
     expect(state.workspaceOpenTabs).toEqual(['src/app.ts']);
   });
 
   it('setWorkspaceWorktreeId clears file state when switching to a different worktree', () => {
-    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'cat-cafe');
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'office-claw');
     expect(useChatStore.getState().workspaceOpenFilePath).toBe('src/app.ts');
 
-    useChatStore.getState().setWorkspaceWorktreeId('cat-cafe-runtime');
+    useChatStore.getState().setWorkspaceWorktreeId('office-claw-runtime');
 
     const state = useChatStore.getState();
-    expect(state.workspaceWorktreeId).toBe('cat-cafe-runtime');
+    expect(state.workspaceWorktreeId).toBe('office-claw-runtime');
     expect(state.workspaceOpenFilePath).toBeNull();
     expect(state.workspaceOpenTabs).toEqual([]);
   });

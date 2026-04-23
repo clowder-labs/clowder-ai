@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build
@@ -28,7 +28,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('布偶猫'));
+    assert.ok(prompt.includes('Claude'));
     assert.ok(prompt.includes('opus'));
   });
 
@@ -40,7 +40,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('缅因猫'));
+    assert.ok(prompt.includes('Codex'));
     assert.ok(prompt.includes('codex'));
   });
 
@@ -52,7 +52,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('暹罗猫'));
+    assert.ok(prompt.includes('Gemini'));
     assert.ok(prompt.includes('gemini'));
   });
 
@@ -64,8 +64,8 @@ describe('SystemPromptBuilder', () => {
       teammates: ['codex', 'gemini'],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('缅因猫'));
-    assert.ok(prompt.includes('暹罗猫'));
+    assert.ok(prompt.includes('Codex'));
+    assert.ok(prompt.includes('Gemini'));
     assert.ok(prompt.includes('队友'));
   });
 
@@ -80,11 +80,11 @@ describe('SystemPromptBuilder', () => {
     // Dynamic teammate listing absent, but static collaboration guide still present
     assert.ok(!prompt.includes('你的队友'));
     assert.ok(prompt.includes('@队友'));
-    // Still mentions 铲屎官
-    assert.ok(prompt.includes('铲屎官'));
+    // Still mentions 用户
+    assert.ok(prompt.includes('用户'));
   });
 
-  test('contains 铲屎官 reference', async () => {
+  test('contains 用户 reference', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -92,7 +92,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('铲屎官'));
+    assert.ok(prompt.includes('用户'));
   });
 
   test('contains serial chain context when mode is serial', async () => {
@@ -289,7 +289,7 @@ describe('SystemPromptBuilder', () => {
   test('buildStaticIdentity returns identity for known cat', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const identity = buildStaticIdentity('opus');
-    assert.ok(identity.includes('布偶猫'), 'Should contain display name');
+    assert.ok(identity.includes('Claude'), 'Should contain display name');
     assert.ok(identity.includes('Anthropic'), 'Should contain provider');
     assert.ok(identity.includes('## 协作'), 'Should contain collaboration guide');
     assert.ok(identity.includes('不冒充'), 'Should contain anti-impersonation rule');
@@ -305,11 +305,11 @@ describe('SystemPromptBuilder', () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const opusId = buildStaticIdentity('opus');
     assert.ok(opusId.includes('工作流'), 'Opus should have workflow triggers');
-    assert.ok(opusId.includes('@缅因猫'), 'Opus workflow should mention review with 缅因猫');
+    assert.ok(opusId.includes('@Codex'), 'Opus workflow should mention review with Codex');
 
     const codexId = buildStaticIdentity('codex');
     assert.ok(codexId.includes('工作流'), 'Codex should have workflow triggers');
-    assert.ok(codexId.includes('@布偶猫'), 'Codex workflow should mention notifying 布偶猫');
+    assert.ok(codexId.includes('@Claude'), 'Codex workflow should mention notifying Claude');
     assert.ok(codexId.includes('出口一问'), 'Codex workflow should include exit check (出口一问)');
   });
 
@@ -320,52 +320,52 @@ describe('SystemPromptBuilder', () => {
 
   test('buildStaticIdentity disambiguates duplicate display names in runtime multi-variant config', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const identity = buildStaticIdentity('opus');
       const mentionLine = identity.split('\n').find((line) => line.startsWith('你可以 @队友: '));
       assert.ok(mentionLine, 'should include teammate @mention line');
 
-      // Use lookahead to only match "@缅因猫" NOT followed by " Spark" (which is a different variant displayName)
-      const maineCount = (mentionLine.match(/@缅因猫(?=\s*\/)/g) ?? []).length;
+      // Use lookahead to only match "@Codex" NOT followed by " Spark" (which is a different variant displayName)
+      const maineCount = (mentionLine.match(/@Codex(?=\s*\/)/g) ?? []).length;
       assert.equal(maineCount, 1, 'default maine mention should appear only once');
       assert.ok(mentionLine.includes('@gpt52'), 'should expose non-default variant handle');
       assert.ok(identity.includes('同族多分身时'), 'should explicitly teach same-breed multi-variant rule');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   test('buildStaticIdentity duplicate-name hint should not suggest self handle', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const identity = buildStaticIdentity('gpt52');
       assert.ok(identity.includes('唯一句柄'), 'should include duplicate-name hint');
       assert.ok(!identity.includes('如 @gpt52'), 'hint example must not point to self handle');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
@@ -377,8 +377,8 @@ describe('SystemPromptBuilder', () => {
     const identity = buildStaticIdentity('opus');
     assert.ok(identity.includes('## 队友名册'), 'Should have roster section');
     assert.ok(identity.includes('擅长'), 'Should have strengths column header');
-    assert.ok(identity.includes('@缅因猫') || identity.includes('@codex'), 'Should list codex mention');
-    assert.ok(identity.includes('@暹罗猫') || identity.includes('@gemini'), 'Should list gemini mention');
+    assert.ok(identity.includes('@Codex') || identity.includes('@codex'), 'Should list codex mention');
+    assert.ok(identity.includes('@Gemini') || identity.includes('@gemini'), 'Should list gemini mention');
   });
 
   test('buildStaticIdentity roster excludes self', async () => {
@@ -388,45 +388,45 @@ describe('SystemPromptBuilder', () => {
     // The roster rows start after the header, each begins with "|"
     const rosterSection = opusRoster.split('## 队友名册')[1];
     assert.ok(rosterSection, 'Roster section should exist');
-    assert.ok(!rosterSection.includes('| 布偶猫/宪宪'), 'Opus default should not list itself');
+    assert.ok(!rosterSection.includes('| Claude/宪宪'), 'Opus default should not list itself');
   });
 
   test('buildStaticIdentity roster uses teamStrengths from config', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const identity = buildStaticIdentity('opus');
       // gpt52 keeps teamStrengths and has no explicit caution override in current config.
       assert.ok(identity.includes('架构思考'), 'Should include gpt52 teamStrengths');
-      assert.ok(identity.includes('| 缅因猫/砚砚（GPT-5.4） |') || identity.includes('| 缅因猫/砚砚 |'));
+      assert.ok(identity.includes('| Codex/砚砚（GPT-5.4） |') || identity.includes('| Codex/砚砚 |'));
       // gemini has caution about no coding
       assert.ok(identity.includes('禁止写代码'), 'Should include gemini caution');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   test('buildStaticIdentity roster: Sonnet does not inherit Opus cost caution (R1 null override)', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const identity = buildStaticIdentity('codex');
@@ -439,23 +439,23 @@ describe('SystemPromptBuilder', () => {
       assert.ok(!sonnetRow.includes('额度消耗大'), 'Sonnet should not inherit Opus cost caution');
       assert.ok(sonnetRow.includes('—'), 'Sonnet caution should be "—"');
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
 
   test('buildStaticIdentity roster size with full runtime config is under 4100 (raised for F102-D17 MCP tools section)', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const prompt = buildSystemPrompt({
@@ -469,9 +469,9 @@ describe('SystemPromptBuilder', () => {
       });
       assert.ok(prompt.length < 4250, `Full runtime prompt is ${prompt.length} chars, expected < 4250`);
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });
@@ -487,7 +487,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
     });
     assert.ok(ctx.includes('你的队友'), 'Should list teammates');
-    assert.ok(ctx.includes('缅因猫'), 'Should mention codex by display name');
+    assert.ok(ctx.includes('Codex'), 'Should mention codex by display name');
     assert.ok(ctx.includes('1/2'), 'Should show chain position');
   });
 
@@ -558,8 +558,8 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('## 协作'), 'Should not contain collaboration guide');
     // MCP tools moved to static identity (session-level, not per-message)
     assert.ok(!ctx.includes('office_claw_post_message'), 'MCP tools should be in static identity, not invocation context');
-    // 铲屎官 reference also moved to static identity
-    assert.ok(!ctx.includes('铲屎官是真人用户'), '铲屎官 reference should be in static identity');
+    // 用户 reference also moved to static identity
+    assert.ok(!ctx.includes('用户是真人用户'), '用户 reference should be in static identity');
   });
 
   test('buildStaticIdentity includes MCP tools when mcpAvailable', async () => {
@@ -593,10 +593,10 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!identity.includes('HTTP 回调'), 'Codex should not have callback instructions in static identity');
   });
 
-  test('buildStaticIdentity includes 铲屎官 reference', async () => {
+  test('buildStaticIdentity includes 用户 reference', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const identity = buildStaticIdentity('opus');
-    assert.ok(identity.includes('铲屎官'), 'Should contain 铲屎官 reference in static identity');
+    assert.ok(identity.includes('用户'), 'Should contain 用户 reference in static identity');
   });
 
   test('buildStaticIdentity includes configured co-creator name and mention handles', async () => {
@@ -667,8 +667,8 @@ describe('SystemPromptBuilder', () => {
         { catId: 'codex', lastMessageAt: 1000, messageCount: 3 },
       ],
     });
-    assert.match(ctx, /最近活跃：布偶猫\(opus\)\n|最近活跃：布偶猫\(opus\)$/, 'Should inject displayName(id) format');
-    assert.ok(!ctx.includes('最近活跃：缅因猫(codex)'), 'Self (codex) should not appear as most recently active');
+    assert.match(ctx, /最近活跃：Claude\(opus\)\n|最近活跃：Claude\(opus\)$/, 'Should inject displayName(id) format');
+    assert.ok(!ctx.includes('最近活跃：Codex(codex)'), 'Self (codex) should not appear as most recently active');
   });
 
   test('buildInvocationContext skips self in activity list', async () => {
@@ -686,7 +686,7 @@ describe('SystemPromptBuilder', () => {
       ],
     });
     // opus is self and most-recent, should be skipped; codex is next
-    assert.match(ctx, /最近活跃：缅因猫\(codex\)\n|最近活跃：缅因猫\(codex\)$/, 'Should inject displayName(id) format');
+    assert.match(ctx, /最近活跃：Codex\(codex\)\n|最近活跃：Codex\(codex\)$/, 'Should inject displayName(id) format');
   });
 
   test('buildInvocationContext omits hint when activeParticipants absent', async () => {
@@ -784,21 +784,21 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
       directMessageFrom: 'opus',
     });
-    assert.match(ctx, /^Direct message from 布偶猫\(opus\)/m);
-    assert.ok(ctx.includes('reply to 布偶猫(opus)'));
+    assert.match(ctx, /^Direct message from Claude\(opus\)/m);
+    assert.ok(ctx.includes('reply to Claude(opus)'));
     assert.ok(!ctx.includes('Direct message from @opus'));
   });
 
   test('buildInvocationContext supports runtime variant cat IDs (gpt52)', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/office-claw-config-loader.js');
 
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
+    const originalConfigs = officeClawRegistry.getAllConfigs();
+    officeClawRegistry.reset();
     try {
       const runtimeConfigs = toAllCatConfigs(loadCatConfig());
       for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
 
       const ctx = buildInvocationContext({
@@ -810,12 +810,12 @@ describe('SystemPromptBuilder', () => {
       });
       assert.match(ctx, /^Identity:/m);
       assert.ok(ctx.includes('@gpt52'));
-      assert.match(ctx, /^Direct message from 缅因猫\(codex\)/m);
-      assert.ok(ctx.includes('reply to 缅因猫(codex)'));
+      assert.match(ctx, /^Direct message from Codex\(codex\)/m);
+      assert.ok(ctx.includes('reply to Codex(codex)'));
     } finally {
-      catRegistry.reset();
+      officeClawRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
+        officeClawRegistry.register(id, config);
       }
     }
   });

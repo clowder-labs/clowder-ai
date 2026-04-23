@@ -11,8 +11,8 @@
  * Runtime lifecycle is owned by ConnectorRuntimeManager.
  */
 
-import type { CatId, ConnectorSource } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
 import { getConnectorEnvValue } from '../../config/local-secret-store.js';
 import type { ConnectorWebhookHandler } from '../../routes/connector-webhooks.js';

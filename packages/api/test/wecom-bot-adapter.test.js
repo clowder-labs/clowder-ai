@@ -438,9 +438,9 @@ describe('WeComBotAdapter', () => {
         calls.push({ chatId, body });
       });
 
-      await adapter.sendRichMessage('user_001', 'Rich text content', [], '布偶猫');
+      await adapter.sendRichMessage('user_001', 'Rich text content', [], 'Claude');
       assert.equal(calls.length, 1);
-      assert.ok(calls[0].body.markdown.content.includes('布偶猫'));
+      assert.ok(calls[0].body.markdown.content.includes('Claude'));
       assert.ok(calls[0].body.markdown.content.includes('Rich text content'));
     });
   });
@@ -455,13 +455,13 @@ describe('WeComBotAdapter', () => {
       });
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         body: 'Hello world',
         origin: 'direct',
       };
       await adapter.sendFormattedReply('user_001', envelope);
       assert.equal(calls.length, 1);
-      assert.ok(calls[0].body.markdown.content.includes('🐱 布偶猫'));
+      assert.ok(calls[0].body.markdown.content.includes('🐱 Claude'));
       assert.ok(calls[0].body.markdown.content.includes('Hello world'));
     });
 
@@ -473,7 +473,7 @@ describe('WeComBotAdapter', () => {
       });
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         body: 'Callback message',
         origin: 'callback',
       };

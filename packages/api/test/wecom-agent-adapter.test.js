@@ -696,7 +696,7 @@ describe('WeComAgentAdapter', () => {
       adapter._injectFetch(fn);
 
       const envelope = {
-        header: '🐱 布偶猫',
+        header: '🐱 Claude',
         body: 'Hello world',
         origin: 'direct',
       };
@@ -705,7 +705,7 @@ describe('WeComAgentAdapter', () => {
 
       const body = JSON.parse(calls[0].opts.body);
       assert.equal(body.msgtype, 'markdown');
-      assert.ok(body.markdown.content.includes('🐱 布偶猫'));
+      assert.ok(body.markdown.content.includes('🐱 Claude'));
       assert.ok(body.markdown.content.includes('Hello world'));
     });
 

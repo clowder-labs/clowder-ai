@@ -59,7 +59,7 @@ async function setupScenario(router, status = 'failed') {
   const storedMsg = messageStore.append({
     userId: 'user-1',
     catId: null,
-    content: '@布偶猫 cursor test',
+    content: '@claude cursor test',
     mentions: ['opus'],
     timestamp: Date.now(),
     threadId: 'thread-c',

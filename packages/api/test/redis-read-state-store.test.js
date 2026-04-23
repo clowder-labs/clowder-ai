@@ -39,7 +39,7 @@ describe('RedisThreadReadStateStore', { skip: !REDIS_URL ? 'REDIS_URL not set' :
     RedisThreadReadStateStore = storeModule.RedisThreadReadStateStore;
     const msgModule = await import('../dist/domains/cats/services/stores/redis/RedisMessageStore.js');
     RedisMessageStore = msgModule.RedisMessageStore;
-    const redisModule = await import('@clowder/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
@@ -237,7 +237,7 @@ describe('RedisThreadReadStateStore', { skip: !REDIS_URL ? 'REDIS_URL not set' :
     await messageStore.append({
       userId: 'user1',
       catId: 'opus',
-      content: '@铲屎官 look',
+      content: '@用户 look',
       mentions: [],
       mentionsUser: true,
       timestamp: Date.now() - 1000,

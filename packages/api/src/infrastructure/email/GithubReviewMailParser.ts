@@ -236,20 +236,20 @@ export function parseGithubReviewSubject(subject: string): ParsedGithubReviewMai
  * Extract agent name from PR title.
  * Supports legacy 🐾 signature format for backward compatibility.
  */
-export type CatTag = '布偶猫' | '缅因猫' | '暹罗猫';
+export type CatTag = 'Claude' | 'Codex' | 'Gemini';
 
 // Match any [...🐾] tag and capture the inner text (legacy format)
 const CAT_TAG_REGEX = /\[([^\]]+?)🐾\]/;
 
 // Nickname prefix → breed mapping (legacy)
 const NICKNAME_TO_BREED: Record<string, CatTag> = {
-  布偶猫: '布偶猫',
-  缅因猫: '缅因猫',
-  暹罗猫: '暹罗猫',
-  宪宪: '布偶猫',
-  砚砚: '缅因猫',
-  烁烁: '暹罗猫',
-  Spark: '缅因猫',
+  Claude: 'Claude',
+  Codex: 'Codex',
+  Gemini: 'Gemini',
+  宪宪: 'Claude',
+  砚砚: 'Codex',
+  烁烁: 'Gemini',
+  Spark: 'Codex',
 };
 
 export function extractCatFromTitle(title: string): CatTag | null {
@@ -257,7 +257,7 @@ export function extractCatFromTitle(title: string): CatTag | null {
   if (!match) return null;
 
   const inner = match[1]!;
-  // Try direct match first (e.g. "布偶猫", "烁烁", "Spark")
+  // Try direct match first (e.g. "Claude", "烁烁", "Spark")
   if (NICKNAME_TO_BREED[inner]) return NICKNAME_TO_BREED[inner];
 
   // Try nickname prefix before "/" (e.g. "宪宪/Opus-46" → "宪宪")
@@ -275,11 +275,11 @@ export function extractCatFromTitle(title: string): CatTag | null {
  */
 export function catTagToCatId(tag: CatTag): string {
   switch (tag) {
-    case '布偶猫':
+    case 'Claude':
       return 'opus';
-    case '缅因猫':
+    case 'Codex':
       return 'codex';
-    case '暹罗猫':
+    case 'Gemini':
       return 'gemini';
   }
 }

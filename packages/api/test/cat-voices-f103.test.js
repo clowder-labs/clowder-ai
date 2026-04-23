@@ -11,7 +11,7 @@
 
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { clearVoiceCache, getCatVoice } from '../dist/config/cat-voices.js';
+import { clearVoiceCache, getCatVoice } from '../dist/config/office-claw-voices.js';
 
 // F103: GENSHIN_VOICE_DIR backward compatibility
 describe('GENSHIN_VOICE_DIR backward compat (P1)', () => {

@@ -23,10 +23,10 @@
 
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
-import type { VoiceConfig } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { VoiceConfig } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import { resolveBreedId } from './breed-resolver.js';
-import { getAllCatIdsFromConfig, loadCatConfig } from './cat-config-loader.js';
+import { getAllCatIdsFromConfig, loadCatConfig } from './office-claw-config-loader.js';
 
 const VOICE_ENV_KEYS = {
   opus: 'CAT_OPUS_TTS_VOICE',
@@ -175,7 +175,7 @@ export function getCatVoice(catName: string): VoiceConfig {
 export function getAllCatVoices(): Record<string, VoiceConfig> {
   const result: Record<string, VoiceConfig> = {};
   // F032 P2: use dynamic config fallback instead of hardcoded cat names
-  const registryIds = catRegistry.getAllIds();
+  const registryIds = officeClawRegistry.getAllIds();
   const allIds = registryIds.length > 0 ? registryIds.map(String) : getAllCatIdsFromConfig();
   for (const catName of allIds) {
     result[catName] = getCatVoice(catName);

@@ -45,7 +45,7 @@ printf 'ok'
 
 test('configure_mcp_server_path sets default path when env is unset', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-default-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-default-'));
   const expectedPath = join(tempRoot, 'packages', 'mcp-server', 'dist', 'index.js');
 
   try {
@@ -69,7 +69,7 @@ printf '%s' "$OFFICE_CLAW_MCP_SERVER_PATH"
 
 test('configure_mcp_server_path uses default path when env is empty string', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-empty-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-empty-'));
   const expectedPath = join(tempRoot, 'packages', 'mcp-server', 'dist', 'index.js');
 
   try {
@@ -197,7 +197,7 @@ test('explicit PREVIEW_GATEWAY_PORT override survives project .env during direct
 
 test('direct command mode can prefer current .env ports over ambient shell ports', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-dotenv-ports-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-dotenv-ports-'));
   const tempScriptPath = join(tempRoot, 'scripts', 'start-dev.sh');
   const tempOverridesPath = join(tempRoot, 'scripts', 'download-source-overrides.sh');
   const baseEnv = {
@@ -244,7 +244,7 @@ test('direct command mode can prefer current .env ports over ambient shell ports
 
 test('raw dev entry remaps setup-style Redis 6399 defaults to dev Redis 6398', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-redis-dev-default-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-redis-dev-default-'));
   const tempScriptPath = join(tempRoot, 'scripts', 'start-dev.sh');
   const tempOverridesPath = join(tempRoot, 'scripts', 'download-source-overrides.sh');
 
@@ -281,7 +281,7 @@ test('raw dev entry remaps setup-style Redis 6399 defaults to dev Redis 6398', (
 
 test('respect-dotenv mode keeps explicit Redis 6399 defaults intact for wrappers', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-redis-dotenv-keep-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-redis-dotenv-keep-'));
   const tempScriptPath = join(tempRoot, 'scripts', 'start-dev.sh');
   const tempOverridesPath = join(tempRoot, 'scripts', 'download-source-overrides.sh');
 
@@ -319,7 +319,7 @@ test('respect-dotenv mode keeps explicit Redis 6399 defaults intact for wrappers
 
 test('redis port override also recomputes isolated redis dirs', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempHome = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-redis-override-'));
+  const tempHome = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-redis-override-'));
 
   try {
     const result = spawnSync(
@@ -350,7 +350,7 @@ test('redis port override also recomputes isolated redis dirs', () => {
 
 test('redis snapshot archive failure warns and does not abort startup flow', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-archive-warn-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-start-dev-archive-warn-'));
   const dataDir = join(tempRoot, 'data');
   const backupDir = join(tempRoot, 'backup');
 
@@ -580,7 +580,7 @@ printf 'survived'
 
 test('custom Redis port gets isolated default data and backup dirs', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempHome = mkdtempSync(join(tmpdir(), 'cat-cafe-redis-home-'));
+  const tempHome = mkdtempSync(join(tmpdir(), 'office-claw-redis-home-'));
 
   try {
     const output = runSourceOnlySnippet(
@@ -607,7 +607,7 @@ printf '%s|%s|%s' \
 
 test('default Redis port keeps legacy data and backup dir names', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const tempHome = mkdtempSync(join(tmpdir(), 'cat-cafe-redis-home-'));
+  const tempHome = mkdtempSync(join(tmpdir(), 'office-claw-redis-home-'));
 
   try {
     const output = runSourceOnlySnippet(

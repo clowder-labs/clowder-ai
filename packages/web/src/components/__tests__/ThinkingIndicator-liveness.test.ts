@@ -13,7 +13,7 @@ const mockCancelInvocation = vi.fn();
 // Mock useCatData
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
-    getCatById: (id: string) => (id === 'codex' ? { displayName: '缅因猫 (Codex)', catId: 'codex' } : null),
+    getCatById: (id: string) => (id === 'codex' ? { displayName: 'Codex (Codex)', catId: 'codex' } : null),
   }),
 }));
 

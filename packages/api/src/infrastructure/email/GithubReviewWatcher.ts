@@ -9,7 +9,7 @@
  * Monitors QQ mail inbox via IMAP for GitHub PR review notifications.
  * When a review is detected, emits an event to trigger cat invocation.
  *
- * BACKLOG #81: https://github.com/zts212653/cat-cafe/issues/81
+ * BACKLOG #81: https://github.com/zts212653/office-claw/issues/81
  */
 
 import { EventEmitter } from 'node:events';

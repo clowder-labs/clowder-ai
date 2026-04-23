@@ -170,12 +170,12 @@ printf '%s' "$(resolve_provider_profiles_dir)"
 
 test('resolve_provider_profiles_dir stays local for nested archive inside another checkout', () => {
   const outerRepo = mkdtempSync(join(tmpdir(), 'clowder-install-outer-'));
-  const archiveDir = join(outerRepo, 'unpacked', 'clowder-ai');
+  const archiveDir = join(outerRepo, 'unpacked', 'office-claw');
 
   try {
     initGitRepo(outerRepo, 'outer\n');
     mkdirSync(archiveDir, { recursive: true });
-    writeFileSync(join(archiveDir, 'package.json'), '{"name":"clowder-ai"}\n', 'utf8');
+    writeFileSync(join(archiveDir, 'package.json'), '{"name":"office-claw"}\n', 'utf8');
 
     const output = runSourceOnlySnippet(`
 PROJECT_DIR="${archiveDir}"
@@ -201,7 +201,7 @@ test('resolve_provider_profiles_dir rejects forged .git file pointing at another
 
     const worktreeRegistryDir = join(victimRepo, '.git', 'worktrees', basename(realWorktreeDir));
     writeFileSync(join(impostorDir, '.git'), `gitdir: ${worktreeRegistryDir}\n`, 'utf8');
-    writeFileSync(join(impostorDir, 'package.json'), '{"name":"clowder-ai"}\n', 'utf8');
+    writeFileSync(join(impostorDir, 'package.json'), '{"name":"office-claw"}\n', 'utf8');
     mkdirSync(join(impostorDir, 'scripts'), { recursive: true });
     writeFileSync(join(impostorDir, 'scripts', 'install.sh'), '', 'utf8');
 

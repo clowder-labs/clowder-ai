@@ -51,9 +51,9 @@ function buildCatsWithPatterns() {
   return [
     {
       id: 'opus',
-      displayName: '布偶猫',
+      displayName: 'Claude',
       color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-      mentionPatterns: ['布偶', '布偶猫', 'opus'],
+      mentionPatterns: ['Claude', 'claude', 'opus'],
       provider: 'anthropic',
       defaultModel: 'opus',
       avatar: '/a.png',
@@ -62,9 +62,9 @@ function buildCatsWithPatterns() {
     },
     {
       id: 'codex',
-      displayName: '缅因猫',
+      displayName: 'Codex',
       color: { primary: '#5B8C5A', secondary: '#D5E8D4' },
-      mentionPatterns: ['缅因', '缅因猫', 'codex'],
+      mentionPatterns: ['Codex', 'codex'],
       provider: 'openai',
       defaultModel: 'codex',
       avatar: '/b.png',
@@ -78,7 +78,7 @@ function buildCatsNoPatterns() {
   return [
     {
       id: 'opus',
-      displayName: '布偶猫',
+      displayName: 'Claude',
       color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
       mentionPatterns: [] as string[],
       provider: 'anthropic',
@@ -177,7 +177,7 @@ describe('ChatInput mention menu guards', () => {
 
     // Input should contain the inserted mention
     const ta = getTextarea();
-    expect(ta.value).toContain('布偶');
+    expect(ta.value).toContain('Claude');
   });
 
   it('ArrowDown past last item wraps to 0 and Enter still works', () => {
@@ -192,10 +192,10 @@ describe('ChatInput mention menu guards', () => {
     pressKey('ArrowDown');
     pressKey('ArrowDown');
 
-    // Enter should insert the cat at wrapped index (1) — 缅因猫
+    // Enter should insert the cat at wrapped index (1) — Codex
     pressKey('Enter');
 
     const ta = getTextarea();
-    expect(ta.value).toContain('缅因');
+    expect(ta.value).toContain('Codex');
   });
 });

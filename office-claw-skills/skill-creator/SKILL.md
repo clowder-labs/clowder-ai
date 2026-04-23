@@ -76,7 +76,7 @@ Create new skills in the **installation directory**: `<office-claw>/.office-claw
 
 **How to find the installation directory:**
 1. Check environment variable `OFFICE_CLAW_ROOT` - if set, use `$OFFICE_CLAW_ROOT/.office-claw/skills/`
-2. Check Windows registry: `HKCU\Software\ClowderLabs\OfficeClaw\InstallDir`
+2. Check Windows registry: `HKCU\Software\OfficeClaw\OfficeClaw\InstallDir`
 3. Default Windows location: `$LOCALAPPDATA\Programs\OfficeClaw\.office-claw\skills\`
    - e.g., `C:\Users\<user>\AppData\Local\Programs\OfficeClaw\.office-claw\skills\`
 

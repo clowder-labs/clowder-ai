@@ -7,7 +7,7 @@
 /**
  * RelayClaw Event Transformer
  *
- * relay-claw AgentResponseChunk → Clowder AI AgentMessage mapping.
+ * relay-claw AgentResponseChunk → OfficeClaw AgentMessage mapping.
  *
  * Mapping (event_type → AgentMessageType):
  *   chat.delta              → text   (streaming text fragment)
@@ -22,7 +22,7 @@
  *   todo.updated            → (skip)
  */
 
-import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@clowder/shared';
+import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage } from '../../types.js';
 

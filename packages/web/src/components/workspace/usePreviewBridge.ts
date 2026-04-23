@@ -22,7 +22,7 @@ export function usePreviewBridge(iframeRef: React.RefObject<HTMLIFrameElement | 
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
-      if (event.data?.source !== 'cat-cafe-bridge') return;
+      if (event.data?.source !== 'office-claw-bridge') return;
       // Validate message origin: must come from our iframe and gateway origin
       if (iframeRef.current && event.source !== iframeRef.current.contentWindow) return;
       // Validate origin: accept gateway origin (where iframe loads) on both localhost and 127.0.0.1,
@@ -72,7 +72,7 @@ export function usePreviewBridge(iframeRef: React.RefObject<HTMLIFrameElement | 
     setIsCapturing(true);
     const targetOrigin = gatewayPort ? `http://localhost:${gatewayPort}` : '*';
     iframeRef.current.contentWindow.postMessage(
-      { type: 'screenshot-request', source: 'cat-cafe-preview' },
+      { type: 'screenshot-request', source: 'office-claw-preview' },
       targetOrigin,
     );
   }, [isCapturing, iframeRef, gatewayPort]);

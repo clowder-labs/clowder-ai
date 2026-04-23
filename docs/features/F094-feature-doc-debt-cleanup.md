@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F094: Feature 文档债务清理 — 全量迁移到黄金模板标准
 
-> **Status**: done | **Owner**: Ragdoll | **Priority**: P1 | **Completed**: 2026-03-11
+> **Status**: done | **Owner**: Claude | **Priority**: P1 | **Completed**: 2026-03-11
 
 ## Why
 
@@ -42,7 +42,7 @@ team experience（2026-03-10）：
 
 ### 黄金模板标准
 
-以 `cat-cafe-skills/refs/feature-doc-template.md` 为唯一权威模板。黄金范本：F086、F088。
+以 `office-claw-skills/refs/feature-doc-template.md` 为唯一权威模板。黄金范本：F086、F088。
 
 **硬性格式（Parser 依赖）**：
 1. YAML Frontmatter（feature_ids / related_features / topics / doc_kind / created）
@@ -94,8 +94,8 @@ team experience（2026-03-10）：
 ## Acceptance Criteria
 
 ### Phase A（审计 + 模板升级）
-- [x] AC-A1: 全量审计报告产出（97 个 feat 的 Green/Yellow/Red 分档）— Maine CoonMaine Coon已交付
-- [x] AC-A2: `docs/features/TEMPLATE.md` 更新为最新标准模板 — Maine CoonMaine Coon已完成
+- [x] AC-A1: 全量审计报告产出（97 个 feat 的 Green/Yellow/Red 分档）— CodexCodex已交付
+- [x] AC-A2: `docs/features/TEMPLATE.md` 更新为最新标准模板 — CodexCodex已完成
 - [x] AC-A3: 审计报告含每个 feat 的具体缺失项清单 — 机器读(JSON) + 人读(Markdown)
 
 ### Phase B（迁移执行）
@@ -139,7 +139,7 @@ team experience（2026-03-10）：
 ## Phase A 执行总结（2026-03-10）
 
 ### 审计脚本成果
-- **脚本位置**：`scripts/audit-feature-doc-template.mjs`（由Maine CoonMaine Coon实现）
+- **脚本位置**：`scripts/audit-feature-doc-template.mjs`（由CodexCodex实现）
 - **脚本命令**：`pnpm audit:feature-docs`
 - **检查项**：13 项模板合规性检查
   - YAML Frontmatter 完整性
@@ -155,7 +155,7 @@ team experience（2026-03-10）：
 1. **Red 7 份优先修复**（作为第一批验证流程）
    - 风险最低（数量少）
    - 债务最重（<50% 合规）
-   - 包括：F064（Risk Management）、F051（猫粮看板）等
+   - 包括：F064（Risk Management）、F051（配额看板）等
 2. **Yellow 70 份批量迁移**（按缺失项分组处理）
    - Status 行格式化：一轮脚本半自动化（94 份需要）
    - AC 格式补齐：逐个手写（90 份需要）

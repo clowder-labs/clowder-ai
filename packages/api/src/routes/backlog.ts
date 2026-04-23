@@ -4,11 +4,11 @@
  *
  */
 
-import type { BacklogDependencies, BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
-import { catIdSchema, catRegistry } from '@clowder/shared';
+import type { BacklogDependencies, BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@office-claw/shared';
+import { catIdSchema, officeClawRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
+import { getMissionHubSelfClaimScope } from '../config/office-claw-config-loader.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import { BacklogTransitionError } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import { generateSortableId, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -363,7 +363,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     const refreshedItemIds: string[] = [];
     let skipped = 0;
     // F058: Read dependencies from feature docs
-    let featureDepsMap: Map<string, import('@clowder/shared').BacklogDependencies>;
+    let featureDepsMap: Map<string, import('@office-claw/shared').BacklogDependencies>;
     try {
       featureDepsMap = await readFeatureDocDependencies(opts.featuresDir);
     } catch {
@@ -502,7 +502,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       return { error: 'Identity required' };
     }
 
-    const ids = catRegistry.getAllIds();
+    const ids = officeClawRegistry.getAllIds();
     const scopes: Record<string, MissionHubSelfClaimScope> = {};
     for (const catId of ids) {
       scopes[catId] = resolveSelfClaimScope(catId as CatId);

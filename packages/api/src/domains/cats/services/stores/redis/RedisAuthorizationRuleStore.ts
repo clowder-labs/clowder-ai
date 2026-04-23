@@ -15,8 +15,8 @@
  * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands including eval() KEYS[].
  */
 
-import type { AuthorizationRule, CatId } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { AuthorizationRule, CatId } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { IAuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
 import { generateSortableId } from '../ports/MessageStore.js';
 import { AuthRuleKeys } from '../redis-keys/authorization-keys.js';

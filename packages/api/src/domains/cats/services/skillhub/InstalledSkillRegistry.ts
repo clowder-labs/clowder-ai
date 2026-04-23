@@ -13,7 +13,6 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { ensureSkillStorageMigrated } from './SkillStorageMigration.js';
 
 export interface InstalledSkillRecord {
   name: string;
@@ -52,16 +51,14 @@ async function serialize<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** 获取 registry 文件路径 */
-function getRegistryPath(catCafeRoot: string): string {
-  return join(catCafeRoot, '.office-claw', REGISTRY_FILENAME);
+function getRegistryPath(officeClawRoot: string): string {
+  return join(officeClawRoot, '.office-claw', REGISTRY_FILENAME);
 }
 
 /** 读取 installed-skills.json，损坏时返回空 registry */
-export async function loadInstalledRegistry(catCafeRoot: string): Promise<InstalledSkillsRegistry> {
-  await ensureSkillStorageMigrated(catCafeRoot);
-
+export async function loadInstalledRegistry(officeClawRoot: string): Promise<InstalledSkillsRegistry> {
   try {
-    const raw = await readFile(getRegistryPath(catCafeRoot), 'utf-8');
+    const raw = await readFile(getRegistryPath(officeClawRoot), 'utf-8');
     const parsed = JSON.parse(raw) as InstalledSkillsRegistry;
     if (!parsed || typeof parsed.version !== 'number' || !Array.isArray(parsed.skills)) {
       return { ...EMPTY_REGISTRY };
@@ -73,33 +70,33 @@ export async function loadInstalledRegistry(catCafeRoot: string): Promise<Instal
 }
 
 /** 写入 installed-skills.json（串行化） */
-export async function saveInstalledRegistry(catCafeRoot: string, registry: InstalledSkillsRegistry): Promise<void> {
+export async function saveInstalledRegistry(officeClawRoot: string, registry: InstalledSkillsRegistry): Promise<void> {
   await serialize(async () => {
-    const filePath = getRegistryPath(catCafeRoot);
+    const filePath = getRegistryPath(officeClawRoot);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`, 'utf-8');
   });
 }
 
 /** 追加一条安装记录（串行化） */
-export async function addInstalledSkill(catCafeRoot: string, record: InstalledSkillRecord): Promise<void> {
+export async function addInstalledSkill(officeClawRoot: string, record: InstalledSkillRecord): Promise<void> {
   await serialize(async () => {
-    const registry = await loadInstalledRegistry(catCafeRoot);
+    const registry = await loadInstalledRegistry(officeClawRoot);
     // 覆盖同名条目（幂等安装）
     registry.skills = registry.skills.filter((s) => s.name !== record.name);
     registry.skills.push(record);
-    const filePath = getRegistryPath(catCafeRoot);
+    const filePath = getRegistryPath(officeClawRoot);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`, 'utf-8');
   });
 }
 
 /** 移除一条安装记录（串行化） */
-export async function removeInstalledSkill(catCafeRoot: string, name: string): Promise<void> {
+export async function removeInstalledSkill(officeClawRoot: string, name: string): Promise<void> {
   await serialize(async () => {
-    const registry = await loadInstalledRegistry(catCafeRoot);
+    const registry = await loadInstalledRegistry(officeClawRoot);
     registry.skills = registry.skills.filter((s) => s.name !== name);
-    const filePath = getRegistryPath(catCafeRoot);
+    const filePath = getRegistryPath(officeClawRoot);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, `${JSON.stringify(registry, null, 2)}\n`, 'utf-8');
   });

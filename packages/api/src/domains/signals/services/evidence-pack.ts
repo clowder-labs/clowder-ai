@@ -4,7 +4,7 @@
  *
  */
 
-import type { StudyMeta } from '@clowder/shared';
+import type { StudyMeta } from '@office-claw/shared';
 import type { SignalArticleDetail } from './article-query-service.js';
 import type { StudyMetaService } from './study-meta-service.js';
 

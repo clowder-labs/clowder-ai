@@ -58,11 +58,11 @@ describe('InteractiveBlock customInput integration', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    window.addEventListener('cat-cafe:interactive-send', handler);
+    window.addEventListener('office-claw:interactive-send', handler);
   });
 
   afterEach(() => {
-    window.removeEventListener('cat-cafe:interactive-send', handler);
+    window.removeEventListener('office-claw:interactive-send', handler);
     act(() => root.unmount());
     container.remove();
   });

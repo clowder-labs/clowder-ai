@@ -6,7 +6,7 @@
 
 /**
  * PR Tracking Routes
- * POST   /api/pr-tracking          — 注册 PR 追踪（猫猫提 PR 时调用）
+ * POST   /api/pr-tracking          — 注册 PR 追踪（智能体提 PR 时调用）
  * GET    /api/pr-tracking          — 列出当前用户的追踪 PR
  * DELETE /api/pr-tracking/:repo/:pr — 移除追踪（限 owner）
  *
@@ -18,7 +18,7 @@
  * BACKLOG #81
  */
 
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
@@ -60,7 +60,7 @@ export const prTrackingRoutes: FastifyPluginAsync<PrTrackingRoutesOptions> = asy
     const { repoFullName, prNumber, catId, threadId } = parsed.data;
 
     // Validate catId is a known cat
-    if (!catRegistry.has(catId)) {
+    if (!officeClawRegistry.has(catId)) {
       return reply.status(400).send({ error: `Unknown catId: ${catId}` });
     }
 

@@ -5,7 +5,7 @@
  */
 
 /**
- * Callback Authorization Routes — 猫猫请求权限 + 查询结果
+ * Callback Authorization Routes — 智能体请求权限 + 查询结果
  * 安全: invocationId + callbackToken 验证 (同 callbacks.ts)
  */
 

@@ -5,29 +5,29 @@
  */
 
 /**
- * Cat Cafe API Server
+ * OfficeClaw API Server
  * 后端 API 入口
  */
 
 import { join } from 'node:path';
-import type { ClowderProviderPlugin } from '@clowder/core';
-import { type CatConfig, type CatId, catRegistry } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
-import { createRedisClient, SessionStore } from '@clowder/shared/utils';
+import type { OfficeClawProviderPlugin } from '@office-claw/core';
+import { type OfficeClawConfigEntry, type CatId, officeClawRegistry } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
+import { createRedisClient, SessionStore } from '@office-claw/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { registerAuthMiddleware } from './auth/middleware.js';
 import { authSessionStore } from './auth/session-store.js';
 import { orchestrate } from './config/capabilities/capability-orchestrator.js';
-import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
-import { getCatContextBudget } from './config/cat-budgets.js';
+import { resolveBoundAccountRefForCat } from './config/office-claw-account-binding.js';
+import { getCatContextBudget } from './config/office-claw-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
   getConfigSessionStrategy,
   getDefaultCatId,
   toAllCatConfigs,
-} from './config/cat-config-loader.js';
+} from './config/office-claw-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import {
   readProviderProfiles,
@@ -180,7 +180,7 @@ import {
   startTokenUsageReporter,
 } from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
-import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from './utils/office-claw-root.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 
@@ -203,10 +203,6 @@ export function getSocketManager(): SocketManager {
 }
 
 const PROCESS_START_AT = Date.now();
-
-// Migrate deprecated CAT_CAFE_* env vars → OFFICE_CLAW_* (dual-read fallback)
-import { migrateDeprecatedEnvVars } from './config/env-registry.js';
-migrateDeprecatedEnvVars();
 
 /**
  * Sensitive query params to redact from request URL logs.
@@ -309,7 +305,7 @@ async function main(): Promise<void> {
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
   registerAuthMiddleware(app, authSessionStore, {
-    skipAuth: process.env.CAT_CAFE_SKIP_AUTH === '1',
+    skipAuth: process.env.OFFICE_CLAW_SKIP_AUTH === '1',
   });
 
   // Create invocation tracker for cancellation support
@@ -382,12 +378,12 @@ async function main(): Promise<void> {
         if (thread?.projectPath && thread.projectPath !== 'default') {
           projectRoot = thread.projectPath;
         }
-        const catConfig = catRegistry.tryGet(catId)?.config;
+        const catConfig = officeClawRegistry.tryGet(catId)?.config;
         if (catConfig?.provider === 'anthropic' || catConfig?.provider === 'opencode') {
           const boundAccountRef = resolveBoundAccountRefForCat(
             projectRoot,
             catId,
-            catConfig as CatConfig & { providerProfileId?: string },
+            catConfig as OfficeClawConfigEntry & { providerProfileId?: string },
           );
           const runtime = await resolveRuntimeProviderProfileForClient(
             projectRoot,
@@ -613,7 +609,7 @@ async function main(): Promise<void> {
     const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
     const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
     const { createActorResolver } = await import('./infrastructure/scheduler/ActorResolver.js');
-    const { getRoster } = await import('./config/cat-config-loader.js');
+    const { getRoster } = await import('./config/office-claw-config-loader.js');
     const schedulerDb = memoryServices.store.getDb();
     const runLedger = new RunLedger(schedulerDb);
     const actorResolver = createActorResolver(getRoster);
@@ -672,7 +668,7 @@ async function main(): Promise<void> {
 
   const extraPlugins = (globalThis as Record<string, unknown>).__clowder_extra_plugins;
   const configuredExtraPlugins = Array.isArray(extraPlugins)
-    ? (extraPlugins as readonly ClowderProviderPlugin[])
+    ? (extraPlugins as readonly OfficeClawProviderPlugin[])
     : undefined;
   const pluginRegistry = await createProviderPluginRegistry({
     extraPlugins: configuredExtraPlugins,
@@ -681,20 +677,20 @@ async function main(): Promise<void> {
   app.log.info(`[api] PluginRegistry initialized: providers=[${pluginRegistry.getAllProviders().join(', ')}]`);
 
   // ── F32-b/F127: Bootstrap runtime catalog, then populate CatRegistry (all variants) ──
-  // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
+  // Must happen BEFORE AgentRouter construction (parseMentions reads officeClawRegistry)
   try {
     const catConfig = bootstrapDefaultCatCatalog();
     const allConfigs = toAllCatConfigs(catConfig);
     for (const [id, config] of Object.entries(allConfigs)) {
-      catRegistry.register(id, config);
+      officeClawRegistry.register(id, config);
     }
-    app.log.info(`[api] CatRegistry initialized: ${catRegistry.getAllIds().join(', ')}`);
+    app.log.info(`[api] CatRegistry initialized: ${officeClawRegistry.getAllIds().join(', ')}`);
   } catch (err) {
-    app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
-    // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@clowder/shared');
-    for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-      if (!catRegistry.has(id)) catRegistry.register(id, config);
+    app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in OFFICE_CLAW_CONFIGS: ${String(err)}`);
+    // Fallback: register from static OFFICE_CLAW_CONFIGS
+    const { OFFICE_CLAW_CONFIGS } = await import('@office-claw/shared');
+    for (const [id, config] of Object.entries(OFFICE_CLAW_CONFIGS)) {
+      if (!officeClawRegistry.has(id)) officeClawRegistry.register(id, config);
     }
   }
 
@@ -702,7 +698,7 @@ async function main(): Promise<void> {
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
-  const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
+  const syncAgentRegistry = async (configs: Record<string, OfficeClawConfigEntry>) => {
     const projectRoot = resolveActiveProjectRoot(process.cwd());
     const previousEntries = agentRegistry.getAllEntries();
     agentRegistry.reset();
@@ -740,7 +736,7 @@ async function main(): Promise<void> {
     }
     if (router) router.refreshFromRegistry(agentRegistry);
   };
-  await syncAgentRegistry(catRegistry.getAllConfigs());
+  await syncAgentRegistry(officeClawRegistry.getAllConfigs());
 
   // F089 Phase 2: Shared instances for tmux agent pane execution (opt-in)
   const enableTmuxAgent = process.env.OFFICE_CLAW_TMUX_AGENT === '1';
@@ -961,7 +957,7 @@ async function main(): Promise<void> {
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 
-  // Authorization system — 猫猫动态权限 (Redis-backed when available)
+  // Authorization system — 智能体动态权限 (Redis-backed when available)
   const authRuleStore = createAuthorizationRuleStore(redis);
   const authPendingStore = createPendingRequestStore(redis);
   const authAuditStore = createAuthorizationAuditStore(redis);
@@ -1157,7 +1153,7 @@ async function main(): Promise<void> {
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY ?? '';
-  const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:cat-cafe@localhost';
+  const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:office-claw@localhost';
   const pushSubscriptionStore = createPushSubscriptionStore(redis);
   const pushService =
     vapidPublicKey && vapidPrivateKey
@@ -1339,7 +1335,7 @@ async function main(): Promise<void> {
   // Best-effort: bootstrap capabilities + regenerate CLI configs at startup so
   // project-level MCP config files exist even before the Hub page is opened.
   try {
-    const root = resolveCatCafeHostRoot(process.cwd());
+    const root = resolveOfficeClawHostRoot(process.cwd());
     await orchestrate(
       root,
       {
@@ -1352,7 +1348,7 @@ async function main(): Promise<void> {
         openai: join(root, '.codex', 'config.toml'),
         google: join(root, '.gemini', 'settings.json'),
       },
-      { catCafeRepoRoot: root },
+      { officeClawRepoRoot: root },
     );
     app.log.info('[api] capabilities bootstrapped and CLI configs regenerated at startup');
   } catch (err) {
@@ -1447,7 +1443,7 @@ async function main(): Promise<void> {
       redis: redisClient ?? undefined,
       log: app.log,
       frontendBaseUrl,
-      hostRoot: resolveCatCafeHostRoot(process.cwd()),
+      hostRoot: resolveOfficeClawHostRoot(process.cwd()),
       webhookHandlers: connectorWebhookHandlers,
     });
     if (connectorGatewayHandle) {

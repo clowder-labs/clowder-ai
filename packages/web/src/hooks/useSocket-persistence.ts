@@ -6,7 +6,7 @@
 
 function getJoinedRoomsStorageKey(userId: string): string {
   const normalizedUserId = userId.trim() || 'anonymous';
-  return `cat-cafe:ws:joined-rooms:v1:${normalizedUserId}`;
+  return `office-claw:ws:joined-rooms:v1:${normalizedUserId}`;
 }
 
 function isThreadRoom(room: unknown): room is string {

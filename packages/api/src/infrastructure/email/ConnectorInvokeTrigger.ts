@@ -15,9 +15,9 @@
  * BACKLOG #97 Phase 3b
  */
 
-import { type CatId, catRegistry, type MessageContent, type RichBlock } from '@clowder/shared';
+import { type CatId, officeClawRegistry, type MessageContent, type RichBlock } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { getDefaultCatId } from '../../config/cat-config-loader.js';
+import { getDefaultCatId } from '../../config/office-claw-config-loader.js';
 import type { InvocationQueue } from '../../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../../domains/cats/services/agents/invocation/QueueProcessor.js';

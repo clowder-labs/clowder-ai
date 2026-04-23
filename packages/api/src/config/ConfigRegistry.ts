@@ -12,11 +12,11 @@
  * 安全：Redis URL 不暴露，只显示连接状态。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import { DEFAULT_CLI_TIMEOUT_MS, readCliTimeoutMsFromEnv } from '../utils/cli-timeout.js';
-import { getAllCatBudgets } from './cat-budgets.js';
-import { getCoCreatorConfig } from './cat-config-loader.js';
-import { getCatModel } from './cat-models.js';
+import { getAllCatBudgets } from './office-claw-budgets.js';
+import { getCoCreatorConfig } from './office-claw-config-loader.js';
+import { getCatModel } from './office-claw-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
 import type { CodexAuthMode, ConfigSnapshot } from './config-snapshot.js';
 import { parseBoolean, parseEnum } from './parse-utils.js';
@@ -45,7 +45,7 @@ function formatTtl(raw: string | undefined, defaultSeconds: number): string {
 
 /**
  * Collect a snapshot of all runtime configuration values.
- * Sources: process.env + hardcoded defaults + CAT_CONFIGS.
+ * Sources: process.env + hardcoded defaults + OFFICE_CLAW_CONFIGS.
  */
 export function collectConfigSnapshot(): ConfigSnapshot {
   const env = process.env;
@@ -79,9 +79,9 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const host = env.API_SERVER_HOST ?? '127.0.0.1';
   const redis: 'connected' | 'memory' = env.REDIS_URL ? 'connected' : 'memory';
 
-  // Cats (with env override support) — prefer registry, fallback to CAT_CONFIGS
+  // Cats (with env override support) — prefer registry, fallback to OFFICE_CLAW_CONFIGS
   const cats: ConfigSnapshot['cats'] = {};
-  const allConfigs = catRegistry.getAllIds().length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+  const allConfigs = officeClawRegistry.getAllIds().length > 0 ? officeClawRegistry.getAllConfigs() : OFFICE_CLAW_CONFIGS;
   for (const [id, config] of Object.entries(allConfigs)) {
     const trimmedAccountRef = typeof config.accountRef === 'string' ? config.accountRef.trim() : '';
     const legacyProviderProfileId = (config as { providerProfileId?: unknown }).providerProfileId;

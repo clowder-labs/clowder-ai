@@ -51,7 +51,7 @@ describe('Bootcamp Flow Integration', () => {
       messageStore,
       socketManager,
       threadStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
     });
     await app.register(bootcampRoutes, { threadStore });
     await app.register(threadsRoutes, { threadStore });
@@ -71,7 +71,7 @@ describe('Bootcamp Flow Integration', () => {
       url: '/api/threads',
       headers: { 'x-office-claw-user': 'user-1' },
       payload: {
-        title: '🎓 猫猫训练营',
+        title: '🎓 智能体训练营',
         bootcampState: {
           v: 1,
           phase: 'phase-0-select-cat',

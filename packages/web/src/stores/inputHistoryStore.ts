@@ -8,7 +8,7 @@
 
 import { create } from 'zustand';
 
-const STORAGE_KEY = 'cat-cafe-input-history';
+const STORAGE_KEY = 'office-claw-input-history';
 const MAX_ENTRIES = 500;
 
 function loadEntries(): string[] {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * macOS .app + .dmg build script for Clowder AI.
+ * macOS .app + .dmg build script for OfficeClaw.
  *
  * Parallel to build-windows-installer.mjs — same phase structure, macOS-specific tooling.
  *
@@ -55,7 +55,7 @@ const MACOS_MANAGED_TOP_LEVEL_PATHS = [
   'tools',
   'installer-seed',
   'vendor',
-  '.clowder-release.json',
+  '.office-claw-release.json',
   '.env.example',
   'LICENSE',
   'office-claw-template.json',
@@ -227,7 +227,7 @@ function writeJson(path, value) {
 async function downloadFile(url, destination) {
   const response = await fetch(url, {
     headers: {
-      'user-agent': 'clowder-ai-macos-installer-builder',
+      'user-agent': 'office-claw-macos-installer-builder',
       ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
       accept: 'application/octet-stream, application/json',
     },
@@ -531,7 +531,7 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@clowder/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
   const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
@@ -617,7 +617,7 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--sourcemap=external',
     '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
-    '--external:@clowder/shared',
+    '--external:@office-claw/shared',
   ]);
 
   writeJson(
@@ -1016,7 +1016,7 @@ function installMacosRuntimeDependencies(bundleDir) {
 // ─── Swift Launcher ─────────────────────────────────────────────────
 
 function buildSwiftLauncher(appContentsDir) {
-  const swiftSource = join(repoRoot, 'packaging', 'macos', 'desktop', 'ClowderDesktop.swift');
+  const swiftSource = join(repoRoot, 'packaging', 'macos', 'desktop', 'OfficeClawDesktop.swift');
   if (!existsSync(swiftSource)) {
     throw new Error(`Swift source not found: ${swiftSource}`);
   }
@@ -1027,7 +1027,7 @@ function buildSwiftLauncher(appContentsDir) {
   run('swiftc', [
     swiftSource,
     '-o',
-    join(macosDir, 'ClowderAI'),
+    join(macosDir, 'OfficeClaw'),
     '-parse-as-library',
     '-framework',
     'Cocoa',
@@ -1044,7 +1044,7 @@ function buildSwiftLauncher(appContentsDir) {
 // ─── Codesign ───────────────────────────────────────────────────────
 
 function codesignApp(appPath) {
-  const entitlements = join(appPath, 'Contents', 'ClowderAI.entitlements');
+  const entitlements = join(appPath, 'Contents', 'OfficeClaw.entitlements');
   const entArgs = existsSync(entitlements) ? ['--entitlements', entitlements] : [];
 
   // Ad-hoc sign the entire .app so Gatekeeper doesn't silently block it.
@@ -1071,8 +1071,8 @@ function assembleAppBundle(bundleDir, appPath) {
 
   // Copy entitlements (for future codesigning)
   cpSync(
-    join(repoRoot, 'packaging', 'macos', 'desktop', 'ClowderAI.entitlements'),
-    join(contentsDir, 'ClowderAI.entitlements'),
+    join(repoRoot, 'packaging', 'macos', 'desktop', 'OfficeClaw.entitlements'),
+    join(contentsDir, 'OfficeClaw.entitlements'),
     { force: true },
   );
 
@@ -1126,7 +1126,7 @@ function ensureRuntimeSkeleton(bundleDir) {
 }
 
 function writeReleaseMetadata(bundleDir, metadata) {
-  writeJson(join(bundleDir, '.clowder-release.json'), metadata);
+  writeJson(join(bundleDir, '.office-claw-release.json'), metadata);
 }
 
 function computeMaxRelativePathLength(bundleDir) {
@@ -1143,9 +1143,9 @@ function computeMaxRelativePathLength(bundleDir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const bundleDir = join(options.outputDir, 'bundle');
-  const appName = 'ClowderAI.app';
+  const appName = 'OfficeClaw.app';
   const appPath = join(options.outputDir, appName);
-  const dmgPath = join(options.outputDir, `ClowderAI-${packageJson.version}-macos-${MACOS_ARCH}.dmg`);
+  const dmgPath = join(options.outputDir, `OfficeClaw-${packageJson.version}-macos-${MACOS_ARCH}.dmg`);
 
   ensureDir(options.outputDir);
   ensureDir(options.cacheDir);
@@ -1156,7 +1156,7 @@ async function main() {
       throw new Error(`.app not found at ${appPath}. Run without --dmg-only first.`);
     }
     logStep('Creating DMG');
-    createDmg(appPath, dmgPath, 'Clowder AI');
+    createDmg(appPath, dmgPath, 'OfficeClaw');
     logStep(`DMG ready at ${dmgPath}`);
     return;
   }
@@ -1203,7 +1203,7 @@ async function main() {
     installSharedPythonDeps(bundleDir);
   } else {
     logStep('Skipping Python setup (--skip-python)');
-    const releaseMetaPath = join(bundleDir, '.clowder-release.json');
+    const releaseMetaPath = join(bundleDir, '.office-claw-release.json');
     const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, source: 'skipped' };
   }
@@ -1235,7 +1235,7 @@ async function main() {
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
   writeReleaseMetadata(bundleDir, {
-    name: 'Clowder AI',
+    name: 'OfficeClaw',
     version: packageJson.version,
     platform: 'macos',
     arch: MACOS_ARCH,
@@ -1268,7 +1268,7 @@ async function main() {
   }
 
   logStep('Creating DMG');
-  createDmg(appPath, dmgPath, 'Clowder AI');
+  createDmg(appPath, dmgPath, 'OfficeClaw');
   logStep(`DMG ready at ${dmgPath}`);
 }
 

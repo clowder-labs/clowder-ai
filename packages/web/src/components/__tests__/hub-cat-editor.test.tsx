@@ -1044,7 +1044,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '运行时金渐层');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '运行时 OpenCode');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '审查');
     await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-jinjianceng');
 
@@ -1119,7 +1119,7 @@ describe('HubCatEditor', () => {
           cat: {
             id: 'opus',
             displayName: 'Opus',
-            breedDisplayName: 'Ragdoll',
+            breedDisplayName: 'Claude',
             nickname: '',
             provider: 'anthropic',
             accountRef: 'claude',
@@ -2470,7 +2470,7 @@ describe('HubCatEditor', () => {
               hindsight: {
                 enabled: true,
                 baseUrl: 'http://localhost:18888',
-                sharedBank: 'cat-cafe-shared',
+                sharedBank: 'office-claw-shared',
               },
               governance: { degradationEnabled: true, doneTimeoutMs: 300000, heartbeatIntervalMs: 30000 },
               cli: {

@@ -123,7 +123,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
     }
   });
 
-  it('GET /api/cats returns cats from runtime catalog even when not in catRegistry', async () => {
+  it('GET /api/cats returns cats from runtime catalog even when not in officeClawRegistry', async () => {
     const projectRoot = createRuntimeCatalogProject(makeCatalog('runtime-cat', '运行时猫'));
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
@@ -266,7 +266,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
-    const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
+    const { bootstrapCatCatalog } = await import('../dist/config/office-claw-catalog-store.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
     bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
     const sponsorProfile = await createProviderProfile(projectRoot, {

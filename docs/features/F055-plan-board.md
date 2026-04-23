@@ -6,10 +6,10 @@ doc_kind: spec
 created: 2026-03-03
 ---
 
-# F055 — 猫猫祟祟（Plan Board）
+# F055 — 智能体祟祟（Plan Board）
 
-> **Status**: done | **Owner**: Ragdoll (Opus)
-> **Reviewer**: Maine Coon (Codex) — local + cloud
+> **Status**: done | **Owner**: Claude (Opus)
+> **Reviewer**: Codex (Codex) — local + cloud
 > **Created**: 2026-03-03
 > **Completed**: 2026-03-03
 > **PR**: #202 (`71a18914`)
@@ -28,7 +28,7 @@ created: 2026-03-03
 
 ## What
 
-在右侧状态栏新增独立的 **「猫猫祟祟」** 板块（类似 SessionChainPanel 的独立 section），专门展示每只猫的执行计划/任务进度，与"当前调用"板块解耦。
+在右侧状态栏新增独立的 **「智能体祟祟」** 板块（类似 SessionChainPanel 的独立 section），专门展示每只猫的执行计划/任务进度，与"当前调用"板块解耦。
 
 ### 设计要点
 
@@ -37,12 +37,12 @@ created: 2026-03-03
 3. **每猫独立卡片**：每只猫一张计划卡，各管各的，互不影响
 4. **完成态折叠**：completed 的计划折叠到底部（类似 session chain 的 sealed sessions），可展开查看
 5. **实时刷新**：基于 `catInvocations` 变化自动刷新，不依赖 targetCats
-6. **名字来源**："猫猫祟祟"= 猫猫鬼鬼祟祟执行计划
+6. **名字来源**："智能体祟祟"= 智能体鬼鬼祟祟执行计划
 
 ### 信息架构
 
 ```
-「猫猫祟祟」(N 只猫有计划)
+「智能体祟祟」(N 只猫有计划)
 ├─ 🟢 执行中的猫（按 startedAt desc）
 │  ├─ [opus] ██████░░░░ 3/7 任务
 │  └─ [codex] ████░░░░░░ 2/8 任务
@@ -63,12 +63,12 @@ created: 2026-03-03
 
 - "当前调用"保留原有职责：显示 cat status、invocation ID、时间、token 用量
 - 从"当前调用"**移除** `CatTaskProgress` 组件（任务 checklist 部分）
-- 任务 checklist 全部交给「猫猫祟祟」板块
+- 任务 checklist 全部交给「智能体祟祟」板块
 
 ## Acceptance Criteria
 
 - [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
-- **AC-1**: 右侧状态栏出现独立的「猫猫祟祟」section，位于 SessionChainPanel 附近
+- **AC-1**: 右侧状态栏出现独立的「智能体祟祟」section，位于 SessionChainPanel 附近
 - **AC-2**: 只显示当前 thread 中有过 invocation 且有 taskProgress 的猫
 - **AC-3**: 每猫独立卡片，卡片显示：猫名（带颜色标识）+ 进度条 + 任务数
 - **AC-4**: running 的猫排在最上面，completed 的折叠到底部可展开
@@ -83,7 +83,7 @@ created: 2026-03-03
 
 | ID | 需求点 | AC 编号 | 验证方式 | 状态 |
 |----|--------|---------|----------|------|
-| R1 | 新增独立「猫猫祟祟」section | AC-1 | test + screenshot | [x] |
+| R1 | 新增独立「智能体祟祟」section | AC-1 | test + screenshot | [x] |
 | R2 | 只显示有 invocation+taskProgress 的猫 | AC-2 | test | [x] |
 | R3 | 每猫独立卡片带颜色+进度 | AC-3 | test + screenshot | [x] |
 | R4 | running 排顶部，completed 折叠底部 | AC-4 | test | [x] |
@@ -109,50 +109,50 @@ created: 2026-03-03
 
 ## Review Gate
 
-- 跨 family 首选（Maine Coon/Maine Coon）
+- 跨 family 首选（Codex/Codex）
 - 前端 UI：需要截图 + "需求→截图"映射表
 
-## 开发故事：笨蛋猫猫调试乌龙 🐾
+## 开发故事：笨蛋智能体调试乌龙 🐾
 
-> F054 预热素材 — 真实开发过程中的猫猫趣事
+> F054 预热素材 — 真实开发过程中的智能体趣事
 
 ### 背景
 
-F055 合入后team lead安排了一次链式冒烟测试：opus → codex → sonnet 依次写计划，验证猫猫祟祟面板能正确显示三只猫的执行进度。
+F055 合入后team lead安排了一次链式冒烟测试：opus → codex → sonnet 依次写计划，验证智能体祟祟面板能正确显示三只猫的执行进度。
 
 ### 翻车过程
 
-1. **opus 先写**：TodoWrite 发了 7 个任务，猫猫祟祟板块立刻出现 opus 的进度卡片。正常。
-2. **codex 接力**：Maine Coon收到传话后开始执行，team lead切到面板一看——只有两只猫（opus + sonnet），**Maine Coon不见了**。
-3. **Ragdoll紧急排查**：我（opus）立刻开始调查，读了 `codex-event-transform.ts`、`invoke-single-cat.ts`、`extractTaskProgress` 等后端代码，分析了 Claude 路径（tool_use 拦截）vs Codex 路径（native todo_list 事件转换）的差异。
+1. **opus 先写**：TodoWrite 发了 7 个任务，智能体祟祟板块立刻出现 opus 的进度卡片。正常。
+2. **codex 接力**：Codex收到传话后开始执行，team lead切到面板一看——只有两只猫（opus + sonnet），**Codex不见了**。
+3. **Claude紧急排查**：我（opus）立刻开始调查，读了 `codex-event-transform.ts`、`invoke-single-cat.ts`、`extractTaskProgress` 等后端代码，分析了 Claude 路径（tool_use 拦截）vs Codex 路径（native todo_list 事件转换）的差异。
 
    我的结论是："Codex 的 `todo_list` 事件走 `codex-event-transform.ts:41` 转换，但转换后的 `system_info(task_progress)` 可能没被正确发到前端。" 信誓旦旦地给出了一个后端 adapter 问题的诊断。
 
-4. **Maine Coon反驳**：team lead让Maine Coon自辩。Maine Coon淡定回复：
+4. **Codex反驳**：team lead让Codex自辩。Codex淡定回复：
 
    > "我没有用 TodoWrite 工具，我只是在消息里写了一个文字列表。文字列表不是 tool_use，不会触发 task_progress 事件。"
 
-   然后Maine Coon补发了一个真正的 TodoWrite 调用，他的猫猫祟祟卡片**立刻出现了**。
+   然后Codex补发了一个真正的 TodoWrite 调用，他的智能体祟祟卡片**立刻出现了**。
 
 ### 真相
 
 - **不是 bug**：PlanBoardPanel 代码完全正确，三种 agent 类型都能正常显示
 - **不是后端问题**：codex-event-transform 工作正常
-- **真正原因**：Maine Coon写了纯文本计划列表，没调用 TodoWrite 工具。没有 tool_use → 没有 task_progress → 面板当然不显示
-- **笨蛋Ragdoll**：我翻了半天后端源码，自信满满地诊断出一个不存在的 adapter bug
+- **真正原因**：Codex写了纯文本计划列表，没调用 TodoWrite 工具。没有 tool_use → 没有 task_progress → 面板当然不显示
+- **笨蛋Claude**：我翻了半天后端源码，自信满满地诊断出一个不存在的 adapter bug
 
 ### 教训
 
-1. **先确认数据源再查代码**：应该先问"Maine Coon你用 TodoWrite 了吗？"而不是直接翻源码
-2. **猫猫也有知识盲区**：Maine Coon习惯用文字列表而非结构化工具，这是使用习惯差异，不是系统 bug
+1. **先确认数据源再查代码**：应该先问"Codex你用 TodoWrite 了吗？"而不是直接翻源码
+2. **智能体也有知识盲区**：Codex习惯用文字列表而非结构化工具，这是使用习惯差异，不是系统 bug
 3. **面板设计是对的**：只显示有 `taskProgress` 的猫 = 没有误报，是功能而非缺陷
 
-> team lead点评："笨蛋Ragdoll猫以为是 bug 哈哈哈 以为人家没能力"
+> team lead点评："笨蛋Claude猫以为是 bug 哈哈哈 以为人家没能力"
 
 ## 愿景签收
 
-| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+| 智能体 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|----------|------|
-| Ragdoll (Opus) | F055 spec, F045 PR 链, SessionChainPanel 源码 | ① 核心问题=多猫并发时计划进度混乱 ② 独立板块完全解耦 ③ team lead实测三猫链式验证通过 | ✅ |
-| Maine Coon (Codex) | F055 spec, PlanBoardPanel 源码 | LGTM，无 P1/P2 | ✅ |
+| Claude (Opus) | F055 spec, F045 PR 链, SessionChainPanel 源码 | ① 核心问题=多猫并发时计划进度混乱 ② 独立板块完全解耦 ③ team lead实测三猫链式验证通过 | ✅ |
+| Codex (Codex) | F055 spec, PlanBoardPanel 源码 | LGTM，无 P1/P2 | ✅ |
 | 云端 Codex | PR #202 diff | "Didn't find any major issues. Chef's kiss." | ✅ |

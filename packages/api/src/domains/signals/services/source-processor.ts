@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalSource, SignalSourceConfig } from '@clowder/shared';
+import type { SignalArticle, SignalSource, SignalSourceConfig } from '@office-claw/shared';
 import type { FetchError, FetchErrorCode, Fetcher, FetchResult } from '../fetchers/types.js';
 import type { StoreArticleInput } from './article-store.js';
 

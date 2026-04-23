@@ -169,7 +169,7 @@ describe('routeSerial A2A worklist', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     // opus responds with a line-start mention of codex
     const deps = createMockDeps({
-      opus: createMockService('opus', '我写好了代码\n@缅因猫 请 review 一下'),
+      opus: createMockService('opus', '我写好了代码\n@assistant 请 review 一下'),
       codex: createMockService('codex', 'LGTM, 代码没问题'),
     });
 
@@ -188,7 +188,7 @@ describe('routeSerial A2A worklist', () => {
   it('yields a2a_handoff event when A2A chain triggers', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '请看一下\n@缅因猫 帮忙检查'),
+      opus: createMockService('opus', '请看一下\n@assistant 帮忙检查'),
       codex: createMockService('codex', '已检查完毕'),
     });
 
@@ -207,7 +207,7 @@ describe('routeSerial A2A worklist', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
-      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      opus: createMockService('opus', '代码完成\n@assistant 请review'),
       codex: codexService,
     });
 
@@ -225,7 +225,7 @@ describe('routeSerial A2A worklist', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
-      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      opus: createMockService('opus', '代码完成\n@assistant 请review'),
       codex: codexService,
     });
 
@@ -243,7 +243,7 @@ describe('routeSerial A2A worklist', () => {
   it('isFinal is true only on the last done in the chain', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '好的\n@缅因猫 帮忙'),
+      opus: createMockService('opus', '好的\n@assistant 帮忙'),
       codex: createMockService('codex', '搞定了'),
     });
 
@@ -267,8 +267,8 @@ describe('routeSerial A2A worklist', () => {
     // opus mentions codex, codex mentions gemini, gemini mentions opus
     // With maxA2ADepth=1, only first A2A hop should trigger
     const deps = createMockDeps({
-      opus: createMockService('opus', '看看吧\n@缅因猫 帮忙'),
-      codex: createMockService('codex', '需要设计\n@暹罗猫 帮忙设计'),
+      opus: createMockService('opus', '看看吧\n@assistant 帮忙'),
+      codex: createMockService('codex', '需要设计\n@design 帮忙设计'),
       gemini: createMockService('gemini', '设计好了'),
     });
 
@@ -287,7 +287,7 @@ describe('routeSerial A2A worklist', () => {
   it('does not extend A2A worklist when queue has queued user messages', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '我先回复\n@缅因猫 帮忙继续'),
+      opus: createMockService('opus', '我先回复\n@assistant 帮忙继续'),
       codex: createMockService('codex', 'should not run when queue pending'),
     });
 
@@ -308,7 +308,7 @@ describe('routeSerial A2A worklist', () => {
   it('skips A2A text-scan @mention when cat already dispatched via callback (cross-path dedup)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '代码完成\n@缅因猫 请 review'),
+      opus: createMockService('opus', '代码完成\n@assistant 请 review'),
       codex: createMockService('codex', 'should not be invoked via text-scan'),
     });
 
@@ -329,7 +329,7 @@ describe('routeSerial A2A worklist', () => {
   it('self-mention does not trigger A2A', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '我是布偶猫\n@布偶猫 说完了'),
+      opus: createMockService('opus', '我是Claude\n@claude 说完了'),
       codex: createMockService('codex', 'should not be called'),
     });
 
@@ -347,7 +347,7 @@ describe('routeSerial A2A worklist', () => {
   it('non-line-start @mention does not trigger A2A', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
-      opus: createMockService('opus', '之前缅因猫说的 @缅因猫 方案不错，我同意'),
+      opus: createMockService('opus', '之前Codex说的 @assistant 方案不错，我同意'),
       codex: createMockService('codex', 'should not be called'),
     });
 
@@ -366,7 +366,7 @@ describe('routeSerial A2A worklist', () => {
     const deps = createMockDeps({
       opus: {
         async *invoke() {
-          yield { type: 'text', catId: 'opus', content: '开始\n@缅因猫 帮忙', timestamp: Date.now() };
+          yield { type: 'text', catId: 'opus', content: '开始\n@assistant 帮忙', timestamp: Date.now() };
           // Abort after opus produces text
           ac.abort();
           yield { type: 'done', catId: 'opus', timestamp: Date.now() };
@@ -390,7 +390,7 @@ describe('routeSerial A2A worklist', () => {
     const appendCalls = [];
     const deps = createMockDeps(
       {
-        opus: createMockService('opus', '写完了\n@缅因猫 帮review'),
+        opus: createMockService('opus', '写完了\n@assistant 帮review'),
         codex: createMockService('codex', '审查完毕'),
       },
       appendCalls,
@@ -418,14 +418,14 @@ describe('routeSerial A2A worklist', () => {
         async *invoke() {
           opusCallCount++;
           if (opusCallCount === 1) {
-            yield { type: 'text', catId: 'opus', content: '写好了\n@缅因猫 review', timestamp: Date.now() };
+            yield { type: 'text', catId: 'opus', content: '写好了\n@assistant review', timestamp: Date.now() };
           } else {
             yield { type: 'text', catId: 'opus', content: '已修复', timestamp: Date.now() };
           }
           yield { type: 'done', catId: 'opus', timestamp: Date.now() };
         },
       },
-      codex: createMockService('codex', '有bug\n@布偶猫 请修复'),
+      codex: createMockService('codex', '有bug\n@claude 请修复'),
     });
 
     const messages = [];
@@ -519,7 +519,7 @@ describe('routeSerial A2A worklist', () => {
     const threadStore = new ThreadStore();
     const thread = threadStore.create('user1', 'no suppression');
     const opusService = createCapturingService('opus', '收到');
-    const codexService = createSequentialCapturingService('codex', ['@布偶猫', '第二次调用']);
+    const codexService = createSequentialCapturingService('codex', ['@claude', '第二次调用']);
     const deps = createMockDeps({ codex: codexService, opus: opusService }, undefined, threadStore);
 
     const messages = [];
@@ -527,9 +527,9 @@ describe('routeSerial A2A worklist', () => {
       messages.push(msg);
     }
 
-    // @布偶猫 alone should now trigger A2A handoff (no keyword required)
+    // @claude alone should now trigger A2A handoff (no keyword required)
     const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
-    assert.equal(handoffs.length, 1, 'bare @布偶猫 should trigger A2A handoff without action keywords');
+    assert.equal(handoffs.length, 1, 'bare @claude should trigger A2A handoff without action keywords');
 
     // Second invocation should NOT have any routing feedback (suppression system removed)
     for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {
@@ -794,7 +794,7 @@ describe('routeParallel tool events persistence', () => {
     assert.ok(!codexAppend.toolEvents, 'codex should not have toolEvents');
   });
 
-  it('persists tool-only cat (no text) in parallel mode (缅因猫 R2 P1-1)', async () => {
+  it('persists tool-only cat (no text) in parallel mode (Codex R2 P1-1)', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     // opus only yields tool events, NO text
@@ -1213,7 +1213,7 @@ describe('routeParallel A2A safety', () => {
     const appendCalls = [];
     const deps = createMockDeps(
       {
-        opus: createMockService('opus', '需要缅因猫帮忙\n@缅因猫 请看'),
+        opus: createMockService('opus', '需要Codex帮忙\n@assistant 请看'),
         codex: createMockService('codex', '我来了'),
       },
       appendCalls,

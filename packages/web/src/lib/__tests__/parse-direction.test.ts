@@ -10,9 +10,9 @@ import { parseDirection } from '../parse-direction';
 // Minimal mock: alias (lowercase, no @) → catId
 const mockToCat: Record<string, string> = {
   opus: 'opus',
-  布偶猫: 'opus',
+  Claude: 'opus',
   codex: 'codex',
-  缅因猫: 'codex',
+  Codex: 'codex',
   gpt52: 'gpt52',
 };
 
@@ -47,7 +47,7 @@ describe('parseDirection', () => {
   });
 
   it('deduplicates same cat from different aliases', () => {
-    const msg = { origin: 'callback' as const, content: '@codex @缅因猫' };
+    const msg = { origin: 'callback' as const, content: '@codex @Codex' };
     expect(parseDirection(msg, getMocks)).toEqual({
       type: 'mention',
       targets: ['codex'],
@@ -146,18 +146,18 @@ describe('parseDirection', () => {
   });
 
   it('filters out __co-creator__ pseudo-cat from @mention results (P1-2)', () => {
-    // getMentionToCat maps @co-creator/@铲屎官 to __co-creator__ — must not leak into UI
+    // getMentionToCat maps @co-creator/@用户 to __co-creator__ — must not leak into UI
     const ownerToCat: Record<string, string> = {
       ...mockToCat,
       landy: '__co-creator__',
-      铲屎官: '__co-creator__',
+      用户: '__co-creator__',
     };
     const ownerAliases = Object.keys(ownerToCat).sort((a, b) => b.length - a.length);
     const ownerRe = new RegExp(`@(${ownerAliases.join('|')})(?=$|\\s|[,.:;!?])`, 'gi');
     const getOwnerMocks = () => ({ toCat: ownerToCat, re: ownerRe });
 
     // Only @co-creator → should return null (owner filtered out)
-    const msg1 = { origin: 'callback' as const, content: '通知铲屎官\n@co-creator' };
+    const msg1 = { origin: 'callback' as const, content: '通知用户\n@co-creator' };
     expect(parseDirection(msg1, getOwnerMocks)).toBeNull();
 
     // @co-creator + @codex → only codex in targets

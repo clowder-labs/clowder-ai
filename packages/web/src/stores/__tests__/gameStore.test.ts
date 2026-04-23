@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameView, SeatView } from '@clowder/shared';
+import type { GameView, SeatView } from '@office-claw/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from '../gameStore';
 
@@ -12,7 +12,7 @@ const seerSeat: SeatView = {
   seatId: 'P2',
   actorType: 'human',
   actorId: 'user1',
-  displayName: '铲屎官',
+  displayName: '用户',
   role: 'seer',
   alive: true,
 };
@@ -310,7 +310,7 @@ describe('gameStore', () => {
       seatId: 'P5',
       actorType: 'human',
       actorId: 'user1',
-      displayName: '铲屎官',
+      displayName: '用户',
       role: 'hunter',
       alive: true,
     };
@@ -331,7 +331,7 @@ describe('gameStore', () => {
       seatId: 'P6',
       actorType: 'human',
       actorId: 'user1',
-      displayName: '铲屎官',
+      displayName: '用户',
       role: 'villager',
       alive: true,
     };

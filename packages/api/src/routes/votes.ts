@@ -48,7 +48,7 @@ const castVoteSchema = z.object({
 });
 
 function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string {
-  const header = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']);
+  const header = (request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']);
   return (Array.isArray(header) ? header[0] : header) ?? 'anonymous';
 }
 

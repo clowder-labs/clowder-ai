@@ -11,7 +11,7 @@
  * Fallback: local filesystem (for offline / non-git environments)
  *
  * This ensures Mission Hub always reflects the latest merged state,
- * regardless of whether `cat-cafe-runtime` has been pulled.
+ * regardless of whether `office-claw-runtime` has been pulled.
  */
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';

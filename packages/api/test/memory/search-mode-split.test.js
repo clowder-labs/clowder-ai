@@ -45,7 +45,7 @@ function seedDocs(store) {
       anchor: 'doc-cat-names',
       kind: 'lesson',
       status: 'active',
-      title: 'Cat Cafe 花名册 — 名字的由来',
+      title: 'OfficeClaw 花名册 — 名字的由来',
       summary: '宪宪来自 Constitutional AI 的宪，砚砚来自 Codex 的砚，烁烁来自 Gemini 的烁',
       updatedAt: new Date().toISOString(),
     },

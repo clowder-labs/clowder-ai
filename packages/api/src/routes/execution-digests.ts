@@ -18,7 +18,7 @@ export const executionDigestRoutes: FastifyPluginAsync<ExecutionDigestRoutesOpti
   const { executionDigestStore } = opts;
 
   function requireUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string | undefined;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']) as string | undefined;
     if (!userId) {
       void reply.status(401).send({ error: 'Identity required' });
       return null;

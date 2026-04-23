@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 
 export interface ParsedMention {
   targetCatId: CatId;
@@ -24,7 +24,7 @@ function normalizeConnectorMentionText(text: string): string {
  * Returns the **first-in-text** matched cat or defaultCatId.
  *
  * @param text — inbound message text
- * @param allPatterns — Map<CatId, mentionPatterns[]> from catRegistry
+ * @param allPatterns — Map<CatId, mentionPatterns[]> from officeClawRegistry
  * @param defaultCatId — fallback when no mention found
  */
 export function parseMentions(text: string, allPatterns: Map<string, string[]>, defaultCatId: CatId): ParsedMention {

@@ -55,7 +55,7 @@ describe('F075 leaderboard avatar pipeline', () => {
             catId: 'gpt52',
             displayName: '办公智能体',
             label: '社死王',
-            description: '被铲屎官吐槽',
+            description: '被用户吐槽',
             count: 2,
           },
         ],

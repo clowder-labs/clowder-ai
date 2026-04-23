@@ -35,9 +35,9 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-        mentionPatterns: ['布偶', '布偶猫', 'opus'],
+        mentionPatterns: ['Claude', 'claude', 'opus'],
         provider: 'anthropic',
         defaultModel: 'opus',
         avatar: '/a.png',
@@ -46,7 +46,7 @@ vi.mock('@/hooks/useCatData', () => ({
       },
       {
         id: 'opus-fast',
-        displayName: '布偶猫(快)',
+        displayName: 'Claude(快)',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
         mentionPatterns: [],
         provider: 'anthropic',
@@ -105,8 +105,8 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     const targetNames = targetButtons.map((b) => b.textContent);
 
     // Both cats should be available as whisper targets
-    expect(targetNames).toContain('布偶猫');
-    expect(targetNames).toContain('布偶猫(快)');
+    expect(targetNames).toContain('Claude');
+    expect(targetNames).toContain('Claude(快)');
   });
 
   it('can toggle a whisper target with empty mentionPatterns', () => {
@@ -120,7 +120,7 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
 
     // Find the opus-fast target button and click to deselect
     const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
-    const fastBtn = targetButtons.find((b) => b.textContent === '布偶猫(快)');
+    const fastBtn = targetButtons.find((b) => b.textContent === 'Claude(快)');
     expect(fastBtn).toBeDefined();
 
     // Initially auto-selected (border-current bg-amber-50)

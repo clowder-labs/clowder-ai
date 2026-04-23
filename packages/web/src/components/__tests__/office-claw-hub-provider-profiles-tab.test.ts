@@ -29,7 +29,7 @@ vi.mock('@/hooks/useCatData', () => ({
     cats: [
       {
         id: 'opus',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         nickname: '宪宪',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
         mentionPatterns: ['@opus'],
@@ -164,7 +164,7 @@ describe('CatCafeHub provider profiles tab', () => {
     expect(requestedPaths).toContain(`/api/acp-model-profiles?projectPath=${encodeURIComponent('/tmp/f127-worktree')}`);
   });
 
-  it('keeps ragdoll rescue controls out of provider profiles after tab data loads', async () => {
+  it('keeps Claude rescue controls out of provider profiles after tab data loads', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path.startsWith('/api/acp-model-profiles')) {
         return Promise.resolve(emptyAcpModelProfilesResponse());
@@ -259,7 +259,7 @@ describe('CatCafeHub provider profiles tab', () => {
     expect(container.textContent).not.toContain('OAuth-like');
     expect(container.textContent).not.toContain('内置认证');
     expect(container.textContent).toContain('新建 API Key 账号');
-    expect(container.textContent).not.toContain('布偶猫救援中心');
+    expect(container.textContent).not.toContain('Claude 救援中心');
     expect(mockApiFetch).not.toHaveBeenCalledWith('/api/claude-rescue/sessions');
   });
 
@@ -1102,7 +1102,7 @@ describe('CatCafeHub provider profiles tab', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('布偶猫救援中心');
-    expect(container.textContent).toContain('检测到 1 只布偶猫 session 需要救援');
+    expect(container.textContent).toContain('Claude 救援中心');
+    expect(container.textContent).toContain('检测到 1 个 Claude session 需要救援');
   });
 });

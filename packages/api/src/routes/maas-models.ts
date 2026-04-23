@@ -460,7 +460,7 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
   app.post('/api/maas-send', async (_request, reply) => {
     reply.status(410);
     return {
-      error: 'Clowder no longer proxies Huawei MaaS model calls. Runtime auth is passed to downstream agents.',
+      error: 'OfficeClaw no longer proxies Huawei MaaS model calls. Runtime auth is passed to downstream agents.',
     };
   });
 };

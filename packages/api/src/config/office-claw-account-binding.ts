@@ -6,13 +6,13 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveEmbeddedRuntimeKind, type CatConfig } from '@clowder/shared';
-import { loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';
+import { resolveEmbeddedRuntimeKind, type OfficeClawConfigEntry } from '@office-claw/shared';
+import { loadCatConfig, toAllCatConfigs } from './office-claw-config-loader.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { resolveBuiltinClientForProvider } from './provider-binding-compat.js';
 import { builtinAccountIdForClient } from './provider-profiles.js';
 
-type LegacyAwareCatConfig = CatConfig & { providerProfileId?: string };
+type LegacyAwareCatConfig = OfficeClawConfigEntry & { providerProfileId?: string };
 
 function trimBinding(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;

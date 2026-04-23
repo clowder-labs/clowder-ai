@@ -19,8 +19,8 @@
  * them with normal commands (which DO auto-prefix). See RedisSessionChainStore.scanKeys().
  */
 
-import type { SessionStrategyConfig } from '@clowder/shared';
-import type { RedisClient } from '@clowder/shared/utils';
+import type { SessionStrategyConfig } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { SessionStrategyKeys } from './session-strategy-keys.js';
 

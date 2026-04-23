@@ -49,7 +49,7 @@ describe('voiceSettingsStore', () => {
     expect(settings.customTerms).toEqual([{ from: '测试词', to: '正确词' }]);
     expect(mockLocalStorage.setItem).toHaveBeenCalled();
 
-    const stored = JSON.parse(mockStorage['cat-cafe-voice-settings']);
+    const stored = JSON.parse(mockStorage['office-claw-voice-settings']);
     expect(stored.customTerms).toEqual([{ from: '测试词', to: '正确词' }]);
   });
 
@@ -97,7 +97,7 @@ describe('voiceSettingsStore', () => {
 
   it('recovers gracefully from corrupted localStorage (customTerms not array)', () => {
     // Simulate corrupted data: customTerms is a string instead of array
-    mockStorage['cat-cafe-voice-settings'] = JSON.stringify({
+    mockStorage['office-claw-voice-settings'] = JSON.stringify({
       customTerms: 'not-an-array',
       customPrompt: 42,
       language: 'invalid',
@@ -114,7 +114,7 @@ describe('voiceSettingsStore', () => {
   });
 
   it('filters out malformed term entries from localStorage', () => {
-    mockStorage['cat-cafe-voice-settings'] = JSON.stringify({
+    mockStorage['office-claw-voice-settings'] = JSON.stringify({
       customTerms: [
         { from: 'valid', to: 'ok' },
         { from: 123, to: 'bad-from' }, // from is not string

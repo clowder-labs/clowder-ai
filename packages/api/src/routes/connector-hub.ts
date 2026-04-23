@@ -57,7 +57,7 @@ function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply)
 }
 
 function identityRequiredError(): { error: string } {
-  return { error: '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头' };
+  return { error: '缺少用户身份，请先登录或携带 X-Office-Claw-User 请求头' };
 }
 
 // ── Connector platform config definitions ──

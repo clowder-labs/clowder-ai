@@ -147,7 +147,7 @@ describe('FeishuAdapter', () => {
     it('processes group message when @bot is mentioned', () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
       adapter.setBotOpenId('ou_bot_abc');
-      const event = makeGroupEvent('@_user_1 你好猫猫', [
+      const event = makeGroupEvent('@_user_1 你好智能体', [
         { key: '@_user_1', id: { open_id: 'ou_bot_abc' }, name: 'CatBot' },
       ]);
       const result = adapter.parseEvent(event);
@@ -155,7 +155,7 @@ describe('FeishuAdapter', () => {
       assert.equal(result.chatType, 'group');
       assert.equal(result.chatId, 'oc_group_chat_789');
       assert.equal(result.senderId, 'ou_sender_123');
-      assert.equal(result.text, '你好猫猫');
+      assert.equal(result.text, '你好智能体');
     });
 
     it('returns null for group message without @bot mention', () => {
@@ -631,13 +631,13 @@ describe('FeishuAdapter', () => {
       });
 
       const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
-      await adapter.sendRichMessage('oc_chat_789', 'text', blocks, '布偶猫');
+      await adapter.sendRichMessage('oc_chat_789', 'text', blocks, 'Claude');
 
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].msgType, 'interactive');
       assert.equal(sendCalls[0].chatId, 'oc_chat_789');
       const card = JSON.parse(sendCalls[0].content);
-      assert.ok(card.header.title.content.includes('布偶猫'));
+      assert.ok(card.header.title.content.includes('Claude'));
       assert.ok(card.header.title.content.includes('Review'));
     });
 
@@ -652,7 +652,7 @@ describe('FeishuAdapter', () => {
       });
 
       const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
-      await adapter.sendRichMessage('oc_chat_789', 'Fallback body', blocks, '布偶猫', {
+      await adapter.sendRichMessage('oc_chat_789', 'Fallback body', blocks, 'Claude', {
         replyToSender: { id: 'ou_user_123', name: 'Alice' },
       });
 
@@ -677,7 +677,7 @@ describe('FeishuAdapter', () => {
         { id: 'b1', kind: 'card', v: 1, title: 'Summary', bodyMarkdown: 'Done' },
         { id: 'b2', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'Task A', checked: true }] },
       ];
-      await adapter.sendRichMessage('oc_chat', 'text', blocks, '缅因猫');
+      await adapter.sendRichMessage('oc_chat', 'text', blocks, 'Codex');
 
       const card = JSON.parse(sendCalls[0].content);
       assert.ok(card.elements.length >= 2);
@@ -727,10 +727,10 @@ describe('FeishuAdapter', () => {
       });
 
       await adapter.sendFormattedReply('oc_chat_123', {
-        header: '🐱 布偶猫/宪宪',
+        header: '🐱 Claude/宪宪',
         subtitle: 'T12 飞书登录bug排查 · F088',
         body: '看了一下回调逻辑，问题出在 OAuth token 过期。',
-        footer: '📎 https://cafe.clowder-ai.com/t/abc123 · 01:22',
+        footer: '📎 https://cafe.office-claw.com/t/abc123 · 01:22',
       });
 
       assert.equal(sendCalls.length, 1);
@@ -738,13 +738,13 @@ describe('FeishuAdapter', () => {
       assert.equal(sendCalls[0].chatId, 'oc_chat_123');
 
       const card = JSON.parse(sendCalls[0].content);
-      assert.equal(card.header.title.content, '🐱 布偶猫/宪宪');
+      assert.equal(card.header.title.content, '🐱 Claude/宪宪');
       assert.equal(card.header.template, 'blue');
       // Should have subtitle, body, hr, footer as elements
       const allContent = JSON.stringify(card.elements);
       assert.ok(allContent.includes('T12 飞书登录bug排查'), 'subtitle should be in elements');
       assert.ok(allContent.includes('OAuth token'), 'body should be in elements');
-      assert.ok(allContent.includes('cafe.clowder-ai.com'), 'footer with deep link should be in elements');
+      assert.ok(allContent.includes('cafe.office-claw.com'), 'footer with deep link should be in elements');
     });
 
     it('renders body with markdown support', async () => {
@@ -774,7 +774,7 @@ describe('FeishuAdapter', () => {
       });
 
       await adapter.sendFormattedReply('oc_chat', {
-        header: '🐱 布偶猫/宪宪',
+        header: '🐱 Claude/宪宪',
         subtitle: 'T12',
         body: 'A callback message',
         footer: '01:22',
@@ -795,7 +795,7 @@ describe('FeishuAdapter', () => {
       });
 
       await adapter.sendFormattedReply('oc_chat', {
-        header: '🐱 布偶猫/宪宪',
+        header: '🐱 Claude/宪宪',
         subtitle: 'T12',
         body: 'An agent reply',
         footer: '01:22',
@@ -803,7 +803,7 @@ describe('FeishuAdapter', () => {
 
       const card = JSON.parse(sendCalls[0].content);
       assert.equal(card.header.template, 'blue', 'agent cards should use blue template');
-      assert.equal(card.header.title.content, '🐱 布偶猫/宪宪', 'agent header should be unchanged');
+      assert.equal(card.header.title.content, '🐱 Claude/宪宪', 'agent header should be unchanged');
     });
 
     it('falls back to plain text when interactive card delivery fails', async () => {
@@ -817,7 +817,7 @@ describe('FeishuAdapter', () => {
       });
 
       await adapter.sendFormattedReply('oc_chat', {
-        header: '🐱 布偶猫/宪宪',
+        header: '🐱 Claude/宪宪',
         subtitle: 'T12',
         body: 'Fallback body',
         footer: '01:22',
@@ -828,7 +828,7 @@ describe('FeishuAdapter', () => {
       assert.equal(sendCalls[1].msgType, 'text');
       const payload = JSON.parse(sendCalls[1].content);
       assert.match(payload.text, /Fallback body/);
-      assert.match(payload.text, /布偶猫/);
+      assert.match(payload.text, /Claude/);
     });
   });
 
@@ -840,14 +840,14 @@ describe('FeishuAdapter', () => {
     });
 
     await adapter.sendFormattedReply('oc_chat', {
-      header: '🐱 布偶猫',
+      header: '🐱 Claude',
       subtitle: '',
       body: 'Hello from cat!',
       footer: '',
     });
 
     const card = JSON.parse(sendCalls[0].content);
-    assert.equal(card.header.title.content, '🐱 布偶猫');
+    assert.equal(card.header.title.content, '🐱 Claude');
     // Should only have the body markdown element, no subtitle/hr/footer
     assert.equal(card.elements.length, 1, 'minimal card should have only body element');
     assert.equal(card.elements[0].content, 'Hello from cat!');
@@ -863,7 +863,7 @@ describe('FeishuAdapter', () => {
       });
 
       const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
-      await adapter.sendRichMessage('oc_chat', 'Cat reply text here', blocks, '布偶猫');
+      await adapter.sendRichMessage('oc_chat', 'Cat reply text here', blocks, 'Claude');
 
       const card = JSON.parse(sendCalls[0].content);
       const allContent = JSON.stringify(card.elements);

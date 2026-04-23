@@ -12,7 +12,7 @@
  * regex with all cats (including dynamically added ones).
  */
 
-import { CAT_CONFIGS, escapeRegExp } from '@clowder/shared';
+import { CAT_CONFIGS, escapeRegExp } from '@office-claw/shared';
 import type { CatData } from '@/hooks/useCatData';
 
 // ── Internal builders ───────────────────────────────────

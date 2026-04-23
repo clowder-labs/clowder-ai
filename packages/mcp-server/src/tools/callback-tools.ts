@@ -58,7 +58,7 @@ export function getCallbackConfig(): CallbackConfig | null {
 }
 
 export const NO_CONFIG_ERROR =
-  'Clowder AI callback not configured. Missing OFFICE_CLAW_API_URL, OFFICE_CLAW_INVOCATION_ID, or OFFICE_CLAW_CALLBACK_TOKEN environment variables.';
+  'OfficeClaw callback not configured. Missing OFFICE_CLAW_API_URL, OFFICE_CLAW_INVOCATION_ID, or OFFICE_CLAW_CALLBACK_TOKEN environment variables.';
 // ============ HTTP helpers ============
 
 export async function callbackPost(
@@ -567,7 +567,7 @@ export async function handleCheckPermissionStatus(input: { requestId: string }):
 
 // TD091: PR tracking registration — server resolves threadId from invocation record
 export const registerPrTrackingInputSchema = {
-  repoFullName: z.string().min(1).describe('Repository full name in owner/repo format (e.g. "zts212653/cat-cafe")'),
+  repoFullName: z.string().min(1).describe('Repository full name in owner/repo format (e.g. "zts212653/office-claw")'),
   prNumber: z.number().int().positive().describe('PR number'),
   catId: z
     .string()
@@ -734,7 +734,7 @@ export const callbackTools = [
   {
     name: 'office_claw_post_message',
     description:
-      'Post a proactive async message to the Clowder AI chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
+      'Post a proactive async message to the OfficeClaw chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
       'To simply @mention another agent at the end of your response, use @agent-name in your reply text instead — it is free and never expires. ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to inline @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',

@@ -31,11 +31,11 @@ const DEFAULT_SIZE = 200;
 const MIN_SIZE = 50;
 const MAX_SIZE = 500;
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
-const STORAGE_KEY = 'cat-cafe:debug:ring-buffer';
+const STORAGE_KEY = 'office-claw:debug:ring-buffer';
 
 declare global {
   interface Window {
-    __catCafeDebug?: DebugWindowApi;
+    __officeClawDebug?: DebugWindowApi;
   }
 }
 
@@ -71,8 +71,8 @@ function clearTtlTimer() {
 
 function removeWindowApi() {
   if (typeof window === 'undefined') return;
-  if (!window.__catCafeDebug) return;
-  delete window.__catCafeDebug;
+  if (!window.__officeClawDebug) return;
+  delete window.__officeClawDebug;
 }
 
 function resetToDisabled() {
@@ -263,9 +263,9 @@ export function isDebugEnabled(): boolean {
 export function ensureWindowDebugApi() {
   if (typeof window === 'undefined') return;
   if (!enabled) return;
-  if (window.__catCafeDebug) return;
+  if (window.__officeClawDebug) return;
 
-  window.__catCafeDebug = {
+  window.__officeClawDebug = {
     configure: (input: DebugConfigureInput) => {
       const status = configureDebug(input);
       if (!status.enabled) {

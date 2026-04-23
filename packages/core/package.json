@@ -1,5 +1,5 @@
 {
-  "name": "@clowder/core",
+  "name": "@office-claw/core",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -33,7 +33,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@clowder/shared": "workspace:*"
+    "@office-claw/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.3.3"

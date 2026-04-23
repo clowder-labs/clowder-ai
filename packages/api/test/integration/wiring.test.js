@@ -147,7 +147,7 @@ function createMockSocketManager() {
 }
 
 function installFakeCliPath() {
-  const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-wiring-cli-'));
+  const dir = mkdtempSync(join(tmpdir(), 'office-claw-wiring-cli-'));
   const writeExecutable = (name, content) => {
     const file = join(dir, name);
     writeFileSync(file, content);

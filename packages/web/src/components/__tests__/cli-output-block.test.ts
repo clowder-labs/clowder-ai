@@ -962,7 +962,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: txtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -974,8 +974,8 @@ describe('CliOutputBlock', () => {
 
     const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
     expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
-      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
+      projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
     });
 
     const openButton = container.querySelector('[data-testid="cli-output-txt-open"]') as HTMLButtonElement | null;
@@ -987,8 +987,8 @@ describe('CliOutputBlock', () => {
 
     const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
-      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\notes.txt',
+      projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
     });
   });
 
@@ -1008,7 +1008,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: txtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1023,8 +1023,8 @@ describe('CliOutputBlock', () => {
 
     const openFolderCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local-folder');
     expect(JSON.parse(String(openFolderCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
-      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
+      projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
     });
   });
 
@@ -1104,7 +1104,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: txtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1214,14 +1214,14 @@ describe('CliOutputBlock', () => {
         timestamp: 1001,
         label: 'Write report.xlsx',
         detail:
-          '[Done] Saved: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
+          '[Done] Saved: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
       },
       {
         id: 't2',
         kind: 'text',
         timestamp: 1002,
         content:
-          'Excel generated at workspace/output/weekly-report.xlsx\nFinal file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
+          'Excel generated at workspace/output/weekly-report.xlsx\nFinal file: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\weekly-report.xlsx',
       },
       {
         id: 't3',
@@ -1237,7 +1237,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicateExcelEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1260,7 +1260,7 @@ describe('CliOutputBlock', () => {
         kind: 'text',
         timestamp: 1002,
         content:
-          'TXT generated at D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\notes.txt\nBackup reference: workspace/output/notes.txt',
+          'TXT generated at D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\notes.txt\nBackup reference: workspace/output/notes.txt',
       },
     ];
 
@@ -1269,7 +1269,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicateTxtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1285,13 +1285,13 @@ describe('CliOutputBlock', () => {
         kind: 'tool_result',
         timestamp: 1001,
         label: 'Write notes.txt',
-        detail: '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\notes.txt',
+        detail: '[Done] Saved: D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\notes.txt',
       },
       {
         id: 't2',
         kind: 'text',
         timestamp: 1002,
-        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\notes.txt',
+        content: 'Final file: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\notes.txt',
       },
     ];
 
@@ -1300,7 +1300,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicateEscapedTxtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1317,13 +1317,13 @@ describe('CliOutputBlock', () => {
         timestamp: 1001,
         label: 'Write report.xlsx',
         detail:
-          '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\weekly-report.xlsx',
+          '[Done] Saved: D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\weekly-report.xlsx',
       },
       {
         id: 't2',
         kind: 'text',
         timestamp: 1002,
-        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\weekly-report.xlsx',
+        content: 'Final file: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\weekly-report.xlsx',
       },
     ];
 
@@ -1332,7 +1332,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicateEscapedExcelEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1349,13 +1349,13 @@ describe('CliOutputBlock', () => {
         timestamp: 1001,
         label: 'Write 企业数字化升级解决方案.txt',
         detail:
-          '[Done] Saved: D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\企业数字化升级解决方案.txt',
+          '[Done] Saved: D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\企业数字化升级解决方案.txt',
       },
       {
         id: 't2',
         kind: 'text',
         timestamp: 1002,
-        content: 'Final file: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\企业数字化升级解决方案.txt',
+        content: 'Final file: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\企业数字化升级解决方案.txt',
       },
     ];
 
@@ -1364,7 +1364,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicateEscapedTxtEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1381,7 +1381,7 @@ describe('CliOutputBlock', () => {
         timestamp: 1000,
         label: 'office → file_write',
         detail:
-          '{"file_path":"D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md","content":"# Outline"}',
+          '{"file_path":"D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md","content":"# Outline"}',
       },
     ];
 
@@ -1390,7 +1390,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: markdownEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
     });
@@ -1406,7 +1406,7 @@ describe('CliOutputBlock', () => {
     const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
     expect(metaCall).toBeTruthy();
     expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
-      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
     );
   });
 
@@ -1418,7 +1418,7 @@ describe('CliOutputBlock', () => {
         timestamp: 1000,
         label: 'office → shell_command',
         detail:
-          '{"command":"powershell -Command \\"Set-Content -Path \'D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md\' -Value @\'hello\'@\\""}',
+          '{"command":"powershell -Command \\"Set-Content -Path \'D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md\' -Value @\'hello\'@\\""}',
       },
     ];
 
@@ -1427,7 +1427,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: markdownEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
     });
@@ -1443,7 +1443,7 @@ describe('CliOutputBlock', () => {
     const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
     expect(metaCall).toBeTruthy();
     expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
-      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
     );
   });
 
@@ -1455,7 +1455,7 @@ describe('CliOutputBlock', () => {
         timestamp: 1000,
         label: 'office ← result',
         detail:
-          '文件路径：D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\产品迭代项目推进会会议纪要.md',
+          '文件路径：D:\\\\opentiny\\\\office-claw-gitcode\\\\relay-claw-main\\\\workspace\\\\产品迭代项目推进会会议纪要.md',
       },
     ];
 
@@ -1464,7 +1464,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: markdownEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
     });
@@ -1480,7 +1480,7 @@ describe('CliOutputBlock', () => {
     const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
     expect(metaCall).toBeTruthy();
     expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
-      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\产品迭代项目推进会会议纪要.md',
+      'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\产品迭代项目推进会会议纪要.md',
     );
   });
 
@@ -1500,7 +1500,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: markdownEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1511,8 +1511,8 @@ describe('CliOutputBlock', () => {
 
     const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
     expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
-      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
     });
 
     const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
@@ -1522,8 +1522,8 @@ describe('CliOutputBlock', () => {
 
     const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
-      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
     });
   });
 
@@ -1724,7 +1724,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: mixedEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1765,7 +1765,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: mixedEvents,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1800,7 +1800,7 @@ describe('CliOutputBlock', () => {
         React.createElement(CliOutputBlock, {
           events: duplicatedWordSignals,
           status: 'done',
-          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+          projectPath: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main',
         }),
       );
       await Promise.resolve();
@@ -1818,7 +1818,7 @@ describe('CliOutputBlock', () => {
         kind: 'tool_result',
         timestamp: 1001,
         label: 'Write outline',
-        detail: '[Done] Saved: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+        detail: '[Done] Saved: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
       },
       {
         id: 't2',
@@ -1832,7 +1832,7 @@ describe('CliOutputBlock', () => {
         kind: 'text',
         timestamp: 1003,
         content:
-          'User doc: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md\nInternal memory: C:\\Users\\kagol\\.jiuwenclaw\\agent\\memory\\2026-04-14.md',
+          'User doc: D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md\nInternal memory: C:\\Users\\kagol\\.jiuwenclaw\\agent\\memory\\2026-04-14.md',
       },
     ];
 
@@ -1858,7 +1858,7 @@ describe('CliOutputBlock', () => {
 
     const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
-      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      path: 'D:\\opentiny\\office-claw-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
     });
   });
 

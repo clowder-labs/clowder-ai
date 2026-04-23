@@ -8,11 +8,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CapabilitiesConfig, CapabilityEntry } from '@clowder/shared';
+import type { CapabilitiesConfig, CapabilityEntry } from '@office-claw/shared';
 
-const CAT_CAFE_SKILLS_MANIFEST = join('office-claw-skills', 'manifest.yaml');
+const OFFICE_CLAW_SKILLS_MANIFEST = join('office-claw-skills', 'manifest.yaml');
 
-let cachedCatCafeSkillsSourceDir: string | null = null;
+let cachedOfficeClawSkillsSourceDir: string | null = null;
 
 function isSkillDir(dir: string): boolean {
   try {
@@ -80,25 +80,25 @@ function isSkillDisabledForCat(capability: CapabilityEntry, catId: string): bool
   return !enabled;
 }
 
-export function resolveCatCafeSkillsSourceDir(): string {
-  if (cachedCatCafeSkillsSourceDir) return cachedCatCafeSkillsSourceDir;
+export function resolveOfficeClawSkillsSourceDir(): string {
+  if (cachedOfficeClawSkillsSourceDir) return cachedOfficeClawSkillsSourceDir;
 
   let dir = dirname(fileURLToPath(import.meta.url));
   while (dir !== dirname(dir)) {
-    const candidate = join(dir, CAT_CAFE_SKILLS_MANIFEST);
+    const candidate = join(dir, OFFICE_CLAW_SKILLS_MANIFEST);
     if (existsSync(candidate)) {
-      cachedCatCafeSkillsSourceDir = join(dir, 'office-claw-skills');
-      return cachedCatCafeSkillsSourceDir;
+      cachedOfficeClawSkillsSourceDir = join(dir, 'office-claw-skills');
+      return cachedOfficeClawSkillsSourceDir;
     }
     dir = dirname(dir);
   }
 
-  cachedCatCafeSkillsSourceDir = join(process.cwd(), 'office-claw-skills');
-  return cachedCatCafeSkillsSourceDir;
+  cachedOfficeClawSkillsSourceDir = join(process.cwd(), 'office-claw-skills');
+  return cachedOfficeClawSkillsSourceDir;
 }
 
 export function resolveRelayClawSharedSkillsDirs(): string[] {
-  const dir = resolveCatCafeSkillsSourceDir();
+  const dir = resolveOfficeClawSkillsSourceDir();
   return existsSync(join(dir, 'manifest.yaml')) ? [dir] : [];
 }
 

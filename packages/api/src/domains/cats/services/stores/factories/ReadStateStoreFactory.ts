@@ -10,7 +10,7 @@
  * 无 → undefined (read state requires Redis)
  */
 
-import type { RedisClient } from '@clowder/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { IThreadReadStateStore } from '../ports/ThreadReadStateStore.js';
 import { RedisThreadReadStateStore } from '../redis/RedisThreadReadStateStore.js';
 

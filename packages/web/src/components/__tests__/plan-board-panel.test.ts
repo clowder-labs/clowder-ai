@@ -5,7 +5,7 @@
  */
 
 /**
- * F055: PlanBoardPanel — 猫猫祟祟
+ * F055: PlanBoardPanel — 智能体祟祟
  * Tests for independent per-cat plan board in right sidebar.
  */
 
@@ -104,7 +104,7 @@ async function renderPanel(threadId: string, catInvocations: Record<string, CatI
   });
 }
 
-describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
+describe('F055: PlanBoardPanel (智能体祟祟)', () => {
   it('AC-1: renders section title with cat count', async () => {
     await renderPanel('thread-1', {
       opus: makeInvocation({
@@ -118,7 +118,7 @@ describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
 
     const section = container.querySelector('section');
     expect(section).not.toBeNull();
-    expect(container.textContent).toContain('猫猫祟祟');
+    expect(container.textContent).toContain('智能体祟祟');
     expect(container.textContent).toMatch(/1/); // 1 cat with plan
   });
 
@@ -139,7 +139,7 @@ describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
 
     // Only opus has real tasks; codex has no taskProgress; gemini has empty tasks
     // Opus is completed, so it's in the collapsed fold — count should be 1
-    expect(container.textContent).toContain('猫猫祟祟 (1)');
+    expect(container.textContent).toContain('智能体祟祟 (1)');
     expect(container.textContent).toContain('已完成 (1)');
     expect(container.textContent).not.toContain('Codex');
     expect(container.textContent).not.toContain('Gemini');

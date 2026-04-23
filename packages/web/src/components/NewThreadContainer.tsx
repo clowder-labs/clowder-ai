@@ -76,7 +76,7 @@ export function NewThreadContainer() {
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
   const [selectedFolderTitle, setSelectedFolderTitle] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
-    'cat-cafe:sidebarWidth',
+    'office-claw:sidebarWidth',
     SIDEBAR_DEFAULT,
   );
   const scheduledTaskQuickActionInsertText = useMemo(() => buildScheduledTaskQuickActionInsertText(), []);
@@ -93,7 +93,7 @@ export function NewThreadContainer() {
       onMessage: () => {},
       onThreadCreated: () => {
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+          window.dispatchEvent(new CustomEvent('office-claw:threads-refresh'));
         }
       },
     }),
@@ -135,8 +135,8 @@ export function NewThreadContainer() {
       const menu = (event as CustomEvent<{ menu?: 'skills' }>).detail?.menu;
       if (menu === 'skills') setSidebarMenu('skills');
     };
-    window.addEventListener('cat-cafe:open-sidebar-menu', handler);
-    return () => window.removeEventListener('cat-cafe:open-sidebar-menu', handler);
+    window.addEventListener('office-claw:open-sidebar-menu', handler);
+    return () => window.removeEventListener('office-claw:open-sidebar-menu', handler);
   }, []);
 
   const handleSidebarResize = useCallback(

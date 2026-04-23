@@ -19,11 +19,11 @@
  * Phase 3: Runtime override via Redis + settings UI.
  */
 
-import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@clowder/shared';
-import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
+import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@office-claw/shared';
+import { OFFICE_CLAW_CONFIGS, officeClawRegistry } from '@office-claw/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveBreedId } from './breed-resolver.js';
-import { getConfigSessionStrategy } from './cat-config-loader.js';
+import { getConfigSessionStrategy } from './office-claw-config-loader.js';
 import { getRuntimeOverride } from './session-strategy-overrides.js';
 
 const log = createModuleLogger('session-strategy');
@@ -158,7 +158,7 @@ function resolveFallbackStrategy(catName: string): {
   }
 
   // Provider default or global default
-  const provider = catRegistry.tryGet(catName)?.config.provider ?? CAT_CONFIGS[catName]?.provider;
+  const provider = officeClawRegistry.tryGet(catName)?.config.provider ?? OFFICE_CLAW_CONFIGS[catName]?.provider;
   if (provider && DEFAULT_STRATEGY_BY_PROVIDER[provider]) {
     return { effective: base, source: 'provider_default' };
   }
@@ -185,8 +185,8 @@ export function mergeStrategyConfig(
 }
 
 function getBaseStrategy(catName: string): SessionStrategyConfig {
-  // Try catRegistry first (runtime, includes variants), then static CAT_CONFIGS fallback
-  const provider = catRegistry.tryGet(catName)?.config.provider ?? CAT_CONFIGS[catName]?.provider;
+  // Try officeClawRegistry first (runtime, includes variants), then static OFFICE_CLAW_CONFIGS fallback
+  const provider = officeClawRegistry.tryGet(catName)?.config.provider ?? OFFICE_CLAW_CONFIGS[catName]?.provider;
   if (provider) {
     const providerDefault = DEFAULT_STRATEGY_BY_PROVIDER[provider];
     if (providerDefault) return providerDefault;
@@ -201,7 +201,7 @@ function getBaseStrategy(catName: string): SessionStrategyConfig {
 function validateProviderCapability(config: SessionStrategyConfig, catName: string): SessionStrategyConfig {
   if (config.strategy !== 'hybrid') return config;
 
-  const entry = catRegistry.tryGet(catName);
+  const entry = officeClawRegistry.tryGet(catName);
   const provider = entry?.config.provider;
 
   if (!provider || !HOOK_CAPABLE_PROVIDERS.has(provider)) {

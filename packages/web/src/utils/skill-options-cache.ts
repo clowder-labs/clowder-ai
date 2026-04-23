@@ -21,7 +21,7 @@ interface CapabilitiesResponseLite {
 }
 
 const SKILL_CACHE_TTL_MS = 5 * 60 * 1000;
-export const SKILL_OPTIONS_UPDATED_EVENT = 'cat-cafe:skill-options-updated';
+export const SKILL_OPTIONS_UPDATED_EVENT = 'office-claw:skill-options-updated';
 
 let cachedSkillOptions: SkillOption[] | null = null;
 let cachedSkillOptionsAt = 0;

@@ -26,7 +26,7 @@ vi.mock('@/utils/api-client', () => ({
             cats: [
               {
                 id: 'opus',
-                displayName: '布偶猫',
+                displayName: 'Claude',
                 color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
                 mentionPatterns: ['@opus'],
                 provider: 'anthropic',
@@ -37,7 +37,7 @@ vi.mock('@/utils/api-client', () => ({
               },
               {
                 id: 'codex',
-                displayName: '缅因猫',
+                displayName: 'Codex',
                 color: { primary: '#4CAF50', secondary: '#C8E6C9' },
                 mentionPatterns: ['@codex'],
                 provider: 'openai',
@@ -90,8 +90,8 @@ describe('ThreadExecutionBar (F122B AC-B8 + B8/B9 polish)', () => {
 
     const text = container.textContent ?? '';
     expect(text).toContain('执行中');
-    // Should show display name (布偶猫) not raw catId (opus)
-    expect(text).toContain('布偶猫');
+    // Should show display name (Claude) not raw catId (opus)
+    expect(text).toContain('Claude');
     expect(text).toMatch(/0:0[0-9]/);
   });
 
@@ -106,8 +106,8 @@ describe('ThreadExecutionBar (F122B AC-B8 + B8/B9 polish)', () => {
     await act(async () => root.render(React.createElement(ThreadExecutionBar)));
 
     const text = container.textContent ?? '';
-    expect(text).toContain('布偶猫');
-    expect(text).toContain('缅因猫');
+    expect(text).toContain('Claude');
+    expect(text).toContain('Codex');
   });
 
   it('uses dynamic cat color from cat-config (not hardcoded)', async () => {
@@ -135,7 +135,7 @@ describe('ThreadExecutionBar (F122B AC-B8 + B8/B9 polish)', () => {
     await act(async () => root.render(React.createElement(ThreadExecutionBar)));
 
     const text = container.textContent ?? '';
-    const nameCount = (text.match(/布偶猫/g) ?? []).length;
+    const nameCount = (text.match(/Claude/g) ?? []).length;
     expect(nameCount).toBe(1);
   });
 
@@ -164,7 +164,7 @@ describe('ThreadExecutionBar (F122B AC-B8 + B8/B9 polish)', () => {
     await act(async () => root.render(React.createElement(ThreadExecutionBar)));
 
     const text = container.textContent ?? '';
-    expect(text).toContain('缅因猫');
+    expect(text).toContain('Codex');
     expect(text).not.toContain('0:00');
   });
 });

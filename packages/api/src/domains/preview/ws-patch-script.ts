@@ -19,7 +19,7 @@ const HMR_PATHS = ['/__vite_hmr', '/__webpack_hmr', '/ws', '/sockjs-node'];
 
 export function buildWsPatchScript(targetPort: number): string {
   const pathsJson = JSON.stringify(HMR_PATHS);
-  return `<script data-cat-cafe-ws-patch="true">
+  return `<script data-office-claw-ws-patch="true">
 (function(){
   var O=window.WebSocket;
   if(!O)return;

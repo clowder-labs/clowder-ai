@@ -8,7 +8,7 @@ created: 2026-03-15
 
 # F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施
 
-> **Status**: done | **Owner**: Maine Coon(gpt52) + Ragdoll(opus) | **Priority**: P1 | **Completed**: 2026-03-16
+> **Status**: done | **Owner**: Codex(gpt52) + Claude(opus) | **Priority**: P1 | **Completed**: 2026-03-16
 
 ## Why
 
@@ -31,7 +31,7 @@ team experience：
 - `main-test-worktree.test.sh` → `alpha-worktree.test.sh`
 - package.json: `main-test:*` → `alpha:*`
 - 环境变量前缀: `CAT_CAFE_MAIN_TEST_*` → `CAT_CAFE_ALPHA_*`
-- worktree 目录: `../cat-cafe-main-test` → `../cat-cafe-alpha`
+- worktree 目录: `../office-claw-main-test` → `../office-claw-alpha`
 - 分支: `main-test/main-sync` → `alpha/main-sync`
 - 日志前缀: `[main-test-worktree]` → `[alpha-worktree]`
 - 脚本 commit 进 main
@@ -42,7 +42,7 @@ team experience：
 - quality-gate skill: 验证已合入 `main` 的改动时，验收证据优先取自 alpha
 - CLAUDE.md: 加 alpha 验收通道铁律
 - AGENTS.md: 同步 alpha 规则
-- GEMINI.md: 同步 alpha 规则（Siamese不写代码，但需要知道验收流程）
+- GEMINI.md: 同步 alpha 规则（Gemini不写代码，但需要知道验收流程）
 
 ## Acceptance Criteria
 
@@ -62,7 +62,7 @@ team experience：
 
 ## Dependencies
 
-- **Evolved from**: Maine Coon的 `feat/main-test-worktree-launcher` 分支（已 review 通过）
+- **Evolved from**: Codex的 `feat/main-test-worktree-launcher` 分支（已 review 通过）
 - **Related**: runtime-worktree.sh（模式对齐）
 
 ## Risk

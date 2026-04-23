@@ -4,7 +4,7 @@
  *
  */
 
-import { resolveEmbeddedRuntimeKind } from '@clowder/shared';
+import { resolveEmbeddedRuntimeKind } from '@office-claw/shared';
 import type { CatData } from '@/hooks/useCatData';
 import type { BuiltinAccountClient, ProfileItem } from './hub-provider-profiles.types';
 import type { CatStrategyEntry, StrategyType } from './hub-strategy-types';

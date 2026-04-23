@@ -78,7 +78,7 @@ interface SocketIoEngineLike {
   on: (event: string, listener: (...args: unknown[]) => void) => void;
 }
 
-type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
+type DebugWebSocket = WebSocket & { __officeClawCloseLoggerAttached?: boolean };
 type JoinRoomAwaitStatus = 'joined' | 'timed_out' | 'socket_unavailable';
 
 const ROOM_JOIN_ACK_TIMEOUT_MS = 500;
@@ -318,8 +318,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
       const transport = engine?.transport;
       if (!transport || transport.name !== 'websocket' || !transport.ws) return;
       const ws = transport.ws as DebugWebSocket;
-      if (ws.__catCafeCloseLoggerAttached) return;
-      ws.__catCafeCloseLoggerAttached = true;
+      if (ws.__officeClawCloseLoggerAttached) return;
+      ws.__officeClawCloseLoggerAttached = true;
       ws.addEventListener('close', (event) => {
         console.warn('[ws] Native close', {
           code: event.code,

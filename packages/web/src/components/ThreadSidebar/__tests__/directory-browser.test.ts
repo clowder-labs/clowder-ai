@@ -136,7 +136,7 @@ describe('DirectoryBrowser', () => {
     mockApiFetch.mockReturnValueOnce(
       jsonOk(
         makeBrowseResult(`${HOME}/projects`, [
-          { name: 'cat-cafe', path: `${HOME}/projects/cat-cafe` },
+          { name: 'office-claw', path: `${HOME}/projects/office-claw` },
           { name: 'other', path: `${HOME}/projects/other` },
         ]),
       ),
@@ -149,7 +149,7 @@ describe('DirectoryBrowser', () => {
     });
 
     expect(mockApiFetch).toHaveBeenCalledWith(`/api/projects/browse?path=${encodeURIComponent(`${HOME}/projects`)}`);
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('office-claw');
     expect(container.textContent).toContain('other');
   });
 
@@ -159,18 +159,18 @@ describe('DirectoryBrowser', () => {
     // Start at a deep path
     mockApiFetch.mockReturnValueOnce(
       jsonOk(
-        makeBrowseResult(`${HOME}/projects/cat-cafe`, [
-          { name: 'packages', path: `${HOME}/projects/cat-cafe/packages` },
+        makeBrowseResult(`${HOME}/projects/office-claw`, [
+          { name: 'packages', path: `${HOME}/projects/office-claw/packages` },
         ]),
       ),
     );
-    render({ initialPath: `${HOME}/projects/cat-cafe` });
+    render({ initialPath: `${HOME}/projects/office-claw` });
     await flush();
 
-    // Should show breadcrumb: Home > projects > cat-cafe
+    // Should show breadcrumb: Home > projects > office-claw
     expect(container.textContent).toContain('Home');
     expect(container.textContent).toContain('projects');
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('office-claw');
 
     // Click "Home" breadcrumb to go back to home
     mockApiFetch.mockReturnValueOnce(
@@ -200,17 +200,17 @@ describe('DirectoryBrowser', () => {
   it('clicking mid-level breadcrumb navigates to that level', async () => {
     mockApiFetch.mockReturnValueOnce(
       jsonOk(
-        makeBrowseResult(`${HOME}/projects/cat-cafe`, [
-          { name: 'packages', path: `${HOME}/projects/cat-cafe/packages` },
+        makeBrowseResult(`${HOME}/projects/office-claw`, [
+          { name: 'packages', path: `${HOME}/projects/office-claw/packages` },
         ]),
       ),
     );
-    render({ initialPath: `${HOME}/projects/cat-cafe` });
+    render({ initialPath: `${HOME}/projects/office-claw` });
     await flush();
 
     // Click "projects" breadcrumb (mid-level)
     mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult(`${HOME}/projects`, [{ name: 'cat-cafe', path: `${HOME}/projects/cat-cafe` }])),
+      jsonOk(makeBrowseResult(`${HOME}/projects`, [{ name: 'office-claw', path: `${HOME}/projects/office-claw` }])),
     );
     const projectsBtn = findButtonByText('projects');
     expect(projectsBtn).toBeTruthy();
@@ -255,11 +255,11 @@ describe('DirectoryBrowser', () => {
   // ── Active project highlight ──────────────────────────
 
   it('highlights the active project directory', async () => {
-    const activePath = `${HOME}/projects/cat-cafe`;
+    const activePath = `${HOME}/projects/office-claw`;
     mockApiFetch.mockReturnValueOnce(
       jsonOk(
         makeBrowseResult(`${HOME}/projects`, [
-          { name: 'cat-cafe', path: activePath },
+          { name: 'office-claw', path: activePath },
           { name: 'other', path: `${HOME}/projects/other` },
         ]),
       ),
@@ -296,22 +296,22 @@ describe('DirectoryBrowser', () => {
     const winHome = 'C:\\Users\\test';
     mockApiFetch.mockReturnValueOnce(
       jsonOk({
-        current: `${winHome}\\projects\\cat-cafe`,
-        name: 'cat-cafe',
+        current: `${winHome}\\projects\\office-claw`,
+        name: 'office-claw',
         parent: `${winHome}\\projects`,
         homePath: winHome,
         drives: [{ name: 'C:', path: 'C:\\', isDirectory: true }],
-        entries: [{ name: 'src', path: `${winHome}\\projects\\cat-cafe\\src`, isDirectory: true }],
+        entries: [{ name: 'src', path: `${winHome}\\projects\\office-claw\\src`, isDirectory: true }],
       }),
     );
-    render({ initialPath: `${winHome}\\projects\\cat-cafe` });
+    render({ initialPath: `${winHome}\\projects\\office-claw` });
     await flush();
 
     expect(container.textContent).toContain('\u6211\u7684\u7535\u8111');
     expect(container.textContent).toContain('C:');
     expect(container.textContent).toContain('Users');
     expect(container.textContent).toContain('projects');
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('office-claw');
     expect(container.textContent).toContain('src');
   });
 
@@ -493,13 +493,13 @@ describe('DirectoryBrowser', () => {
   it('keeps current listing on browse error and shows error message', async () => {
     // First: successful load
     mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult(`${HOME}/projects`, [{ name: 'cat-cafe', path: `${HOME}/projects/cat-cafe` }])),
+      jsonOk(makeBrowseResult(`${HOME}/projects`, [{ name: 'office-claw', path: `${HOME}/projects/office-claw` }])),
     );
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
     expect(getPrimaryActionButton()).toBeTruthy();
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('office-claw');
 
     // Navigate to a forbidden path
     mockApiFetch.mockReturnValueOnce(jsonFail(403, 'Access denied'));
@@ -517,7 +517,7 @@ describe('DirectoryBrowser', () => {
 
     // Error banner shown AND listing still visible (non-destructive)
     expect(container.textContent).toContain('Access denied');
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('office-claw');
     // The select button still chooses the previous valid directory
     const selectBtn = getPrimaryActionButton();
     expect(selectBtn).toBeTruthy();

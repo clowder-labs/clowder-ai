@@ -11,7 +11,7 @@
  */
 
 export const BRIDGE_SCRIPT = `
-<script data-cat-cafe-bridge="true">
+<script data-office-claw-bridge="true">
 (function() {
   if (window.__catCafeBridge) return;
   window.__catCafeBridge = true;
@@ -38,7 +38,7 @@ export const BRIDGE_SCRIPT = `
         }
         parent.postMessage({
           type: 'console',
-          source: 'cat-cafe-bridge',
+          source: 'office-claw-bridge',
           level: level,
           args: args,
           timestamp: Date.now()
@@ -56,7 +56,7 @@ export const BRIDGE_SCRIPT = `
   window.addEventListener('error', function(e) {
     parent.postMessage({
       type: 'console',
-      source: 'cat-cafe-bridge',
+      source: 'office-claw-bridge',
       level: 'error',
       args: [e.message + ' at ' + (e.filename || '') + ':' + (e.lineno || 0)],
       timestamp: Date.now()
@@ -65,7 +65,7 @@ export const BRIDGE_SCRIPT = `
 
   // --- Screenshot handler ---
   window.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'screenshot-request' || e.data.source !== 'cat-cafe-preview') return;
+    if (!e.data || e.data.type !== 'screenshot-request' || e.data.source !== 'office-claw-preview') return;
     try {
       var html = document.documentElement.outerHTML;
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + document.documentElement.scrollWidth + '" height="' + document.documentElement.scrollHeight + '">' +
@@ -81,14 +81,14 @@ export const BRIDGE_SCRIPT = `
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         parent.postMessage({
           type: 'screenshot-result',
-          source: 'cat-cafe-bridge',
+          source: 'office-claw-bridge',
           dataUrl: canvas.toDataURL('image/png')
         }, '*');
       };
       img.onerror = function() {
         parent.postMessage({
           type: 'screenshot-error',
-          source: 'cat-cafe-bridge',
+          source: 'office-claw-bridge',
           error: 'SVG foreignObject rendering failed'
         }, '*');
       };
@@ -96,7 +96,7 @@ export const BRIDGE_SCRIPT = `
     } catch(e) {
       parent.postMessage({
         type: 'screenshot-error',
-        source: 'cat-cafe-bridge',
+        source: 'office-claw-bridge',
         error: e.message || 'Screenshot failed'
       }, '*');
     }

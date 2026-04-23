@@ -3,12 +3,12 @@
 ## Status
 
 - Status: draft design baseline
-- Scope: `Clowder AI.app` first, `dmg` second
+- Scope: `OfficeClaw.app` first, `dmg` second
 - Audience: packaging, runtime, and desktop integration work
 
 ## Goal
 
-Build a distributable macOS desktop app for Clowder AI that users can launch by double-clicking `Clowder AI.app`, with `dmg` used only as the delivery container.
+Build a distributable macOS desktop app for OfficeClaw that users can launch by double-clicking `OfficeClaw.app`, with `dmg` used only as the delivery container.
 
 The first release targets the existing project architecture:
 
@@ -30,7 +30,7 @@ The first macOS packaging iteration does not aim to:
 
 ## Current State
 
-The repository already has a custom Windows packaging pipeline centered on `scripts/build-windows-installer.mjs` and a native Windows launcher in `packaging/windows/desktop/ClowderDesktop.cs`.
+The repository already has a custom Windows packaging pipeline centered on `scripts/build-windows-installer.mjs` and a native Windows launcher in `packaging/windows/desktop/OfficeClawDesktop.cs`.
 
 The current Unix/macOS startup path is source-oriented rather than product-oriented:
 
@@ -73,10 +73,10 @@ Mutable application state lives outside the app bundle under standard macOS user
 
 Recommended locations:
 
-- `~/Library/Application Support/ClowderAI/`
-- `~/Library/Logs/ClowderAI/`
+- `~/Library/Application Support/OfficeClaw/`
+- `~/Library/Logs/OfficeClaw/`
 
-No mutable runtime state should be written back into `Clowder AI.app/Contents/Resources`.
+No mutable runtime state should be written back into `OfficeClaw.app/Contents/Resources`.
 
 ## Core Differences From `pnpm` Startup
 
@@ -151,11 +151,11 @@ This keeps the first packaging milestone focused on the main desktop app path.
 The planned app layout is described in detail in `macos/docs/app-bundle-structure-startup.md`, but the high-level shape is:
 
 ```text
-Clowder AI.app/
+OfficeClaw.app/
   Contents/
     Info.plist
     MacOS/
-      ClowderAI
+      OfficeClaw
     Resources/
       runtime/
         scripts/

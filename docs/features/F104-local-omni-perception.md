@@ -8,11 +8,11 @@ created: 2026-03-11
 
 # F104: 本地全感知升级 — Qwen Omni + VL MoE 替换管道
 
-> **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: spec | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
-当前猫猫的感知管道由三个独立小模型串行组成（ASR 1.7B + LLM后修 4B + TTS 1.7B），总延迟高、能力有限、且猫猫完全没有视觉理解能力。team lead的 128GB M4 Max 有充足算力跑 MoE 30B 级模型（3B 激活），升级后猫猫从"只会读写的文字 AI"变成"能听能看能说的全感知伙伴"。
+当前智能体的感知管道由三个独立小模型串行组成（ASR 1.7B + LLM后修 4B + TTS 1.7B），总延迟高、能力有限、且智能体完全没有视觉理解能力。team lead的 128GB M4 Max 有充足算力跑 MoE 30B 级模型（3B 激活），升级后智能体从"只会读写的文字 AI"变成"能听能看能说的全感知伙伴"。
 
 team experience："我们能做什么！？他们能帮你们干嘛？"
 
@@ -32,18 +32,18 @@ team experience："我们能做什么！？他们能帮你们干嘛？"
 4. 保持 clone voice 能力（三猫声线不能丢，关联 F103）
 5. 回退机制：Omni 不可用时 fallback 到现有三模型管道
 
-### Phase B: VL 视觉理解 — 猫猫获得"眼睛"
+### Phase B: VL 视觉理解 — 智能体获得"眼睛"
 
-用 **Qwen3.5-35B-A3B**（MoE 多模态，3B 激活，~18GB@4bit）为猫猫增加视觉理解能力：
+用 **Qwen3.5-35B-A3B**（MoE 多模态，3B 激活，~18GB@4bit）为智能体增加视觉理解能力：
 
 1. 搭建 VL serving（MLX 量化版）
 2. 实现 LocalVisionProvider（图片理解 API）
 3. 接入场景：截图理解、设计稿审查、UI 渲染验证
-4. 与猫猫工作流集成（quality-gate 可调用视觉检查）
+4. 与智能体工作流集成（quality-gate 可调用视觉检查）
 
 ### Phase C: 感知层架构统一（如需要）
 
-将 Omni + VL 统一为 Perception Layer API，供所有猫猫调用：
+将 Omni + VL 统一为 Perception Layer API，供所有智能体调用：
 - 统一的 `/perceive` 端点（自动路由到听/看/说）
 - 与 /loop 结合实现主动感知（定时扫描环境）
 
@@ -58,7 +58,7 @@ team experience："我们能做什么！？他们能帮你们干嘛？"
 
 ### Phase B（VL 视觉理解）
 - [ ] AC-B1: Qwen3.5-35B-A3B 在 M4 Max 128GB 上成功运行推理
-- [ ] AC-B2: 猫猫可以理解截图内容并用文字描述
+- [ ] AC-B2: 智能体可以理解截图内容并用文字描述
 - [ ] AC-B3: 至少一个工作流场景集成（如 quality-gate 视觉检查）
 
 ## 需求点 Checklist
@@ -67,7 +67,7 @@ team experience："我们能做什么！？他们能帮你们干嘛？"
 |----|---------------------|------|----------|------|
 | R1 | 升级成 Omni 和 3.5-35B | AC-A1, AC-B1 | 本地推理成功 | [ ] |
 | R2 | 替换掉现在的 ASR 和 TTS | AC-A2, AC-A3, AC-A5 | 端到端语音对话测试 | [ ] |
-| R3 | 猫猫能听能看能说 | AC-A2, AC-A3, AC-B2 | 多模态交互演示 | [ ] |
+| R3 | 智能体能听能看能说 | AC-A2, AC-A3, AC-B2 | 多模态交互演示 | [ ] |
 
 ## Dependencies
 
@@ -94,4 +94,4 @@ team experience："我们能做什么！？他们能帮你们干嘛？"
 ## Review Gate
 
 - Phase A: 跨家族 review（优先 @codex/@gpt52）
-- Phase B: 跨家族 review + Siamese视觉验证
+- Phase B: 跨家族 review + Gemini视觉验证

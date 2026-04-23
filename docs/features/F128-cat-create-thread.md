@@ -5,13 +5,13 @@ topics: [mcp, thread, autonomy, orchestration, community]
 doc_kind: spec
 created: 2026-03-19
 source: community
-community_issue: https://github.com/zts212653/clowder-ai/issues/82
-community_pr: https://github.com/zts212653/clowder-ai/pull/85
+community_issue: https://github.com/zts212653/office-claw/issues/82
+community_pr: https://github.com/zts212653/office-claw/pull/85
 ---
 
 # F128: Cat-Initiated Thread Creation — 猫程序化创建 Thread
 
-> **Status**: spec | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
+> **Status**: spec | **Source**: office-claw #82 (bouillipx) / PR #85 | **Priority**: P2
 
 ## Why
 
@@ -47,7 +47,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 ## Maintainer Review 结论（2026-03-19）
 
-**Reviewer**: Ragdoll (Opus) + Maine Coon (Codex)
+**Reviewer**: Claude (Opus) + Codex (Codex)
 
 社区 PR #85 整包 Take-In 不可行，建议拆三条线：
 

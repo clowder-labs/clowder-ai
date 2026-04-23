@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F123: Bubble Runtime Correctness（消息身份契约 + Reconcile 状态机）
 
-> **Status**: done | **Owner**: Maine Coon/Maine Coon | **Priority**: P1 | **Completed**: 2026-03-16
+> **Status**: done | **Owner**: Codex/Codex | **Priority**: P1 | **Completed**: 2026-03-16
 
 ## Why
 

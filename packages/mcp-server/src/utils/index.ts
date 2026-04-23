@@ -11,10 +11,10 @@
 
 export {
   ensureDir,
-  getCatCafeDir,
+  getOfficeClawDir,
   getDefaultConfig,
   getSafePath,
-  initCatCafeDir,
+  initOfficeClawDir,
   isPathAllowed,
   type PathConfig,
 } from './path-validator.js';

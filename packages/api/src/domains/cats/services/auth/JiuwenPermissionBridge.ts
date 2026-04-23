@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId, RespondScope } from '@clowder/shared';
+import type { CatId, RespondScope } from '@office-claw/shared';
 import type { AuthorizationManager } from './AuthorizationManager.js';
 
 interface JiuwenQuestionOption {

@@ -6,24 +6,24 @@
 
 /**
  * Cats API Routes
- * GET /api/cats - 获取所有猫猫信息
- * GET /api/cats/:id/status - 获取猫猫状态
+ * GET /api/cats - 获取所有智能体信息
+ * GET /api/cats/:id/status - 获取智能体状态
  */
 
 import { resolve } from 'node:path';
 import {
-  type CatConfig,
+  type OfficeClawConfigEntry,
   type CatProvider,
   type ContextBudget,
-  catRegistry,
+  officeClawRegistry,
   type RosterEntry,
   resolveEmbeddedRuntimeKind,
-} from '@clowder/shared';
+} from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
-import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
-import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
+import { isSeedCat, resolveBoundAccountRefForCat } from '../config/office-claw-account-binding.js';
+import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/office-claw-catalog-store.js';
+import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/office-claw-config-loader.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
 import { findProjectModelConfigBinding, HUAWEI_MAAS_MODEL_SOURCE_ID } from '../config/model-config-profiles.js';
 import {
@@ -35,7 +35,7 @@ import {
   resolveRuntimeProviderProfileById,
   resolveRuntimeProviderProfileForClient,
 } from '../config/provider-profiles.js';
-import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
+import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-office-claw-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { embeddedAgentTeamsRuntimeAvailable, resolveEmbeddedAgentTeamsExecutable } from '../utils/agent-teams-bundle.js';
@@ -252,7 +252,7 @@ function resolveAccountRef(body: {
 function buildEffectiveAccountRefResolver(projectRoot: string) {
   const inheritedBindingCache = new Map<string, Promise<string | undefined>>();
 
-  return async (cat: CatConfig & { contextBudget?: ContextBudget }): Promise<string | undefined> => {
+  return async (cat: OfficeClawConfigEntry & { contextBudget?: ContextBudget }): Promise<string | undefined> => {
     const embeddedRuntimeKind = resolveEmbeddedRuntimeKind({
       id: cat.id,
       provider: cat.provider,
@@ -360,9 +360,9 @@ async function validateAccountBindingOrThrow(
 }
 
 async function toCatResponse(
-  cat: CatConfig & { contextBudget?: ContextBudget },
+  cat: OfficeClawConfigEntry & { contextBudget?: ContextBudget },
   metadata: CatResponseMetadata,
-  resolveEffectiveAccountRef: (cat: CatConfig & { contextBudget?: ContextBudget }) => Promise<string | undefined>,
+  resolveEffectiveAccountRef: (cat: OfficeClawConfigEntry & { contextBudget?: ContextBudget }) => Promise<string | undefined>,
 ) {
   return {
     id: cat.id,
@@ -411,7 +411,7 @@ async function toCatResponse(
   };
 }
 
-function resolveMemberLabel(existingId: string, existingConfig: CatConfig): string {
+function resolveMemberLabel(existingId: string, existingConfig: OfficeClawConfigEntry): string {
   const displayName = existingConfig.displayName?.trim();
   if (displayName) return displayName;
   const name = existingConfig.name?.trim();
@@ -421,7 +421,7 @@ function resolveMemberLabel(existingId: string, existingConfig: CatConfig): stri
   return existingId;
 }
 
-function loadConfigsForValidation(projectRoot: string): Record<string, CatConfig> {
+function loadConfigsForValidation(projectRoot: string): Record<string, OfficeClawConfigEntry> {
   const templatePath = resolveProjectTemplatePath(projectRoot);
   try {
     bootstrapCatCatalog(projectRoot, templatePath);
@@ -436,10 +436,10 @@ function normalizeNameForCompare(value: string | null | undefined): string {
 }
 
 function findNameConflict(
-  allConfigs: Record<string, CatConfig>,
+  allConfigs: Record<string, OfficeClawConfigEntry>,
   candidateNames: Array<string | null | undefined>,
   skipId?: string,
-): { existingId: string; existingConfig: CatConfig; conflictValue: string } | null {
+): { existingId: string; existingConfig: OfficeClawConfigEntry; conflictValue: string } | null {
   const normalizedCandidates = candidateNames
     .map((value) => value?.trim() ?? '')
     .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index);
@@ -463,18 +463,18 @@ function findNameConflict(
 async function reconcileCatRegistry(
   projectRoot: string,
   managedIdsBefore: ReadonlySet<string>,
-  onCatalogChanged?: (cats: Record<string, CatConfig>) => Promise<void> | void,
+  onCatalogChanged?: (cats: Record<string, OfficeClawConfigEntry>) => Promise<void> | void,
 ) {
   const runtimeCats = toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.office-claw', 'office-claw-catalog.json')));
-  const extraCats = catRegistry.getAllConfigs();
-  catRegistry.reset();
+  const extraCats = officeClawRegistry.getAllConfigs();
+  officeClawRegistry.reset();
   for (const [id, config] of Object.entries(runtimeCats)) {
-    catRegistry.register(id, config);
+    officeClawRegistry.register(id, config);
   }
   for (const [id, config] of Object.entries(extraCats)) {
-    if (!runtimeCats[id] && !managedIdsBefore.has(id)) catRegistry.register(id, config);
+    if (!runtimeCats[id] && !managedIdsBefore.has(id)) officeClawRegistry.register(id, config);
   }
-  const allCats = catRegistry.getAllConfigs();
+  const allCats = officeClawRegistry.getAllConfigs();
   await onCatalogChanged?.(allCats);
   return allCats;
 }
@@ -492,21 +492,21 @@ function getResolvedCats(projectRoot: string) {
     const templatePath = resolveProjectTemplatePath(projectRoot);
     bootstrapCatCatalog(projectRoot, templatePath);
     const resolved = toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot)));
-    for (const [id, config] of Object.entries(catRegistry.getAllConfigs())) {
+    for (const [id, config] of Object.entries(officeClawRegistry.getAllConfigs())) {
       if (!resolved[id]) resolved[id] = config;
     }
     return resolved;
   } catch {
-    return catRegistry.getAllConfigs();
+    return officeClawRegistry.getAllConfigs();
   }
 }
 
 interface CatsRoutesOptions {
-  onCatalogChanged?: (cats: Record<string, CatConfig>) => Promise<void> | void;
+  onCatalogChanged?: (cats: Record<string, OfficeClawConfigEntry>) => Promise<void> | void;
 }
 
 export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opts) => {
-  // GET /api/cats - 获取所有猫猫配置（按 client-visibility 过滤）
+  // GET /api/cats - 获取所有智能体配置（按 client-visibility 过滤）
   app.get('/api/cats', async () => {
     const projectRoot = resolveProjectRoot();
     const resolveMetadata = buildCatResponseMetadataResolver(projectRoot);
@@ -522,7 +522,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.post('/api/cats', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -649,7 +649,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.patch<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -686,7 +686,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     }
 
     const resolveEffectiveAccountRef = buildEffectiveAccountRefResolver(projectRoot);
-    const currentCat = getResolvedCats(projectRoot)[request.params.id] ?? catRegistry.tryGet(request.params.id)?.config;
+    const currentCat = getResolvedCats(projectRoot)[request.params.id] ?? officeClawRegistry.tryGet(request.params.id)?.config;
     if (!currentCat) {
       reply.status(404);
       return { error: `Cat "${request.params.id}" not found` };
@@ -801,14 +801,14 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.delete<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const projectRoot = resolveProjectRoot();
-    const currentCat = getResolvedCats(projectRoot)[request.params.id] ?? catRegistry.tryGet(request.params.id)?.config;
+    const currentCat = getResolvedCats(projectRoot)[request.params.id] ?? officeClawRegistry.tryGet(request.params.id)?.config;
     if (!currentCat) {
       reply.status(404);
       return { error: `Cat "${request.params.id}" not found` };
@@ -845,11 +845,11 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     }
   });
 
-  // GET /api/cats/:id/status - 获取猫猫状态
+  // GET /api/cats/:id/status - 获取智能体状态
   app.get<{ Params: { id: string } }>('/api/cats/:id/status', async (request, reply) => {
     const { id } = request.params;
     const projectRoot = resolveProjectRoot();
-    const cat = getResolvedCats(projectRoot)[id] ?? catRegistry.tryGet(id)?.config;
+    const cat = getResolvedCats(projectRoot)[id] ?? officeClawRegistry.tryGet(id)?.config;
 
     if (!cat) {
       reply.status(404);

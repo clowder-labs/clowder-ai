@@ -5,15 +5,15 @@
  */
 
 /**
- * Authorization Types (猫猫授权系统)
- * 猫猫向铲屎官请求权限 — 动态审批 + 持久化规则
+ * Authorization Types (智能体授权系统)
+ * 智能体向用户请求权限 — 动态审批 + 持久化规则
  */
 
 import type { CatId } from './ids.js';
 
 // ---- 请求/响应契约 ----
 
-/** 猫猫发起的权限请求 (Callback POST body) */
+/** 智能体发起的权限请求 (Callback POST body) */
 export interface PermissionRequest {
   readonly invocationId: string;
   readonly callbackToken: string;
@@ -22,14 +22,14 @@ export interface PermissionRequest {
   readonly context?: string;
 }
 
-/** API 返回给猫猫的响应 */
+/** API 返回给智能体的响应 */
 export interface PermissionResponse {
   readonly status: 'granted' | 'denied' | 'pending';
   readonly requestId?: string;
   readonly reason?: string;
 }
 
-/** 猫猫查询 pending 结果时的响应 */
+/** 智能体查询 pending 结果时的响应 */
 export interface PermissionStatusResponse {
   readonly requestId: string;
   readonly status: 'waiting' | 'granted' | 'denied';
@@ -58,7 +58,7 @@ export interface PendingRequestRecord {
   readonly respondScope?: RespondScope;
 }
 
-/** 铲屎官审批时的 scope 选择 */
+/** 用户审批时的 scope 选择 */
 export type RespondScope = 'once' | 'thread' | 'global';
 
 /**
@@ -106,7 +106,7 @@ export interface AuthorizationRequestEvent {
   readonly context?: string;
 }
 
-/** Client → Server: 铲屎官响应 */
+/** Client → Server: 用户响应 */
 export interface AuthorizationRespondEvent {
   readonly requestId: string;
   readonly granted: boolean;

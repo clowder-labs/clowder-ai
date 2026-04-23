@@ -9,13 +9,13 @@ updated: 2026-04-09
 
 # F139: XiaoYi Smart Assistant Gateway — 华为小艺智慧助手对接
 
-> **Status**: in-progress (Phase A ✅ Phase B-redesigned ✅ Phase C-inbound ✅) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ Phase B-redesigned ✅ Phase C-inbound ✅) | **Owner**: Claude | **Priority**: P1
 
 ## Why
 
-完善华为手机生态。华为小艺是鸿蒙系统原生 AI 助手，覆盖数亿华为/荣耀设备。通过华为 A2A（Agent-to-Agent）协议对接后，用户可以直接在手机端用语音或文字与猫猫对话，无需打开 Web UI 或第三方 IM。
+完善华为手机生态。华为小艺是鸿蒙系统原生 AI 助手，覆盖数亿华为/荣耀设备。通过华为 A2A（Agent-to-Agent）协议对接后，用户可以直接在手机端用语音或文字与智能体对话，无需打开 Web UI 或第三方 IM。
 
-**独特价值**：小艺不仅是消息通道——它能调用手机本地能力（GPS 定位、相机拍照、通讯录、日历、闹钟、短信等），意味着猫猫可以通过用户的手机感知和操作物理世界，这是飞书/钉钉/Telegram 无法提供的。
+**独特价值**：小艺不仅是消息通道——它能调用手机本地能力（GPS 定位、相机拍照、通讯录、日历、闹钟、短信等），意味着智能体可以通过用户的手机感知和操作物理世界，这是飞书/钉钉/Telegram 无法提供的。
 
 ## Prerequisites（接入前置）
 
@@ -26,7 +26,7 @@ updated: 2026-04-09
 2. 新建凭证 → 获取 **ak**（Access Key）、**sk**（Secret Key）
 3. 配置白名单分组 → 添加华为账号（真机调试用）
 4. 填写开场白 → 上架智能体
-5. 在 Cat Cafe 配置 ak、sk、agent_id → 开启频道
+5. 在 OfficeClaw 配置 ak、sk、agent_id → 开启频道
 
 **最小配置**：
 ```yaml
@@ -95,13 +95,13 @@ WebSocket 双通道 + 签名认证 + 纯文本收发。
 
 **初版（F139，2026-03-27）**：单文件 XiaoyiAdapter，实现基础双 WS 连接和文本收发。
 
-**2026-04-09 重写（从 fork 迁移）**：从 clowder-ai fork 迁移 3 文件拆分实现，主要增强：
+**2026-04-09 重写（从 fork 迁移）**：从 office-claw fork 迁移 3 文件拆分实现，主要增强：
 
 | 增强 | 说明 |
 |------|------|
 | 3 文件拆分 | `xiaoyi-protocol.ts` (协议) + `xiaoyi-ws.ts` (WS管理) + `XiaoyiAdapter.ts` (业务) |
 | 任务队列 | 同 session 多任务 FIFO 排队，避免并发写入冲突 |
-| onDeliveryBatchDone | 通知链驱动 close frame — 猫猫全部回复完才关闭任务 |
+| onDeliveryBatchDone | 通知链驱动 close frame — 智能体全部回复完才关闭任务 |
 | Keepalive | 活跃任务期间 20s 间隔发 status-update(working)，防 HAG 超时断连 |
 | Task timeout | 120s 安全网，超时自动关闭 |
 | SSRF guard | deny-list 方式验证媒体 URI（assertSafeXiaoyiUri），拒绝私网/非 https |
@@ -149,7 +149,7 @@ WebSocket 双通道 + 签名认证 + 纯文本收发。
 
 **入站 ✅ (2026-04-09)**：
 
-用户从小艺发送图片/文件/音频 → 猫猫接收处理。
+用户从小艺发送图片/文件/音频 → 智能体接收处理。
 
 - 解析 `parts[].kind=file` → `file.uri` + `file.mimeType` + `file.name`
 - MIME 类型检测：`image/*` → image, `audio/*` → audio, 其他 → file
@@ -241,11 +241,11 @@ HAG webhook — 长任务完成后推送摘要到手机。
 - **Evolved from**: F088（Multi-Platform Chat Gateway 三层架构）
 - **Related**: F132（DingTalk Stream 模式参考）
 - **ADR**: ADR-014（xiaoyi-connector-gateway 架构决策）
-- **注意**: 华为 A2A ≠ 我们的 A2A（F050）。华为 A2A 是 Agent-to-Agent 平台协议，我们的 A2A 是内部猫猫协作协议，同名不同物。
+- **注意**: 华为 A2A ≠ 我们的 A2A（F050）。华为 A2A 是 Agent-to-Agent 平台协议，我们的 A2A 是内部智能体协作协议，同名不同物。
 
 ## 2026-04-09 重写迁移记录
 
-从 clowder-ai fork (`terrenceeLeung/clowder-ai`) 迁移重写后的 Phase A+B 实现，替换初版单文件 XiaoyiAdapter。
+从 office-claw fork (`terrenceeLeung/office-claw`) 迁移重写后的 Phase A+B 实现，替换初版单文件 XiaoyiAdapter。
 
 **迁移内容**（14 files changed, +1266 -759）：
 
@@ -310,7 +310,7 @@ HAG webhook — 长任务完成后推送摘要到手机。
 | OQ-2 | 使用 AK/SK 还是 UID/API_KEY？ | ✅ AK/SK 模式（2026-03-27） |
 | OQ-3 | reasoningText 是否转发到前端展示？ | ✅ 需要转发（2026-03-27） |
 | OQ-4 | 手机工具调用 Agent 侧 API 如何暴露？ | ⬜ 讨论中 |
-| OQ-5 | 小艺用户身份如何映射到 Cat Cafe 用户？ | ✅ A2A 不传用户身份，使用 DEFAULT_OWNER_USER_ID 绑定（2026-03-27） |
+| OQ-5 | 小艺用户身份如何映射到 OfficeClaw 用户？ | ✅ A2A 不传用户身份，使用 DEFAULT_OWNER_USER_ID 绑定（2026-03-27） |
 | OQ-6 | `conversationId` 是否跨 app 重启持久？ | ✅ 实测确认持久（2026-03-27） |
 | OQ-7 | HAG 是否支持同 agentId 双 WS 并发？ | ⚠️ 疑似互踢（2026-04-09 office-claw 测试观察到循环重连），待确认 |
 
@@ -321,7 +321,7 @@ HAG webhook — 长任务完成后推送摘要到手机。
 | KD-1 | 独立立项 F139 | 手机工具调用是全新能力维度 | 2026-03-27 |
 | KD-2 | 复用 IM HUB 公共层 | F088 三层架构原则 | 2026-03-27 |
 | KD-3 | 参考 jiuwenclaw TypeScript 重写 | 适配 Node.js + IM HUB 架构 | 2026-03-27 |
-| KD-4 | 使用 AK/SK 认证模式 | 铲屎官确认 | 2026-03-27 |
+| KD-4 | 使用 AK/SK 认证模式 | 用户确认 | 2026-03-27 |
 | KD-5 | 用 `params.sessionId` 而非 `msg.sessionId` 作绑定键 | 实测发现顶层 sessionId 不稳定 | 2026-03-27 |
 | KD-6 | `DEFAULT_OWNER_USER_ID` 控制 thread 归属 | 与飞书/钉钉/Telegram 共用机制 | 2026-03-27 |
 | KD-7 | **非流式 append 累积**取代真流式 delta | HAG app 不支持 append:true delta（ADR-014 实测结论） | 2026-04-06 |
@@ -338,7 +338,7 @@ HAG webhook — 长任务完成后推送摘要到手机。
 | 2026-03-27 | Phase A 初版：XiaoyiAdapter + bootstrap 集成 |
 | 2026-03-27 | Phase A 实测：发现并修复 7 个 bug |
 | 2026-04-02 | ADR-014 决策：OpenClaw 模式 + 非流式交付 |
-| 2026-04-06 | Phase A+B 重写在 clowder-ai fork 完成并合入 |
+| 2026-04-06 | Phase A+B 重写在 office-claw fork 完成并合入 |
 | 2026-04-09 | 重写迁移到 office-claw，替换初版实现 |
 | 2026-04-09 | Codex 4 轮 review，修复 notify timing + SSRF 问题 |
 | 2026-04-09 | 真机验证通过 |
@@ -349,7 +349,7 @@ HAG webhook — 长任务完成后推送摘要到手机。
 |------|------|------|
 | **Parent** | `docs/features/F088-multi-platform-chat-gateway.md` | IM HUB 三层架构 |
 | **Related** | `docs/features/F132-dingtalk-wecom-gateway.md` | DingTalk Stream 模式参考 |
-| **Upstream** | terrenceeLeung/clowder-ai | Fork 中的重写实现 |
+| **Upstream** | terrenceeLeung/office-claw | Fork 中的重写实现 |
 | **ADR** | `docs/decisions/014-xiaoyi-connector-gateway.md` | 架构决策记录 |
 | **Reference** | jiuwenclaw `channel/xiaoyi_channel.py` | Python 参考实现 |
 | **Platform** | https://developer.huawei.com/consumer/cn/hag/abilityportal/ | 小艺开放平台 |

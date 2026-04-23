@@ -87,20 +87,20 @@ test('Windows startup quotes portable Redis file arguments before Start-Process'
   assert.match(helpersScript, /Quote-WindowsProcessArgument -Value \$AclFilePath/);
 });
 
-test('Windows stop script only stops Clowder-owned API and frontend listeners', () => {
+test('Windows stop script only stops OfficeClaw-owned API and frontend listeners', () => {
   assert.match(
     stopWindowsScript,
     /\$RunDir = if \(\$ProjectRoot\) \{ Join-Path \$ProjectRoot "\.office-claw\/run\/windows" \} else \{ \$null \}/,
   );
   assert.match(stopWindowsScript, /Get-ManagedProcessId/);
-  assert.match(stopWindowsScript, /Test-ClowderOwnedProcess/);
+  assert.match(stopWindowsScript, /Test-OfficeClawOwnedProcess/);
   assert.match(
     stopWindowsScript,
-    /\$isClowderOwned = \$isManagedPid -or \(Test-ClowderOwnedProcess -ProcessId \$conn\.OwningProcess -ClowderProjectRoot \$ProjectRoot\)/,
+    /\$isOfficeClawOwned = \$isManagedPid -or \(Test-OfficeClawOwnedProcess -ProcessId \$conn\.OwningProcess -OfficeClawProjectRoot \$ProjectRoot\)/,
   );
-  assert.match(stopWindowsScript, /Write-Warn "Skipping non-Clowder \$Name listener on port \$Port/);
-  assert.match(stopWindowsScript, /Write-Warn "\$Name \(port \$Port\) - no Clowder-owned listener found"/);
-  assert.match(stopWindowsScript, /\$normalizedRoot = \$ClowderProjectRoot\.TrimEnd\('\\', '\/'\) \+ '\\'/);
+  assert.match(stopWindowsScript, /Write-Warn "Skipping non-OfficeClaw \$Name listener on port \$Port/);
+  assert.match(stopWindowsScript, /Write-Warn "\$Name \(port \$Port\) - no OfficeClaw-owned listener found"/);
+  assert.match(stopWindowsScript, /\$normalizedRoot = \$OfficeClawProjectRoot\.TrimEnd\('\\', '\/'\) \+ '\\'/);
   assert.match(
     stopWindowsScript,
     /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \$normalizedRoot/,
@@ -150,7 +150,7 @@ test('Windows startup preserves configured REDIS_URL with DB suffix and credenti
   );
 });
 
-test('Windows startup reuses existing local Redis listeners even when they are not Clowder-owned', () => {
+test('Windows startup reuses existing local Redis listeners even when they are not OfficeClaw-owned', () => {
   assert.match(
     startWindowsScript,
     /\$redisConnections = Get-NetTCPConnection -LocalPort \$RedisPort -State Listen -ErrorAction SilentlyContinue/,
@@ -158,27 +158,27 @@ test('Windows startup reuses existing local Redis listeners even when they are n
   assert.match(startWindowsScript, /\$managedRedisPid = Get-ManagedProcessId -PidFile \$redisPidFile/);
   assert.match(
     startWindowsScript,
-    /\$isClowderOwned = \$isManagedPid -or \(Test-ClowderOwnedProcess -ProcessId \$conn\.OwningProcess -ProjectRoot \$ProjectRoot\)/,
+    /\$isOfficeClawOwned = \$isManagedPid -or \(Test-OfficeClawOwnedProcess -ProcessId \$conn\.OwningProcess -ProjectRoot \$ProjectRoot\)/,
   );
   assert.match(
     startWindowsScript,
-    /Write-Warn "Redis port \$RedisPort is in use by non-Clowder PID \$\(\$conn\.OwningProcess\) - reusing existing local Redis"/,
+    /Write-Warn "Redis port \$RedisPort is in use by non-OfficeClaw PID \$\(\$conn\.OwningProcess\) - reusing existing local Redis"/,
   );
-  assert.doesNotMatch(startWindowsScript, /throw "Redis port \$RedisPort is in use by a non-Clowder process"/);
+  assert.doesNotMatch(startWindowsScript, /throw "Redis port \$RedisPort is in use by a non-OfficeClaw process"/);
 });
 
-test('Windows startup only stops Clowder-owned listeners and records managed service PIDs', () => {
+test('Windows startup only stops OfficeClaw-owned listeners and records managed service PIDs', () => {
   assert.match(startWindowsScript, /\$RunDir = Join-Path \$ProjectRoot "\.office-claw\/run\/windows"/);
   assert.match(startWindowsScript, /\$ApiPidFile = Join-Path \$RunDir "api-\$ApiPort\.pid"/);
   assert.match(startWindowsScript, /function Get-ManagedProcessId/);
   assert.match(startWindowsScript, /function Set-ManagedProcessId/);
-  assert.match(startWindowsScript, /function Test-ClowderOwnedProcess/);
+  assert.match(startWindowsScript, /function Test-OfficeClawOwnedProcess/);
   assert.match(startWindowsScript, /Get-CimInstance Win32_Process -Filter "ProcessId = \$ProcessId"/);
   assert.match(
     startWindowsScript,
     /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \$normalizedRoot/,
   );
-  assert.match(startWindowsScript, /Port \$Port \(\$Name\) is in use by non-Clowder PID/);
+  assert.match(startWindowsScript, /Port \$Port \(\$Name\) is in use by non-OfficeClaw PID/);
   assert.match(
     startWindowsScript,
     /Stop-PortProcess -Port \(\[int\]\$ApiPort\) -Name "API" -PidFile \$ApiPidFile -ProjectRoot \$ProjectRoot/,
@@ -194,14 +194,14 @@ test('Windows ownership checks treat project roots as literal strings instead of
   );
   assert.match(
     stopWindowsScript,
-    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \(\$ClowderProjectRoot \+ '"'\)/,
+    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \(\$OfficeClawProjectRoot \+ '"'\)/,
   );
   assert.match(
     stopWindowsScript,
     /Test-CommandLineContainsLiteral -CommandLine \$cmdLine -Needle \$ProjectRoot/,
   );
   assert.doesNotMatch(startWindowsScript, /-like "\*\$normalizedRoot\*"/);
-  assert.doesNotMatch(stopWindowsScript, /-like "\*\$ClowderProjectRoot/);
+  assert.doesNotMatch(stopWindowsScript, /-like "\*\$OfficeClawProjectRoot/);
 });
 
 test('Windows bundled runtime prefers random frontend, API, and Redis ports and persists runtime state for shutdown', () => {
@@ -235,8 +235,8 @@ test('Windows bundled runtime prefers random frontend, API, and Redis ports and 
 });
 
 test('Windows startup reuses Credential Manager Redis auth and keeps runtime state redacted', () => {
-  assert.match(startWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
-  assert.match(startWindowsScript, /Write-ClowderCredential -Path "redis\/password" -Secret \$localRedisPassword/);
+  assert.match(startWindowsScript, /Read-OfficeClawCredential -Path "redis\/password"/);
+  assert.match(startWindowsScript, /Write-OfficeClawCredential -Path "redis\/password" -Secret \$localRedisPassword/);
   assert.match(startWindowsScript, /Write-Ok "Redis auth: connected with Credential Manager password"/);
   assert.match(startWindowsScript, /Write-Ok "Redis auth: new password generated"/);
   assert.match(
@@ -245,7 +245,7 @@ test('Windows startup reuses Credential Manager Redis auth and keeps runtime sta
   );
   assert.match(startWindowsScript, /RedisAuthFromCredentialManager = \[bool\]\$redisAuthFromCM/);
   assert.match(stopWindowsScript, /\$redisAuthFromCM = \[bool\]\(\$runtimeState -and \$runtimeState.RedisAuthFromCredentialManager\)/);
-  assert.match(stopWindowsScript, /Read-ClowderCredential -Path "redis\/password"/);
+  assert.match(stopWindowsScript, /Read-OfficeClawCredential -Path "redis\/password"/);
   assert.match(
     stopWindowsScript,
     /\$configuredRedisUrl = "redis:\/\/:\$\{escapedPwd\}@localhost:\$\{RedisPort\}"/,
@@ -320,9 +320,9 @@ test('Windows stop script resolves redis-cli through the shared helper chain bef
   assert.match(stopWindowsScript, /\$managedRedisPid = Get-ManagedProcessId -ManagedPidFile \$redisPidFile/);
   assert.match(
     stopWindowsScript,
-    /\$isClowderOwned = \$isManagedPid -or \(Test-ClowderOwnedProcess -ProcessId \$conn\.OwningProcess -ClowderProjectRoot \$ProjectRoot\)/,
+    /\$isOfficeClawOwned = \$isManagedPid -or \(Test-OfficeClawOwnedProcess -ProcessId \$conn\.OwningProcess -OfficeClawProjectRoot \$ProjectRoot\)/,
   );
-  assert.match(stopWindowsScript, /Write-Warn "Skipping non-Clowder Redis listener on port \$RedisPort/);
+  assert.match(stopWindowsScript, /Write-Warn "Skipping non-OfficeClaw Redis listener on port \$RedisPort/);
   assert.match(stopWindowsScript, /Get-RedisAuthArgs\s+-RedisUrl\s+\$configuredRedisUrl/);
   assert.match(stopWindowsScript, /@redisAuthArgs\s+ping/);
   assert.match(stopWindowsScript, /@redisAuthArgs\s+shutdown/);

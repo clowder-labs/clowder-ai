@@ -14,9 +14,9 @@ The installer payload is runtime-only. It intentionally excludes repository-only
 - Prebuilt `packages/api`, `packages/mcp-server`, and `packages/web`
 - Production runtime dependencies installed from staged package manifests whose versions are pinned from the current workspace install
 - A bundled Windows Node runtime under `tools/node`
-- A bundled portable Redis runtime under `.cat-cafe/redis/windows/current`
+- A bundled portable Redis runtime under `.office-claw/redis/windows/current`
 - A bundled `WebView2` desktop launcher (`OfficeClaw.exe`)
-- Project runtime files, scripts, and `cat-cafe-skills`
+- Project runtime files, scripts, and `office-claw-skills`
 
 The installed app does not need to run `pnpm install`, download Node, or fetch Redis again.
 
@@ -90,6 +90,6 @@ The installer and uninstaller preserve mutable runtime state:
 - `cat-config.json`
 - `data/`
 - `logs/`
-- `.cat-cafe/`
+- `.office-claw/`
 
 This means upgrades do not wipe local Redis/SQLite state, and uninstall removes the binaries while leaving user data behind.

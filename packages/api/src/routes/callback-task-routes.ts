@@ -8,7 +8,7 @@
  * Callback task routes — MCP post_message 回传的任务更新端点
  */
 
-import { catRegistry } from '@clowder/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -97,7 +97,7 @@ export function registerCallbackTaskRoutes(
       return EXPIRED_CREDENTIALS_ERROR;
     }
 
-    if (catId && !catRegistry.has(catId)) {
+    if (catId && !officeClawRegistry.has(catId)) {
       reply.status(400);
       return { error: `Unknown catId: ${catId}` };
     }

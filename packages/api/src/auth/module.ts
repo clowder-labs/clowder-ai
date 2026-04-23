@@ -1,4 +1,4 @@
-import type { AuthProvider } from '@clowder/plugin-api/auth';
+import type { AuthProvider } from '@office-claw/plugin-api/auth';
 import { AuthProviderRegistry } from './provider-registry.js';
 import { createHuaweiIamAuthProvider } from './providers/huawei-iam.js';
 import { createNoAuthProvider } from './providers/no-auth.js';
@@ -17,7 +17,7 @@ export interface CreateAuthModuleOptions {
 }
 
 function parseModuleSpecifiers(env: NodeJS.ProcessEnv): string[] {
-  const raw = env.CAT_CAFE_AUTH_PROVIDER_MODULES?.trim();
+  const raw = env.OFFICE_CLAW_AUTH_PROVIDER_MODULES?.trim();
   if (!raw) return [];
   return raw
     .split(',')
@@ -26,7 +26,7 @@ function parseModuleSpecifiers(env: NodeJS.ProcessEnv): string[] {
 }
 
 export function resolveConfiguredAuthProviderId(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = env.CAT_CAFE_AUTH_PROVIDER?.trim();
+  const explicit = env.OFFICE_CLAW_AUTH_PROVIDER?.trim();
   if (explicit) return explicit;
   return 'no-auth';
 }

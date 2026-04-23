@@ -180,7 +180,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     window.sessionStorage.clear();
     window.sessionStorage.removeItem(invocationDebugConstants.STORAGE_KEY);
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
     mockUserId = 'test-user';
     mockStoreCurrentThreadId = 'thread-B';
     mockAddMessageToThread.mockClear();
@@ -214,7 +214,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     container.remove();
     window.sessionStorage.removeItem(invocationDebugConstants.STORAGE_KEY);
     configureDebug({ enabled: false });
-    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
+    delete (window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug;
   });
 
   it('intent_mode from active thread is forwarded to callback', () => {
@@ -574,7 +574,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
     });
 
-    expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeUndefined();
+    expect((window as typeof window & { __officeClawDebug?: unknown }).__officeClawDebug).toBeUndefined();
   });
 
   it('debug disabled: queue_updated does not read thread snapshot metadata', () => {
@@ -624,7 +624,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
     });
 
-    const debugApi = (window as typeof window & { __catCafeDebug?: WindowDebugApi }).__catCafeDebug;
+    const debugApi = (window as typeof window & { __officeClawDebug?: WindowDebugApi }).__officeClawDebug;
     expect(debugApi).toBeDefined();
 
     expect(() => {
@@ -653,7 +653,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
     });
 
-    const debugApi = (window as typeof window & { __catCafeDebug?: WindowDebugApi }).__catCafeDebug;
+    const debugApi = (window as typeof window & { __officeClawDebug?: WindowDebugApi }).__officeClawDebug;
     expect(debugApi).toBeDefined();
 
     act(() => {
@@ -747,7 +747,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
   it('rejoins persisted thread rooms on connect after refresh', () => {
     window.sessionStorage.setItem(
-      'cat-cafe:ws:joined-rooms:v1:test-user',
+      'office-claw:ws:joined-rooms:v1:test-user',
       JSON.stringify(['thread:thread-A', 'thread:thread-B']),
     );
 
@@ -883,8 +883,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
   });
 
   it('does not restore rooms persisted by another user id', () => {
-    window.sessionStorage.setItem('cat-cafe:ws:joined-rooms:v1:alice', JSON.stringify(['thread:alice-secret']));
-    window.sessionStorage.setItem('cat-cafe:ws:joined-rooms:v1:bob', JSON.stringify(['thread:bob-work']));
+    window.sessionStorage.setItem('office-claw:ws:joined-rooms:v1:alice', JSON.stringify(['thread:alice-secret']));
+    window.sessionStorage.setItem('office-claw:ws:joined-rooms:v1:bob', JSON.stringify(['thread:bob-work']));
     mockUserId = 'bob';
 
     const callbacks: SocketCallbacks = { onMessage: vi.fn() };

@@ -52,7 +52,7 @@ describe('F118 TimeoutDiagnosticsPanel (AC-C3)', () => {
     act(() => {
       root.render(
         React.createElement(TimeoutDiagnosticsPanel, {
-          errorMessage: '缅因猫 CLI 响应超时 (1800s)',
+          errorMessage: 'Codex CLI 响应超时 (1800s)',
           diagnostics: diag,
         }),
       );

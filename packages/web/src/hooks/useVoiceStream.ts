@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@clowder/shared';
+import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@office-claw/shared';
 import { useCallback, useEffect } from 'react';
 import { PlaybackManager } from '@/services/PlaybackManager';
 import { useVoiceSessionStore } from '@/stores/voiceSessionStore';

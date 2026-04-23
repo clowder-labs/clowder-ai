@@ -10,10 +10,10 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@clowder/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
-import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { resolveOfficeClawHostRoot } from '../../../../../utils/office-claw-root.js';
 import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import {
   resolveJiuwenClawAppDir,
@@ -30,11 +30,11 @@ import { resolveUserSkillsRoot } from '../../skillhub/SkillPaths.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentServiceOptions } from '../../types.js';
 import {
-  buildCatCafeMcpEnv,
-  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS,
-  RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV,
-  resolveCatCafeMcpServer,
-} from './relayclaw-catcafe-mcp.js';
+  buildOfficeClawMcpEnv,
+  RELAYCLAW_EXCLUDED_OFFICE_CLAW_MCP_TOOLS,
+  RELAYCLAW_EXCLUDED_OFFICE_CLAW_MCP_TOOLS_ENV,
+  resolveOfficeClawMcpServer,
+} from './relayclaw-office-claw-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
 
@@ -184,14 +184,13 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const modelName = this.config.modelName?.trim() || 'gpt-5.4';
     const projectDir = options?.workingDirectory?.trim() || '';
     const projectRoot = projectDir || process.cwd();
-    const hostRoot = resolveCatCafeHostRoot(projectRoot);
-    const catCafeMcp = resolveCatCafeMcpServer(options?.workingDirectory);
+    const hostRoot = resolveOfficeClawHostRoot(projectRoot);
+    const officeClawMcp = resolveOfficeClawMcpServer(options?.workingDirectory);
     const sharedSkillDirs = [...resolveRelayClawSharedSkillsDirs(), resolveUserSkillsRoot(hostRoot)];
     const disabledSkills = resolveRelayClawDisabledSkills(projectRoot, this.catId as string);
 
     const modelContextWindowRaw = (
       callbackEnv.MODEL_CONTEXT_WINDOW ??
-      callbackEnv.CAT_CAFE_MODEL_CONTEXT_WINDOW ??
       ''
     ).trim();
     const modelContextWindowParsed = /^\d+$/.test(modelContextWindowRaw)
@@ -224,16 +223,16 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
         ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
         ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
-        [RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS_ENV]: RELAYCLAW_EXCLUDED_CAT_CAFE_MCP_TOOLS.join(','),
-        ...(catCafeMcp
+        [RELAYCLAW_EXCLUDED_OFFICE_CLAW_MCP_TOOLS_ENV]: RELAYCLAW_EXCLUDED_OFFICE_CLAW_MCP_TOOLS.join(','),
+        ...(officeClawMcp
           ? {
-              OFFICE_CLAW_MCP_SERVER_PATH: catCafeMcp.serverPath,
-              OFFICE_CLAW_MCP_COMMAND: catCafeMcp.command,
-              OFFICE_CLAW_MCP_ARGS_JSON: JSON.stringify(catCafeMcp.args),
-              OFFICE_CLAW_MCP_CWD: catCafeMcp.repoRoot,
+              OFFICE_CLAW_MCP_SERVER_PATH: officeClawMcp.serverPath,
+              OFFICE_CLAW_MCP_COMMAND: officeClawMcp.command,
+              OFFICE_CLAW_MCP_ARGS_JSON: JSON.stringify(officeClawMcp.args),
+              OFFICE_CLAW_MCP_CWD: officeClawMcp.repoRoot,
             }
           : {}),
-        ...buildCatCafeMcpEnv(callbackEnv),
+        ...buildOfficeClawMcpEnv(callbackEnv),
       },
       signature: {
         executablePath,
@@ -249,7 +248,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         provider,
         modelContextWindow: modelContextWindow ?? 0,
         sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
-        catCafeMcpPath: catCafeMcp?.serverPath ?? '',
+        officeClawMcpPath: officeClawMcp?.serverPath ?? '',
         keyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : '',
       },
     };
@@ -274,7 +273,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     if (process.platform === 'win32') {
       spawnEnv.PYTHONIOENCODING = 'utf-8';
       spawnEnv.PYTHONUTF8 = '1';
-      Object.assign(spawnEnv, withBundledPythonPath(spawnEnv, resolveCatCafeHostRoot(process.cwd())));
+      Object.assign(spawnEnv, withBundledPythonPath(spawnEnv, resolveOfficeClawHostRoot(process.cwd())));
     }
 
     const child = this.spawnFn(launchCommand.command, launchCommand.args, {

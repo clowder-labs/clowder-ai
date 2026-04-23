@@ -27,36 +27,36 @@ function mockMsg(overrides) {
 }
 
 describe('formatMessage', () => {
-  test('formats user message with 铲屎官', async () => {
+  test('formats user message with 用户', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({ content: '你好', timestamp: new Date('2026-02-07T14:02:00').getTime() });
     const result = formatMessage(msg);
     assert.ok(result.includes('14:02'));
-    assert.ok(result.includes('铲屎官'));
+    assert.ok(result.includes('用户'));
     assert.ok(result.includes('你好'));
   });
 
-  test('formats cat message with display name', async () => {
+  test('formats agent message with display name', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
-    const msg = mockMsg({ catId: 'opus', content: '喵', timestamp: new Date('2026-02-07T14:03:00').getTime() });
+    const msg = mockMsg({ catId: 'opus', content: '收到', timestamp: new Date('2026-02-07T14:03:00').getTime() });
     const result = formatMessage(msg);
     assert.ok(result.includes('14:03'));
-    assert.ok(result.includes('布偶猫'));
-    assert.ok(result.includes('喵'));
+    assert.ok(result.includes('Claude'));
+    assert.ok(result.includes('收到'));
   });
 
-  test('formats codex cat message', async () => {
+  test('formats codex agent message', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({ catId: 'codex', content: 'review done' });
     const result = formatMessage(msg);
-    assert.ok(result.includes('缅因猫'));
+    assert.ok(result.includes('Codex'));
   });
 
-  test('formats gemini cat message', async () => {
+  test('formats gemini agent message', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({ catId: 'gemini', content: 'design ready' });
     const result = formatMessage(msg);
-    assert.ok(result.includes('暹罗猫'));
+    assert.ok(result.includes('Gemini'));
   });
 
   test('truncates long content with head+tail preservation', async () => {
@@ -101,23 +101,23 @@ describe('assembleContext', () => {
     const { assembleContext } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const result = assembleContext([mockMsg({ content: '你好世界' })]);
     assert.ok(result.contextText.includes('[对话历史 - 最近 1 条]'));
-    assert.ok(result.contextText.includes('铲屎官'));
+    assert.ok(result.contextText.includes('用户'));
     assert.ok(result.contextText.includes('你好世界'));
     assert.ok(result.contextText.endsWith('[/对话历史]'));
     assert.equal(result.messageCount, 1);
   });
 
-  test('formats mixed user and cat messages', async () => {
+  test('formats mixed user and agent messages', async () => {
     const { assembleContext } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msgs = [
-      mockMsg({ catId: null, content: '@布偶 你好', timestamp: 1000 }),
-      mockMsg({ catId: 'opus', content: '你好铲屎官', timestamp: 2000 }),
+      mockMsg({ catId: null, content: '@Claude 你好', timestamp: 1000 }),
+      mockMsg({ catId: 'opus', content: '你好用户', timestamp: 2000 }),
       mockMsg({ catId: 'codex', content: '我也在', timestamp: 3000 }),
     ];
     const result = assembleContext(msgs);
-    assert.ok(result.contextText.includes('铲屎官'));
-    assert.ok(result.contextText.includes('布偶猫'));
-    assert.ok(result.contextText.includes('缅因猫'));
+    assert.ok(result.contextText.includes('用户'));
+    assert.ok(result.contextText.includes('Claude'));
+    assert.ok(result.contextText.includes('Codex'));
     assert.equal(result.messageCount, 3);
   });
 
@@ -149,13 +149,13 @@ describe('assembleContext', () => {
     const msgs = [
       mockMsg({ catId: null, content: 'Error: Cannot find module "foo"', timestamp: 1000 }),
       mockMsg({ catId: null, content: '正常消息', timestamp: 2000 }),
-      mockMsg({ catId: 'opus', content: '猫猫回复', timestamp: 3000 }),
+      mockMsg({ catId: 'opus', content: '智能体回复', timestamp: 3000 }),
     ];
     const result = assembleContext(msgs);
     assert.equal(result.messageCount, 3);
     assert.ok(result.contextText.includes('Error: Cannot find module'));
     assert.ok(result.contextText.includes('正常消息'));
-    assert.ok(result.contextText.includes('猫猫回复'));
+    assert.ok(result.contextText.includes('智能体回复'));
   });
 
   test('excludes userId=system messages from prompt context (error badge pollution)', async () => {
@@ -163,14 +163,14 @@ describe('assembleContext', () => {
     const msgs = [
       mockMsg({ catId: null, userId: 'user-1', content: '你好', timestamp: 1000 }),
       mockMsg({ catId: null, userId: 'system', content: 'Error: stream_idle_stall: Gemini stopped', timestamp: 2000 }),
-      mockMsg({ catId: 'opus', userId: 'user-1', content: '猫猫回复', timestamp: 3000 }),
+      mockMsg({ catId: 'opus', userId: 'user-1', content: '智能体回复', timestamp: 3000 }),
     ];
     const result = assembleContext(msgs);
     assert.equal(result.messageCount, 2, 'system error should be excluded from count');
     assert.ok(result.contextText.includes('你好'), 'user message should be included');
-    assert.ok(result.contextText.includes('猫猫回复'), 'cat message should be included');
+    assert.ok(result.contextText.includes('智能体回复'), 'cat message should be included');
     assert.ok(!result.contextText.includes('stream_idle_stall'), 'system error should NOT enter prompt');
-    assert.ok(!result.contextText.includes('铲屎官] Error:'), 'system error must not appear as 铲屎官');
+    assert.ok(!result.contextText.includes('用户] Error:'), 'system error must not appear as 用户');
   });
 
   test('uses default maxMessages=20 and maxContentLength=1500', async () => {
@@ -249,12 +249,12 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     // Simulate: long work log + conclusion at end (the exact bug scenario)
     const workLog = 'Phase 1 completed. Phase 2 in progress. '.repeat(50);
-    const conclusion = '\n\n## Review 请求\n请确认修复是否正确，确认后将执行合入。\n@缅因猫';
+    const conclusion = '\n\n## Review 请求\n请确认修复是否正确，确认后将执行合入。\n@Codex';
     const msg = mockMsg({ content: workLog + conclusion });
     const result = formatMessage(msg, { truncate: 1500 });
 
     assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result), 'should have truncation marker with char count');
-    assert.ok(result.includes('@缅因猫'), 'should preserve @mention at end');
+    assert.ok(result.includes('@Codex'), 'should preserve @mention at end');
     assert.ok(result.includes('Review 请求'), 'should preserve review request');
     assert.ok(result.includes('Phase 1'), 'should preserve beginning context');
   });
@@ -286,13 +286,13 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
 
 describe('cross-post sender variant: distinguish same-family cats', () => {
   before(async () => {
-    const { catRegistry } = await import('../node_modules/@clowder/shared/dist/index.js');
-    // Register variant cats that exist in office-claw-config.json but not in static CAT_CONFIGS
-    if (!catRegistry.has('sonnet')) {
-      catRegistry.register('sonnet', {
+    const { officeClawRegistry } = await import('../node_modules/@office-claw/shared/dist/index.js');
+    // Register variant cats that exist in office-claw-config.json but not in static OFFICE_CLAW_CONFIGS
+    if (!officeClawRegistry.has('sonnet')) {
+      officeClawRegistry.register('sonnet', {
         id: 'sonnet',
         name: 'sonnet',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         nickname: '宪宪',
         avatar: '/avatars/sonnet.png',
         color: { primary: '#e0c9a0', secondary: '#f5ede0' },
@@ -307,11 +307,11 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
         isDefaultVariant: false,
       });
     }
-    if (!catRegistry.has('opus-45')) {
-      catRegistry.register('opus-45', {
+    if (!officeClawRegistry.has('opus-45')) {
+      officeClawRegistry.register('opus-45', {
         id: 'opus-45',
         name: 'opus-45',
-        displayName: '布偶猫',
+        displayName: 'Claude',
         nickname: '宪宪',
         avatar: '/avatars/opus-45.png',
         color: { primary: '#e0c9a0', secondary: '#f5ede0' },
@@ -326,11 +326,11 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
         isDefaultVariant: false,
       });
     }
-    if (!catRegistry.has('spark')) {
-      catRegistry.register('spark', {
+    if (!officeClawRegistry.has('spark')) {
+      officeClawRegistry.register('spark', {
         id: 'spark',
         name: 'spark',
-        displayName: '缅因猫 Spark',
+        displayName: 'Codex Spark',
         nickname: '砚砚',
         avatar: '/avatars/sliced-finial/codex_box.png',
         color: { primary: '#81C784', secondary: '#C8E6C9' },
@@ -348,11 +348,11 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
   });
 
   after(async () => {
-    const { catRegistry } = await import('../node_modules/@clowder/shared/dist/index.js');
-    catRegistry.reset();
+    const { officeClawRegistry } = await import('../node_modules/@office-claw/shared/dist/index.js');
+    officeClawRegistry.reset();
   });
 
-  test('formatMessage shows 布偶猫(Sonnet) for sonnet catId', async () => {
+  test('formatMessage shows Claude(Sonnet) for sonnet catId', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({
       catId: 'sonnet',
@@ -363,7 +363,7 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
     });
     const result = formatMessage(msg);
     // Should show family name + variant, not just raw catId
-    assert.ok(result.includes('布偶猫'), `expected 布偶猫 family name, got: ${result}`);
+    assert.ok(result.includes('Claude'), `expected Claude family name, got: ${result}`);
     assert.ok(result.includes('Sonnet') || result.includes('sonnet'), `expected Sonnet variant, got: ${result}`);
     assert.ok(
       !/\[\d{2}:\d{2}\ssonnet(?:\s|←|\])/.test(result),
@@ -371,7 +371,7 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
     );
   });
 
-  test('formatMessage shows 布偶猫(Opus 4.5) for opus-45 catId', async () => {
+  test('formatMessage shows Claude(Opus 4.5) for opus-45 catId', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({
       catId: 'opus-45',
@@ -381,7 +381,7 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
       },
     });
     const result = formatMessage(msg);
-    assert.ok(result.includes('布偶猫'), `expected 布偶猫 family name, got: ${result}`);
+    assert.ok(result.includes('Claude'), `expected Claude family name, got: ${result}`);
     assert.ok(result.includes('Opus 4.5') || result.includes('opus-45'), `expected Opus 4.5 variant, got: ${result}`);
     assert.ok(
       !/\[\d{2}:\d{2}\sopus-45(?:\s|←|\])/.test(result),
@@ -396,18 +396,18 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
       content: 'Hello from spark',
     });
     const result = formatMessage(msg);
-    assert.ok(result.includes('缅因猫 Spark'), `expected displayName to be preserved, got: ${result}`);
+    assert.ok(result.includes('Codex Spark'), `expected displayName to be preserved, got: ${result}`);
     assert.ok(!result.includes('Spark(Spark)'), `should avoid duplicate variant label, got: ${result}`);
   });
 
-  test('formatMessage for opus (main) still shows 布偶猫 without extra variant noise', async () => {
+  test('formatMessage for opus (main) still shows Claude without extra variant noise', async () => {
     const { formatMessage } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msg = mockMsg({
       catId: 'opus',
       content: 'Hello from opus',
     });
     const result = formatMessage(msg);
-    assert.ok(result.includes('布偶猫'), `should still show 布偶猫 for opus, got: ${result}`);
+    assert.ok(result.includes('Claude'), `should still show Claude for opus, got: ${result}`);
   });
 });
 
@@ -426,7 +426,7 @@ describe('F052: cross-thread source annotation', () => {
       result.includes('← from thread:source-t'),
       'should contain source thread annotation (truncated to 8 chars)',
     );
-    assert.ok(result.includes('缅因猫'), 'should still show cat name');
+    assert.ok(result.includes('Codex'), 'should still show agent name');
   });
 
   test('formatMessage does NOT add annotation for local messages', async () => {
@@ -520,8 +520,8 @@ describe('assembleContext — F8 token-based truncation', () => {
       },
     });
     const result = formatMessage(msg);
-    assert.ok(result.includes('GitHub Review'), 'should use source.label instead of 铲屎官');
-    assert.ok(!result.includes('铲屎官'), 'should NOT show 铲屎官 for connector messages');
+    assert.ok(result.includes('GitHub Review'), 'should use source.label instead of 用户');
+    assert.ok(!result.includes('用户'), 'should NOT show 用户 for connector messages');
     assert.ok(result.includes('GitHub Review 通知'));
   });
 });

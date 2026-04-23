@@ -6,7 +6,7 @@
 
 /**
  * Gemini Agent Service
- * 使用 Gemini CLI 子进程调用暹罗猫 (Gemini)
+ * 使用 Gemini CLI 子进程调用Gemini (Gemini)
  *
  * 双 Adapter 架构:
  *   gemini-cli (默认):  spawn 'gemini' CLI + NDJSON → 全自动 headless
@@ -24,8 +24,8 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { type CatId, createCatId } from '@clowder/shared';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { type CatId, createCatId } from '@office-claw/shared';
+import { getCatModel } from '../../../../../config/office-claw-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';

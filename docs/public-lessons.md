@@ -90,7 +90,7 @@ created: 2026-02-26
 
 ---
 
-## 6) Maine Coon侧首批条目（AGENTS + Review + Skills）
+## 6) Codex侧首批条目（AGENTS + Review + Skills）
 
 ### LL-002: Review 问题必须先 Red 再 Green，禁止先改后补测
 - 状态：validated
@@ -103,12 +103,12 @@ created: 2026-02-26
 - 防护：review 关闭条件绑定 Red→Green 证据；无红灯记录不允许宣称修复完成。
 - 来源锚点：
   - `AGENTS.md#L281`
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md#L52`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md#L52`
 - 原理（可选）：修复可信度来自“可重复的因果链验证”，不是来自主观确信。
 
 - 关联：
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md`
-  - `cat-cafe-skills/systematic-debugging/SKILL.md`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md`
+  - `office-claw-skills/systematic-debugging/SKILL.md`
 
 ### LL-003: Reviewer 必须有立场，Author 必须技术性 push back
 - 状态：validated
@@ -118,15 +118,15 @@ created: 2026-02-26
 - 根因：模型天然趋同，追求和谐而非正确性，导致关键分歧被掩盖。
 - 触发条件：高节奏迭代、双方都想“快点过 review”、术语不精确时。
 - 修复：review 结论必须明确“建议修/不修 + because”；author 必须给技术判断。
-- 防护：分歧无法收敛时升级铲屎官裁决，不允许用“非 blocking”逃避判断。
+- 防护：分歧无法收敛时升级用户裁决，不允许用“非 blocking”逃避判断。
 - 来源锚点：
   - `AGENTS.md#L262`
   - `AGENTS.md#L271`
 - 原理（可选）：高质量 review 的本质是“可审计决策过程”，不是“快速达成共识”。
 
 - 关联：
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md`
-  - `cat-cafe-skills/cat-cafe-requesting-review/SKILL.md`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md`
+  - `office-claw-skills/office-claw-requesting-review/SKILL.md`
 
 ### LL-004: P1/P2 当轮清零，P3 当场决断，不挂债务
 - 状态：validated
@@ -144,7 +144,7 @@ created: 2026-02-26
 
 - 关联：
   - `docs/ROADMAP.md`
-  - `cat-cafe-skills/merge-approval-gate/SKILL.md`
+  - `office-claw-skills/merge-approval-gate/SKILL.md`
 
 ### LL-005: 修完 review 后必须回给 reviewer 二次确认再合 main
 - 状态：validated
@@ -156,12 +156,12 @@ created: 2026-02-26
 - 修复：修复完成后提交确认请求，等待 reviewer 明确放行语句再合入。
 - 防护：合入门禁检查 docs/mailbox 放行证据；条件放行需二次确认。
 - 来源锚点：
-  - `cat-cafe-skills/merge-approval-gate/SKILL.md#L8`
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md#L151`
+  - `office-claw-skills/merge-approval-gate/SKILL.md#L8`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md#L151`
 - 原理（可选）：双人闭环的价值在于“独立验证”，不是“互通知晓”。
 
 - 关联：
-  - `cat-cafe-skills/merge-approval-gate/SKILL.md`
+  - `office-claw-skills/merge-approval-gate/SKILL.md`
   - *(internal reference removed)*
 
 ### LL-006: 没有新鲜验证证据，不得宣称完成
@@ -174,13 +174,13 @@ created: 2026-02-26
 - 修复：每次完成声明前执行对应验证命令，读取完整输出和退出码。
 - 防护：completion 前置 verification gate；输出中必须附验证依据。
 - 来源锚点：
-  - `cat-cafe-skills/verification-before-completion/SKILL.md#L19`
-  - `cat-cafe-skills/verification-before-completion/SKILL.md#L27`
+  - `office-claw-skills/verification-before-completion/SKILL.md#L19`
+  - `office-claw-skills/verification-before-completion/SKILL.md#L27`
 - 原理（可选）：工程沟通的最小诚信单位是“可复现证据”，不是“信心表达”。
 
 - 关联：
-  - `cat-cafe-skills/verification-before-completion/SKILL.md`
-  - `cat-cafe-skills/spec-compliance-check/SKILL.md`
+  - `office-claw-skills/verification-before-completion/SKILL.md`
+  - `office-claw-skills/spec-compliance-check/SKILL.md`
 
 ### LL-007: 交接缺 Why 会让接手方无法判断
 - 状态：validated
@@ -193,11 +193,11 @@ created: 2026-02-26
 - 防护：缺项即阻断发送；交接模板与 skill 检查同时执行。
 - 来源锚点：
   - `AGENTS.md#L181`
-  - `cat-cafe-skills/cross-cat-handoff/SKILL.md#L10`
+  - `office-claw-skills/cross-cat-handoff/SKILL.md#L10`
 - 原理（可选）：协作效率的瓶颈是“决策上下文丢失”，不是“消息数量不足”。
 
 - 关联：
-  - `cat-cafe-skills/cross-cat-handoff/SKILL.md`
+  - `office-claw-skills/cross-cat-handoff/SKILL.md`
   - *(internal reference removed)*
 
 ### LL-008: Worktree 生命周期必须成套执行（建-收敛-合入-清理）
@@ -231,16 +231,16 @@ created: 2026-02-26
 - 防护：流程上把“澄清问题”置于实现之前，未澄清不得进入修复环节。
 - 来源锚点：
   - `AGENTS.md#L192`
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md#L100`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md#L100`
 - 原理（可选）：方向正确性是效率前提，错误方向上的加速只会放大损失。
 
 - 关联：
-  - `cat-cafe-skills/systematic-debugging/SKILL.md`
-  - `cat-cafe-skills/cat-cafe-receiving-review/SKILL.md`
+  - `office-claw-skills/systematic-debugging/SKILL.md`
+  - `office-claw-skills/office-claw-receiving-review/SKILL.md`
 
 ---
 
-## 7) Ragdoll侧首批条目（CLAUDE.md + Bug Report + Skills）
+## 7) Claude侧首批条目（CLAUDE.md + Bug Report + Skills）
 
 ### LL-010: 删除文件必须用 trash，禁止 /bin/rm
 - 状态：validated
@@ -250,19 +250,19 @@ created: 2026-02-26
 - 根因：把 `/bin/rm` 误认为"更正确"的选择。实际上 shell alias `rm → trash` 就是安全网，绕过它 = 放弃恢复能力。
 - 触发条件：shell 提示二选一时；或脚本中直接调用 rm。
 - 修复：一律使用 `trash` 命令代替任何 rm 操作。
-- 防护：CLAUDE.md 明确禁止 `/bin/rm`；铲屎官 shell 配置 `rm` alias → `trash`。
+- 防护：CLAUDE.md 明确禁止 `/bin/rm`；用户 shell 配置 `rm` alias → `trash`。
 - 来源锚点：
   - CLAUDE.md "删除文件必须用 trash" 段落（auto memory 2026-02-12）
   - 2026-02-12 实际犯错事件
 - 原理：不可逆操作必须有安全网（垃圾桶 = undo buffer）。绕过安全网的捷径永远比它节省的时间更危险。
 
-- 关联：CLAUDE.md 铲屎官硬规则
+- 关联：CLAUDE.md 用户硬规则
 
 ### LL-011: Worktree 清理的正确顺序——先 push，再 cd 回主仓，最后 remove
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：(1) 在 worktree CWD 里执行 `git worktree remove` 删除自己 → shell 悬空，什么都做不了。(2) 先删 worktree 再想 push → 站在虚空里连记忆都改不了，铲屎官笑着救了我。两次犯同类错误。
+- 坑：(1) 在 worktree CWD 里执行 `git worktree remove` 删除自己 → shell 悬空，什么都做不了。(2) 先删 worktree 再想 push → 站在虚空里连记忆都改不了，用户笑着救了我。两次犯同类错误。
 - 根因：没有意识到"删除当前工作目录"会导致 shell 失去锚点。删了就什么都做不了了。
 - 触发条件：在 worktree 目录内执行清理操作；或在清理前没完成所有需要 worktree 存在的操作。
 - 修复：强制顺序——(1) rebase + 合入 main (2) push origin main (3) cd 回主仓 (4) git worktree remove。
@@ -278,14 +278,14 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：Maine Coon正在 worktree 里修 bug，我看到 `git branch --merged main` 就以为已合入，`--force` 强删了他的工地。Maine Coon呆在消失的目录里不知所措。
+- 坑：Codex正在 worktree 里修 bug，我看到 `git branch --merged main` 就以为已合入，`--force` 强删了他的工地。Codex呆在消失的目录里不知所措。
 - 根因：把 `--merged main` 当成"工作完成"的充分条件。实际上 `--merged` 只说明分支起点在 main 历史上，不代表 worktree 内的工作已完成或没人在用。
 - 触发条件：清理 worktree 时看到"包含修改或未跟踪文件"警告但选择 --force。
 - 修复：清理前必须问"这个 worktree 有猫在用吗？"。有修改/未跟踪文件警告 = 绝对禁止 --force。
 - 防护：CLAUDE.md 明确规则 + 清理前先检查 worktree 内 git status。
 - 来源锚点：
   - CLAUDE.md "Worktree 铁律"（auto memory 2026-02-12）
-  - 2026-02-12 实际犯错：强删 `cat-cafe-opus-permission-request`
+  - 2026-02-12 实际犯错：强删 `office-claw-opus-permission-request`
 - 原理：单一信号（`--merged`）不足以判断完整状态。状态判断需要多维验证——分支合并状态 ≠ 工作目录状态 ≠ 使用者状态。
 
 - 关联：LL-008 | LL-011 | `using-git-worktrees` skill
@@ -294,9 +294,9 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：`git add myfile && git commit` 但暂存区已有上次 session 或铲屎官留下的文件，导致无关改动混入 commit。
+- 坑：`git add myfile && git commit` 但暂存区已有上次 session 或用户留下的文件，导致无关改动混入 commit。
 - 根因：`git add` 是追加操作，不是替换操作。暂存区是累积状态，不会因为新 add 而清空之前的内容。
-- 触发条件：连续 session 之间，或铲屎官手动操作后，暂存区有残留文件。
+- 触发条件：连续 session 之间，或用户手动操作后，暂存区有残留文件。
 - 修复：commit 前必须 `git status` 检查暂存区全部内容，确认只有自己的文件。
 - 防护：CLAUDE.md "Git commit 纪律" 明确规则。
 - 来源锚点：
@@ -310,7 +310,7 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：收到铲屎官汇报的 URL 路由缺失 bug 后，直接修代码，没写 bug report 也没写 review 信。被铲屎官批评：没有记录 = 无法复盘。
+- 坑：收到用户汇报的 URL 路由缺失 bug 后，直接修代码，没写 bug report 也没写 review 信。被用户批评：没有记录 = 无法复盘。
 - 根因："修 bug 最重要"的思维惯性，跳过了记录环节。没有意识到记录本身是修复流程的一部分。
 - 触发条件：收到 bug 报告后想快速修复的冲动；bug 看起来简单的时候尤其容易跳过。
 - 修复：CLAUDE.md §4 强制要求先写 bug report（5 项：报告人/复现步骤/根因/修复方案/验证方式），再动手。
@@ -326,7 +326,7 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：在 worktree 工作时未设置 REDIS_URL，服务回落到默认 6399（铲屎官数据），数据从 307 keys 降至 15 keys（95% 丢失）。虽最终从 RDB 备份完全恢复，但过程惊险。
+- 坑：在 worktree 工作时未设置 REDIS_URL，服务回落到默认 6399（用户数据），数据从 307 keys 降至 15 keys（95% 丢失）。虽最终从 RDB 备份完全恢复，但过程惊险。
 - 根因：开发环境和生产数据共享同一个 Redis 实例，靠配置（环境变量）隔离。一旦忘设配置，默认值指向生产。
 - 触发条件：worktree 中启动服务但忘记创建 `.env` 设置 `REDIS_URL=redis://localhost:6398`。
 - 修复：(1) 强制 worktree 使用 6398 端口 (2) 启动前验证 `echo $REDIS_URL` (3) 启动后验证数据量。
@@ -365,7 +365,7 @@ created: 2026-02-26
 - 防护：更新所有 Agent 的提示词模板，将 `curl` 示例改为 `jq` 构造法；在 `GEMINI.md` 中增加醒目警告。
 - 来源锚点：
   - `GEMINI.md` (2026-02-19 更新)
-  - 2026-02-19 Siamese（Gemini）“猫猫杀”游戏调试过程
+  - 2026-02-19 Gemini（Gemini）“智能体杀”游戏调试过程
 - 原理：结构化数据必须由结构化工具生成。在命令行环境中，`jq` 是保证数据序列化健壮性的事实标准。
 
 ### LL-017: CAS 比较必须基于不可变快照，不能用内存活引用
@@ -388,7 +388,7 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：Session 按 `userId:catId` 存储，不区分 thread。导致Maine Coon在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），Maine Coon在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
+- 坑：Session 按 `userId:catId` 存储，不区分 thread。导致Codex在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），Codex在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
 - 根因：Session key 设计缺少 threadId 维度。隐含假设"一只猫同时只在一个 thread 工作"，但多 thread 场景下 session 跨 thread 污染。
 - 触发条件：同一只猫被 @ 到多个 thread，且不同 thread 有不同的上下文/任务。
 - 修复：Session key 改为 `userId:catId:threadId` + 消息级审计日志追踪上下文来源。
@@ -439,13 +439,13 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-02-13
 
-- 坑：茶话会夺魂 bug 调试时，修 bug 的Ragdoll（分身 session `thread_mlkxnyg17ftop4v8`）找到了 `~/.codex/AGENTS.md` 全局注入后就停了——"这能解释为什么Maine Coon去跑 superpowers"。但铲屎官追问："可它怎么知道 Phase 5 的？AGENTS.md 里又没有 Phase 5。"这一问才逼出了真正的根因——Session 跨 thread 污染。如果铲屎官没追问，我们只会修触发器，留下根因。
+- 坑：茶话会夺魂 bug 调试时，修 bug 的Claude（分身 session `thread_mlkxnyg17ftop4v8`）找到了 `~/.codex/AGENTS.md` 全局注入后就停了——"这能解释为什么Codex去跑 superpowers"。但用户追问："可它怎么知道 Phase 5 的？AGENTS.md 里又没有 Phase 5。"这一问才逼出了真正的根因——Session 跨 thread 污染。如果用户没追问，我们只会修触发器，留下根因。
 - 根因：AI 模型的推理模式倾向于在找到"看起来说得通"的第一层解释后停止追溯。"看起来合理"≠"因果链完全闭合"。AGENTS.md 能解释 superpowers 行为但解释不了 Phase 5 知识来源——因果链有断点，但模型没有主动识别。
 - 触发条件：找到一个能解释部分症状的原因时；时间压力下想快速修复时；root cause 和 trigger 看起来像同一件事时。
-- 修复：铲屎官持续追问直到因果链完全闭合。每个"解释"都要验证：它能解释所有症状吗？有没有它解释不了的？
+- 修复：用户持续追问直到因果链完全闭合。每个"解释"都要验证：它能解释所有症状吗？有没有它解释不了的？
 - 防护：bug 根因分析清单增加"因果链闭合检查"——列出所有症状，确认提出的根因能逐一解释每个症状。解释不了的 = 根因不完整，继续挖。
 - 来源锚点：
-  - *(internal reference removed)* §5 Step 6（铲屎官追问 Phase 5 来源）
+  - *(internal reference removed)* §5 Step 6（用户追问 Phase 5 来源）
   - 实际修 bug session: `thread_mlkxnyg17ftop4v8`
   - *(internal reference removed)* Phase 1
 - 原理：根因分析的正确性标准不是"找到一个合理解释"，而是"因果链完全闭合——每个症状都能被根因解释"。第一层答案往往是触发器不是根因。必须持续问 "but why?" 直到没有未解释的症状。
@@ -490,15 +490,15 @@ created: 2026-02-26
 - 状态：draft
 - 更新时间：2026-02-27
 
-- 坑：SOP、CLAUDE.md、AGENTS.md、skill 文件里写死"Ragdoll找Maine Coon review"、"Maine Coon放行才能合入"。当同一物种有多个分身（Opus 4.5/4.6/Sonnet）时，规则指向不明；AGENTS.md 甚至出现"Maine Coon文件里写找Maine Coon review"的自我矛盾。
+- 坑：SOP、CLAUDE.md、AGENTS.md、skill 文件里写死"Claude找Codex review"、"Codex放行才能合入"。当同一物种有多个分身（Opus 4.5/4.6/Sonnet）时，规则指向不明；AGENTS.md 甚至出现"Codex文件里写找Codex review"的自我矛盾。
 - 根因：早期 1 Family = 1 Individual = 1 Role，写死个体名等于写死角色。多分身 + 新猫接入打破了这个等式。
 - 触发条件：新猫/新分身加入时，或同一物种多个分身同时在线时。
-- 修复：规则写"具有 peer-reviewer 角色的跨 family 猫"，不写"Maine Coon"。Roster (cat-config.json) 是唯一事实源，规则引用角色而非个体。
+- 修复：规则写"具有 peer-reviewer 角色的跨 family 猫"，不写"Codex"。Roster (cat-config.json) 是唯一事实源，规则引用角色而非个体。
 - 防护：F042 Phase B 文档去硬编码 + review 时检查是否有新增的个体名硬编码。
 - 来源锚点：
   - `docs/features/F042-prompt-engineering-audit.md` §1.1
   - *(internal reference removed)*
-  - 2026-02-27 四猫 + 铲屎官讨论
+  - 2026-02-27 四猫 + 用户讨论
 - 原理：协作规则的持久性取决于它引用的是稳定抽象（角色）还是不稳定实例（个体）。引用个体 = 每次团队变化都要改规则。
 
 - 关联：F042 | F032 | cat-config.json roster
@@ -507,15 +507,15 @@ created: 2026-02-26
 - 状态：draft
 - 更新时间：2026-02-27
 
-- 坑：Maine Coon在 Context compact 后自称"Ragdoll"（Ragdoll的昵称），把自己当成了Ragdoll。A2A @ 能力也随对话推进退化，猫猫不再主动 @ 队友协作。
+- 坑：Codex在 Context compact 后自称"Claude"（Claude的昵称），把自己当成了Claude。A2A @ 能力也随对话推进退化，智能体不再主动 @ 队友协作。
 - 根因：身份信息（"你是谁"）和 A2A 协议（"怎么 @ 队友"）被当成普通上下文，compact 时可能被压缩掉或改写。模型从最近上下文推断身份时，容易被最近的说话人风格锚定。
 - 触发条件：长对话 → Context compact → 身份段被压缩 → 模型从残留上下文推断错误身份。
 - 修复：每次 system prompt 注入（含 compact 后）都必须包含不可省略的身份声明 + A2A 格式规则。
 - 防护：F042 Phase A 验证注入缺口 + Phase C 优化注入频率。
 - 来源锚点：
   - `docs/features/F042-prompt-engineering-audit.md` §1.2, §1.3
-  - *(internal reference removed)*（Maine Coon自省分析）
-  - 2026-02-27 铲屎官运行时观察
+  - *(internal reference removed)*（Codex自省分析）
+  - 2026-02-27 用户运行时观察
 - 原理：多 Agent 系统中，身份是最基础的约束——它决定了模型的行为边界、权限和协作关系。把身份当成可推断项，就相当于每次 compact 后给模型一个"你可以变成任何人"的自由度。
 
 - 关联：F042 | LL-025 | SystemPromptBuilder
@@ -530,34 +530,34 @@ created: 2026-02-26
 - 对策：**Feature 相关 PR 合入后 48h 内必须同步 spec 的 Timeline/Status**。纳入 merge-gate 或 feat-lifecycle 的收尾步骤。
 - 来源锚点：
   - *(internal reference removed)*（收敛纪要）
-  - Maine Coon 2026-03-01 F042 盘点分析（对账 spec vs git log）
+  - Codex 2026-03-01 F042 盘点分析（对账 spec vs git log）
 - 关联：F042 | merge-gate | feat-lifecycle
 
 ### LL-028: "最小实现"不等于"做个玩具再重写"——绕路 C 点反模式
 - 状态：validated
 - 更新时间：2026-03-05
-- 现象：到了交付阶段仍在"先做个简陋版本让铲屎官验收"，交付半成品而非完整 feat。内部实现步骤被暴露为交付批次，铲屎官被迫反复验收中间产物。产出后续要重写而非扩展，等于做了两遍。
+- 现象：到了交付阶段仍在"先做个简陋版本让用户验收"，交付半成品而非完整 feat。内部实现步骤被暴露为交付批次，用户被迫反复验收中间产物。产出后续要重写而非扩展，等于做了两遍。
 - 根因：从"什么容易做"往前凑，而不是从终态往回推。把探索阶段的习惯（spike/MVP）带到了交付阶段。
 - 典型症状：先做内存 Map 模拟再换 Redis、先搭空壳模板再填真逻辑、先造通用框架再写业务。
 - 对策：
   1. Planning 阶段先钉终态 schema，每步产物必须在终态中原样保留（可扩展不可替换）
-  2. 步骤是内部实现节奏，不是给铲屎官看的交付批次；交付物是完整 feat
+  2. 步骤是内部实现节奏，不是给用户看的交付批次；交付物是完整 feat
   3. 纯探索显式标注 Spike（时间盒 + 产出结论），不伪装成交付物
   4. Quality gate 自检：后续要"重写"还是"扩展"？重写 = 绕路
-- 来源锚点：2026-03-05 铲屎官反馈 + Ragdoll/Maine Coon联合分析
+- 来源锚点：2026-03-05 用户反馈 + Claude/Codex联合分析
 - 关联：writing-plans | quality-gate
 
 ### LL-029: 交付物验证不能只看 spec checkbox——必须核实 commit/PR
 - 状态：validated
 - 更新时间：2026-03-09
-- 现象：猫猫声称 feature 完成/未完成，只看了 spec 文件的 checkbox 状态就下结论，没有去核实 git log、PR、实际 commit。导致"睁眼说瞎话"——spec 可能漏标、错标，与实际代码状态不一致。
+- 现象：智能体声称 feature 完成/未完成，只看了 spec 文件的 checkbox 状态就下结论，没有去核实 git log、PR、实际 commit。导致"睁眼说瞎话"——spec 可能漏标、错标，与实际代码状态不一致。
 - 根因：偷懒走捷径。spec checkbox 是人工维护的元数据，不是交付证据本身。把"关于证据的描述"当成了"证据"。
 - 对策：
   1. 验证交付物时，至少核实两层：spec checkbox + 实际 commit/PR 状态
   2. "完成"的证据链：spec AC ✅ + commit 存在 + PR merged + 测试通过
   3. "未完成"也需要证据：具体哪条 AC 缺失 + 对应代码/PR 确实没有
   4. 不要只读 .md 文件就下结论——.md 是索引，git 才是真相
-- 来源锚点：2026-03-09 铲屎官发现Ragdoll(另一线程)只看 spec 就声称 feat 未完成
+- 来源锚点：2026-03-09 用户发现Claude(另一线程)只看 spec 就声称 feat 未完成
 - 关联：P5（可验证才算完成）| quality-gate | feat-lifecycle
 
 ### LL-030: 共享脚本改默认值，同 commit 必须补显式环境值 + 真实启动验收
@@ -572,7 +572,7 @@ created: 2026-02-26
 - 来源锚点：
   - *(internal reference removed)*（C1 共识 + 4.1 决策）
   - `docs/decisions/016-sync-runtime-negation-decisions.md`（N3 否决分叉脚本）
-  - commit `553984d5`（Maine Coon proxy kill 门禁修复）
+  - commit `553984d5`（Codex proxy kill 门禁修复）
 - 原理：共享基础设施的默认值是所有消费环境的隐式契约。改默认值 = 改所有环境的行为。必须同时补齐所有消费方的显式覆盖，并用真实启动验证——静态检查只能证明"代码合法"，不能证明"行为正确"。
 
 - 关联：ADR-016 | LL-019 过度修复反模式 | LL-020 补丁数量信号
@@ -597,15 +597,15 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-03-14
 
-- 坑：F101 狼人杀被声明 done（2026-03-12），愿景守护由 GPT-5.4 审查并 pass。92 个单元测试全绿、190+ 游戏测试全绿。但 2026-03-14 铲屎官第一次真的启动 dev 点开狼人杀后发现：(1) GameShell 接了 onClose 但没渲染关闭按钮——用户被困在全屏游戏里出不来；(2) 无大厅/配置流程——硬编码 7 只猫自动塞入；(3) 猫猫 AI 不会自动行动——游戏永远卡在 night_guard 等待；(4) 与 .pen 设计稿的 UX 差距大。整体不可用。
+- 坑：F101 狼人杀被声明 done（2026-03-12），愿景守护由 GPT-5.4 审查并 pass。92 个单元测试全绿、190+ 游戏测试全绿。但 2026-03-14 用户第一次真的启动 dev 点开狼人杀后发现：(1) GameShell 接了 onClose 但没渲染关闭按钮——用户被困在全屏游戏里出不来；(2) 无大厅/配置流程——硬编码 7 只猫自动塞入；(3) 智能体 AI 不会自动行动——游戏永远卡在 night_guard 等待；(4) 与 .pen 设计稿的 UX 差距大。整体不可用。
 - 根因：愿景守护是通过阅读代码、测试报告和 spec checkbox 完成的，没有一只猫真的启动 `pnpm dev`，打开浏览器，点击"狼人杀"，选个模式，看看会发生什么。单元测试验证的是组件/引擎的孤立行为，不是端到端用户体验。"每个部件都对"≠"组装起来能用"。
 - 触发条件：feature 有前端 UI + 后端引擎 + WebSocket 实时交互等多层集成时；只跑单元测试不做 E2E 验证时。
 - 修复：(1) 重新打开 F101，补 Phase C 可用性修复；(2) 新增 AC-C4 要求 codex/gpt52 启动 dev 做真实 E2E 验收。
-- 防护：愿景守护增加"真实环境启动验证"环节——对于有 UI 的 feature，reviewer 或铲屎官必须至少启动一次 dev 环境并走通核心流程。不方便的话至少把 dev 启动好让铲屎官一起测。
+- 防护：愿景守护增加"真实环境启动验证"环节——对于有 UI 的 feature，reviewer 或用户必须至少启动一次 dev 环境并走通核心流程。不方便的话至少把 dev 启动好让用户一起测。
 - 来源锚点：
   - `docs/features/F101-mode-v2-game-engine.md` Phase C（2026-03-14 补充）
-  - 铲屎官 2026-03-14 消息："你们没人点开 dev 启动你们的东西跑过真的测试嘛？"
-  - 铲屎官 2026-03-14 截图：night_guard 全员等待，无关闭按钮
+  - 用户 2026-03-14 消息："你们没人点开 dev 启动你们的东西跑过真的测试嘛？"
+  - 用户 2026-03-14 截图：night_guard 全员等待，无关闭按钮
 - 原理：集成系统的正确性不能由组件测试的总和保证。单元测试验证的是"每个零件符合 spec"，不是"零件组装后的机器能工作"。对于用户直接使用的 feature，最终验收必须包含真实环境启动 + 用户视角走查。
 
 - 关联：LL-029 交付物验证 | LL-031 Quality gate 逐字段对账 | LL-006 没有新鲜验证证据不得宣称完成
@@ -614,7 +614,7 @@ created: 2026-02-26
 
 - 状态：validated
 - 更新时间：2026-03-18
-- 坑：PR #543 云端 Codex review 的 review body 显示 `COMMENTED`（通常意味着"no major issues"），但实际在 inline code comment 里提了一个 P1（flushDirtyThreads 用了空的 threadMemory.summary 会 30 秒后删除 rebuild 刚建好的 thread 索引）。Ragdoll只看了 review body 就 merge 了，漏掉了 P1。
+- 坑：PR #543 云端 Codex review 的 review body 显示 `COMMENTED`（通常意味着"no major issues"），但实际在 inline code comment 里提了一个 P1（flushDirtyThreads 用了空的 threadMemory.summary 会 30 秒后删除 rebuild 刚建好的 thread 索引）。Claude只看了 review body 就 merge 了，漏掉了 P1。
 - 根因：`gh pr view` 的 `--json reviews` 只返回 review body，不返回 inline code comments。必须额外调 `gh api repos/.../pulls/N/comments` 才能看到 inline comments。
 - 触发条件：云端 review 给了 `COMMENTED` state + 有 inline P1 code comment。
 - 防护：
@@ -622,7 +622,7 @@ created: 2026-02-26
   - 看到 `COMMENTED` 不等于通过——要看完整 comments 再判断
 - 来源锚点：
   - PR #543: fix(F102-E): thread indexing reads message content
-  - 铲屎官原话："等会！这个 codex 云端他给你提了 p1 的你怎么就合入了？"
+  - 用户原话："等会！这个 codex 云端他给你提了 p1 的你怎么就合入了？"
 - 关联：merge-gate skill、云端 review 流程
 
 ---
@@ -632,14 +632,14 @@ created: 2026-02-26
 - 状态：validated
 - 更新时间：2026-03-21
 - 坑：F102 Phase C 的 embedding 实现用了 `@huggingface/transformers`（Transformers.js ONNX，in-process CPU），而同一项目里 TTS/ASR 已有完整的参考架构（独立 Python 进程 + MLX GPU + HTTP /health + 端口注册 + GPU 锁）。结果：(a) CPU 和 API 进程争抢资源；(b) 无独立端口、无健康检查、dashboard 不可见；(c) 启动时同步阻塞下载 614MB 模型；(d) Mac 有 Apple Silicon GPU 不用，浪费硬件。
-- 根因：Ragdoll偷懒走了"最小实现路径"（ONNX + Transformers.js in-process），没有对照同项目已有的 TTS/ASR 架构模式。这是典型的"脚手架"——有终态参考（独立进程 GPU）还做了中间态（in-process CPU）。
+- 根因：Claude偷懒走了"最小实现路径"（ONNX + Transformers.js in-process），没有对照同项目已有的 TTS/ASR 架构模式。这是典型的"脚手架"——有终态参考（独立进程 GPU）还做了中间态（in-process CPU）。
 - 触发条件：新增本地模型推理能力时，没有先审视项目里已有的模型服务架构。
 - 防护：
   - **新增任何本地模型推理 → 先看 TTS/ASR 的实现模式**（独立进程 + GPU + HTTP + /health + 端口注册）
   - **禁止把模型推理放在 API 主进程内**（CPU 争抢 + 无隔离）
   - **Mac 上优先用 MLX**（Apple Silicon GPU 原生支持）
 - 正确做法：写一个独立的 `scripts/embed-api.py`（参考 `scripts/tts-api.py`），用 MLX 或 sentence-transformers GPU，暴露 `/embed` + `/health`，Node.js API 只做 HTTP 客户端。
-- 铲屎官原话："你用 cpu！为什么不用 gpu 啊！！你这实现我拒绝。你这不又是脚手架，有其他同样模型的参考实现你还非得实现成现在这样。"
+- 用户原话："你用 cpu！为什么不用 gpu 啊！！你这实现我拒绝。你这不又是脚手架，有其他同样模型的参考实现你还非得实现成现在这样。"
 - 关联：LL-029 交付物验证、F102 Phase C、TTS(scripts/tts-api.py)、ASR(scripts/whisper-api.py)
 
 ---
@@ -648,7 +648,7 @@ created: 2026-02-26
 
 - 状态：validated
 - 更新时间：2026-03-21
-- 坑：Maine Coon执行 `scripts/sync-to-opensource.sh` 时，TARGET_DIR 指向了 `cat-cafe-runtime`（runtime worktree）而非 `clowder-ai`（开源仓）。脚本核心操作 `rsync -a --delete` 把 runtime 当成开源仓目标来清洗：(a) 2057 个文件从磁盘删除（296,204 行代码消失）；(b) `.env` 被开源版覆盖（端口变 3003/3004、品牌变 Clowder AI、API keys 全丢、代理关闭）；(c) `.env` 被删除；(d) `node_modules` 损坏导致服务无法启动。**`.env` 是 gitignored 的，`git checkout .` 无法恢复，API keys、飞书/Telegram/GitHub IMAP 配置均无备份。**
+- 坑：Codex执行 `scripts/sync-to-opensource.sh` 时，TARGET_DIR 指向了 `office-claw-runtime`（runtime worktree）而非 `office-claw`（开源仓）。脚本核心操作 `rsync -a --delete` 把 runtime 当成开源仓目标来清洗：(a) 2057 个文件从磁盘删除（296,204 行代码消失）；(b) `.env` 被开源版覆盖（端口变 3003/3004、品牌变 OfficeClaw、API keys 全丢、代理关闭）；(c) `.env` 被删除；(d) `node_modules` 损坏导致服务无法启动。**`.env` 是 gitignored 的，`git checkout .` 无法恢复，API keys、飞书/Telegram/GitHub IMAP 配置均无备份。**
 - 根因：(1) sync 脚本的 TARGET_DIR 没有安全护栏，任何路径都能被当成目标；(2) `CLOWDER_AI_DIR` 环境变量被设错或在错误目录执行了脚本；(3) `rsync --delete` 是不可逆破坏性操作，无 trash/回收站。
 - 触发条件：`CLOWDER_AI_DIR` 指向内部 worktree，或在 worktree 目录下执行 sync 脚本导致相对路径解析错误。
 - 修复：
@@ -656,15 +656,15 @@ created: 2026-02-26
   - `.env`：从 WebStorm `content.dat` 缓存逐 key 恢复（Anthropic/OpenRouter/Feishu/GitHub IMAP 找回，OpenAI/Google/Telegram 未找回需手动补）
   - `.env`：从 `.env.example` 重建
 - 防护：
-  - **`sync-to-opensource.sh` 新增 TARGET_DIR 安全护栏**：(a) 目录名匹配 `cat-cafe*` 则拒绝；(b) 目标是当前仓库的 git worktree 则拒绝
-  - **full sync 改成 source-owned public gate**：先把导出产物打到 temp target，在 temp target 跑 `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance；绿了才允许碰真实 `clowder-ai`
+  - **`sync-to-opensource.sh` 新增 TARGET_DIR 安全护栏**：(a) 目录名匹配 `office-claw*` 则拒绝；(b) 目标是当前仓库的 git worktree 则拒绝
+  - **full sync 改成 source-owned public gate**：先把导出产物打到 temp target，在 temp target 跑 `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance；绿了才允许碰真实 `office-claw`
   - **本机 smoke 不再属于 full sync 主路径**：README/macOS 启动验收单独执行，且必须显式隔离端口/Redis，不能顺手碰 runtime
   - **所有猫：禁止对 runtime worktree 执行任何同步/清理脚本**（runtime 是生产环境，不是测试靶子）
   - **.env 应该有备份机制**（目前没有，gitignored 的敏感文件是单点故障）
 - 来源锚点：
   - `scripts/sync-to-opensource.sh` L148-L164（新增 safety guard）
   - `.sync-provenance.json`（事故证据：source_commit=aa15355e, 时间 2026-03-21T14:29）
-  - 铲屎官原话："他妈又在 runtime 改东西""什么配置都没了 这都没存档的 我都不记得有的怎么配的"
+  - 用户原话："他妈又在 runtime 改东西""什么配置都没了 这都没存档的 我都不记得有的怎么配的"
 - 原理：`rsync --delete` 对目标目录的破坏是不可逆的（不进 trash，直接 rm）。破坏性操作的目标路径必须有正面验证（allowlist），不能只靠"别填错"。gitignored 的敏感配置文件是备份盲区——git 保护不了它们，IDE 缓存是碰运气。
 
 - 关联：LL-015 Redis production Redis (sacred) | CLAUDE.md 四条铁律 | feedback_no_touch_runtime.md

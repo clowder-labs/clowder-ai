@@ -18,14 +18,14 @@ import { findDeepestExistingPath, isWithinPath, resolveAbsolutePath, tryRealpath
  * 配置接口
  */
 export interface PathConfig {
-  catCafeDir: string;
+  officeClawDir: string;
   allowedDirs: string[];
 }
 
 /**
- * 默认的 Clowder AI 子目录
+ * 默认的 OfficeClaw 子目录
  */
-const CAT_CAFE_SUBDIRS = ['chat', 'memory', 'workspace', 'assets', '.state'] as const;
+const OFFICE_CLAW_SUBDIRS = ['chat', 'memory', 'workspace', 'assets', '.state'] as const;
 
 /**
  * 获取默认配置
@@ -33,9 +33,9 @@ const CAT_CAFE_SUBDIRS = ['chat', 'memory', 'workspace', 'assets', '.state'] as 
  */
 export function getDefaultConfig(): PathConfig {
   const homeDir = os.homedir();
-  const defaultCatCafeDir = path.join(homeDir, '.office-claw');
+  const defaultOfficeClawDir = path.join(homeDir, '.office-claw');
 
-  const catCafeDir = process.env['OFFICE_CLAW_DATA_DIR'] ?? defaultCatCafeDir;
+  const officeClawDir = process.env['OFFICE_CLAW_DATA_DIR'] ?? defaultOfficeClawDir;
 
   // 解析允许的工作目录
   const allowedWorkspaceDirs = process.env['ALLOWED_WORKSPACE_DIRS'];
@@ -46,11 +46,11 @@ export function getDefaultConfig(): PathConfig {
         .filter(Boolean)
     : [];
 
-  // 默认允许 cat-cafe 目录和额外配置的目录
-  const allowedDirs = [catCafeDir, ...additionalDirs];
+  // 默认允许 office-claw 目录和额外配置的目录
+  const allowedDirs = [officeClawDir, ...additionalDirs];
 
   return {
-    catCafeDir,
+    officeClawDir,
     allowedDirs,
   };
 }
@@ -101,13 +101,13 @@ export function isPathAllowed(targetPath: string, config?: PathConfig): boolean 
 }
 
 /**
- * 获取 Clowder AI 数据目录
+ * 获取 OfficeClaw 数据目录
  * @param config - 可选的配置
- * @returns Clowder AI 数据目录路径
+ * @returns OfficeClaw 数据目录路径
  */
-export function getCatCafeDir(config?: PathConfig): string {
-  const { catCafeDir } = config ?? getDefaultConfig();
-  return resolveAbsolutePath(catCafeDir);
+export function getOfficeClawDir(config?: PathConfig): string {
+  const { officeClawDir } = config ?? getDefaultConfig();
+  return resolveAbsolutePath(officeClawDir);
 }
 
 /**
@@ -121,24 +121,24 @@ export function ensureDir(dirPath: string): void {
 }
 
 /**
- * 初始化 Clowder AI 目录结构
+ * 初始化 OfficeClaw 目录结构
  * 创建 ~/.office-claw/ 及其子目录
  * @param config - 可选的配置
  */
-export function initCatCafeDir(config?: PathConfig): void {
-  const catCafeDir = getCatCafeDir(config);
+export function initOfficeClawDir(config?: PathConfig): void {
+  const officeClawDir = getOfficeClawDir(config);
 
   // 创建主目录
-  ensureDir(catCafeDir);
+  ensureDir(officeClawDir);
 
   // 创建子目录
-  for (const subdir of CAT_CAFE_SUBDIRS) {
-    const subdirPath = path.join(catCafeDir, subdir);
+  for (const subdir of OFFICE_CLAW_SUBDIRS) {
+    const subdirPath = path.join(officeClawDir, subdir);
     ensureDir(subdirPath);
   }
 
   // 输出到 stderr（stdout 用于 JSON-RPC）
-  console.error(`[cat-cafe] Initialized directory: ${catCafeDir}`);
+  console.error(`[office-claw] Initialized directory: ${officeClawDir}`);
 }
 
 /**

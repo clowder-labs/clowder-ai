@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { GameStore } from '../../dist/domains/leaderboard/game-store.js';
 
-const CAT_NAMES = { opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫' };
+const CAT_NAMES = { opus: 'Claude', codex: 'Codex', gemini: 'Gemini' };
 
 describe('GameStore', () => {
   it('appends a record and assigns an id', () => {
@@ -51,7 +51,7 @@ describe('GameStore', () => {
     assert.equal(stats.catKill.mvps, 1);
     assert.ok(stats.catKill.topCat);
     assert.equal(stats.catKill.topCat.catId, 'opus'); // 2 wins vs codex 1
-    assert.equal(stats.catKill.topCat.displayName, '布偶猫');
+    assert.equal(stats.catKill.topCat.displayName, 'Claude');
   });
 
   it('computeGameStats counts who-spy shame', () => {

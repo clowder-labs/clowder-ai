@@ -383,7 +383,7 @@ function ThreadModeChatContainer({
 // F063: resizable split pane, chatBasis as percentage (20-80), persisted
   // F063 Gap 6: sidebar width in px, persisted
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
-    'cat-cafe:sidebarWidth',
+    'office-claw:sidebarWidth',
     SIDEBAR_DEFAULT,
   );
   const containerRef = useRef<HTMLDivElement>(null);
@@ -420,8 +420,8 @@ function ThreadModeChatContainer({
       const menu = (event as CustomEvent<{ menu?: 'skills' }>).detail?.menu;
       if (menu === 'skills') setSidebarMenu('skills');
     };
-    window.addEventListener('cat-cafe:open-sidebar-menu', handler);
-    return () => window.removeEventListener('cat-cafe:open-sidebar-menu', handler);
+    window.addEventListener('office-claw:open-sidebar-menu', handler);
+    return () => window.removeEventListener('office-claw:open-sidebar-menu', handler);
   }, []);
 
   // F096: Listen for interactive block send events
@@ -433,8 +433,8 @@ function ThreadModeChatContainer({
         handleSend(text);
       }
     };
-    window.addEventListener('cat-cafe:interactive-send', handler);
-    return () => window.removeEventListener('cat-cafe:interactive-send', handler);
+    window.addEventListener('office-claw:interactive-send', handler);
+    return () => window.removeEventListener('office-claw:interactive-send', handler);
   }, [handleSend, scrollToBottom]);
 
   const { addMessage } = useChatStore();

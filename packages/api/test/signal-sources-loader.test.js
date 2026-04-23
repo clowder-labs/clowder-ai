@@ -17,7 +17,7 @@ describe('signal sources loader', () => {
   let prevSignalsRoot;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync('/tmp/cat-cafe-signals-');
+    tempRoot = mkdtempSync('/tmp/office-claw-signals-');
     prevSignalsRoot = process.env.SIGNALS_ROOT_DIR;
     process.env.SIGNALS_ROOT_DIR = tempRoot;
   });

@@ -12,10 +12,10 @@
  * DELETE /api/config/session-strategy/:catId    — remove runtime override (fall back to lower sources)
  */
 
-import type { SessionStrategyConfig } from '@clowder/shared';
-import { catRegistry } from '@clowder/shared';
+import type { SessionStrategyConfig } from '@office-claw/shared';
+import { officeClawRegistry } from '@office-claw/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { isSessionChainEnabled, sessionStrategySchema } from '../config/cat-config-loader.js';
+import { isSessionChainEnabled, sessionStrategySchema } from '../config/office-claw-config-loader.js';
 import { getSessionStrategyWithSource } from '../config/session-strategy.js';
 import {
   deleteRuntimeOverride,
@@ -44,9 +44,9 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
     const allOverrides = getAllRuntimeOverrides();
     const cats = [];
 
-    for (const id of catRegistry.getAllIds()) {
+    for (const id of officeClawRegistry.getAllIds()) {
       const catId = id as string;
-      const entry = catRegistry.tryGet(catId);
+      const entry = officeClawRegistry.tryGet(catId);
       if (!entry) continue;
 
       const { effective, source } = getSessionStrategyWithSource(catId);
@@ -75,7 +75,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * The override is deep-merged with the base strategy at read time.
    */
   app.patch<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -84,7 +84,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
     const { catId } = request.params;
 
     // Verify cat exists in registry
-    const entry = catRegistry.tryGet(catId);
+    const entry = officeClawRegistry.tryGet(catId);
     if (!entry) {
       reply.status(404);
       return { error: `Unknown cat ID: "${catId}"` };
@@ -133,7 +133,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * Remove a runtime override for a variant cat — it falls back to lower-priority sources.
    */
   app.delete<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-office-claw-user']));
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Office-Claw-User header)' };
@@ -142,7 +142,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
     const { catId } = request.params;
 
     // Verify cat exists in registry
-    if (!catRegistry.tryGet(catId)) {
+    if (!officeClawRegistry.tryGet(catId)) {
       reply.status(404);
       return { error: `Unknown cat ID: "${catId}"` };
     }

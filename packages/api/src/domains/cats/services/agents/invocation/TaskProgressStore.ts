@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@clowder/shared';
+import type { CatId } from '@office-claw/shared';
 
 export type TaskProgressStatus = 'running' | 'completed' | 'interrupted';
 

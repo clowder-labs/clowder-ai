@@ -9,7 +9,7 @@ updated: 2026-04-14
 
 # F141: Windows 升级数据保留方案
 
-> Status: implemented | Owner: 布偶猫/宪宪
+> Status: implemented | Owner: Claude/宪宪
 
 ## Why
 
@@ -29,7 +29,7 @@ updated: 2026-04-14
 数据分三层：**PRESERVE**（升级保留）、**MANAGED**（升级替换）、**未声明**（灰色地带）。
 
 定义位置有**两个独立来源**，当前未完全同步：
-- `scripts/build-windows-installer.mjs:75-90` — JS 常量 `WINDOWS_PRESERVE_PATHS` / `WINDOWS_MANAGED_TOP_LEVEL_PATHS`，写入 `.clowder-release.json` 元数据，**NSIS 不读取**
+- `scripts/build-windows-installer.mjs:75-90` — JS 常量 `WINDOWS_PRESERVE_PATHS` / `WINDOWS_MANAGED_TOP_LEVEL_PATHS`，写入 `.office-claw-release.json` 元数据，**NSIS 不读取**
 - `packaging/windows/installer.nsi:691-727` — `CleanupManagedPayload` 宏，**实际执行删除的单一真相源**
 
 > **重要**: NSIS 采用**显式删除列表**（allowlist delete），不在列表中的路径不会被删除。
@@ -104,7 +104,7 @@ updated: 2026-04-14
 
 | 文件 | 说明 |
 |------|------|
-| `.clowder-release.json` | 版本元数据 |
+| `.office-claw-release.json` | 版本元数据 |
 | `.env.example` | 环境变量示例 |
 | `package.json` / `pnpm-lock.yaml` / `pnpm-workspace.yaml` | 包管理 |
 | `office-claw-template.json` | 模板配置 |

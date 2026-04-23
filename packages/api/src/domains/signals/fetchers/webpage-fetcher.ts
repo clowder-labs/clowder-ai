@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@clowder/shared';
+import type { SignalSource } from '@office-claw/shared';
 import { load } from 'cheerio';
 import type { FetchError, Fetcher, FetchResult, RawArticle } from './types.js';
 

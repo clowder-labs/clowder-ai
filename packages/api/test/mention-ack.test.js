@@ -59,7 +59,7 @@ describe('Mention Ack (#77)', () => {
       messageStore,
       socketManager,
       deliveryCursorStore,
-      sharedBank: 'cat-cafe-shared',
+      sharedBank: 'office-claw-shared',
       ...extraOpts,
     });
     return app;

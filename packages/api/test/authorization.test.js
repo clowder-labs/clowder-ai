@@ -6,7 +6,7 @@
 
 /**
  * Authorization System Tests
- * 猫猫授权系统 — RuleStore + PendingRequestStore + AuditStore + Manager
+ * 智能体授权系统 — RuleStore + PendingRequestStore + AuditStore + Manager
  */
 
 import assert from 'node:assert/strict';

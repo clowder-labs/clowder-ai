@@ -38,12 +38,12 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
     private lazy var appSupportURL: URL = {
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("ClowderAI", isDirectory: true)
+        return base.appendingPathComponent("OfficeClaw", isDirectory: true)
     }()
 
     private lazy var logDirURL: URL = {
         let base = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Logs/ClowderAI", isDirectory: true)
+        return base.appendingPathComponent("Logs/OfficeClaw", isDirectory: true)
     }()
 
     private var runDirURL: URL { appSupportURL.appendingPathComponent("run", isDirectory: true) }
@@ -84,7 +84,7 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             defer: false
         )
         window.center()
-        window.title = "Clowder AI"
+        window.title = "OfficeClaw"
         window.isReleasedWhenClosed = false
         window.backgroundColor = NSColor(calibratedRed: 1.0, green: 0.972, blue: 0.949, alpha: 1.0)
 
@@ -203,7 +203,7 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         webView.navigationDelegate = self
         webView.isHidden = true
         rootView?.addSubview(webView, positioned: .below, relativeTo: loadingOverlayView)
-        window?.title = "Clowder AI"
+        window?.title = "OfficeClaw"
         webView.load(URLRequest(url: frontendURL))
         self.webView = webView
     }
@@ -237,7 +237,7 @@ final class LauncherApp: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private func presentFailure(_ details: String) {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "Clowder AI failed to start"
+        alert.messageText = "OfficeClaw failed to start"
         alert.informativeText = details
         alert.addButton(withTitle: "OK")
         alert.runModal()

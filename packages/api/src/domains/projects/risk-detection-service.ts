@@ -4,7 +4,7 @@
  *
  */
 
-import type { IntentCard, RiskDetectionResult } from '@clowder/shared';
+import type { IntentCard, RiskDetectionResult } from '@office-claw/shared';
 
 const HOLLOW_VERBS = /\b(improve|optimize|enhance|support|manage|ensure|streamline|facilitate|leverage|utilize)\b/i;
 const SYSTEM_ACTORS = /^(the system|system|n\/a|none|tbd|)$/i;

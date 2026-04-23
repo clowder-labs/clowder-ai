@@ -3,9 +3,9 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [["@clowder/*"]],
+  "linked": [["@office-claw/*"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@clowder/web", "@cat-cafe/xinsheng-mcp"]
+  "ignore": ["@office-claw/web", "@office-claw/xinsheng-mcp"]
 }

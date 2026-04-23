@@ -55,7 +55,7 @@
         {
           "id": "office-default",
           "provider": "relayclaw",
-          "defaultModel": "glm-5.1",
+          "defaultModel": "gpt-5.4",
           "mcpSupport": true,
           "cli": {
             "command": "jiuwenclaw-app",
@@ -69,9 +69,9 @@
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           },
-          "accountRef": "huawei-maas",
+          "accountRef": "my-openai-proxy",
           "roleDescription": "全局梳理、脉络串联",
-          "providerProfileId": "huawei-maas",
+          "providerProfileId": "my-openai-proxy",
           "teamStrengths": "",
           "caution": null,
           "sessionChain": true
