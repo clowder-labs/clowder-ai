@@ -182,23 +182,6 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
-// Leaderboard types (F075 排行榜)
-export type {
-  Achievement,
-  CvoLevel,
-  GameRecord,
-  GameRecordInput,
-  GameStats,
-  LeaderboardEvent,
-  LeaderboardRange,
-  LeaderboardStatsResponse,
-  MentionStats,
-  RankedCat,
-  SillyCatEntry,
-  SillyStats,
-  StreakCat,
-  WorkStats,
-} from './leaderboard.js';
 // Limb types (F126 四肢控制面)
 export type {
   ILimbNode,
