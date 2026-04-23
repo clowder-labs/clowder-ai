@@ -156,8 +156,6 @@ vi.mock('@/components/SplitPaneView', () => ({ SplitPaneView: () => null }));
 vi.mock('@/components/ThinkingIndicator', () => ({ ThinkingIndicator: () => null }));
 vi.mock('@/components/ThreadExecutionBar', () => ({ ThreadExecutionBar: () => null }));
 vi.mock('@/components/ThreadSidebar', () => ({ ThreadSidebar: () => null }));
-vi.mock('@/components/VoteConfigModal', () => ({ VoteConfigModal: () => null }));
-vi.mock('@/components/VoteActiveBar', () => ({ VoteActiveBar: () => null }));
 vi.mock('@/components/workspace/ResizeHandle', () => ({ ResizeHandle: () => null }));
 vi.mock('@/components/CatAvatar', () => ({ CatAvatar: () => null }));
 vi.mock('@/components/icons/HubIcon', () => ({ HubIcon: () => null }));
