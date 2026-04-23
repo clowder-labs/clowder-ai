@@ -68,7 +68,6 @@ vi.mock('@/stores/chatStore', () => {
   );
   return { useChatStore: hook };
 });
-vi.mock('../TaskPanel', () => ({ TaskPanel: () => null }));
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({ getCatById: () => null, cats: [] }),
 }));

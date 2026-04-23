@@ -23,10 +23,6 @@ vi.mock('@/components/UserProfile', () => ({
   UserProfile: () => React.createElement('div', { 'data-testid': 'user-profile-stub' }),
 }));
 
-vi.mock('@/components/TaskPanel', () => ({
-  TaskPanel: () => React.createElement('div', { 'data-testid': 'task-panel-stub' }),
-}));
-
 vi.mock('@/components/AppModal', () => ({
   AppModal: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
 }));

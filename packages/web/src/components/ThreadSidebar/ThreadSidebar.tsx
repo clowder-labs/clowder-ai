@@ -15,7 +15,6 @@ import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { HubIcon } from '../icons/HubIcon';
 import { SearchInput } from '../shared/SearchInput';
-import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
@@ -942,7 +941,6 @@ export function ThreadSidebar({
 
         <UserProfile />
 
-        <TaskPanel />
       </aside>
 
       {showPicker && (
