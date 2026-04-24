@@ -1014,11 +1014,9 @@ function syncStoredApiKeys(storageRoot: string, secrets: ProviderProfilesSecrets
       writeSecretRef(ref, apiKey);
       entry.apiKeyRef = ref;
     } else {
-      const ref = isVolatileProviderProfileApiKeyRef(entry.apiKeyRef)
-        ? entry.apiKeyRef
-        : buildVolatileProviderProfileApiKeyRef(storageRoot, profileId);
-      writeVolatileProviderProfileApiKey(ref, apiKey);
-      entry.apiKeyRef = ref;
+      // No persistent secret backend (macOS / Linux) — keep apiKey in the
+      // secrets file so it survives process restarts.
+      continue;
     }
 
     delete entry.apiKey;
