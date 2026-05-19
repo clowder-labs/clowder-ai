@@ -17,8 +17,8 @@
     {
       "path": "packages/api/src/domains/memory",
       "owner": "gpt52",
-      "reason": "Memory 域已增长到 34 files；v0.8.0 发版先显式豁免，后续按 retrieval/indexing/distillation 子域拆分",
-      "expiresAt": "2026-05-17",
+      "reason": "Memory 域已增长到 34 files；v0.8.0 发版先显式豁免，后续按 retrieval/indexing/distillation 子域拆分。Exception expired 2026-05-17; extended to 2026-06-01 (aligned with F23 exceptions) to unblock CI while F102 sub-directory split work continues under owner @gpt52. Governance-only PR — no code behavior change.",
+      "expiresAt": "2026-06-01",
       "ticket": "F102"
     }
   ]
