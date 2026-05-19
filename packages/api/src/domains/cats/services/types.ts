@@ -106,7 +106,8 @@ export type AgentMessageType =
   | 'a2a_handoff'
   | 'system_info' // budget warnings, cancel feedback, extraction progress, thinking
   | 'provider_signal' // F149: upstream capacity/retry signals — skipped by invocation timeout & content flags
-  | 'liveness_signal'; // F149: stream idle watchdog — skipped by invocation timeout & content flags
+  | 'liveness_signal' // F149: stream idle watchdog — skipped by invocation timeout & content flags
+  | 'agent_loop'; // F153 Phase I: telemetry-only marker at LLM call boundary (provider stream parser emits; never user-visible)
 
 /**
  * A message yielded from an agent during invocation
