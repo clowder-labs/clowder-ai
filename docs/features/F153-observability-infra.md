@@ -235,11 +235,16 @@ W3C TraceContext 对齐的跨猫调用因果链：
 - MCP call spans + tool execution duration spans（真实执行边界）
 - 更广的 runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
 
-### Phase I: Step Summary（Agent Loop 行为节奏度量）
+### Phase I: Step Summary（Agent Loop 行为节奏度量）✅
 
-> **Status**: spec | **Owner**: Ragdoll
+> **Status**: merged | **Owner**: Ragdoll
 > **Provenance**: zts212653/clowder-ai#721
+> **Spec PR**: clowder-labs/clowder-ai#2 (merged 2026-05-19)
+> **Implementation PR**: clowder-labs/clowder-ai#3 (merged 2026-05-19, commit `f4594cb9`)
+> **Governance split PR**: clowder-labs/clowder-ai#4 (dir-exceptions extension, merged 2026-05-19, commit `d3e60d01`)
 > **Discussion**: 2026-05-19，三方对齐（铲屎官 + Maine Coon/砚砚 + Ragdoll/宪宪）
+>
+> **Provider coverage**: Claude CLI provider 已通过 `claude-ndjson-parser.ts` 在 `message_stop` 处 emit `cat_cafe.agent_loop` marker。其余 provider（Codex / Gemini / Kimi / Antigravity / OpenCode / DARE / A2A）尚未实现 marker emit，Step Summary 会显式显示 `agent_loop_count: —`（per AC-I2/I7 non-degradation rule）。后续 phase 补齐各 provider 的 stream parser hook。
 
 #### 问题
 
@@ -376,14 +381,21 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 - [x] AC-G8: Hub `HubTraceTree` 新增 X-Ray Inspector，prompt 分解 tabs（system/user/effective/meta）
 - [x] AC-G9: `LocalTraceStore` 默认 TTL 统一为 24h，导出常量 `LOCAL_TRACE_STORE_DEFAULT_MAX_AGE_MS` 消除 hydrate-traces 不一致
 
-### Phase I（Step Summary — Agent Loop 行为节奏度量）
-- [ ] AC-I1: Hub Traces tab 暴露 "Step Summary" 子视图（per `cat_cafe.route`），展示 `agent_loop_count` / `tool_call_count` / `a2a_dispatch_count` / `duration_ms` / `token_total` / `error_count`
-- [ ] AC-I2: 每个 provider stream parser 在识别到一次 LLM call 边界时 emit 统一的 `cat_cafe.agent_loop` marker（attributes: `AGENT_ID` + `GENAI_SYSTEM`），不依赖 `durationApiMs` 或 invocation done event；`agent_loop_count` = route 下 marker 计数。**首版若某 provider 暂无可识别的 boundary signal**（如 Codex CLI 当前 stream），该 provider 的 `agent_loop_count` 显示 `—`，记为 known limitation，**不退化**为 invocation count；Phase H/J 持续补齐各 provider 的 marker 识别
-- [ ] AC-I3: 新增 `cat_cafe.a2a.dispatch.count` counter，在 `cat_cafe.mention_dispatch` span 创建时 increment；attributes **仅 `AGENT_ID`**（已 allowlist），**不带** `invocationId / threadId`（metric-allowlist.ts:8-9 禁止），**不复用** `CALLBACK_TOOL / CALLBACK_REASON`（语义为 callback auth failure，与 dispatch 无关）；如实施需要 `dispatch.source/status` 等专属 labels，须先扩展 metric-allowlist。per-route `a2a_dispatch_count` 从 `cat_cafe.mention_dispatch` span 计数派生，不查 counter
-- [ ] AC-I4: Restored span 的 sub-step 计数（`agent_loop_count`/`tool_call_count`/`a2a_dispatch_count`）显示 `—` 或 null marker，**不显示 0**；只 `duration_ms` 对 restored 有效
-- [ ] AC-I5: Step Summary 面板 **不**计算或展示 "efficiency" / "quality" / 任何 normative score——只展示 raw counts（descriptive plane，遵循 KD-16）
-- [ ] AC-I6: 2D Length × Width 展示——UI 同时显示 `agent_loop_count`（深度）和 `tool_call_count / agent_loop_count`（平均宽度）
-- [ ] AC-I7: 单元/集成测试覆盖 counter increment、restored-vs-live 区分、AC-I5 normative 字段缺位、**live provider 无 `cat_cafe.agent_loop` marker 时 `agent_loop_count` 显式显示 `—`**（不退化成 invocation count，Phase I 最关键防退化边界）
+### Phase I（Step Summary — Agent Loop 行为节奏度量）✅
+- [x] AC-I1: Hub Traces tab 暴露 "Step Summary" 子视图（per `cat_cafe.route`），展示 `agent_loop_count` / `tool_call_count` / `a2a_dispatch_count` / `duration_ms` / `token_total` / `error_count`
+- [x] AC-I2: 每个 provider stream parser 在识别到一次 LLM call 边界时 emit 统一的 `cat_cafe.agent_loop` marker；`agent_loop_count` = route 下 marker 计数（Claude provider 在 `message_stop` 处 emit；其他 provider 显示 `—`，不退化为 invocation count）
+- [x] AC-I3: 新增 `cat_cafe.a2a.dispatch.count` counter，在 `cat_cafe.mention_dispatch` span 创建时 increment；attributes **仅 `AGENT_ID`**，不带高基数字段；per-route `a2a_dispatch_count` 从 span 计数派生
+- [x] AC-I4: Restored span 的 sub-step 计数显示 `—` 或 null marker，**不显示 0**；只 `duration_ms` 对 restored 有效
+- [x] AC-I5: Step Summary 面板 **不**计算或展示 "efficiency" / "quality" / 任何 normative score——只展示 raw counts（descriptive plane，遵循 KD-16）
+- [x] AC-I6: 2D Length × Width 展示——UI 同时显示 `agent_loop_count`（深度）和 `tool_call_count / agent_loop_count`（平均宽度）
+- [x] AC-I7: 单元/集成测试覆盖 counter increment、restored-vs-live 区分、AC-I5 normative 字段缺位、**live provider 无 `cat_cafe.agent_loop` marker 时 `agent_loop_count` 显式显示 `—`**（不退化成 invocation count，Phase I 最关键防退化边界）
+
+**Timeline:**
+| Date | Event |
+|------|-------|
+| 2026-05-19 | Phase I spec merged (PR #2, commit `b36540cf`) |
+| 2026-05-19 | Phase I implementation merged (PR #3, commit `f4594cb9`) |
+| 2026-05-19 | Governance split: dir-exception extension (PR #4, commit `d3e60d01`) |
 
 ## Dependencies
 
