@@ -1636,9 +1636,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       } else {
         // F153 Phase I: agent_loop is telemetry-only — record marker, never push to outputs
         // (no user-visible signal, no transcript write, no downstream forwarding).
+        // processMessage is an arrow function (not a loop), so `return outputs` (empty here)
+        // is the correct way to skip the remaining branches and transcript writer below.
         if (msg.type === 'agent_loop') {
           if (invocationSpan) recordAgentLoop(invocationSpan);
-          continue;
+          return outputs;
         }
         outputs.push(attachInvocationIdToTaskProgress(msg));
 
