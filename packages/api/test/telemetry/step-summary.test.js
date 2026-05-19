@@ -88,6 +88,66 @@ test('F153 Phase I: telemetry routes expose /api/telemetry/step-summary endpoint
   assert.ok(src.includes('computeStepSummary'), 'Should import computeStepSummary');
 });
 
+// ── Maine Coon review round 1 P1 fixes ─────────────────────────────
+
+test('F153 Phase I (P1-1): callback-a2a-trigger lazy-creates dispatch span only when actually dispatching', () => {
+  const src = readFileSync(resolve(__dirname, '../../src/routes/callback-a2a-trigger.ts'), 'utf8');
+  // Lazy helper must exist
+  assert.ok(src.includes('ensureDispatchTraceContext'), 'Should define ensureDispatchTraceContext lazy helper');
+  // wrapWithDispatchSpan must NOT be called at function top before guards
+  // (look for top-level early creation pattern)
+  assert.ok(
+    !/const dispatchTraceContext = opts\.callerTraceContext\s*\?\s*wrapWithDispatchSpan/.test(src),
+    'Must NOT pre-allocate dispatchTraceContext before depth/dedup/streak guards',
+  );
+  // All three downstream usage points must go through the lazy helper
+  assert.ok(src.includes('callerTraceContext: ensureDispatchTraceContext()'), 'enqueue path must use lazy helper');
+});
+
+test('F153 Phase I (P1-2): step-summary route reads full buffer, not capped at 500', () => {
+  const src = readFileSync(resolve(__dirname, '../../src/routes/telemetry.ts'), 'utf8');
+  // Must NOT use a hard 500 cap
+  assert.ok(
+    !/traceStore\.query\(\{\s*traceId\s*,\s*limit:\s*500\s*\}\)/.test(src),
+    'step-summary must not silently truncate long traces at 500 spans',
+  );
+  // Must use the buffer-capacity constant
+  assert.ok(
+    src.includes('LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS'),
+    'step-summary should use LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS for query limit',
+  );
+});
+
+test('AC-I1 (P1-2 regression): computeStepSummary aggregates correctly across > 500 spans', async () => {
+  const computeStepSummary = await importComputeStepSummary();
+  if (!computeStepSummary) return;
+
+  // Synthesize a long trace: 1 route + many invocations with agent_loop.count, plus tool spans.
+  const spans = [
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'r',
+      durationMs: 50000,
+      attributes: { 'route.total_tokens': 12345 },
+    }),
+  ];
+  // 600 invocations, each contributing 1 to agent_loop_count
+  for (let i = 0; i < 600; i++) {
+    spans.push(
+      span({
+        name: 'cat_cafe.invocation',
+        spanId: `i${i}`,
+        parentSpanId: 'r',
+        attributes: { 'agent_loop.count': 1, 'tool.basic_call_count': 0 },
+      }),
+    );
+  }
+  const summary = computeStepSummary(spans, 'trace-long');
+  assert.equal(summary.agent_loop_count, 600, 'Should not silently truncate at 500');
+  assert.equal(summary.tool_call_count, 0);
+  assert.equal(summary.duration_ms, 50000);
+});
+
 // ── Behavioral: computeStepSummary (AC-I1, I2, I4, I5, I6) ─────────
 
 const COMPUTE_PATH = '../../dist/infrastructure/telemetry/step-summary.js';
