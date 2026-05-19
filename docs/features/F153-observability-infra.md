@@ -229,11 +229,78 @@ W3C TraceContext 对齐的跨猫调用因果链：
 
 默认 TTL 从 2h 提升到 24h，导出常量 `LOCAL_TRACE_STORE_DEFAULT_MAX_AGE_MS` 供 `local-trace-store.ts` 和 `hydrate-traces.ts` 共用。
 
-### Phase H: 后续增强
+### Phase H: 后续增强（Backlog）
 
 - Grafana 统一看板
 - MCP call spans + tool execution duration spans（真实执行边界）
 - 更广的 runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
+
+### Phase I: Step Summary（Agent Loop 行为节奏度量）
+
+> **Status**: spec | **Owner**: Ragdoll
+> **Provenance**: zts212653/clowder-ai#721
+> **Discussion**: 2026-05-19，三方对齐（铲屎官 + Maine Coon/砚砚 + Ragdoll/宪宪）
+
+#### 问题
+
+F153 Phase A-G 已经把 span/metrics 基础设施做齐，但 Hub 没有一个 first-class 视图回答"这只猫这次工作走了几步"。Trace 树形瀑布图展示了**结构**，metrics dashboard 展示了**总量**，缺一个把两者绑到"一次猫工作"上的**行为节奏**视图。
+
+#### 定义：步 = 一次 Agent Loop
+
+```
+Agent Loop 边界锚 = 一次 cat_cafe.llm_call span
+  ├─ 1 次 LLM 决策（think，必有）
+  ├─ 0~N 次 tool 调用（act，可并行）
+  └─ 0~N 次 tool result 反馈（observe）
+
+  下一次 LLM call → 进入下一个 loop
+```
+
+**为什么以 LLM call 为锚？** 它是 agent 唯一的**自主决策点**。Tool 是产物（act），observation 是输入（observe），只有 LLM call 是 agent 自己做了一次判断。没有新一次 LLM call，agent 就没"进入下一步"。
+
+**纯回复也算 1 个 loop**（width=0）——决策点存在就是一步，否则会鼓励"摸鱼短回复"。
+
+**业界对齐**：LangChain `AgentExecutor`、Anthropic SDK agent loop、AutoGPT step、OpenAI Assistants run step、DeepEval `StepEfficiencyMetric` 全部以 agent loop / step 为基本单位，非 LLM call、非 tool call。命名采用行为概念（`agent_loop_count`）而非实现锚（`llm_call_count`）。
+
+#### 度量：Length × Width
+
+```
+Length (深度) = agent_loop_count     ← 主轴："步数"
+Width  (宽度) = avg tools per loop   ← 辅轴："步幅"
+```
+
+两个维度合起来才能区分"高效但密集"与"啰嗦但稀疏"——长度大且宽度窄 = 疑似绕路（但**不在 Phase I 范围**，见 KD-32）。
+
+#### 实现：复用现有 span，不新增埋点
+
+| 度量 | 数据来源 | 新增？ |
+|------|---------|--------|
+| `agent_loop_count` | `cat_cafe.llm_call` span count（per route） | ❌ |
+| `tool_call_count` | `tool_use` span events 计数（per route） | ❌ |
+| `a2a_dispatch_count` | **新增** counter on `mention_dispatch` span 创建 | ✅ |
+| `duration_ms` | `cat_cafe.route` span duration | ❌ |
+| `token_total` | `token.usage` instrument（Phase A） | ❌ |
+| `error_count` | span status code aggregation | ❌ |
+
+> ⚠️ **descriptive only**（KD-16）：Phase I dashboard 只展示原始计数，**不计算/不展示** "efficiency"、"quality"、任何 normative score。质量判断留给未来 eval feature。
+
+#### Live vs Restored 显示分级
+
+`hydrate-traces.ts:6-8` 明确历史数据扁平为 `cat_cafe.invocation.restored`，**不恢复**完整 route/invocation/cli_session/llm_call 层级。所以 Phase I 必须显式区分：
+
+| 数据来源 | agent_loop_count | tool_call_count | a2a_dispatch_count | duration_ms |
+|---------|-----------------|-----------------|-------------------|-------------|
+| Live span（完整层级） | 真实值 | 真实值 | 真实值 | 真实值 |
+| Restored（扁平化） | **`—`** | **`—`** | **`—`** | 真实值 |
+
+UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"全是 0 步的快速调用"，污染判断。
+
+#### Out of scope（延后到独立 feature）
+
+- **Task 级步长**：需要先建 cross-invocation task 边界 primitive（task_id 不是 invocationId）
+- **Step Efficiency / 质量评分**：descriptive plane 边界（KD-16），eval feature 独立做
+- **MCP vs basic tool call 拆分**：依赖 Phase H 真实 tool 执行边界 span（KD-25）
+- **历史 sub-count 回填**：hydrate-traces.ts 的扁平化约束，不重建完整层级
 
 ## Acceptance Criteria
 
@@ -303,6 +370,15 @@ W3C TraceContext 对齐的跨猫调用因果链：
 - [x] AC-G8: Hub `HubTraceTree` 新增 X-Ray Inspector，prompt 分解 tabs（system/user/effective/meta）
 - [x] AC-G9: `LocalTraceStore` 默认 TTL 统一为 24h，导出常量 `LOCAL_TRACE_STORE_DEFAULT_MAX_AGE_MS` 消除 hydrate-traces 不一致
 
+### Phase I（Step Summary — Agent Loop 行为节奏度量）
+- [ ] AC-I1: Hub Traces tab 暴露 "Step Summary" 子视图（per `cat_cafe.route`），展示 `agent_loop_count` / `tool_call_count` / `a2a_dispatch_count` / `duration_ms` / `token_total` / `error_count`
+- [ ] AC-I2: `agent_loop_count` 派生自 route 下 `cat_cafe.llm_call` span 计数（不新增 instrument）
+- [ ] AC-I3: 新增 `a2a.dispatch.count` counter，在 `mention_dispatch` span 创建时 increment，携带 `invocationId` attribute（Class C HMAC，遵循 KD-21）
+- [ ] AC-I4: Restored span 的 sub-step 计数（`agent_loop_count`/`tool_call_count`/`a2a_dispatch_count`）显示 `—` 或 null marker，**不显示 0**；只 `duration_ms` 对 restored 有效
+- [ ] AC-I5: Step Summary 面板 **不**计算或展示 "efficiency" / "quality" / 任何 normative score——只展示 raw counts（descriptive plane，遵循 KD-16）
+- [ ] AC-I6: 2D Length × Width 展示——UI 同时显示 `agent_loop_count`（深度）和 `tool_call_count / agent_loop_count`（平均宽度）
+- [ ] AC-I7: 单元/集成测试覆盖 counter increment、restored-vs-live 区分、AC-I5 normative 字段缺位
+
 ## Dependencies
 
 - **Related**: F130（API 日志治理 — 同属可观测性，F130 管 logging，F153 管 metrics/tracing）
@@ -351,3 +427,5 @@ W3C TraceContext 对齐的跨猫调用因果链：
 | KD-28 | `setTraceContext` best-effort（try/catch + typeof） | invocation hot path 稳定性优先，trace 丢失可接受，invocation 失败不可接受 | 2026-05-08 |
 | KD-29 | LocalTraceStore TTL 从 2h 提升到 24h | 24h 覆盖日常调试窗口，导出常量消除 hydrate 不一致 | 2026-05-08 |
 | KD-30 | `CallerTraceContext` 对齐 W3C TraceContext（traceId/spanId/traceFlags） | 跨进程 interop 标准对齐，未来可对接外部 tracing backend | 2026-05-08 |
+| KD-31 | Phase I: 步 = 一次 agent loop（边界锚 = `cat_cafe.llm_call` span） | 业界主流术语（LangChain/Anthropic SDK/AutoGPT/OpenAI/DeepEval 全部用 agent loop）；LLM call 是实现锚点，agent loop 是行为单元——命名走概念层 | 2026-05-19 |
+| KD-32 | Phase I 仍是 descriptive plane，不计算 efficiency/quality score | 继承 KD-16；步长长可能是认真验证也可能是绕路，单凭计数无法判断质量；eval 信号留给未来 feature | 2026-05-19 |
