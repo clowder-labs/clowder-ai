@@ -248,15 +248,17 @@ F153 Phase A-G 已经把 span/metrics 基础设施做齐，但 Hub 没有一个 
 #### 定义：步 = 一次 Agent Loop
 
 ```
-Agent Loop 边界锚 = 一次 cat_cafe.llm_call span
+Agent Loop 边界锚 = 一次 assistant message done event（provider-agnostic）
   ├─ 1 次 LLM 决策（think，必有）
   ├─ 0~N 次 tool 调用（act，可并行）
   └─ 0~N 次 tool result 反馈（observe）
 
-  下一次 LLM call → 进入下一个 loop
+  下一次 done event → 进入下一个 loop
 ```
 
-**为什么以 LLM call 为锚？** 它是 agent 唯一的**自主决策点**。Tool 是产物（act），observation 是输入（observe），只有 LLM call 是 agent 自己做了一次判断。没有新一次 LLM call，agent 就没"进入下一步"。
+**为什么以 done event 为锚？** 它是 agent 完成一次决策的 **provider-agnostic** 信号——所有 provider 都走同一 done 路径，表示"这次 think→act→observe 循环结束"。
+
+**不**以 `cat_cafe.llm_call` span 为锚：该 span 仅在 `durationApiMs` 可用时创建（invoke-single-cat.ts:1408-1410），Codex/Gemini/Kimi 等 provider 不产出，会让 loop 计数失真。anchor 必须在所有 provider 一致才能横向比较。
 
 **纯回复也算 1 个 loop**（width=0）——决策点存在就是一步，否则会鼓励"摸鱼短回复"。
 
@@ -275,11 +277,12 @@ Width  (宽度) = avg tools per loop   ← 辅轴："步幅"
 
 | 度量 | 数据来源 | 新增？ |
 |------|---------|--------|
-| `agent_loop_count` | `cat_cafe.llm_call` span count（per route） | ❌ |
-| `tool_call_count` | `tool_use` span events 计数（per route） | ❌ |
-| `a2a_dispatch_count` | **新增** counter on `mention_dispatch` span 创建 | ✅ |
+| `agent_loop_count` | invocationSpan attribute `agent_loop.count`（在 assistant message done event 回调 increment，provider-agnostic）；route 级 = sum across child invocation spans | ✅ 1 行 setAttribute |
+| `tool_call_count` | **双轨**：child `cat_cafe.tool_use *` spans 计数（MCP/business）+ invocationSpan attribute `tool.basic_call_count`（basic tools，span-helpers.ts:81-96） | ❌ |
+| `a2a_dispatch_count`（per-route 派生） | child `cat_cafe.mention_dispatch` spans 计数 | ❌ |
+| `cat_cafe.a2a.dispatch.count`（aggregate counter） | **新增** counter，仅带 bounded labels（AGENT_ID + CALLBACK_TOOL/REASON 等 allowlist 字段），**不带** `invocationId`（metric-allowlist.ts:8-9 禁止高基数 metric attributes） | ✅ |
 | `duration_ms` | `cat_cafe.route` span duration | ❌ |
-| `token_total` | `token.usage` instrument（Phase A） | ❌ |
+| `token_total` | `cat_cafe.route` span attribute `ROUTE_TOTAL_TOKENS`（route-serial.ts:1900，不走 `token.usage` metric——无 route 维度） | ❌ |
 | `error_count` | span status code aggregation | ❌ |
 
 > ⚠️ **descriptive only**（KD-16）：Phase I dashboard 只展示原始计数，**不计算/不展示** "efficiency"、"quality"、任何 normative score。质量判断留给未来 eval feature。
@@ -372,8 +375,8 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 
 ### Phase I（Step Summary — Agent Loop 行为节奏度量）
 - [ ] AC-I1: Hub Traces tab 暴露 "Step Summary" 子视图（per `cat_cafe.route`），展示 `agent_loop_count` / `tool_call_count` / `a2a_dispatch_count` / `duration_ms` / `token_total` / `error_count`
-- [ ] AC-I2: `agent_loop_count` 派生自 route 下 `cat_cafe.llm_call` span 计数（不新增 instrument）
-- [ ] AC-I3: 新增 `a2a.dispatch.count` counter，在 `mention_dispatch` span 创建时 increment，携带 `invocationId` attribute（Class C HMAC，遵循 KD-21）
+- [ ] AC-I2: `agent_loop_count` 派生自 invocationSpan attribute `agent_loop.count`（在 assistant message done 回调 increment，provider-agnostic — 不依赖 `durationApiMs`，所有 provider 走同一路径）；route 级 = sum across child invocation spans 的该 attribute
+- [ ] AC-I3: 新增 `cat_cafe.a2a.dispatch.count` counter，在 `cat_cafe.mention_dispatch` span 创建时 increment；attributes **仅 bounded labels**（AGENT_ID / CALLBACK_TOOL / CALLBACK_REASON 等 allowlist 字段），**不带** `invocationId / threadId`（metric-allowlist.ts:8-9 禁止高基数 metric attributes）；per-route `a2a_dispatch_count` 从 `cat_cafe.mention_dispatch` span 计数派生，不查 counter
 - [ ] AC-I4: Restored span 的 sub-step 计数（`agent_loop_count`/`tool_call_count`/`a2a_dispatch_count`）显示 `—` 或 null marker，**不显示 0**；只 `duration_ms` 对 restored 有效
 - [ ] AC-I5: Step Summary 面板 **不**计算或展示 "efficiency" / "quality" / 任何 normative score——只展示 raw counts（descriptive plane，遵循 KD-16）
 - [ ] AC-I6: 2D Length × Width 展示——UI 同时显示 `agent_loop_count`（深度）和 `tool_call_count / agent_loop_count`（平均宽度）
@@ -427,5 +430,8 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 | KD-28 | `setTraceContext` best-effort（try/catch + typeof） | invocation hot path 稳定性优先，trace 丢失可接受，invocation 失败不可接受 | 2026-05-08 |
 | KD-29 | LocalTraceStore TTL 从 2h 提升到 24h | 24h 覆盖日常调试窗口，导出常量消除 hydrate 不一致 | 2026-05-08 |
 | KD-30 | `CallerTraceContext` 对齐 W3C TraceContext（traceId/spanId/traceFlags） | 跨进程 interop 标准对齐，未来可对接外部 tracing backend | 2026-05-08 |
-| KD-31 | Phase I: 步 = 一次 agent loop（边界锚 = `cat_cafe.llm_call` span） | 业界主流术语（LangChain/Anthropic SDK/AutoGPT/OpenAI/DeepEval 全部用 agent loop）；LLM call 是实现锚点，agent loop 是行为单元——命名走概念层 | 2026-05-19 |
+| KD-31 | Phase I: 步 = 一次 agent loop（边界锚 = assistant message done event，provider-agnostic） | LLM call span 仅在 `durationApiMs` 可用时创建（Codex/Gemini/Kimi 不产出），不能作 anchor；done event 是所有 provider 一致的 loop 完成信号。业界主流术语（LangChain/Anthropic SDK/AutoGPT/OpenAI/DeepEval）也用 agent loop/step 作行为单位 | 2026-05-19 |
 | KD-32 | Phase I 仍是 descriptive plane，不计算 efficiency/quality score | 继承 KD-16；步长长可能是认真验证也可能是绕路，单凭计数无法判断质量；eval 信号留给未来 feature | 2026-05-19 |
+| KD-33 | Phase I anchor 改用 assistant message done event（不用 `cat_cafe.llm_call` span） | Maine Coon review (Finding 1)：llm_call span 仅在 `durationApiMs` 可用时创建（invoke-single-cat.ts:1408-1410），Codex/Gemini/Kimi 等 provider 不产出，会让 loop 计数失真；done event 路径所有 provider 一致 | 2026-05-19 |
+| KD-34 | Phase I metric counter `cat_cafe.a2a.dispatch.count` 不带 `invocationId`，route 维度走 `cat_cafe.mention_dispatch` span 计数派生 | Maine Coon review (Finding 2)：metric-allowlist.ts:8-9 禁止 invocationId/threadId 等高基数字段进 metrics；route-level 维度通过 span 树派生，aggregate counter 仅保 bounded labels | 2026-05-19 |
+| KD-35 | Phase I `tool_call_count` 走双轨（child `cat_cafe.tool_use *` span + invocation `tool.basic_call_count` attr）；`token_total` 走 `cat_cafe.route` span `ROUTE_TOTAL_TOKENS` attr | Maine Coon review (Findings 3+4)：span-helpers.ts:81-96 把 basic tools 设计成 attribute 计数（避免 trace tree flooding），MCP/business 走 child span；token metrics 没 route 维度（allowlist 禁），route span 已 finally 块设置 `ROUTE_TOTAL_TOKENS`（route-serial.ts:1900）| 2026-05-19 |
