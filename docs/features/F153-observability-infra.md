@@ -383,7 +383,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 - [ ] AC-I4: Restored span 的 sub-step 计数（`agent_loop_count`/`tool_call_count`/`a2a_dispatch_count`）显示 `—` 或 null marker，**不显示 0**；只 `duration_ms` 对 restored 有效
 - [ ] AC-I5: Step Summary 面板 **不**计算或展示 "efficiency" / "quality" / 任何 normative score——只展示 raw counts（descriptive plane，遵循 KD-16）
 - [ ] AC-I6: 2D Length × Width 展示——UI 同时显示 `agent_loop_count`（深度）和 `tool_call_count / agent_loop_count`（平均宽度）
-- [ ] AC-I7: 单元/集成测试覆盖 counter increment、restored-vs-live 区分、AC-I5 normative 字段缺位
+- [ ] AC-I7: 单元/集成测试覆盖 counter increment、restored-vs-live 区分、AC-I5 normative 字段缺位、**live provider 无 `cat_cafe.agent_loop` marker 时 `agent_loop_count` 显式显示 `—`**（不退化成 invocation count，Phase I 最关键防退化边界）
 
 ## Dependencies
 
