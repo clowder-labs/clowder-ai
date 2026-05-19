@@ -86,8 +86,9 @@ export async function enqueueA2ATargets(
   const targetCats = opts.targetCats;
 
   // F153: wrap caller trace context with mention_dispatch span for callback A2A causality
+  // Phase I: pass fromCatId so a2a.dispatch.count counter carries AGENT_ID attribute.
   const dispatchTraceContext = opts.callerTraceContext
-    ? wrapWithDispatchSpan(opts.callerTraceContext, targetCats.length)
+    ? wrapWithDispatchSpan(opts.callerTraceContext, targetCats.length, fromCatId)
     : undefined;
 
   // F122B: If InvocationQueue is available, enqueue as agent entry (unified dispatch).
