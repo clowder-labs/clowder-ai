@@ -111,10 +111,24 @@ test('F153 Phase I (P1-2): step-summary route reads full buffer, not capped at 5
     !/traceStore\.query\(\{\s*traceId\s*,\s*limit:\s*500\s*\}\)/.test(src),
     'step-summary must not silently truncate long traces at 500 spans',
   );
-  // Must use the buffer-capacity constant
+  // Maine Coon round-2 non-blocking: prefer stats().maxSpans over a hardcoded constant so
+  // tests / future configurations with non-default buffer capacity are honored.
   assert.ok(
-    src.includes('LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS'),
-    'step-summary should use LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS for query limit',
+    src.includes('traceStore.stats().maxSpans'),
+    'step-summary should use traceStore.stats().maxSpans for query limit',
+  );
+});
+
+test('F153 Phase I (round-2 P2): legacy worklist callback success also mints dispatch span/counter', () => {
+  const src = readFileSync(resolve(__dirname, '../../src/routes/callback-a2a-trigger.ts'), 'utf8');
+  // The lazy helper must be invoked in the worklist success branch (enqueued.length > 0)
+  // — otherwise callbacks routed via the legacy F27 worklist path will silently skip the
+  // mention_dispatch span and a2a.dispatch.count counter even when dispatch did happen.
+  const worklistBlock = src.split('if (hasWorklist(threadId))')[1] ?? '';
+  const successBranch = worklistBlock.split('if (enqueued.length > 0)')[1] ?? '';
+  assert.ok(
+    successBranch.includes('ensureDispatchTraceContext()'),
+    'worklist success branch must call ensureDispatchTraceContext() (lazy side-effects: span + counter)',
   );
 });
 

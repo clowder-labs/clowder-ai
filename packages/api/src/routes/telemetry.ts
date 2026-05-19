@@ -11,7 +11,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { hmacId } from '../infrastructure/telemetry/hmac.js';
 import type { LocalTraceStore } from '../infrastructure/telemetry/local-trace-store.js';
-import { LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS } from '../infrastructure/telemetry/local-trace-store.js';
 import type { MetricsSnapshotStore } from '../infrastructure/telemetry/metrics-snapshot-store.js';
 import { parsePrometheusText } from '../infrastructure/telemetry/metrics-snapshot-store.js';
 import { computeStepSummary } from '../infrastructure/telemetry/step-summary.js';
@@ -117,12 +116,14 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
     if (!traceId) {
       return reply.status(400).send({ error: 'traceId is required' });
     }
-    // F153 Phase I (Maine Coon P1): limit = buffer capacity to ensure we read ALL spans for the
-    // trace, not just the newest 500. Long multi-cat tasks easily exceed 500 spans (route +
-    // many invocation + cli_session + llm_call + tool_use + mention_dispatch), and query() is
-    // newest-first; a 500-cap would silently undercount agent_loop_count / tool_call_count /
-    // error_count for exactly the long traces Step Summary is designed to surface.
-    const spans = opts.traceStore.query({ traceId, limit: LOCAL_TRACE_STORE_DEFAULT_MAX_SPANS });
+    // F153 Phase I (Maine Coon P1 + round-2 non-blocking): limit = actual store capacity to
+    // ensure we read ALL spans for the trace, not just the newest 500. Long multi-cat tasks
+    // easily exceed 500 spans (route + many invocation + cli_session + llm_call + tool_use +
+    // mention_dispatch), and query() is newest-first; a 500-cap would silently undercount
+    // agent_loop_count / tool_call_count / error_count for exactly the long traces Step
+    // Summary is designed to surface. Source from stats().maxSpans so tests / future
+    // configurations that use a non-default buffer capacity remain honored.
+    const spans = opts.traceStore.query({ traceId, limit: opts.traceStore.stats().maxSpans });
     const summary = computeStepSummary(spans, traceId);
     if (!summary) {
       return reply.status(404).send({ error: 'No spans found for traceId' });
