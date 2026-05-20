@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
@@ -85,17 +86,47 @@ export function ChatContainerHeader({
 function ThreadIndicator({ threadId }: { threadId: string }) {
   const threads = useChatStore((s) => s.threads);
   const currentThread = threads.find((t) => t.id === threadId);
+  const [copied, setCopied] = useState(false);
 
   if (threadId === 'default') {
     return <p className="text-base font-bold text-cafe truncate min-w-0">大厅</p>;
   }
 
   const title = currentThread?.title ?? '未命名对话';
+  const projectPath = currentThread?.projectPath;
+  const isRealProject = projectPath && projectPath !== 'default' && projectPath !== 'lobby';
+  const dirName = isRealProject ? projectPath.split('/').filter(Boolean).pop() : null;
+
+  const handleCopyPath = async () => {
+    if (!projectPath) return;
+    await navigator.clipboard.writeText(projectPath);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
-    <p className="text-base font-bold text-cafe truncate min-w-0" title={title}>
-      {title}
-    </p>
+    <div className="flex items-center gap-1.5 min-w-0">
+      {dirName && (
+        <>
+          <span
+            className="inline-flex items-center gap-1 text-xs text-cafe-muted shrink-0 cursor-pointer rounded px-1.5 py-0.5 hover:bg-[var(--console-hover-bg)] transition-colors"
+            title={copied ? '已复制!' : projectPath}
+            onClick={handleCopyPath}
+            role="button"
+            tabIndex={0}
+          >
+            <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+            </svg>
+            {dirName}
+          </span>
+          <span className="text-cafe-muted text-xs shrink-0 select-none">·</span>
+        </>
+      )}
+      <p className="text-base font-bold text-cafe truncate min-w-0" title={title}>
+        {title}
+      </p>
+    </div>
   );
 }
 
