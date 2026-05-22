@@ -103,7 +103,7 @@ Phase E 只回答"发生了什么"（traces、metrics、健康状态），不做
 > **Trigger**: 重启后 trace 数据全丢（LocalTraceStore 纯内存）
 > **Discussion**: 2026-04-22，三猫讨论（Ragdoll + Sonnet + GPT-5.4）
 >
-> **Scope note**: AC-F1..F7 全部 ✅。AC-F8（tool_use spans 持久化）声明 deferred — 当前 MCP tool span 是零时长点标记，待 Phase H 真实执行边界落地后再升级持久化策略。Phase F header 状态过期至 2026-05-22 由 Phase I 完结后同步修正（本次 doc-sync）。
+> **Scope note**: AC-F1..F7 全部 ✅。AC-F8（tool_use spans 持久化）声明 deferred — 当前 MCP tool span 是零时长点标记，待 Phase J 真实执行边界落地后再升级持久化策略（Phase J Slice J-B AC-J7/J8 直接覆盖 AC-F8 unblock）。Phase F header 状态过期至 2026-05-22 由 Phase I 完结后同步修正（doc-sync）。
 
 #### 问题
 
@@ -179,7 +179,7 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 | `cat_cafe.cli_session` | 同上（共用 assistant message） | `timestamp - durationMs` |
 | `cat_cafe.llm_call` | 同上 | `timestamp - durationApiMs` |
 
-> **tool_use spans 暂不持久化**：当前 MCP 工具 span 是零时长点标记，等 Phase H 获得真实执行边界后再升级持久化策略。
+> **tool_use spans 暂不持久化**：当前 MCP 工具 span 是零时长点标记，等 Phase J 真实执行边界落地后再升级持久化策略（KD-25 → Phase J KD-39 Slice J-B）。
 
 #### extra.tracing 前置改造
 
@@ -314,7 +314,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 
 - **Task 级步长**：需要先建 cross-invocation task 边界 primitive（task_id 不是 invocationId）
 - **Step Efficiency / 质量评分**：descriptive plane 边界（KD-16），eval feature 独立做
-- **MCP vs basic tool call 拆分**：依赖 Phase H 真实 tool 执行边界 span（KD-25）
+- **MCP vs basic tool call 拆分**：依赖 Phase J 真实 tool 执行边界 span（KD-25 → KD-36..41 / Slice J-A）
 - **历史 sub-count 回填**：hydrate-traces.ts 的扁平化约束，不重建完整层级
 
 ### Phase J: MCP Tool Span — 真实执行边界
@@ -413,7 +413,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 - [x] AC-F5: hydrate 使用 `msg:timeline` sorted set 范围查询，不做全表扫描
 - [x] AC-F6: 每条消息 tracing 指针增量 ≤ 100 bytes，不存完整 span 快照
 - [x] AC-F7: `StoredMessage.extra` 类型扩展含 `tracing`，parser round-trip 保留，`updateExtra()` 使用 merge 语义
-- [ ] AC-F8: tool_use spans 暂不持久化（零时长点标记，待 Phase H 升级）
+- [ ] AC-F8: tool_use spans 暂不持久化（零时长点标记，待 Phase J 升级 — 由 Slice J-B AC-J7/J8 直接接续）
 
 ### Phase D（Runtime 调试 exporter + 启动语义对齐）✅
 - [x] AC-D1: `TELEMETRY_DEBUG` 通过 `ConsoleSpanExporter` 输出 spans，且 regular OTLP pipeline 仍保持 redaction
@@ -448,7 +448,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 #### Slice J-A: Live real-duration spans
 
 - [ ] AC-J1: `AgentMessage` 类型扩展 — `toolUseId?: string` + `toolResultStatus?: 'ok' | 'error' | 'unknown'`；`tool_result` 也带 `toolName`
-- [ ] AC-J2: 7 个 provider transformer 保真 native id — Claude (`tool_use.id`)、Codex (`tool_call_id`)、DARE (`tool_call_id`)、CatAgent (`tool_use_id`)、Gemini CLI+ACP、Antigravity、OpenCode；Kimi/A2A 无 completion 信号的明确 fallback 不开 span（只透传 `toolName`，不承诺 real duration）
+- [ ] AC-J2: 7 个 provider transformer 保真 native id — Claude (`tool_use.id` from Anthropic block schema)、DARE (`tool_call_id` from event payload)、CatAgent (`tool_use_id` from CatAgentService.ts:154)；其他 provider 的精确字段名延后到 AC-J9 provider 矩阵附录确定（implementation 必须以 raw payload 为准 — 例如 Codex 当前 transformer 用 `item.id` 作为 lifecycle 锚，没有 `tool_call_id`）；Kimi/A2A 无 completion 信号的明确 fallback 不开 span（只透传 `toolName`，不承诺 real duration）
 - [ ] AC-J3: `ToolSpanTracker` per-invocation — `startToolUseSpan(invocationSpan, catId, toolName, toolUseId, input) → Span`、`endToolUseSpan(toolUseId, status, resultMeta?)`；key scope = invocation+cat 避免 provider raw id 跨 invocation 碰撞
 - [ ] AC-J4: finally 块兜底 end orphan span 并标记 `orphan/aborted` attribute（PR #732 mention_dispatch abort safety 模式）
 - [ ] AC-J5: tool span 通过 `tool-usage/classify.ts` 分类（移除 `span-helpers.ts` 本地 `isMcpTool`），同步覆盖 Codex `mcp:` 前缀
@@ -509,7 +509,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 | KD-22 | Phase F 纳入 `cat_cafe.route` 根 span | Phase E 实现引入 route 根 span，invocation 已变子 span；hydrate 必须覆盖 route 否则重启后层级断裂 | 2026-04-22 |
 | KD-23 | startTime 用 `timestamp - durationMs` 反推 | assistant message timestamp 是终态落盘时间 ≈ span end；Maine Coon review 发现直接当 startTime 会偏移 | 2026-04-22 |
 | KD-24 | `extra.tracing` 需要 parser + merge 前置改造 | `updateExtra()` 是整块覆盖，parser 不保留未知字段；Maine Coon review 指出需先 widen type + merge 语义 | 2026-04-22 |
-| KD-25 | tool_use spans 暂不持久化 | KD-6 原决策为 event；Phase E 升级为 MCP 工具 span 但仍是零时长；等 Phase H 真实执行边界再持久化 | 2026-04-22 |
+| KD-25 | tool_use spans 暂不持久化（**superseded by KD-39 / Phase J Slice J-B**） | KD-6 原决策为 event；Phase E 升级为 MCP 工具 span 但仍是零时长；当时延后到 Phase H，2026-05-22 promoted to Phase J Slice J-B 直接落地 | 2026-04-22 |
 | KD-26 | Prompt capture 用文件 ring buffer，不用 SQLite | 调试专用，零额外依赖，gzip 压缩 + TTL 自动清理 | 2026-05-08 |
 | KD-27 | Prompt capture 默认关闭，env 门控 | privacy by default，捕获含完整 prompt 明文，不能无授权开启 | 2026-05-08 |
 | KD-28 | `setTraceContext` best-effort（try/catch + typeof） | invocation hot path 稳定性优先，trace 丢失可接受，invocation 失败不可接受 | 2026-05-08 |
