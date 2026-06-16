@@ -29,6 +29,9 @@ test_usage_includes_source_branch() {
 
 test_develop_wrapper_exports_runtime_defaults() {
   (
+    WORKTREE_PORT_OFFSET="-20"
+    unset CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET
+
     # shellcheck source=./develop-worktree.sh
     source "$SCRIPT_DIR/develop-worktree.sh" --source-only
 
@@ -48,13 +51,30 @@ test_develop_wrapper_exports_runtime_defaults() {
       echo "FAIL: develop wrapper should show develop sync hint"
       exit 1
     }
-    [ "$WORKTREE_PORT_OFFSET" = "-20" ] || {
-      echo "FAIL: develop wrapper should reserve the -20 port offset"
+    [ "${WORKTREE_PORT_OFFSET+set}" != "set" ] || {
+      echo "FAIL: develop wrapper should share default runtime ports"
       exit 1
     }
   )
 
   echo "PASS: develop wrapper exports runtime defaults"
+}
+
+test_develop_wrapper_allows_explicit_port_offset() {
+  (
+    unset WORKTREE_PORT_OFFSET
+    CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET="-20"
+
+    # shellcheck source=./develop-worktree.sh
+    source "$SCRIPT_DIR/develop-worktree.sh" --source-only
+
+    [ "$WORKTREE_PORT_OFFSET" = "-20" ] || {
+      echo "FAIL: develop wrapper should allow an explicit port offset"
+      exit 1
+    }
+  )
+
+  echo "PASS: develop wrapper allows explicit port offset"
 }
 
 test_is_api_running_uses_worktree_port_offset() {
@@ -149,5 +169,6 @@ test_init_and_sync_runtime_worktree_from_develop() {
 
 test_usage_includes_source_branch
 test_develop_wrapper_exports_runtime_defaults
+test_develop_wrapper_allows_explicit_port_offset
 test_is_api_running_uses_worktree_port_offset
 test_init_and_sync_runtime_worktree_from_develop
