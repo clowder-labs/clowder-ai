@@ -31,6 +31,11 @@ export function resolveApiUrl(): string {
     //   - localhost env + remote browser → reverse-proxy users would hit dev's loopback
     //   - cloud env + local browser → would force a Cloudflare Tunnel round-trip for nothing
     const mismatch = (isLocalhostDefault && isRemoteAccess) || (!isLocalhostDefault && isLocalAccess);
+    if (isLocalhostDefault && isRemoteAccess) {
+      const protocol = location.protocol ?? 'http:';
+      const port = location.port ? `:${location.port}` : '';
+      return `${protocol}//${location.hostname}${port}`;
+    }
     if (!mismatch) return envUrl;
   }
   if (typeof window === 'undefined') return 'http://localhost:3004';

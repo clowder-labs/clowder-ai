@@ -56,7 +56,7 @@ describe('resolveApiUrl', () => {
     expect(resolve()).toBe('https://api.example.com');
   });
 
-  // ── P1 fix: localhost env + remote access → skip env, auto-detect ──
+  // ── localhost env + remote access → same-origin proxy ──
 
   it('skips localhost env when accessed remotely (reverse proxy)', async () => {
     process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3004';
@@ -65,11 +65,18 @@ describe('resolveApiUrl', () => {
     expect(resolve()).toBe('http://1.2.3.4');
   });
 
-  it('skips 127.0.0.1 env when accessed remotely', async () => {
+  it('uses same-origin proxy for 127.0.0.1 env when accessed remotely with an explicit web port', async () => {
     process.env.NEXT_PUBLIC_API_URL = 'http://127.0.0.1:3004';
     stubLocation({ hostname: '10.0.0.5', protocol: 'http:', port: '3003' });
     const resolve = await loadResolveApiUrl();
-    expect(resolve()).toBe('http://10.0.0.5:3004');
+    expect(resolve()).toBe('http://10.0.0.5:3003');
+  });
+
+  it('does not derive a nonexistent remote API port when runtime web/API ports are non-adjacent', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3122';
+    stubLocation({ hostname: '100.64.1.23', protocol: 'http:', port: '5122' });
+    const resolve = await loadResolveApiUrl();
+    expect(resolve()).toBe('http://100.64.1.23:5122');
   });
 
   // ── localhost env + local access → use env (no skip) ──
