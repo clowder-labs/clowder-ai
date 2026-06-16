@@ -39,6 +39,7 @@ const READ_BUDGET_BYTES = 1_048_576; // 1 MiB
 const MAX_SEARCH_RESULTS = 50;
 const MAX_WRITE_BYTES = 256 * 1024;
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
+const DEFAULT_COMMAND_KILL_GRACE_MS = 3_000;
 const COMMAND_MAX_BUFFER = 512 * 1024;
 const LEVEL_RANK = { L0: 0, L1: 1, L2: 2 } as const;
 const TASK_STATUSES = new Set<TaskStatus>(['todo', 'doing', 'blocked', 'done']);
@@ -325,15 +326,28 @@ async function executeWriteFile(
   return `Wrote ${bytes} bytes to ${relPath} (sha256:${hashAfter.slice(0, 12)})`;
 }
 
-function countOccurrences(haystack: string, needle: string): number {
-  if (needle.length === 0) return 0;
+interface TextSpanMatch {
+  start: number;
+  end: number;
+  matches: number;
+}
+
+function findUniqueTextSpan(haystack: string, needle: string): TextSpanMatch {
+  if (needle.length === 0) return { start: -1, end: -1, matches: 0 };
   let count = 0;
+  let first = -1;
   let idx = haystack.indexOf(needle);
   while (idx !== -1) {
     count++;
-    idx = haystack.indexOf(needle, idx + needle.length);
+    if (first === -1) first = idx;
+    if (count > 1) break;
+    idx = haystack.indexOf(needle, idx + 1);
   }
-  return count;
+  return { start: first, end: first + needle.length, matches: count };
+}
+
+function replaceTextSpan(haystack: string, span: TextSpanMatch, replacement: string): string {
+  return `${haystack.slice(0, span.start)}${replacement}${haystack.slice(span.end)}`;
 }
 
 async function executePatchFile(
@@ -355,16 +369,16 @@ async function executePatchFile(
   if (!hashBefore.startsWith(expectedHash)) {
     await rejectWithAudit(options, { tool: 'patch_file', path: relPath, hashBefore }, 'expected_hash mismatch');
   }
-  const matches = countOccurrences(before, oldText);
-  if (matches !== 1) {
+  const span = findUniqueTextSpan(before, oldText);
+  if (span.matches !== 1) {
     await rejectWithAudit(
       options,
       { tool: 'patch_file', path: relPath, hashBefore },
-      `old_text must match exactly once (found ${matches})`,
+      `old_text must match exactly once (found ${span.matches})`,
     );
   }
 
-  const after = before.replace(oldText, newText);
+  const after = replaceTextSpan(before, span, newText);
   const hashAfter = hashContent(after);
   await writeAtomicUtf8(resolved, after);
   await emitAudit(options, {
@@ -471,6 +485,77 @@ function formatCommandOutput(exitCode: number | null, stdout: string, stderr: st
   return parts.join('\n');
 }
 
+interface ExecFileStrictResult {
+  stdout: string;
+  stderr: string;
+}
+
+interface ExecFileStrictError extends Error {
+  code?: number | string | null;
+  signal?: NodeJS.Signals | null;
+  stdout?: string;
+  stderr?: string;
+  timedOut?: boolean;
+}
+
+function execFileWithStrictTimeout(
+  binary: string,
+  args: readonly string[],
+  options: {
+    cwd: string;
+    timeoutMs: number;
+    killGraceMs: number;
+    maxBuffer: number;
+    env: NodeJS.ProcessEnv;
+  },
+): Promise<ExecFileStrictResult> {
+  return new Promise((resolve, reject) => {
+    let timedOut = false;
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    let killHandle: NodeJS.Timeout | undefined;
+    const child = execFile(
+      binary,
+      [...args],
+      {
+        cwd: options.cwd,
+        maxBuffer: options.maxBuffer,
+        env: options.env,
+      },
+      (err, stdout, stderr) => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (killHandle) clearTimeout(killHandle);
+        if (err) {
+          const error = err as ExecFileStrictError;
+          error.stdout = String(stdout ?? '');
+          error.stderr = String(stderr ?? '');
+          if (timedOut) error.timedOut = true;
+          reject(error);
+          return;
+        }
+        if (timedOut) {
+          const error = new Error(`Command timed out after ${options.timeoutMs}ms`) as ExecFileStrictError;
+          error.stdout = String(stdout ?? '');
+          error.stderr = String(stderr ?? '');
+          error.timedOut = true;
+          reject(error);
+          return;
+        }
+        resolve({ stdout: String(stdout ?? ''), stderr: String(stderr ?? '') });
+      },
+    );
+
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      killHandle = setTimeout(() => {
+        child.kill('SIGKILL');
+      }, options.killGraceMs);
+      killHandle.unref?.();
+    }, options.timeoutMs);
+    timeoutHandle.unref?.();
+  });
+}
+
 async function resolvePolicyEntry(
   binary: string,
   args: readonly string[],
@@ -499,10 +584,12 @@ async function executeRunCommand(
 
   const startedAt = Date.now();
   const timeout = options.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+  const killGrace = options.commandKillGraceMs ?? DEFAULT_COMMAND_KILL_GRACE_MS;
   try {
-    const { stdout, stderr } = await execFileAsync(binary, args, {
+    const { stdout, stderr } = await execFileWithStrictTimeout(binary, args, {
       cwd: workDir,
-      timeout,
+      timeoutMs: timeout,
+      killGraceMs: killGrace,
       maxBuffer: COMMAND_MAX_BUFFER,
       env: constrainedCommandEnv(),
     });
@@ -520,10 +607,10 @@ async function executeRunCommand(
     });
     return formatCommandOutput(0, stdout, stderr);
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; killed?: boolean; signal?: string };
+    const e = err as ExecFileStrictError;
     const stdout = e.stdout ?? '';
     const stderr = e.stderr ?? '';
-    const timedOut = e.killed || e.signal === 'SIGTERM';
+    const timedOut = e.timedOut === true;
     await emitAudit(options, {
       tool: 'run_command',
       outcome: 'error',
@@ -535,7 +622,7 @@ async function executeRunCommand(
       stdoutBytes: Buffer.byteLength(stdout),
       stderrBytes: Buffer.byteLength(stderr),
       policyEntry: policyEntry.binary,
-      rejectReason: timedOut ? `timed out after ${timeout}ms` : e.message,
+      rejectReason: timedOut ? `timed out after ${timeout}ms; sent SIGTERM then SIGKILL` : e.message,
     });
     if (timedOut) throw new Error(`Command timed out after ${timeout}ms`);
     throw new Error(formatCommandOutput(typeof e.code === 'number' ? e.code : null, stdout, stderr));

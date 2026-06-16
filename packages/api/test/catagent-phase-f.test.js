@@ -117,7 +117,9 @@ describe('F1: tiered tool registry', () => {
     let capturedBody = null;
     const prevFetch = globalThis.fetch;
     const prevEnv = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const prevModel = process.env.CAT_OPUS_MODEL;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = tmpDir;
+    process.env.CAT_OPUS_MODEL = 'claude-opus-4-6';
     resetMigrationState();
     globalThis.fetch = async (_url, init) => {
       capturedBody = JSON.parse(init.body);
@@ -134,6 +136,8 @@ describe('F1: tiered tool registry', () => {
       globalThis.fetch = prevFetch;
       if (prevEnv !== undefined) process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevEnv;
       else delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      if (prevModel !== undefined) process.env.CAT_OPUS_MODEL = prevModel;
+      else delete process.env.CAT_OPUS_MODEL;
       resetMigrationState();
     }
 
@@ -208,6 +212,39 @@ describe('F1: create-safe write and patch tools', () => {
     assert.equal(audit.at(-1).hashBefore, sha256(before));
     assert.equal(audit.at(-1).hashAfter, sha256('alpha BETA gamma'));
   });
+
+  test('patch_file treats overlapping old_text matches as non-unique', async () => {
+    const tools = await buildToolRegistry(tmpDir, { nativeToolLevel: 'L1' });
+    const patch = findTool(tools, 'patch_file');
+    writeFileSync(join(tmpDir, 'overlap.txt'), 'aaa');
+
+    await assert.rejects(
+      () =>
+        patch.execute({
+          path: 'overlap.txt',
+          old_text: 'aa',
+          new_text: 'X',
+          expected_hash: sha256('aaa').slice(0, 12),
+        }),
+      /old_text must match exactly once \(found 2\)/,
+    );
+  });
+
+  test('patch_file writes replacement text literally when new_text contains dollar sequences', async () => {
+    const tools = await buildToolRegistry(tmpDir, { nativeToolLevel: 'L1' });
+    const patch = findTool(tools, 'patch_file');
+    const replacement = '$$HOME $& $1';
+    writeFileSync(join(tmpDir, 'dollar.txt'), 'alpha');
+
+    await patch.execute({
+      path: 'dollar.txt',
+      old_text: 'alpha',
+      new_text: replacement,
+      expected_hash: sha256('alpha').slice(0, 12),
+    });
+
+    assert.equal(readFileSync(join(tmpDir, 'dollar.txt'), 'utf-8'), replacement);
+  });
 });
 
 describe('F2: run_command policy', () => {
@@ -267,6 +304,31 @@ describe('F2: run_command policy', () => {
 
     await assert.rejects(
       () => run.execute({ binary: process.execPath, args: ['-e', 'setTimeout(() => {}, 500)'] }),
+      /timed out/,
+    );
+  });
+
+  test('kills commands that ignore SIGTERM after the grace window', async () => {
+    const tools = await buildToolRegistry(tmpDir, {
+      nativeToolLevel: 'L2',
+      commandTimeoutMs: 50,
+      commandKillGraceMs: 50,
+      commandPolicy: [
+        {
+          binary: process.execPath,
+          allowedFlags: ['-e'],
+          allowedArgPatterns: ['^process\\.on\\("SIGTERM"'],
+        },
+      ],
+    });
+    const run = findTool(tools, 'run_command');
+
+    await assert.rejects(
+      () =>
+        run.execute({
+          binary: process.execPath,
+          args: ['-e', 'process.on("SIGTERM", () => {}); setInterval(() => {}, 100);'],
+        }),
       /timed out/,
     );
   });

@@ -72,6 +72,7 @@ export interface CatAgentToolRegistryOptions {
   nativeToolLevel?: NativeToolLevel;
   commandPolicy?: readonly CommandPolicyEntry[];
   commandTimeoutMs?: number;
+  commandKillGraceMs?: number;
   audit?: CatAgentToolAuditSink;
   scopedCallbacks?: CatAgentScopedCallbacks;
 }
