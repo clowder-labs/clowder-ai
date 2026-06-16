@@ -69,6 +69,20 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 **注意**：alpha = origin/main 镜像，只能验证已合入 main 的改动。未合入改动的自测仍在 feature worktree 上做。已合入改动的验收用 alpha（3011/3012），不得用 runtime（3003/3004）冒充。
 
+## Develop 狗粮通道
+
+`../cat-cafe-develop` 是基于最新 `origin/develop` 的日常狗粮环境，用于体验已通过 fork 内部 PR 合入 develop 的集成态，不干扰 runtime / alpha。
+
+| 命令 | 作用 |
+|------|------|
+| `pnpm develop:start` | 自动同步 origin/develop + 拉起独立 develop stack |
+| `pnpm develop:sync` | 只同步不启动 |
+| `pnpm develop:status` | 查看环境状态 |
+
+端口默认由 `WORKTREE_PORT_OFFSET=-20` 派生：API 3122、Web 5122、Redis 6378。不得复用 runtime 的 3003/3004/6399，也不得复用 alpha 的 3011/3012/6398。
+
+**注意**：`pnpm start` 永远是 runtime 主线入口，仍同步 `origin/main`。不要为了体验 develop 改写 `pnpm start` 语义。
+
 ## 完整流程（5 步）
 
 ```

@@ -19,6 +19,8 @@ DEFAULT_RUNTIME_DIR="$(cd "$PROJECT_DIR/.." && pwd)/cat-cafe-runtime"
 RUNTIME_DIR="${CAT_CAFE_RUNTIME_DIR:-$DEFAULT_RUNTIME_DIR}"
 RUNTIME_BRANCH="${CAT_CAFE_RUNTIME_BRANCH:-runtime/main-sync}"
 REMOTE_NAME="${CAT_CAFE_RUNTIME_REMOTE:-origin}"
+SOURCE_BRANCH="${CAT_CAFE_RUNTIME_SOURCE_BRANCH:-main}"
+SYNC_COMMAND_HINT="${CAT_CAFE_RUNTIME_SYNC_COMMAND:-pnpm runtime:sync}"
 FORCE=false
 RUN_INSTALL=true
 SYNC_BEFORE_START=true
@@ -29,15 +31,16 @@ usage() {
 Cat Café Runtime Worktree Manager
 
 Usage:
-  ./scripts/runtime-worktree.sh init   [--dir PATH] [--branch NAME] [--remote NAME] [--no-install]
-  ./scripts/runtime-worktree.sh sync   [--dir PATH] [--branch NAME] [--remote NAME] [--force] [--no-install]
-  ./scripts/runtime-worktree.sh start  [--dir PATH] [--branch NAME] [--remote NAME] [--force] [--no-sync] [--] [start-dev args...]
-  ./scripts/runtime-worktree.sh status [--dir PATH] [--branch NAME] [--remote NAME]
+  ./scripts/runtime-worktree.sh init   [--dir PATH] [--branch NAME] [--remote NAME] [--source-branch NAME] [--no-install]
+  ./scripts/runtime-worktree.sh sync   [--dir PATH] [--branch NAME] [--remote NAME] [--source-branch NAME] [--force] [--no-install]
+  ./scripts/runtime-worktree.sh start  [--dir PATH] [--branch NAME] [--remote NAME] [--source-branch NAME] [--force] [--no-sync] [--] [start-dev args...]
+  ./scripts/runtime-worktree.sh status [--dir PATH] [--branch NAME] [--remote NAME] [--source-branch NAME]
 
 Defaults:
   --dir    ../cat-cafe-runtime
   --branch runtime/main-sync
   --remote origin
+  --source-branch main
 
 Safety:
   start refuses to kill an active API by default.
@@ -107,6 +110,27 @@ runtime_env_value() {
   local runtime_dir
   runtime_dir="$(abs_path "$RUNTIME_DIR")"
   read_env_file_value "$runtime_dir/.env" "$1"
+}
+
+derive_worktree_env_value() {
+  local key="$1"
+  local offset="${WORKTREE_PORT_OFFSET:-0}"
+  local derive_stdout line value
+
+  [ "$offset" != "0" ] || return 1
+
+  derive_stdout="$(node "$SCRIPT_DIR/derive-worktree-ports.mjs" "$offset" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    case "$line" in
+      "export $key="*)
+        value="${line#export $key=}"
+        printf '%s\n' "$value"
+        return 0
+        ;;
+    esac
+  done <<< "$derive_stdout"
+
+  return 1
 }
 
 require_git_repo() {
@@ -182,7 +206,10 @@ port_is_listening() {
 
 is_api_running() {
   local port
-  port="$(runtime_env_value API_SERVER_PORT 2>/dev/null || true)"
+  port="$(derive_worktree_env_value API_SERVER_PORT 2>/dev/null || true)"
+  if [ -z "$port" ]; then
+    port="$(runtime_env_value API_SERVER_PORT 2>/dev/null || true)"
+  fi
   port="${port:-${API_SERVER_PORT:-3004}}"
   port_is_listening "$port"
 }
@@ -351,15 +378,15 @@ init_runtime_worktree() {
     fi
   fi
 
-  info "fetching $REMOTE_NAME/main"
-  git -C "$PROJECT_DIR" fetch "$REMOTE_NAME" main
+  info "fetching $REMOTE_NAME/$SOURCE_BRANCH"
+  git -C "$PROJECT_DIR" fetch "$REMOTE_NAME" "$SOURCE_BRANCH"
 
   if git -C "$PROJECT_DIR" show-ref --verify --quiet "refs/heads/$RUNTIME_BRANCH"; then
     info "adding existing branch '$RUNTIME_BRANCH' to $RUNTIME_DIR"
     git -C "$PROJECT_DIR" worktree add "$RUNTIME_DIR" "$RUNTIME_BRANCH"
   else
-    info "creating branch '$RUNTIME_BRANCH' from $REMOTE_NAME/main"
-    git -C "$PROJECT_DIR" worktree add "$RUNTIME_DIR" -b "$RUNTIME_BRANCH" "$REMOTE_NAME/main"
+    info "creating branch '$RUNTIME_BRANCH' from $REMOTE_NAME/$SOURCE_BRANCH"
+    git -C "$PROJECT_DIR" worktree add "$RUNTIME_DIR" -b "$RUNTIME_BRANCH" "$REMOTE_NAME/$SOURCE_BRANCH"
   fi
 
   if [ "$RUN_INSTALL" = "true" ]; then
@@ -385,9 +412,9 @@ sync_runtime_worktree() {
   ensure_runtime_clean
   ensure_runtime_branch
 
-  info "syncing runtime worktree with $REMOTE_NAME/main (ff-only)"
-  git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" main
-  if ! git -C "$RUNTIME_DIR" merge --ff-only "$REMOTE_NAME/main" 2>/dev/null; then
+  info "syncing runtime worktree with $REMOTE_NAME/$SOURCE_BRANCH (ff-only)"
+  git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" "$SOURCE_BRANCH"
+  if ! git -C "$RUNTIME_DIR" merge --ff-only "$REMOTE_NAME/$SOURCE_BRANCH" 2>/dev/null; then
     echo ""
     echo "  ff-only merge failed — likely stale untracked files blocking the sync."
     echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
@@ -431,20 +458,21 @@ status_runtime_worktree() {
   head=$(git -C "$RUNTIME_DIR" rev-parse --short HEAD)
   dirty=$(git -C "$RUNTIME_DIR" status --short | wc -l | awk '{print $1}')
 
-  git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" main >/dev/null 2>&1 || true
-  ahead=$(git -C "$RUNTIME_DIR" rev-list --count "$REMOTE_NAME/main..HEAD" 2>/dev/null || echo "0")
-  behind=$(git -C "$RUNTIME_DIR" rev-list --count "HEAD..$REMOTE_NAME/main" 2>/dev/null || echo "0")
+  git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" "$SOURCE_BRANCH" >/dev/null 2>&1 || true
+  ahead=$(git -C "$RUNTIME_DIR" rev-list --count "$REMOTE_NAME/$SOURCE_BRANCH..HEAD" 2>/dev/null || echo "0")
+  behind=$(git -C "$RUNTIME_DIR" rev-list --count "HEAD..$REMOTE_NAME/$SOURCE_BRANCH" 2>/dev/null || echo "0")
 
   echo "runtime worktree: $RUNTIME_DIR"
   echo "branch: $branch"
   echo "head: $head"
   echo "dirty_files: $dirty"
-  echo "ahead_of_${REMOTE_NAME}/main: $ahead"
-  echo "behind_${REMOTE_NAME}/main: $behind"
+  echo "source: $REMOTE_NAME/$SOURCE_BRANCH"
+  echo "ahead_of_${REMOTE_NAME}/${SOURCE_BRANCH}: $ahead"
+  echo "behind_${REMOTE_NAME}/${SOURCE_BRANCH}: $behind"
 }
 
 start_runtime_worktree() {
-  info "preparing runtime worktree (checking ports, syncing origin/main...)"
+  info "preparing runtime worktree (checking ports, syncing $REMOTE_NAME/$SOURCE_BRANCH...)"
 
   if ! is_git_repo; then
     RUNTIME_DIR="$PROJECT_DIR"
@@ -471,7 +499,7 @@ start_runtime_worktree() {
   if [ "$SYNC_BEFORE_START" = "true" ]; then
     if is_api_running && [ "$FORCE" != "true" ]; then
       info "API port is active; skip pre-start sync to avoid in-place hot swap."
-      info "Run 'pnpm runtime:sync' after stop if you need latest origin/main."
+      info "Run '$SYNC_COMMAND_HINT' after stop if you need latest $REMOTE_NAME/$SOURCE_BRANCH."
       seed_runtime_config_from_project
     else
       sync_runtime_worktree
@@ -519,6 +547,11 @@ while [ $# -gt 0 ]; do
     --remote)
       [ $# -ge 2 ] || die "--remote requires a value"
       REMOTE_NAME="$2"
+      shift 2
+      ;;
+    --source-branch)
+      [ $# -ge 2 ] || die "--source-branch requires a value"
+      SOURCE_BRANCH="$2"
       shift 2
       ;;
     --force)
