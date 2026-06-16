@@ -13,9 +13,14 @@ export CAT_CAFE_RUNTIME_REMOTE="${CAT_CAFE_DEVELOP_REMOTE:-origin}"
 export CAT_CAFE_RUNTIME_SOURCE_BRANCH="${CAT_CAFE_DEVELOP_SOURCE_BRANCH:-develop}"
 export CAT_CAFE_RUNTIME_SYNC_COMMAND="${CAT_CAFE_DEVELOP_SYNC_COMMAND:-pnpm develop:sync}"
 
-# Keep develop dogfood away from runtime (3003/3004/6399) and alpha
-# (3011/3012/6398). Offset -20 derives Redis 6378, API 3122, Web 5122.
-export WORKTREE_PORT_OFFSET="${CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET:--20}"
+# Develop intentionally shares the same singleton ports as `pnpm start`.
+# Set CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET only for explicit isolated
+# experiments.
+if [ -n "${CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET:-}" ]; then
+  export WORKTREE_PORT_OFFSET="$CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET"
+else
+  unset WORKTREE_PORT_OFFSET
+fi
 
 [[ "${1:-}" == "--source-only" ]] && { return 0 2>/dev/null; exit 0; }
 

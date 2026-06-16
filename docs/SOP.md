@@ -71,15 +71,17 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 ## Develop 狗粮通道
 
-`../cat-cafe-develop` 是基于最新 `origin/develop` 的日常狗粮环境，用于体验已通过 fork 内部 PR 合入 develop 的集成态，不干扰 runtime / alpha。
+`../cat-cafe-develop` 是基于最新 `origin/develop` 的日常狗粮环境，用于体验已通过 fork 内部 PR 合入 develop 的集成态。
 
 | 命令 | 作用 |
 |------|------|
-| `pnpm develop:start` | 自动同步 origin/develop + 拉起独立 develop stack |
+| `pnpm develop:start` | 自动同步 origin/develop + 用 runtime 默认端口拉起 develop stack |
 | `pnpm develop:sync` | 只同步不启动 |
 | `pnpm develop:status` | 查看环境状态 |
 
-端口默认由 `WORKTREE_PORT_OFFSET=-20` 派生：API 3122、Web 5122、Redis 6378。不得复用 runtime 的 3003/3004/6399，也不得复用 alpha 的 3011/3012/6398。
+端口默认与 `pnpm start` 一致：Web 3003、API 3004、Redis 使用 runtime 默认配置。`pnpm start` 与 `pnpm develop:start` 是同一套本地单例端口，不能同时运行；切换前先 `pnpm stop`。
+
+需要临时隔离端口时，可显式设置 `CAT_CAFE_DEVELOP_WORKTREE_PORT_OFFSET`，但这不是日常狗粮默认路径。
 
 **注意**：`pnpm start` 永远是 runtime 主线入口，仍同步 `origin/main`。不要为了体验 develop 改写 `pnpm start` 语义。
 
