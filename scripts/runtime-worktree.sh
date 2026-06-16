@@ -20,6 +20,7 @@ RUNTIME_DIR="${CAT_CAFE_RUNTIME_DIR:-$DEFAULT_RUNTIME_DIR}"
 RUNTIME_BRANCH="${CAT_CAFE_RUNTIME_BRANCH:-runtime/main-sync}"
 REMOTE_NAME="${CAT_CAFE_RUNTIME_REMOTE:-origin}"
 SOURCE_BRANCH="${CAT_CAFE_RUNTIME_SOURCE_BRANCH:-main}"
+SYNC_COMMAND_HINT="${CAT_CAFE_RUNTIME_SYNC_COMMAND:-pnpm runtime:sync}"
 FORCE=false
 RUN_INSTALL=true
 SYNC_BEFORE_START=true
@@ -111,6 +112,27 @@ runtime_env_value() {
   read_env_file_value "$runtime_dir/.env" "$1"
 }
 
+derive_worktree_env_value() {
+  local key="$1"
+  local offset="${WORKTREE_PORT_OFFSET:-0}"
+  local derive_stdout line value
+
+  [ "$offset" != "0" ] || return 1
+
+  derive_stdout="$(node "$SCRIPT_DIR/derive-worktree-ports.mjs" "$offset" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    case "$line" in
+      "export $key="*)
+        value="${line#export $key=}"
+        printf '%s\n' "$value"
+        return 0
+        ;;
+    esac
+  done <<< "$derive_stdout"
+
+  return 1
+}
+
 require_git_repo() {
   git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || die "project dir is not a git repository: $PROJECT_DIR"
@@ -184,7 +206,10 @@ port_is_listening() {
 
 is_api_running() {
   local port
-  port="$(runtime_env_value API_SERVER_PORT 2>/dev/null || true)"
+  port="$(derive_worktree_env_value API_SERVER_PORT 2>/dev/null || true)"
+  if [ -z "$port" ]; then
+    port="$(runtime_env_value API_SERVER_PORT 2>/dev/null || true)"
+  fi
   port="${port:-${API_SERVER_PORT:-3004}}"
   port_is_listening "$port"
 }
@@ -474,7 +499,7 @@ start_runtime_worktree() {
   if [ "$SYNC_BEFORE_START" = "true" ]; then
     if is_api_running && [ "$FORCE" != "true" ]; then
       info "API port is active; skip pre-start sync to avoid in-place hot swap."
-      info "Run 'pnpm runtime:sync' after stop if you need latest $REMOTE_NAME/$SOURCE_BRANCH."
+      info "Run '$SYNC_COMMAND_HINT' after stop if you need latest $REMOTE_NAME/$SOURCE_BRANCH."
       seed_runtime_config_from_project
     else
       sync_runtime_worktree
