@@ -2,12 +2,15 @@
 
 import type { CatData } from '@/hooks/useCatData';
 import {
+  CATAGENT_COMMAND_POLICY_PRESET_OPTIONS,
+  CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION,
   CODEX_APPROVAL_OPTIONS,
   CODEX_AUTH_MODE_OPTIONS,
   CODEX_SANDBOX_OPTIONS,
   type CodexRuntimeSettings,
   getCliEffortOptionsForClient,
   type HubCatEditorFormState,
+  NATIVE_TOOL_LEVEL_OPTIONS,
   SESSION_CHAIN_OPTIONS,
   SESSION_STRATEGY_OPTIONS,
   type StrategyFormState,
@@ -53,6 +56,10 @@ export function AdvancedRuntimeSection({
   };
   const cliEffortOptions = getCliEffortOptionsForClient(form.clientId);
   const sessionChainEnabled = form.sessionChain === 'true' && (strategyForm?.sessionChainEnabled ?? true);
+  const catAgentCommandPolicyPresetOptions =
+    form.commandPolicyPreset === 'custom'
+      ? [...CATAGENT_COMMAND_POLICY_PRESET_OPTIONS, CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION]
+      : CATAGENT_COMMAND_POLICY_PRESET_OPTIONS;
 
   return (
     <SectionCard
@@ -130,6 +137,54 @@ export function AdvancedRuntimeSection({
             <p className="text-label leading-4 text-cafe-muted">
               每条直接追加到 CLI 命令，与系统参数重复时以用户参数为准。`CLI Effort` 请优先用上面的结构化字段。
             </p>
+          </div>
+        ) : null}
+        {form.clientId === 'catagent' ? (
+          <div className="space-y-1">
+            <SelectField
+              label="工具级别 (CatAgent)"
+              value={form.nativeToolLevel}
+              options={NATIVE_TOOL_LEVEL_OPTIONS}
+              onChange={(value) => {
+                const nativeToolLevel = value as HubCatEditorFormState['nativeToolLevel'];
+                onChange({
+                  nativeToolLevel,
+                  commandPolicyPreset:
+                    nativeToolLevel === 'L2'
+                      ? form.commandPolicyPreset === ''
+                        ? 'git-readonly'
+                        : form.commandPolicyPreset
+                      : form.commandPolicyPreset === 'custom'
+                        ? 'custom'
+                        : '',
+                });
+              }}
+              tone="success"
+            />
+            <p className="text-label leading-4 text-cafe-muted">
+              L0 只读 · L1 可写文件（write_file / patch_file）· L2 可执行命令（run_command）。保存后下次调用即生效。
+            </p>
+            {form.nativeToolLevel === 'L2' ? (
+              <SelectField
+                label="命令策略 (CatAgent L2)"
+                value={form.commandPolicyPreset}
+                options={catAgentCommandPolicyPresetOptions}
+                onChange={(value) =>
+                  onChange({ commandPolicyPreset: value as HubCatEditorFormState['commandPolicyPreset'] })
+                }
+                tone="success"
+              />
+            ) : null}
+            {form.nativeToolLevel === 'L2' ? (
+              <p className="text-label leading-4 text-cafe-muted">
+                预设只允许只读的 git status / diff。选择“不允许命令”时 L2 仍会 fail-closed 拒绝执行。
+              </p>
+            ) : null}
+            {form.nativeToolLevel === 'L2' && form.commandPolicyPreset === 'custom' ? (
+              <p className="text-label leading-4 text-cafe-muted">
+                当前成员已有自定义策略；此处只保留或切换到内置预设，不编辑自定义 JSON。
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

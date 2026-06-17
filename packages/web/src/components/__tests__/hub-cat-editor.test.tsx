@@ -18,6 +18,7 @@ import type { ProfileItem } from '@/components/hub-accounts.types';
 import {
   buildCatPayload,
   builtinAccountIdForClient,
+  CATAGENT_GIT_READONLY_COMMAND_POLICY,
   DEFAULT_ANTIGRAVITY_COMMAND_ARGS,
   filterProfiles,
   getCliEffortOptionsForClient,
@@ -108,7 +109,11 @@ describe('HubCatEditor', () => {
     vi.clearAllMocks();
   });
 
-  async function renderAdvancedRuntimeSection(clientId: HubCatEditorFormState['clientId']) {
+  async function renderAdvancedRuntimeSection(
+    clientId: HubCatEditorFormState['clientId'],
+    formPatch: Partial<HubCatEditorFormState> = {},
+  ) {
+    const onChange = vi.fn();
     const form: HubCatEditorFormState = {
       catId: `runtime-${clientId}`,
       name: `runtime-${clientId}`,
@@ -129,6 +134,8 @@ describe('HubCatEditor', () => {
       defaultModel: 'test-model',
       commandArgs: '',
       cliConfigArgs: [],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
       cliEffort: '',
       provider: '',
       sessionChain: 'true',
@@ -137,6 +144,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...formPatch,
     };
 
     await act(async () => {
@@ -152,12 +160,14 @@ describe('HubCatEditor', () => {
           codexSettingsError: null,
           codexSettingsEditable: false,
           showCodexSettings: false,
-          onChange: vi.fn(),
+          onChange,
           onStrategyChange: vi.fn(),
           onCodexChange: vi.fn(),
         }),
       );
     });
+
+    return { form, onChange };
   }
 
   it('shows extra CLI args editor for CLI clients and hides it for API-only clients', async () => {
@@ -170,6 +180,45 @@ describe('HubCatEditor', () => {
       await renderAdvancedRuntimeSection(clientId);
       expect(document.body.textContent, clientId).not.toContain('额外 CLI 参数');
     }
+  });
+
+  it('only shows CatAgent custom command policy as an existing-policy preserve state', async () => {
+    await renderAdvancedRuntimeSection('catagent', {
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'git-readonly',
+    });
+    expect(document.body.textContent).toContain('Git 只读：status / diff');
+    expect(document.body.textContent).not.toContain('保留现有自定义策略');
+
+    await renderAdvancedRuntimeSection('catagent', {
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'custom',
+    });
+    expect(document.body.textContent).toContain('保留现有自定义策略');
+  });
+
+  it('preserves existing CatAgent custom command policy when toggling away from and back to L2', async () => {
+    const firstRender = await renderAdvancedRuntimeSection('catagent', {
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'custom',
+    });
+
+    await changeField(queryField(container, 'select[aria-label="工具级别 (CatAgent)"]'), 'L1', 'change');
+    expect(firstRender.onChange).toHaveBeenLastCalledWith({
+      nativeToolLevel: 'L1',
+      commandPolicyPreset: 'custom',
+    });
+
+    const secondRender = await renderAdvancedRuntimeSection('catagent', {
+      nativeToolLevel: 'L1',
+      commandPolicyPreset: 'custom',
+    });
+
+    await changeField(queryField(container, 'select[aria-label="工具级别 (CatAgent)"]'), 'L2', 'change');
+    expect(secondRender.onChange).toHaveBeenLastCalledWith({
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'custom',
+    });
   });
 
   it('buildCatPayload keeps name in PATCH payload when editing an existing cat', () => {
@@ -193,6 +242,8 @@ describe('HubCatEditor', () => {
       defaultModel: 'gpt-5.4',
       commandArgs: '',
       cliConfigArgs: [],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
       cliEffort: '',
       provider: '',
       sessionChain: 'true',
@@ -240,6 +291,8 @@ describe('HubCatEditor', () => {
       defaultModel: 'gpt-5.4',
       commandArgs: '',
       cliConfigArgs: [],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
       cliEffort: '',
       provider: '',
       sessionChain: 'true',
@@ -286,6 +339,8 @@ describe('HubCatEditor', () => {
       defaultModel: 'gemini-bridge',
       commandArgs: '',
       cliConfigArgs: [],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
       cliEffort: '',
       provider: '',
       sessionChain: 'true',
@@ -326,6 +381,8 @@ describe('HubCatEditor', () => {
       defaultModel: 'gpt-5.4',
       commandArgs: '',
       cliConfigArgs: ['--config model_provider="custom"'],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
       cliEffort: 'xhigh',
       provider: '',
       sessionChain: 'true',
@@ -339,6 +396,150 @@ describe('HubCatEditor', () => {
     const payload = buildCatPayload(form, null) as Record<string, unknown>;
     expect(payload.cli).toEqual({ effort: 'xhigh' });
     expect(payload.cliConfigArgs).toEqual(['--config model_provider="custom"']);
+  });
+
+  it('buildCatPayload saves CatAgent L2 with the safe git readonly command policy preset', () => {
+    const form = {
+      catId: 'runtime-catagent',
+      name: '运行时原生猫',
+      displayName: '运行时原生猫',
+      variantLabel: '',
+      nickname: '',
+      avatar: '/avatars/catagent.png',
+      colorPrimary: '#16a34a',
+      colorSecondary: '#bbf7d0',
+      mentionPatterns: '@runtime-catagent',
+      roleDescription: '原生工具体验',
+      personality: '谨慎',
+      teamStrengths: '',
+      caution: '',
+      strengths: '',
+      clientId: 'catagent',
+      accountRef: 'anthropic-oauth',
+      defaultModel: 'claude-sonnet-4-6',
+      commandArgs: '',
+      cliConfigArgs: [],
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'git-readonly',
+      cliEffort: '',
+      provider: '',
+      sessionChain: 'true',
+      maxPromptTokens: '',
+      maxContextTokens: '',
+      maxMessages: '',
+      maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
+    } as HubCatEditorFormState;
+
+    const payload = buildCatPayload(form, null) as Record<string, unknown>;
+    expect(payload.nativeToolLevel).toBe('L2');
+    expect(payload.commandPolicy).toEqual(CATAGENT_GIT_READONLY_COMMAND_POLICY);
+  });
+
+  it('buildCatPayload clears CatAgent native tool settings when switching away from CatAgent', () => {
+    const form = {
+      catId: 'runtime-catagent',
+      name: '运行时原生猫',
+      displayName: '运行时原生猫',
+      variantLabel: '',
+      nickname: '',
+      avatar: '/avatars/catagent.png',
+      colorPrimary: '#16a34a',
+      colorSecondary: '#bbf7d0',
+      mentionPatterns: '@runtime-catagent',
+      roleDescription: '原生工具体验',
+      personality: '谨慎',
+      teamStrengths: '',
+      caution: '',
+      strengths: '',
+      clientId: 'openai',
+      accountRef: 'codex',
+      defaultModel: 'gpt-5.5',
+      commandArgs: '',
+      cliConfigArgs: [],
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'git-readonly',
+      cliEffort: '',
+      provider: '',
+      sessionChain: 'true',
+      maxPromptTokens: '',
+      maxContextTokens: '',
+      maxMessages: '',
+      maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
+    } as HubCatEditorFormState;
+    const existingCat = {
+      id: 'runtime-catagent',
+      name: 'runtime-catagent',
+      displayName: '运行时原生猫',
+      clientId: 'catagent',
+      defaultModel: 'claude-sonnet-4-6',
+      color: { primary: '#16a34a', secondary: '#bbf7d0' },
+      mentionPatterns: ['@runtime-catagent'],
+      avatar: '/avatars/catagent.png',
+      roleDescription: '原生工具体验',
+      nativeToolLevel: 'L2',
+      commandPolicy: CATAGENT_GIT_READONLY_COMMAND_POLICY,
+    } as CatData;
+
+    const payload = buildCatPayload(form, existingCat) as Record<string, unknown>;
+    expect(payload.nativeToolLevel).toBeNull();
+    expect(payload.commandPolicy).toBeNull();
+  });
+
+  it('buildCatPayload preserves existing custom CatAgent command policy unless explicitly cleared', () => {
+    const customPolicy = [{ binary: 'make', allowedSubcommands: ['test'] }];
+    const form = {
+      catId: 'runtime-catagent',
+      name: '运行时原生猫',
+      displayName: '运行时原生猫',
+      variantLabel: '',
+      nickname: '',
+      avatar: '/avatars/catagent.png',
+      colorPrimary: '#16a34a',
+      colorSecondary: '#bbf7d0',
+      mentionPatterns: '@runtime-catagent',
+      roleDescription: '原生工具体验',
+      personality: '谨慎',
+      teamStrengths: '',
+      caution: '',
+      strengths: '',
+      clientId: 'catagent',
+      accountRef: 'anthropic-oauth',
+      defaultModel: 'claude-sonnet-4-6',
+      commandArgs: '',
+      cliConfigArgs: [],
+      nativeToolLevel: 'L2',
+      commandPolicyPreset: 'custom',
+      cliEffort: '',
+      provider: '',
+      sessionChain: 'true',
+      maxPromptTokens: '',
+      maxContextTokens: '',
+      maxMessages: '',
+      maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
+    } as HubCatEditorFormState;
+    const existingCat = {
+      id: 'runtime-catagent',
+      name: 'runtime-catagent',
+      displayName: '运行时原生猫',
+      clientId: 'catagent',
+      defaultModel: 'claude-sonnet-4-6',
+      color: { primary: '#16a34a', secondary: '#bbf7d0' },
+      mentionPatterns: ['@runtime-catagent'],
+      avatar: '/avatars/catagent.png',
+      roleDescription: '原生工具体验',
+      personality: '谨慎',
+      nativeToolLevel: 'L2',
+      commandPolicy: customPolicy,
+    } as CatData;
+
+    const preservePayload = buildCatPayload(form, existingCat) as Record<string, unknown>;
+    expect(preservePayload.commandPolicy).toBeUndefined();
+
+    const clearPayload = buildCatPayload({ ...form, commandPolicyPreset: '' }, existingCat) as Record<string, unknown>;
+    expect(clearPayload.commandPolicy).toBeNull();
   });
 
   it('splitCommandArgs preserves quoted segments', () => {

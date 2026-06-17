@@ -2,7 +2,9 @@ import {
   builtinAccountFamilyForClient,
   CLI_EFFORT_VALUES,
   type CliEffortValue,
+  type CommandPolicyEntry,
   getCliEffortOptionsForProvider,
+  type NativeToolLevel,
   builtinAccountIdForClient as sharedBuiltinAccountIdForClient,
 } from '@cat-cafe/shared';
 import type { CatData } from '@/hooks/useCatData';
@@ -18,6 +20,7 @@ export type SessionChainValue = 'true' | 'false';
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 export type CodexApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never';
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
+export type CatAgentCommandPolicyPreset = '' | 'git-readonly' | 'custom';
 
 export interface HubCatEditorFormState {
   catId: string;
@@ -39,6 +42,10 @@ export interface HubCatEditorFormState {
   defaultModel: string;
   commandArgs: string;
   cliConfigArgs: string[];
+  /** F159 Phase F: CatAgent native tool level. '' = default L0 (read-only). */
+  nativeToolLevel: NativeToolLevel | '';
+  /** F159 Phase F: safe command policy preset for CatAgent L2. */
+  commandPolicyPreset: CatAgentCommandPolicyPreset;
   cliEffort: CliEffortValue | '';
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
   provider: string;
@@ -103,6 +110,34 @@ export const SESSION_CHAIN_OPTIONS: Array<{ value: SessionChainValue; label: str
   { value: 'false', label: 'false' },
 ];
 
+/** F159 Phase F: CatAgent native tool level. '' renders the default L0 (read-only) option. */
+export const NATIVE_TOOL_LEVEL_OPTIONS: Array<{ value: NativeToolLevel | ''; label: string }> = [
+  { value: '', label: 'L0 · 只读（默认）' },
+  { value: 'L1', label: 'L1 · 读 + 写文件' },
+  { value: 'L2', label: 'L2 · 读 + 写 + 执行命令' },
+];
+
+export const CATAGENT_GIT_READONLY_COMMAND_POLICY: readonly CommandPolicyEntry[] = [
+  {
+    binary: 'git',
+    allowedSubcommands: ['status', 'diff'],
+    allowedFlags: ['--short', '--branch', '--stat', '--name-only', '--cached'],
+  },
+];
+
+export const CATAGENT_COMMAND_POLICY_PRESET_OPTIONS: Array<{
+  value: CatAgentCommandPolicyPreset;
+  label: string;
+}> = [
+  { value: '', label: '不允许命令（L2 fail-closed）' },
+  { value: 'git-readonly', label: 'Git 只读：status / diff' },
+];
+
+export const CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION: {
+  value: CatAgentCommandPolicyPreset;
+  label: string;
+} = { value: 'custom', label: '保留现有自定义策略' };
+
 export const SESSION_STRATEGY_OPTIONS: Array<{ value: StrategyType; label: string }> = [
   { value: 'handoff', label: 'handoff' },
   { value: 'compress', label: 'compress' },
@@ -134,6 +169,27 @@ const GOOGLE_OWNED_DOMAINS = ['generativelanguage.googleapis.com', 'googleapis.c
 
 function isCliEffortValue(value: string | undefined): value is CliEffortValue {
   return value !== undefined && CLI_EFFORT_VALUES.includes(value as CliEffortValue);
+}
+
+function stringArraysEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function detectCatAgentCommandPolicyPreset(
+  policy: readonly CommandPolicyEntry[] | undefined,
+): CatAgentCommandPolicyPreset {
+  if (!policy || policy.length === 0) return '';
+  if (policy.length !== CATAGENT_GIT_READONLY_COMMAND_POLICY.length) return 'custom';
+  const [entry] = policy;
+  const [expected] = CATAGENT_GIT_READONLY_COMMAND_POLICY;
+  if (!entry || !expected || entry.binary !== expected.binary) return 'custom';
+  if (!stringArraysEqual(entry.allowedSubcommands, expected.allowedSubcommands)) return 'custom';
+  if (!stringArraysEqual(entry.allowedFlags, expected.allowedFlags)) return 'custom';
+  if (!stringArraysEqual(entry.allowedArgPatterns, expected.allowedArgPatterns)) return 'custom';
+  if (!stringArraysEqual(entry.deniedFlags, expected.deniedFlags)) return 'custom';
+  return 'git-readonly';
 }
 
 function optionalVoiceText(value: string | undefined): string {
@@ -365,6 +421,8 @@ export function initialState(cat?: CatData | null, draft?: HubCatEditorDraft | n
     defaultModel: cat?.defaultModel ?? createDraft?.defaultModel ?? '',
     commandArgs: cat?.commandArgs?.join(' ') ?? createDraft?.commandArgs ?? '',
     cliConfigArgs: [...(cat?.cliConfigArgs ?? [])],
+    nativeToolLevel: cat?.nativeToolLevel && cat.nativeToolLevel !== 'L0' ? cat.nativeToolLevel : '',
+    commandPolicyPreset: detectCatAgentCommandPolicyPreset(cat?.commandPolicy),
     cliEffort: isCliEffortValue(persistedCliEffort) ? persistedCliEffort : '',
     provider: cat?.provider ?? '',
     sessionChain: String(cat?.sessionChain ?? true) as SessionChainValue,

@@ -304,6 +304,186 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.ok(mentions.includes('runtime-spark'), 'new alias should route immediately');
   });
 
+  it('POST and PATCH /api/cats persist CatAgent native tool settings', async () => {
+    const projectRoot = createProjectRoot();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const commandPolicy = [
+      {
+        binary: 'git',
+        allowedSubcommands: ['status', 'diff'],
+        allowedFlags: ['--short', '--branch', '--stat', '--name-only', '--cached'],
+      },
+    ];
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-catagent',
+        name: '原生猫',
+        displayName: '原生猫',
+        avatar: '/avatars/catagent.png',
+        color: { primary: '#16a34a', secondary: '#bbf7d0' },
+        mentionPatterns: ['@runtime-catagent'],
+        roleDescription: '原生工具体验',
+        personality: '谨慎',
+        clientId: 'catagent',
+        accountRef: 'claude',
+        defaultModel: 'claude-sonnet-4-6',
+        mcpSupport: false,
+        nativeToolLevel: 'L2',
+        commandPolicy,
+      }),
+    });
+    assert.equal(createRes.statusCode, 201);
+
+    const listRes = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    const runtimeCat = listBody.cats.find((cat) => cat.id === 'runtime-catagent');
+    assert.ok(runtimeCat, 'runtime-catagent should appear in /api/cats');
+    assert.equal(runtimeCat.nativeToolLevel, 'L2');
+    assert.deepEqual(runtimeCat.commandPolicy, commandPolicy);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/cats/runtime-catagent',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        nativeToolLevel: null,
+        commandPolicy: null,
+      }),
+    });
+    assert.equal(patchRes.statusCode, 200);
+
+    const listAfterClearRes = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(listAfterClearRes.statusCode, 200);
+    const listAfterClearBody = JSON.parse(listAfterClearRes.body);
+    const runtimeCatAfterClear = listAfterClearBody.cats.find((cat) => cat.id === 'runtime-catagent');
+    assert.ok(runtimeCatAfterClear, 'runtime-catagent should still exist');
+    assert.equal(runtimeCatAfterClear.nativeToolLevel, undefined);
+    assert.equal(runtimeCatAfterClear.commandPolicy, undefined);
+  });
+
+  it('rejects native tool settings for non-CatAgent members and clears them on client switch', async () => {
+    const projectRoot = createProjectRoot();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const commandPolicy = [
+      {
+        binary: 'git',
+        allowedSubcommands: ['status'],
+      },
+    ];
+
+    const rejectedCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-openai-tools',
+        name: '错误工具猫',
+        displayName: '错误工具猫',
+        avatar: '/avatars/codex.png',
+        color: { primary: '#2563eb', secondary: '#bfdbfe' },
+        mentionPatterns: ['@runtime-openai-tools'],
+        roleDescription: 'should reject native tools',
+        clientId: 'openai',
+        accountRef: 'codex',
+        defaultModel: 'gpt-5.5',
+        nativeToolLevel: 'L2',
+        commandPolicy,
+      }),
+    });
+    assert.equal(rejectedCreateRes.statusCode, 400);
+    assert.match(JSON.parse(rejectedCreateRes.body).error, /only supported for catagent clients/i);
+
+    const createCatAgentRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-switch-agent',
+        name: '切换工具猫',
+        displayName: '切换工具猫',
+        avatar: '/avatars/catagent.png',
+        color: { primary: '#16a34a', secondary: '#bbf7d0' },
+        mentionPatterns: ['@runtime-switch-agent'],
+        roleDescription: 'switches away from CatAgent',
+        clientId: 'catagent',
+        accountRef: 'claude',
+        defaultModel: 'claude-sonnet-4-6',
+        nativeToolLevel: 'L2',
+        commandPolicy,
+      }),
+    });
+    assert.equal(createCatAgentRes.statusCode, 201);
+
+    const switchClientRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/cats/runtime-switch-agent',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        clientId: 'openai',
+        accountRef: 'codex',
+        defaultModel: 'gpt-5.5',
+      }),
+    });
+    assert.equal(switchClientRes.statusCode, 200);
+
+    const listAfterSwitchRes = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(listAfterSwitchRes.statusCode, 200);
+    const listAfterSwitchBody = JSON.parse(listAfterSwitchRes.body);
+    const switchedCat = listAfterSwitchBody.cats.find((cat) => cat.id === 'runtime-switch-agent');
+    assert.ok(switchedCat, 'runtime-switch-agent should still exist');
+    assert.equal(switchedCat.clientId, 'openai');
+    assert.equal(switchedCat.nativeToolLevel, undefined);
+    assert.equal(switchedCat.commandPolicy, undefined);
+
+    const rejectedPatchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/cats/runtime-switch-agent',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        nativeToolLevel: 'L2',
+      }),
+    });
+    assert.equal(rejectedPatchRes.statusCode, 400);
+    assert.match(JSON.parse(rejectedPatchRes.body).error, /only supported for catagent clients/i);
+  });
+
   it('POST /api/cats persists structured cli.effort for Codex members', async () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');

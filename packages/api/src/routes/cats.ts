@@ -109,6 +109,18 @@ const createNormalCatSchema = baseCatSchema.extend({
   mcpSupport: z.boolean().optional(),
   cli: cliSchema.optional(),
   cliConfigArgs: z.array(z.string().min(1)).optional(),
+  nativeToolLevel: z.enum(['L0', 'L1', 'L2']).optional(),
+  commandPolicy: z
+    .array(
+      z.object({
+        binary: z.string().min(1),
+        allowedSubcommands: z.array(z.string().min(1)).optional(),
+        allowedFlags: z.array(z.string().min(1)).optional(),
+        allowedArgPatterns: z.array(z.string().min(1)).optional(),
+        deniedFlags: z.array(z.string().min(1)).optional(),
+      }),
+    )
+    .optional(),
   provider: z.string().min(1).optional(),
 });
 
@@ -144,11 +156,39 @@ const updateCatSchema = z.object({
   cli: cliSchema.optional(),
   commandArgs: z.array(z.string().min(1)).optional(),
   cliConfigArgs: z.array(z.string().min(1)).optional(),
+  nativeToolLevel: z.enum(['L0', 'L1', 'L2']).nullable().optional(),
+  commandPolicy: z
+    .array(
+      z.object({
+        binary: z.string().min(1),
+        allowedSubcommands: z.array(z.string().min(1)).optional(),
+        allowedFlags: z.array(z.string().min(1)).optional(),
+        allowedArgPatterns: z.array(z.string().min(1)).optional(),
+        deniedFlags: z.array(z.string().min(1)).optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
   provider: z.string().min(1).nullable().optional(),
   voiceConfig: voiceConfigSchema.nullable().optional(),
 });
 
 type UpdateCatRequestBody = z.infer<typeof updateCatSchema>;
+
+function hasNativeToolSettings(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  return Object.hasOwn(body, 'nativeToolLevel') || Object.hasOwn(body, 'commandPolicy');
+}
+
+function hasNonNullNativeToolSettings(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const record = body as Record<string, unknown>;
+  return record.nativeToolLevel != null || record.commandPolicy != null;
+}
+
+function catAgentNativeToolError(clientId: ClientId): string {
+  return `nativeToolLevel and commandPolicy are only supported for catagent clients (received ${clientId})`;
+}
 
 function resolveOperator(raw: unknown): string | null {
   if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim();
@@ -374,6 +414,12 @@ async function toCatResponse(
     voiceConfig: cat.voiceConfig,
     commandArgs: cat.commandArgs,
     cliConfigArgs: cat.cliConfigArgs,
+    ...(cat.clientId === 'catagent'
+      ? {
+          nativeToolLevel: cat.nativeToolLevel,
+          commandPolicy: cat.commandPolicy,
+        }
+      : {}),
     provider: cat.provider,
     variantLabel: cat.variantLabel ?? undefined,
     isDefaultVariant: cat.isDefaultVariant ?? undefined,
@@ -493,6 +539,11 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const managedIdsBefore = getManagedCatalogIds(projectRoot);
     const body = parsed.data;
 
+    if (body.clientId !== 'catagent' && hasNativeToolSettings(body)) {
+      reply.status(400);
+      return { error: catAgentNativeToolError(body.clientId) };
+    }
+
     // Validate alias uniqueness across all existing members
     if (body.mentionPatterns?.length) {
       const allConfigs = catRegistry.getAllConfigs();
@@ -584,6 +635,8 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
               body.clientId === 'opencode'),
           cli: resolvedCli,
           ...(body.cliConfigArgs ? { cliConfigArgs: body.cliConfigArgs } : {}),
+          ...(body.clientId === 'catagent' && body.nativeToolLevel ? { nativeToolLevel: body.nativeToolLevel } : {}),
+          ...(body.clientId === 'catagent' && body.commandPolicy ? { commandPolicy: body.commandPolicy } : {}),
           ...(body.provider || providerNameForValidation
             ? { provider: body.provider ?? providerNameForValidation }
             : {}),
@@ -649,6 +702,10 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
       return { error: `Cat "${request.params.id}" not found` };
     }
     const effectiveClient = body.clientId ?? currentCat.clientId;
+    if (effectiveClient !== 'catagent' && hasNonNullNativeToolSettings(body)) {
+      reply.status(400);
+      return { error: catAgentNativeToolError(effectiveClient) };
+    }
     const currentEffectiveAccountRef = await resolveEffectiveAccountRef(currentCat);
     let targetAccountRef = resolveAccountRef(body);
     let effectiveAccountRef =
@@ -719,6 +776,21 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
         hasCommandArgsPatch,
         nextCommandArgs,
       });
+      const nativeToolPatch: Record<string, unknown> =
+        effectiveClient === 'catagent'
+          ? {
+              ...(body.nativeToolLevel !== undefined ? { nativeToolLevel: body.nativeToolLevel } : {}),
+              ...(body.commandPolicy !== undefined ? { commandPolicy: body.commandPolicy } : {}),
+            }
+          : currentCat.nativeToolLevel !== undefined ||
+              currentCat.commandPolicy !== undefined ||
+              body.nativeToolLevel === null ||
+              body.commandPolicy === null
+            ? {
+                nativeToolLevel: null,
+                commandPolicy: null,
+              }
+            : {};
       updateRuntimeCat(projectRoot, request.params.id, {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
@@ -746,6 +818,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
         ...(nextCli !== undefined ? { cli: nextCli } : {}),
         ...(body.available !== undefined ? { available: body.available } : {}),
         ...(body.cliConfigArgs !== undefined ? { cliConfigArgs: body.cliConfigArgs } : {}),
+        ...nativeToolPatch,
         ...(body.provider !== undefined
           ? body.provider === null
             ? { provider: null }

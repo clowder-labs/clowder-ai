@@ -8,7 +8,9 @@ import type {
   CliConfig,
   ClientId,
   CoCreatorConfig,
+  CommandPolicyEntry,
   ContextBudget,
+  NativeToolLevel,
   VoiceConfig,
 } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
@@ -41,6 +43,8 @@ export interface RuntimeCatInput {
   cli: CliConfig;
   commandArgs?: string[];
   cliConfigArgs?: string[];
+  nativeToolLevel?: NativeToolLevel;
+  commandPolicy?: CommandPolicyEntry[];
   contextBudget?: ContextBudget;
   voiceConfig?: VoiceConfig;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
@@ -68,6 +72,8 @@ export interface RuntimeCatUpdate {
   cli?: CliConfig;
   commandArgs?: string[];
   cliConfigArgs?: string[];
+  nativeToolLevel?: NativeToolLevel | null;
+  commandPolicy?: CommandPolicyEntry[] | null;
   contextBudget?: ContextBudget | null;
   voiceConfig?: VoiceConfig | null;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
@@ -224,6 +230,10 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
           : {}),
         ...(input.commandArgs && input.commandArgs.length > 0 ? { commandArgs: input.commandArgs } : {}),
         ...(input.cliConfigArgs && input.cliConfigArgs.length > 0 ? { cliConfigArgs: input.cliConfigArgs } : {}),
+        ...(input.clientId === 'catagent' && input.nativeToolLevel ? { nativeToolLevel: input.nativeToolLevel } : {}),
+        ...(input.clientId === 'catagent' && input.commandPolicy && input.commandPolicy.length > 0
+          ? { commandPolicy: input.commandPolicy }
+          : {}),
         ...(input.provider ? { provider: input.provider } : {}),
         ...(input.contextBudget ? { contextBudget: input.contextBudget } : {}),
         ...(input.voiceConfig !== undefined ? { voiceConfig: input.voiceConfig } : {}),
@@ -393,6 +403,7 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
       variant.sessionChain = patch.sessionChain;
     }
   }
+  const nextClientId = patch.clientId ?? variant.clientId;
   if (patch.clientId !== undefined) variant.clientId = patch.clientId;
   if (patch.defaultModel !== undefined) variant.defaultModel = patch.defaultModel;
   if (patch.mcpSupport !== undefined) variant.mcpSupport = patch.mcpSupport;
@@ -424,6 +435,25 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
     } else {
       delete variant.cliConfigArgs;
     }
+  }
+  if (nextClientId === 'catagent') {
+    if (patch.nativeToolLevel !== undefined) {
+      if (patch.nativeToolLevel) {
+        variant.nativeToolLevel = patch.nativeToolLevel;
+      } else {
+        delete variant.nativeToolLevel;
+      }
+    }
+    if (patch.commandPolicy !== undefined) {
+      if (patch.commandPolicy && patch.commandPolicy.length > 0) {
+        variant.commandPolicy = patch.commandPolicy;
+      } else {
+        delete variant.commandPolicy;
+      }
+    }
+  } else {
+    delete variant.nativeToolLevel;
+    delete variant.commandPolicy;
   }
   if (patch.provider !== undefined) {
     if (patch.provider) {

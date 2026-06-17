@@ -1,5 +1,6 @@
 import type { CatData } from '@/hooks/useCatData';
 import {
+  CATAGENT_GIT_READONLY_COMMAND_POLICY,
   type ClientId,
   DEFAULT_ANTIGRAVITY_COMMAND_ARGS,
   type HubCatEditorFormState,
@@ -102,6 +103,25 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
   const voiceConfig = buildVoiceConfig(form);
   const voiceConfigPatch: Record<string, unknown> =
     voiceConfig !== undefined ? { voiceConfig } : cat?.voiceConfig ? { voiceConfig: null } : {};
+  const isCatAgent = form.clientId === 'catagent';
+  // F159 Phase F: typed as Record to keep the build payload union flat (mirrors voiceConfigPatch).
+  const nativeToolLevelPatch: Record<string, unknown> =
+    isCatAgent && form.nativeToolLevel
+      ? { nativeToolLevel: form.nativeToolLevel }
+      : cat?.nativeToolLevel
+        ? { nativeToolLevel: null }
+        : {};
+  const commandPolicyPatch: Record<string, unknown> = !isCatAgent
+    ? cat?.commandPolicy
+      ? { commandPolicy: null }
+      : {}
+    : form.commandPolicyPreset === 'git-readonly'
+      ? { commandPolicy: CATAGENT_GIT_READONLY_COMMAND_POLICY }
+      : form.commandPolicyPreset === ''
+        ? cat?.commandPolicy
+          ? { commandPolicy: null }
+          : {}
+        : {};
   const common = {
     displayName,
     variantLabel: trimText(form.variantLabel),
@@ -146,6 +166,8 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
     ...cliPatch,
     defaultModel: trimText(form.defaultModel),
     cliConfigArgs: (form.cliConfigArgs ?? []).filter((arg) => arg.trim().length > 0),
+    ...nativeToolLevelPatch,
+    ...commandPolicyPatch,
     ...(form.clientId === 'opencode' && trimText(form.provider)
       ? { provider: trimText(form.provider) }
       : cat?.provider
