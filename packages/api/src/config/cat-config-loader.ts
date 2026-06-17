@@ -23,7 +23,7 @@ import type {
 import { type ClientId, catRegistry, createCatId, normalizeCliEffortForProvider } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
-import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
+import { bootstrapCatCatalog, readCatCatalogRaw } from './cat-catalog-store.js';
 import { isValidTimeZone } from './time-zone.js';
 
 const log = createModuleLogger('cat-config');
@@ -51,6 +51,14 @@ const contextBudgetSchema = z.object({
   maxContextTokens: z.number().positive(),
   maxMessages: z.number().positive().int(),
   maxContentLengthPerMsg: z.number().positive(),
+});
+
+const commandPolicyEntrySchema = z.object({
+  binary: z.string().min(1),
+  allowedSubcommands: z.array(z.string().min(1)).optional(),
+  allowedFlags: z.array(z.string().min(1)).optional(),
+  allowedArgPatterns: z.array(z.string().min(1)).optional(),
+  deniedFlags: z.array(z.string().min(1)).optional(),
 });
 
 const agyProfileSchema = z
@@ -105,6 +113,8 @@ const catVariantSchema = z.object({
   avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
   color: colorSchema.optional(), // F32-b P4c: override breed color
   contextBudget: contextBudgetSchema.optional(),
+  nativeToolLevel: z.enum(['L0', 'L1', 'L2']).optional(), // F159 Phase F
+  commandPolicy: z.array(commandPolicyEntrySchema).optional(), // F159 Phase F
   voiceConfig: z // F103: per-cat TTS voice configuration
     .object({
       voice: z.string().min(1),
@@ -386,7 +396,6 @@ function mergeTemplateWithCatalog(templatePath: string): string | null {
  */
 export function loadCatConfig(filePath?: string): CatCafeConfig {
   let raw: string;
-  let resolvedPath = filePath;
   if (filePath) {
     try {
       raw = readFileSync(filePath, 'utf-8');
@@ -399,10 +408,8 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
     const merged = mergeTemplateWithCatalog(templatePath);
     if (merged !== null) {
       raw = merged;
-      resolvedPath = resolveCatCatalogPath(dirname(templatePath));
     } else {
       raw = readTemplate(templatePath);
-      resolvedPath = templatePath;
     }
   }
 
@@ -517,6 +524,8 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         ...(variant.cli != null ? { cli: variant.cli } : {}),
         ...(variant.provider != null ? { provider: variant.provider } : {}),
         ...(variant.contextBudget != null ? { contextBudget: variant.contextBudget } : {}),
+        ...(variant.nativeToolLevel != null ? { nativeToolLevel: variant.nativeToolLevel } : {}),
+        ...(variant.commandPolicy != null ? { commandPolicy: variant.commandPolicy } : {}),
         ...(variant.voiceConfig != null ? { voiceConfig: variant.voiceConfig } : {}),
         roleDescription: variant.roleDescription ?? breed.roleDescription,
         personality: variant.personality ?? defaultVariant?.personality ?? '',
