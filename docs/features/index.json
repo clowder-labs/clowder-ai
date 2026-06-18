@@ -1445,6 +1445,12 @@
       "name": "Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + 老 symlinks 清理（ADR-025 Phase 5 收尾）",
       "status": "closed (Phase A + B both merged 2026-06-16) | **Owner**: Ragdoll/Ragdoll (Opus 4.7) | **Priority**: P2",
       "file": "F239-skill-mount-home-hygiene.md"
+    },
+    {
+      "id": "F241",
+      "name": "Agent Provider Plugin — Pluggable Agent Provider Extension Surface",
+      "status": "spec | **Owner**: Maine Coon/Codex (GPT-5.5) + Cat Cafe maintainers | **Priority**: P1 | **Source**: operator private-agent integration request + clowder-ai#941",
+      "file": "F241-agent-provider-plugin.md"
     }
   ]
 }
