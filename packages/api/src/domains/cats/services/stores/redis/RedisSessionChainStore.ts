@@ -100,7 +100,7 @@ return {'updated', 'sealing'}
 
 /**
  * Lua: atomically rotate cliSessionId and its reverse index for an active record.
- * KEYS[1] = detail key, KEYS[2] = new CLI index key
+ * KEYS[1] = detail key, KEYS[2] = new CLI index key, KEYS[3] = active key
  * ARGV[1] = id, ARGV[2] = new cliSessionId, ARGV[3] = keyPrefix,
  * ARGV[4] = updatedAt, ARGV[5] = ttlSeconds ('0' = persistent)
  *
@@ -110,6 +110,7 @@ const UPDATE_CLI_SESSION_ID_LUA = `
 if redis.call('EXISTS', KEYS[1]) == 0 then return {'missing', ''} end
 local currentStatus = redis.call('HGET', KEYS[1], 'status') or 'active'
 if currentStatus ~= 'active' then return {'status', currentStatus} end
+if redis.call('GET', KEYS[3]) ~= ARGV[1] then return {'stale', currentStatus} end
 local oldCliSessionId = redis.call('HGET', KEYS[1], 'cliSessionId') or ''
 if oldCliSessionId ~= '' then
   local oldCliKey = ARGV[3] .. 'session-cli:' .. oldCliSessionId
@@ -272,11 +273,14 @@ export class RedisSessionChainStore implements ISessionChainStore {
     pairs.push('updatedAt', String(updatedAt));
 
     if (patch.cliSessionId !== undefined) {
+      const [catId, threadId] = await this.redis.hmget(detailKey, 'catId', 'threadId');
+      if (!catId || !threadId) return null;
       const result = (await this.redis.eval(
         UPDATE_CLI_SESSION_ID_LUA,
-        2,
+        3,
         detailKey,
         SessionChainKeys.byCli(patch.cliSessionId),
+        SessionChainKeys.active(catId, threadId),
         id,
         patch.cliSessionId,
         this.keyPrefix,

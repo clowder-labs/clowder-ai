@@ -188,6 +188,19 @@ describe('SessionChainStore', () => {
     assert.equal(store.getByCliSessionId('cli-new'), null);
   });
 
+  test('update() rejects cliSessionId rotation after record is superseded by active pointer', async () => {
+    const store = await createStore();
+    const oldRecord = store.create(BASE_INPUT);
+    const newRecord = store.create({ ...BASE_INPUT, cliSessionId: 'cli-active' });
+
+    const updated = store.update(oldRecord.id, { cliSessionId: 'cli-rebound' });
+
+    assert.equal(updated, null);
+    assert.equal(store.getByCliSessionId('cli-sess-1').id, oldRecord.id);
+    assert.equal(store.getByCliSessionId('cli-rebound'), null);
+    assert.equal(store.getActive('opus', 'thread-1').id, newRecord.id);
+  });
+
   test('compareAndMarkSealing() rejects records superseded by active pointer', async () => {
     const store = await createStore();
     const oldRecord = store.create(BASE_INPUT);

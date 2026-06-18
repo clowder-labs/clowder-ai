@@ -199,6 +199,8 @@ export class SessionChainStore implements ISessionChainStore {
 
     if (patch.cliSessionId !== undefined) {
       if (record.status !== 'active') return null;
+      const key = this.catThreadKey(record.catId, record.threadId);
+      if (this.activeIndex.get(key) !== id) return null;
       // Update CLI index
       this.cliIndex.delete(record.cliSessionId);
       record.cliSessionId = patch.cliSessionId;

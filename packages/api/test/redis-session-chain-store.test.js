@@ -294,6 +294,18 @@ describe('RedisSessionChainStore', { skip: redisIsolationSkipReason(REDIS_URL) }
     assert.equal(await store.getByCliSessionId('cli-new'), null);
   });
 
+  it('update() rejects cliSessionId rotation after record is superseded by active pointer', async () => {
+    const oldRecord = await store.create(BASE_INPUT);
+    const newRecord = await store.create({ ...BASE_INPUT, cliSessionId: 'cli-active' });
+
+    const updated = await store.update(oldRecord.id, { cliSessionId: 'cli-rebound' });
+
+    assert.equal(updated, null);
+    assert.equal((await store.getByCliSessionId('cli-sess-1'))?.id, oldRecord.id);
+    assert.equal(await store.getByCliSessionId('cli-rebound'), null);
+    assert.equal((await store.getActive('opus', 'thread-1'))?.id, newRecord.id);
+  });
+
   it('compareAndMarkSealing() rejects records superseded by active pointer', async () => {
     const oldRecord = await store.create(BASE_INPUT);
     const newRecord = await store.create({ ...BASE_INPUT, cliSessionId: 'cli-new' });
