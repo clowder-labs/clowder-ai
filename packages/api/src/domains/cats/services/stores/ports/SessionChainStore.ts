@@ -57,6 +57,18 @@ export interface ISessionChainStore {
   getChainByThread(threadId: string): SessionRecord[] | Promise<SessionRecord[]>;
   /** Update partial fields */
   update(id: string, patch: SessionRecordPatch): SessionRecord | null | Promise<SessionRecord | null>;
+  /**
+   * Atomically transition an active session to sealing, optionally requiring
+   * that the runtime session id still matches the caller's resume target.
+   */
+  compareAndMarkSealing(
+    id: string,
+    input: {
+      sealReason: SessionRecord['sealReason'];
+      updatedAt: number;
+      expectedCliSessionId?: string;
+    },
+  ): SessionRecord | null | Promise<SessionRecord | null>;
   /** Look up by CLI session ID */
   getByCliSessionId(cliSessionId: string): SessionRecord | null | Promise<SessionRecord | null>;
   /**
@@ -186,6 +198,7 @@ export class SessionChainStore implements ISessionChainStore {
     if (!record) return null;
 
     if (patch.cliSessionId !== undefined) {
+      if (record.status !== 'active') return null;
       // Update CLI index
       this.cliIndex.delete(record.cliSessionId);
       record.cliSessionId = patch.cliSessionId;
@@ -220,6 +233,30 @@ export class SessionChainStore implements ISessionChainStore {
     if (patch.latestResumeSessionId !== undefined) record.latestResumeSessionId = patch.latestResumeSessionId;
     if (patch.catHandoffNote !== undefined) record.catHandoffNote = patch.catHandoffNote;
     record.updatedAt = patch.updatedAt ?? Date.now();
+
+    return record;
+  }
+
+  compareAndMarkSealing(
+    id: string,
+    input: {
+      sealReason: SessionRecord['sealReason'];
+      updatedAt: number;
+      expectedCliSessionId?: string;
+    },
+  ): SessionRecord | null {
+    const record = this.records.get(id);
+    if (!record) return null;
+    if (record.status !== 'active') return null;
+    const key = this.catThreadKey(record.catId, record.threadId);
+    if (this.activeIndex.get(key) !== id) return null;
+    if (input.expectedCliSessionId !== undefined && record.cliSessionId !== input.expectedCliSessionId) return null;
+
+    record.status = 'sealing';
+    record.sealReason = input.sealReason;
+    record.updatedAt = input.updatedAt;
+
+    this.activeIndex.delete(key);
 
     return record;
   }

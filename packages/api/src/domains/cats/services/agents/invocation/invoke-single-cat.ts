@@ -1798,9 +1798,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             const result = await deps.sessionSealer.requestSeal({
               sessionId: activeRecord.id,
               reason: 'session_continuity_degraded',
+              expectedCliSessionId: degradation.requestedSessionId,
             });
             if (result.accepted) {
               deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+            } else {
+              suppressSessionChainForStaleContinuityDegradation = true;
             }
             return;
           }

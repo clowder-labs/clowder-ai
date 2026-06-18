@@ -74,6 +74,58 @@ redis.call('HSET', KEYS[1], 'updatedAt', ARGV[1])
 return newCount
 `;
 
+/**
+ * Lua: atomic active → sealing transition with optional cliSessionId CAS.
+ * KEYS[1] = detail key, KEYS[2] = active key
+ * ARGV[1] = id, ARGV[2] = sealReason, ARGV[3] = updatedAt,
+ * ARGV[4] = expectedCliSessionId ('' = no expected check)
+ *
+ * Returns: {'updated', 'sealing'}, {'missing', ''}, {'status', currentStatus},
+ *          {'stale', currentStatus}, or {'mismatch', currentStatus}.
+ */
+const MARK_SEALING_LUA = `
+if redis.call('EXISTS', KEYS[1]) == 0 then return {'missing', ''} end
+local currentStatus = redis.call('HGET', KEYS[1], 'status') or 'active'
+if currentStatus ~= 'active' then return {'status', currentStatus} end
+if redis.call('GET', KEYS[2]) ~= ARGV[1] then return {'stale', currentStatus} end
+if ARGV[4] ~= '' and redis.call('HGET', KEYS[1], 'cliSessionId') ~= ARGV[4] then
+  return {'mismatch', currentStatus}
+end
+redis.call('HSET', KEYS[1], 'status', 'sealing', 'sealReason', ARGV[2], 'updatedAt', ARGV[3])
+if redis.call('GET', KEYS[2]) == ARGV[1] then
+  redis.call('DEL', KEYS[2])
+end
+return {'updated', 'sealing'}
+`;
+
+/**
+ * Lua: atomically rotate cliSessionId and its reverse index for an active record.
+ * KEYS[1] = detail key, KEYS[2] = new CLI index key
+ * ARGV[1] = id, ARGV[2] = new cliSessionId, ARGV[3] = keyPrefix,
+ * ARGV[4] = updatedAt, ARGV[5] = ttlSeconds ('0' = persistent)
+ *
+ * Lua-built old CLI index keys must include keyPrefix explicitly.
+ */
+const UPDATE_CLI_SESSION_ID_LUA = `
+if redis.call('EXISTS', KEYS[1]) == 0 then return {'missing', ''} end
+local currentStatus = redis.call('HGET', KEYS[1], 'status') or 'active'
+if currentStatus ~= 'active' then return {'status', currentStatus} end
+local oldCliSessionId = redis.call('HGET', KEYS[1], 'cliSessionId') or ''
+if oldCliSessionId ~= '' then
+  local oldCliKey = ARGV[3] .. 'session-cli:' .. oldCliSessionId
+  if redis.call('GET', oldCliKey) == ARGV[1] then
+    redis.call('DEL', oldCliKey)
+  end
+end
+redis.call('HSET', KEYS[1], 'cliSessionId', ARGV[2], 'updatedAt', ARGV[4])
+if ARGV[5] ~= '0' then
+  redis.call('SET', KEYS[2], ARGV[1], 'EX', tonumber(ARGV[5]))
+else
+  redis.call('SET', KEYS[2], ARGV[1])
+end
+return {'updated', oldCliSessionId}
+`;
+
 export class RedisSessionChainStore implements ISessionChainStore {
   private readonly redis: RedisClient;
 
@@ -216,18 +268,22 @@ export class RedisSessionChainStore implements ISessionChainStore {
 
     const pairs: string[] = [];
     const deleteFields: string[] = [];
-    pairs.push('updatedAt', String(patch.updatedAt ?? Date.now()));
+    const updatedAt = patch.updatedAt ?? Date.now();
+    pairs.push('updatedAt', String(updatedAt));
 
     if (patch.cliSessionId !== undefined) {
-      // Update CLI index: delete old, set new
-      const oldCliId = await this.redis.hget(detailKey, 'cliSessionId');
-      if (oldCliId) await this.redis.del(SessionChainKeys.byCli(oldCliId));
-      if (DEFAULT_TTL_SECONDS > 0) {
-        await this.redis.set(SessionChainKeys.byCli(patch.cliSessionId), id, 'EX', DEFAULT_TTL_SECONDS);
-      } else {
-        await this.redis.set(SessionChainKeys.byCli(patch.cliSessionId), id);
-      }
-      pairs.push('cliSessionId', patch.cliSessionId);
+      const result = (await this.redis.eval(
+        UPDATE_CLI_SESSION_ID_LUA,
+        2,
+        detailKey,
+        SessionChainKeys.byCli(patch.cliSessionId),
+        id,
+        patch.cliSessionId,
+        this.keyPrefix,
+        String(updatedAt),
+        String(DEFAULT_TTL_SECONDS),
+      )) as [string, string];
+      if (result[0] !== 'updated') return null;
     }
 
     if (patch.status !== undefined) {
@@ -289,6 +345,37 @@ export class RedisSessionChainStore implements ISessionChainStore {
       await this.redis.hdel(detailKey, ...deleteFields);
     }
     return this.get(id);
+  }
+
+  async compareAndMarkSealing(
+    id: string,
+    input: {
+      sealReason: SessionRecord['sealReason'];
+      updatedAt: number;
+      expectedCliSessionId?: string;
+    },
+  ): Promise<SessionRecord | null> {
+    const detailKey = SessionChainKeys.detail(id);
+    const [catId, threadId] = await this.redis.hmget(detailKey, 'catId', 'threadId');
+    if (!catId || !threadId) return null;
+
+    const result = (await this.redis.eval(
+      MARK_SEALING_LUA,
+      2,
+      detailKey,
+      SessionChainKeys.active(catId, threadId),
+      id,
+      input.sealReason ?? '',
+      String(input.updatedAt),
+      input.expectedCliSessionId ?? '',
+    )) as [string, string];
+
+    if (result[0] !== 'updated') return null;
+    return this.get(id);
+  }
+
+  private get keyPrefix(): string {
+    return (this.redis.options as { keyPrefix?: string }).keyPrefix ?? '';
   }
 
   async getByCliSessionId(cliSessionId: string): Promise<SessionRecord | null> {

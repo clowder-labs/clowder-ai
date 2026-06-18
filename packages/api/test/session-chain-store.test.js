@@ -176,6 +176,34 @@ describe('SessionChainStore', () => {
     assert.equal(store.getByCliSessionId('cli-sess-1'), null, 'old CLI session ID should be unlinked');
   });
 
+  test('update() rejects cliSessionId rotation after record is inactive', async () => {
+    const store = await createStore();
+    const record = store.create(BASE_INPUT);
+    store.update(record.id, { status: 'sealing' });
+
+    const updated = store.update(record.id, { cliSessionId: 'cli-new' });
+
+    assert.equal(updated, null);
+    assert.equal(store.getByCliSessionId('cli-sess-1').id, record.id);
+    assert.equal(store.getByCliSessionId('cli-new'), null);
+  });
+
+  test('compareAndMarkSealing() rejects records superseded by active pointer', async () => {
+    const store = await createStore();
+    const oldRecord = store.create(BASE_INPUT);
+    const newRecord = store.create({ ...BASE_INPUT, cliSessionId: 'cli-new' });
+
+    const sealed = store.compareAndMarkSealing(oldRecord.id, {
+      sealReason: 'session_continuity_degraded',
+      updatedAt: Date.now(),
+      expectedCliSessionId: 'cli-sess-1',
+    });
+
+    assert.equal(sealed, null);
+    assert.equal(store.get(oldRecord.id).status, 'active');
+    assert.equal(store.getActive('opus', 'thread-1').id, newRecord.id);
+  });
+
   test('update() returns null for non-existent id', async () => {
     const store = await createStore();
     assert.equal(store.update('non-existent', { status: 'sealed' }), null);
