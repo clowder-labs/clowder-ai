@@ -389,6 +389,13 @@ function parseSessionContinuityDegradation(msg: AgentMessage): { reason?: string
   }
 }
 
+function shouldSealActiveSessionForContinuityDegradation(degradation: {
+  reason?: string;
+  requestedSessionId?: string;
+}): boolean {
+  return degradation.reason === 'cli_jsonl_resume_requires_single_line_prompt';
+}
+
 async function syncAntigravityRuntimeMetadata(input: {
   runtimeSessionStore: IRuntimeSessionStore;
   sessionChainStore: ISessionChainStore;
@@ -1761,6 +1768,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       const sealActiveSessionForContinuityDegradation = async (msg: AgentMessage): Promise<void> => {
         const degradation = parseSessionContinuityDegradation(msg);
         if (!degradation) return;
+        if (!shouldSealActiveSessionForContinuityDegradation(degradation)) return;
         if (!deps.sessionChainStore || !sessionChainActive) return;
 
         try {

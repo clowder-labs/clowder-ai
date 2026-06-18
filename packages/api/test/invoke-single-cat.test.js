@@ -864,6 +864,56 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(active.messageCount, 1, 'fresh output should count against the new record');
   });
 
+  it('F241: stateless continuity degradation keeps the active record for host persistence', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    const sessionSealer = new SessionSealer(sessionChainStore);
+    const oldRecord = sessionChainStore.create({
+      cliSessionId: 'cli-stateless-old',
+      threadId: 'thread-f241-stateless',
+      catId: 'opus',
+      userId: 'user1',
+    });
+
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({
+            type: 'session_continuity_degraded',
+            reason: 'cli_jsonl_stateless',
+            requestedSessionId: 'cli-stateless-old',
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'stateless output', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = { ...makeDeps(), sessionChainStore, sessionSealer };
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-f241-stateless',
+        isLastCat: true,
+      }),
+    );
+
+    const active = sessionChainStore.getActive('opus', 'thread-f241-stateless');
+    assert.ok(active, 'stateless degradation should not clear host active session state');
+    assert.equal(active.id, oldRecord.id);
+    assert.equal(active.status, 'active');
+    assert.equal(active.sealReason, undefined);
+    assert.equal(active.messageCount, 1, 'stateless output should still count against the active host record');
+  });
+
   it('F211 A2: repeated Antigravity cascade updates runtime metadata without creating a new SessionRecord', async () => {
     const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const { RuntimeSessionStore } = await import(
