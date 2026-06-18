@@ -1190,8 +1190,21 @@ async function main(): Promise<void> {
         providerTransport: getProviderTransportConfig(id, projectRoot),
       });
       if (providerTransport.handled) {
+        if (!providerTransport.service) {
+          if (providerTransport.rejectionReason) {
+            app.log.warn(
+              {
+                catId: id,
+                clientId: config.clientId,
+                transportId: providerTransport.transportId,
+                reason: providerTransport.rejectionReason,
+              },
+              '[api] Provider transport rejected; cat will not be routable',
+            );
+          }
+          continue;
+        }
         markActiveProviderTransportProfile(activeProfileIdsByTransport, providerTransport.transportId, id);
-        if (!providerTransport.service) continue;
         service = providerTransport.service;
       } else
         switch (config.clientId) {

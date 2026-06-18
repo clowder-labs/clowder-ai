@@ -204,6 +204,9 @@ These are no longer blockers for feature-anchor acceptance, but must be settled 
 - Transport selection remains before the legacy `clientId` provider switch. A declared transport that fails validation is terminal and must not fall back to a provider-specific branch.
 - Phase A second slice adds raw catalog `providerTransport` intake for host-owned transport selection. This is a temporary activation surface, not the Phase B F202 manifest resource.
 - `cli-jsonl` is the first constrained smoke transport for `clowder-code`-style runtimes while ACP/A2A support lands in the external runtime. Prompt delivery is stdin-only; command, cwd, env injection, timeout, and JSONL mapping remain host-owned.
+- Raw `providerTransport` is rejected for builtin client identities and existing routeable cat IDs; the temporary raw surface cannot replace `codex`, `opus`, or other trusted builtin participants.
+- `cli-jsonl` defaults to resumable session behavior. Fresh turns use `startupArgs`; follow-up turns with a host `sessionId` use `resumeArgs` with a required `{sessionId}` placeholder. A transport that is intentionally stateless must declare `sessionPolicy: "stateless"` and will not emit session-chain continuity metadata.
+- `cli-jsonl` participates in host raw-event archive diagnostics by passing `rawArchivePath` into `spawnCli` and appending sanitized JSONL events by invocation ID.
 - F202 `agentProvider` manifest parsing/activation is intentionally not part of this first slice.
 
 Temporary raw catalog shape for Phase A smoke activation:
@@ -215,6 +218,8 @@ Temporary raw catalog shape for Phase A smoke activation:
     "transport": "cli-jsonl",
     "command": "clowder-code",
     "startupArgs": ["--json", "--non-interactive"],
+    "resumeArgs": ["resume", "{sessionId}", "--json"],
+    "sessionPolicy": "resume",
     "outputProfile": "clowder-code-turn-result-v1"
   }
 }

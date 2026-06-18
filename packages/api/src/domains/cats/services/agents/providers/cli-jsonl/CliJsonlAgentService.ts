@@ -10,8 +10,12 @@ import { formatCliExitError } from '../../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../../utils/cli-types.js';
+import { CliRawArchive } from '../../../session/CliRawArchive.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
+import { sanitizeRawEvent, type RawArchiveSink } from '../codex-audit-hooks.js';
 import { transformCliJsonlEvent } from './cli-jsonl-event-transform.js';
+
+export type CliJsonlSessionPolicy = 'resume' | 'stateless';
 
 export interface CliJsonlAgentServiceOptions {
   catId: CatId | string;
@@ -19,9 +23,14 @@ export interface CliJsonlAgentServiceOptions {
   modelName: string;
   command: string;
   startupArgs?: readonly string[];
+  resumeArgs?: readonly string[];
+  sessionPolicy?: CliJsonlSessionPolicy;
   timeoutMs?: number;
   spawnFn?: SpawnFn;
+  rawArchive?: RawArchiveSink;
 }
+
+const DEFAULT_RESUME_ARGS = ['resume', '{sessionId}', '--json'] as const;
 
 function withMetadata(msg: AgentMessage, metadata: MessageMetadata): AgentMessage {
   if (!msg.metadata) return { ...msg, metadata };
@@ -42,14 +51,25 @@ function buildPrompt(prompt: string, options?: AgentServiceOptions): string {
   return `${options.systemPrompt}\n\n${prompt}`;
 }
 
+function buildResumeArgs(template: readonly string[], sessionId: string): string[] {
+  return template.map((arg) => arg.replaceAll('{sessionId}', sessionId));
+}
+
+function oneLineJsonModePrompt(prompt: string): string {
+  return prompt.replace(/\r?\n/g, '\\n');
+}
+
 export class CliJsonlAgentService implements AgentService {
   readonly catId: CatId;
   private readonly providerName: string;
   private readonly modelName: string;
   private readonly command: string;
   private readonly startupArgs: readonly string[];
+  private readonly resumeArgs: readonly string[];
+  private readonly sessionPolicy: CliJsonlSessionPolicy;
   private readonly timeoutMs: number | undefined;
   private readonly spawnFn: SpawnFn | undefined;
+  private readonly rawArchive: RawArchiveSink;
 
   constructor(options: CliJsonlAgentServiceOptions) {
     this.catId = createCatId(options.catId as string);
@@ -57,8 +77,11 @@ export class CliJsonlAgentService implements AgentService {
     this.modelName = options.modelName;
     this.command = options.command;
     this.startupArgs = options.startupArgs ?? [];
+    this.resumeArgs = options.resumeArgs ?? DEFAULT_RESUME_ARGS;
+    this.sessionPolicy = options.sessionPolicy ?? 'resume';
     this.timeoutMs = options.timeoutMs;
     this.spawnFn = options.spawnFn;
+    this.rawArchive = options.rawArchive ?? new CliRawArchive();
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -81,18 +104,38 @@ export class CliJsonlAgentService implements AgentService {
       for (const [key, value] of Object.entries(options.accountEnv)) env[key] = value;
     }
 
+    const requestedSessionId = typeof options?.sessionId === 'string' ? options.sessionId.trim() : '';
+    const resumeRequested = requestedSessionId.length > 0;
+    const resumeEnabled = this.sessionPolicy === 'resume' && resumeRequested;
+    if (resumeRequested && this.sessionPolicy === 'stateless') {
+      yield {
+        type: 'system_info',
+        catId: this.catId,
+        content: JSON.stringify({
+          type: 'session_continuity_degraded',
+          reason: 'cli_jsonl_stateless',
+          requestedSessionId,
+        }),
+        metadata,
+        timestamp: Date.now(),
+      };
+    }
+
+    const invocationId = options?.invocationId ?? options?.auditContext?.invocationId;
+    const promptInput = buildPrompt(prompt, options);
     const cliOpts = {
       command,
-      args: this.startupArgs,
-      stdinInput: buildPrompt(prompt, options),
+      args: resumeEnabled ? buildResumeArgs(this.resumeArgs, requestedSessionId) : this.startupArgs,
+      stdinInput: resumeEnabled ? oneLineJsonModePrompt(promptInput) : promptInput,
       ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
       ...(Object.keys(env).length > 0 ? { env } : {}),
       ...(this.timeoutMs !== undefined ? { timeoutMs: this.timeoutMs } : {}),
       ...(options?.signal ? { signal: options.signal } : {}),
-      ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+      ...(invocationId ? { invocationId } : {}),
       ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
       ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
       ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
+      ...(invocationId && this.rawArchive.getPath ? { rawArchivePath: this.rawArchive.getPath(invocationId) } : {}),
     };
     const events = options?.spawnCliOverride
       ? options.spawnCliOverride(cliOpts)
@@ -104,6 +147,12 @@ export class CliJsonlAgentService implements AgentService {
 
     try {
       for await (const event of events) {
+        if (invocationId) {
+          this.rawArchive.append(invocationId, sanitizeRawEvent(event)).catch(() => {
+            // Raw archive is diagnostic-only; invocation output must not fail on archive I/O.
+          });
+        }
+
         if (isCliTimeout(event)) {
           errorSeen = true;
           yield {
@@ -156,7 +205,10 @@ export class CliJsonlAgentService implements AgentService {
           continue;
         }
 
-        const messages = transformCliJsonlEvent(event, this.catId);
+        const messages = transformCliJsonlEvent(event, this.catId, {
+          emitSessionInit: this.sessionPolicy === 'resume',
+          ephemeralSession: false,
+        });
         if (messages.length === 0) continue;
         semanticEventSeen = true;
         for (const msg of messages) {

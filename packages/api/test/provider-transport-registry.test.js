@@ -22,7 +22,7 @@ function makeInput(profileId = 'test-cat') {
   return {
     projectRoot: '/tmp/project',
     profileId,
-    config: { id: profileId, clientId: 'acp' },
+    config: { id: profileId, clientId: 'clowder-code' },
   };
 }
 
@@ -67,6 +67,37 @@ describe('ProviderTransportRegistry', () => {
     assert.equal(result.handled, true);
     assert.equal(result.transportId, 'invalid');
     assert.equal(result.service, null);
+  });
+
+  it('rejects explicit providerTransport declarations on builtin client identities', async () => {
+    const registry = new ProviderTransportRegistry();
+    registry.register({ id: 'cli-jsonl', create: async () => ({ handled: true, service: makeService() }) });
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput('custom-external'),
+      config: { id: 'custom-external', clientId: 'openai' },
+      providerTransport: { transport: 'cli-jsonl', command: 'clowder-code' },
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'cli-jsonl');
+    assert.equal(result.service, null);
+    assert.equal(result.rejectionReason, 'builtin-client:openai');
+  });
+
+  it('rejects explicit providerTransport declarations that claim routeable builtin cat ids', async () => {
+    const registry = new ProviderTransportRegistry();
+    registry.register({ id: 'cli-jsonl', create: async () => ({ handled: true, service: makeService() }) });
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput('codex'),
+      providerTransport: { transport: 'cli-jsonl', command: 'clowder-code' },
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'cli-jsonl');
+    assert.equal(result.service, null);
+    assert.equal(result.rejectionReason, 'builtin-cat:codex');
   });
 
   it('returns a handled transport service before caller provider switch fallback', async () => {

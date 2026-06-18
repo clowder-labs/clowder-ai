@@ -23,7 +23,7 @@ export interface ProviderTransportCreateResult {
 
 export type ProviderTransportResolution =
   | { handled: false }
-  | { handled: true; transportId: string; service: AgentService | null };
+  | { handled: true; transportId: string; service: AgentService | null; rejectionReason?: string };
 
 export interface ProviderTransportCloseStaleOptions {
   reason?: string;
@@ -43,6 +43,50 @@ function declaredTransportId(providerTransport: unknown): string | null {
   if (typeof providerTransport !== 'object' || providerTransport === null) return null;
   const transport = (providerTransport as { transport?: unknown }).transport;
   return typeof transport === 'string' && transport.trim().length > 0 ? transport.trim() : null;
+}
+
+const BUILTIN_CLIENT_IDS = new Set([
+  'anthropic',
+  'openai',
+  'google',
+  'kimi',
+  'dare',
+  'antigravity',
+  'opencode',
+  'a2a',
+  'catagent',
+  'acp',
+]);
+
+const BUILTIN_ROUTEABLE_IDS = new Set([
+  'opus',
+  'sonnet',
+  'opus-45',
+  'fable-5',
+  'codex',
+  'gpt52',
+  'spark',
+  'gemini',
+  'gemini25',
+  'gemini35',
+  'dare',
+  'antigravity',
+  'antig-opus',
+  'opencode',
+  'kimi',
+  'opus-47',
+]);
+
+function reservedIdentityReason(input: ProviderTransportInput): string | null {
+  const clientId = String(input.config.clientId ?? '');
+  if (BUILTIN_CLIENT_IDS.has(clientId)) return `builtin-client:${clientId}`;
+
+  const configId = String(input.config.id ?? '');
+  if (BUILTIN_ROUTEABLE_IDS.has(configId)) return `builtin-cat:${configId}`;
+
+  if (BUILTIN_ROUTEABLE_IDS.has(input.profileId)) return `builtin-profile:${input.profileId}`;
+
+  return null;
 }
 
 export function markActiveProviderTransportProfile(
@@ -79,12 +123,17 @@ export class ProviderTransportRegistry {
     if (input.providerTransport !== undefined && input.providerTransport !== null) {
       const transportId = declaredTransportId(input.providerTransport);
       if (!transportId) {
-        return { handled: true, transportId: 'invalid', service: null };
+        return { handled: true, transportId: 'invalid', service: null, rejectionReason: 'invalid-declaration' };
+      }
+
+      const identityReason = reservedIdentityReason(input);
+      if (identityReason) {
+        return { handled: true, transportId, service: null, rejectionReason: identityReason };
       }
 
       const factory = this.factories.get(transportId);
       if (!factory) {
-        return { handled: true, transportId, service: null };
+        return { handled: true, transportId, service: null, rejectionReason: 'unknown-transport' };
       }
 
       const result = await factory.create(input);
@@ -92,6 +141,7 @@ export class ProviderTransportRegistry {
         handled: true,
         transportId,
         service: result.handled ? (result.service ?? null) : null,
+        ...(!result.handled || !result.service ? { rejectionReason: 'factory-rejected' } : {}),
       };
     }
 

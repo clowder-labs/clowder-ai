@@ -31,7 +31,44 @@ describe('CliJsonlProviderTransportFactory', () => {
         transport: 'cli-jsonl',
         command: 'clowder-code',
         startupArgs: ['--json', '--non-interactive'],
+        resumeArgs: ['resume', '{sessionId}', '--json'],
         outputProfile: 'clowder-code-turn-result-v1',
+      }),
+    );
+
+    assert.equal(result.handled, true);
+    assert.ok(result.service);
+  });
+
+  it('rejects resume mode declarations without a sessionId placeholder', async () => {
+    const warnings = [];
+    const factory = createCliJsonlProviderTransportFactory({
+      log: { warn: (payload, message) => warnings.push({ payload, message }) },
+    });
+
+    const result = await factory.create(
+      makeInput({
+        transport: 'cli-jsonl',
+        command: 'clowder-code',
+        sessionPolicy: 'resume',
+        resumeArgs: ['resume', '--json'],
+      }),
+    );
+
+    assert.equal(result.handled, true);
+    assert.equal(result.service, null);
+    assert.equal(warnings.length, 1);
+  });
+
+  it('allows explicit stateless declarations', async () => {
+    const factory = createCliJsonlProviderTransportFactory({ log: { warn: () => {} } });
+
+    const result = await factory.create(
+      makeInput({
+        transport: 'cli-jsonl',
+        command: 'clowder-code',
+        sessionPolicy: 'stateless',
+        resumeArgs: [],
       }),
     );
 

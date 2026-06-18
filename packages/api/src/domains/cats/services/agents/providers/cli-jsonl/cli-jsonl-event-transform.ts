@@ -19,6 +19,11 @@ interface CliJsonlTurnResult {
   };
 }
 
+export interface CliJsonlTransformOptions {
+  emitSessionInit?: boolean;
+  ephemeralSession?: boolean;
+}
+
 function isTurnResult(value: unknown): value is CliJsonlTurnResult {
   return (
     typeof value === 'object' &&
@@ -47,18 +52,22 @@ function isSuccessfulTerminal(kind: string | undefined): boolean {
   return kind === undefined || kind === 'completed' || kind === 'completed_with_evidence';
 }
 
-export function transformCliJsonlEvent(event: unknown, catId: CatId): AgentMessage[] {
+export function transformCliJsonlEvent(
+  event: unknown,
+  catId: CatId,
+  options: CliJsonlTransformOptions = {},
+): AgentMessage[] {
   if (!isTurnResult(event)) return [];
 
   const now = Date.now();
   const messages: AgentMessage[] = [];
   const sessionId = typeof event.stats?.sessionId === 'string' ? event.stats.sessionId : undefined;
-  if (sessionId) {
+  if (sessionId && options.emitSessionInit !== false) {
     messages.push({
       type: 'session_init',
       catId,
       sessionId,
-      ephemeralSession: true,
+      ephemeralSession: options.ephemeralSession ?? false,
       timestamp: now,
     });
   }

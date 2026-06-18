@@ -63,11 +63,115 @@ describe('CliJsonlAgentService', () => {
       ['session_init', 'agent_loop', 'text', 'done'],
     );
     assert.equal(messages[0].sessionId, 'cc-session-1');
-    assert.equal(messages[0].ephemeralSession, true);
+    assert.equal(messages[0].ephemeralSession, false);
     assert.equal(messages[1].metadata.provider, 'clowder-code');
     assert.equal(messages[1].metadata.usage.inputTokens, 11);
     assert.equal(messages[2].content, 'hello from runtime');
     assert.equal(messages[3].metadata.sessionId, 'cc-session-1');
+  });
+
+  it('uses resume args when the host provides a resumable sessionId', async () => {
+    const seenOpts = [];
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+      startupArgs: ['--json', '--non-interactive'],
+      resumeArgs: ['resume', '{sessionId}', '--json'],
+    });
+
+    const messages = await collect(
+      service.invoke('follow up', {
+        sessionId: 'cc-session-1',
+        systemPrompt: 'SYSTEM',
+        spawnCliOverride: async function* (opts) {
+          seenOpts.push(opts);
+          yield {
+            type: 'turn_result',
+            response: 'continued',
+            terminal: { kind: 'completed' },
+            stats: { sessionId: 'cc-session-1' },
+          };
+        },
+      }),
+    );
+
+    assert.deepEqual(seenOpts[0].args, ['resume', 'cc-session-1', '--json']);
+    assert.equal(seenOpts[0].stdinInput, 'SYSTEM\\n\\nfollow up');
+    assert.equal(messages[0].type, 'session_init');
+    assert.equal(messages[0].sessionId, 'cc-session-1');
+    assert.equal(messages[0].ephemeralSession, false);
+  });
+
+  it('makes stateless session handling explicit instead of emitting continuity metadata', async () => {
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+      sessionPolicy: 'stateless',
+    });
+
+    const messages = await collect(
+      service.invoke('follow up', {
+        sessionId: 'cc-session-1',
+        spawnCliOverride: async function* () {
+          yield {
+            type: 'turn_result',
+            response: 'stateless response',
+            terminal: { kind: 'completed' },
+            stats: { sessionId: 'new-cold-session' },
+          };
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      messages.map((m) => m.type),
+      ['system_info', 'text', 'done'],
+    );
+    assert.match(messages[0].content, /session_continuity_degraded/);
+    assert.equal(messages.some((m) => m.type === 'session_init'), false);
+    assert.equal(messages[2].metadata.sessionId, undefined);
+  });
+
+  it('passes raw archive diagnostics to spawnCli and archives raw events', async () => {
+    const archived = [];
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+      rawArchive: {
+        getPath: (invocationId) => `/tmp/archive/${invocationId}.ndjson`,
+        append: async (invocationId, payload) => {
+          archived.push({ invocationId, payload });
+        },
+      },
+    });
+
+    const seenOpts = [];
+    await collect(
+      service.invoke('hello', {
+        invocationId: 'inv-1',
+        spawnCliOverride: async function* (opts) {
+          seenOpts.push(opts);
+          yield {
+            type: 'turn_result',
+            response: 'ok',
+            terminal: { kind: 'completed' },
+            stats: { sessionId: 'cc-session-1' },
+            callback_token: 'secret-token',
+          };
+        },
+      }),
+    );
+
+    assert.equal(seenOpts[0].rawArchivePath, '/tmp/archive/inv-1.ndjson');
+    assert.equal(archived.length, 1);
+    assert.equal(archived[0].invocationId, 'inv-1');
+    assert.equal(archived[0].payload.callback_token, '[redacted]');
   });
 
   it('emits a visible error when the CLI exits without a turn_result', async () => {

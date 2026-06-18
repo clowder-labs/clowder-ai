@@ -8,7 +8,7 @@
 
 import type { FastifyBaseLogger } from 'fastify';
 import type { ProviderTransportFactory } from '../transport/ProviderTransportRegistry.js';
-import { CliJsonlAgentService } from './CliJsonlAgentService.js';
+import { CliJsonlAgentService, type CliJsonlSessionPolicy } from './CliJsonlAgentService.js';
 
 export interface CliJsonlProviderTransportFactoryDeps {
   log: Pick<FastifyBaseLogger, 'warn'>;
@@ -17,8 +17,17 @@ export interface CliJsonlProviderTransportFactoryDeps {
 interface ParsedCliJsonlTransportConfig {
   command: string;
   startupArgs: string[];
+  resumeArgs: string[];
+  sessionPolicy: CliJsonlSessionPolicy;
   outputProfile: 'clowder-code-turn-result-v1';
   timeoutMs?: number;
+}
+
+const DEFAULT_STARTUP_ARGS = ['--json', '--non-interactive'];
+const DEFAULT_RESUME_ARGS = ['resume', '{sessionId}', '--json'];
+
+function parseStringArray(value: unknown): string[] | null {
+  return Array.isArray(value) && value.every((arg) => typeof arg === 'string') ? value : null;
 }
 
 function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportConfig | null {
@@ -28,11 +37,14 @@ function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportCo
   if (typeof raw.command !== 'string' || raw.command.trim().length === 0) return null;
   const startupArgs =
     raw.startupArgs === undefined
-      ? ['--json', '--non-interactive']
-      : Array.isArray(raw.startupArgs) && raw.startupArgs.every((arg) => typeof arg === 'string')
-        ? raw.startupArgs
-        : null;
+      ? DEFAULT_STARTUP_ARGS
+      : parseStringArray(raw.startupArgs);
   if (!startupArgs) return null;
+  const sessionPolicy = raw.sessionPolicy ?? 'resume';
+  if (sessionPolicy !== 'resume' && sessionPolicy !== 'stateless') return null;
+  const resumeArgs = raw.resumeArgs === undefined ? DEFAULT_RESUME_ARGS : parseStringArray(raw.resumeArgs);
+  if (!resumeArgs) return null;
+  if (sessionPolicy === 'resume' && !resumeArgs.some((arg) => arg.includes('{sessionId}'))) return null;
   const outputProfile = raw.outputProfile ?? 'clowder-code-turn-result-v1';
   if (outputProfile !== 'clowder-code-turn-result-v1') return null;
   if (raw.timeoutMs !== undefined && (typeof raw.timeoutMs !== 'number' || !Number.isInteger(raw.timeoutMs))) {
@@ -41,6 +53,8 @@ function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportCo
   return {
     command: raw.command.trim(),
     startupArgs,
+    resumeArgs,
+    sessionPolicy,
     outputProfile,
     ...(typeof raw.timeoutMs === 'number' ? { timeoutMs: raw.timeoutMs } : {}),
   };
@@ -75,6 +89,8 @@ export function createCliJsonlProviderTransportFactory(
           modelName: input.config.defaultModel || parsed.outputProfile,
           command: parsed.command,
           startupArgs: parsed.startupArgs,
+          resumeArgs: parsed.resumeArgs,
+          sessionPolicy: parsed.sessionPolicy,
           timeoutMs: parsed.timeoutMs,
         }),
       };
