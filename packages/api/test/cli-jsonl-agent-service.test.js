@@ -84,7 +84,6 @@ describe('CliJsonlAgentService', () => {
     const messages = await collect(
       service.invoke('follow up', {
         sessionId: 'cc-session-1',
-        systemPrompt: 'SYSTEM',
         spawnCliOverride: async function* (opts) {
           seenOpts.push(opts);
           yield {
@@ -98,10 +97,48 @@ describe('CliJsonlAgentService', () => {
     );
 
     assert.deepEqual(seenOpts[0].args, ['resume', 'cc-session-1', '--json']);
-    assert.equal(seenOpts[0].stdinInput, 'SYSTEM\\n\\nfollow up');
+    assert.equal(seenOpts[0].stdinInput, 'follow up');
     assert.equal(messages[0].type, 'session_init');
     assert.equal(messages[0].sessionId, 'cc-session-1');
     assert.equal(messages[0].ephemeralSession, false);
+  });
+
+  it('degrades unsafe multiline resume without rewriting the prompt payload', async () => {
+    const seenOpts = [];
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+      startupArgs: ['--json', '--non-interactive'],
+      resumeArgs: ['resume', '{sessionId}', '--json'],
+    });
+
+    const messages = await collect(
+      service.invoke('follow up', {
+        sessionId: 'cc-session-1',
+        systemPrompt: 'SYSTEM',
+        spawnCliOverride: async function* (opts) {
+          seenOpts.push(opts);
+          yield {
+            type: 'turn_result',
+            response: 'fresh fallback',
+            terminal: { kind: 'completed' },
+            stats: { sessionId: 'new-cold-session' },
+          };
+        },
+      }),
+    );
+
+    assert.deepEqual(seenOpts[0].args, ['--json', '--non-interactive']);
+    assert.equal(seenOpts[0].stdinInput, 'SYSTEM\n\nfollow up');
+    assert.deepEqual(
+      messages.map((m) => m.type),
+      ['system_info', 'text', 'done'],
+    );
+    assert.match(messages[0].content, /cli_jsonl_resume_requires_single_line_prompt/);
+    assert.equal(messages.some((m) => m.type === 'session_init'), false);
+    assert.equal(messages[2].metadata.sessionId, undefined);
   });
 
   it('makes stateless session handling explicit instead of emitting continuity metadata', async () => {

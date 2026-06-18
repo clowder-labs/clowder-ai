@@ -55,8 +55,8 @@ function buildResumeArgs(template: readonly string[], sessionId: string): string
   return template.map((arg) => arg.replaceAll('{sessionId}', sessionId));
 }
 
-function oneLineJsonModePrompt(prompt: string): string {
-  return prompt.replace(/\r?\n/g, '\\n');
+function containsLineBreak(prompt: string): boolean {
+  return /[\r\n]/.test(prompt);
 }
 
 export class CliJsonlAgentService implements AgentService {
@@ -104,16 +104,21 @@ export class CliJsonlAgentService implements AgentService {
       for (const [key, value] of Object.entries(options.accountEnv)) env[key] = value;
     }
 
+    const promptInput = buildPrompt(prompt, options);
     const requestedSessionId = typeof options?.sessionId === 'string' ? options.sessionId.trim() : '';
     const resumeRequested = requestedSessionId.length > 0;
-    const resumeEnabled = this.sessionPolicy === 'resume' && resumeRequested;
-    if (resumeRequested && this.sessionPolicy === 'stateless') {
+    const resumeBlockedByPromptShape =
+      this.sessionPolicy === 'resume' && resumeRequested && containsLineBreak(promptInput);
+    const resumeEnabled = this.sessionPolicy === 'resume' && resumeRequested && !resumeBlockedByPromptShape;
+    const sessionContinuityDegraded =
+      resumeRequested && (this.sessionPolicy === 'stateless' || resumeBlockedByPromptShape);
+    if (sessionContinuityDegraded) {
       yield {
         type: 'system_info',
         catId: this.catId,
         content: JSON.stringify({
           type: 'session_continuity_degraded',
-          reason: 'cli_jsonl_stateless',
+          reason: resumeBlockedByPromptShape ? 'cli_jsonl_resume_requires_single_line_prompt' : 'cli_jsonl_stateless',
           requestedSessionId,
         }),
         metadata,
@@ -122,11 +127,10 @@ export class CliJsonlAgentService implements AgentService {
     }
 
     const invocationId = options?.invocationId ?? options?.auditContext?.invocationId;
-    const promptInput = buildPrompt(prompt, options);
     const cliOpts = {
       command,
       args: resumeEnabled ? buildResumeArgs(this.resumeArgs, requestedSessionId) : this.startupArgs,
-      stdinInput: resumeEnabled ? oneLineJsonModePrompt(promptInput) : promptInput,
+      stdinInput: promptInput,
       ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
       ...(Object.keys(env).length > 0 ? { env } : {}),
       ...(this.timeoutMs !== undefined ? { timeoutMs: this.timeoutMs } : {}),
@@ -206,7 +210,7 @@ export class CliJsonlAgentService implements AgentService {
         }
 
         const messages = transformCliJsonlEvent(event, this.catId, {
-          emitSessionInit: this.sessionPolicy === 'resume',
+          emitSessionInit: this.sessionPolicy === 'resume' && !sessionContinuityDegraded,
           ephemeralSession: false,
         });
         if (messages.length === 0) continue;
