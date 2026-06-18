@@ -35,10 +35,7 @@ function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportCo
   const raw = value as Record<string, unknown>;
   if (raw.transport !== 'cli-jsonl') return null;
   if (typeof raw.command !== 'string' || raw.command.trim().length === 0) return null;
-  const startupArgs =
-    raw.startupArgs === undefined
-      ? DEFAULT_STARTUP_ARGS
-      : parseStringArray(raw.startupArgs);
+  const startupArgs = raw.startupArgs === undefined ? DEFAULT_STARTUP_ARGS : parseStringArray(raw.startupArgs);
   if (!startupArgs) return null;
   const sessionPolicy = raw.sessionPolicy ?? 'resume';
   if (sessionPolicy !== 'resume' && sessionPolicy !== 'stateless') return null;

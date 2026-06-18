@@ -49,8 +49,8 @@ import type {
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { SessionContinuationCoordinator } from './domains/cats/services/agents/invocation/SessionContinuationCoordinator.js';
 import { SessionMutex } from './domains/cats/services/agents/invocation/SessionMutex.js';
-import { type AcpPoolRegistry } from './domains/cats/services/agents/providers/acp/AcpServiceFactory.js';
 import { createAcpProviderTransportFactory } from './domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.js';
+import { type AcpPoolRegistry } from './domains/cats/services/agents/providers/acp/AcpServiceFactory.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
 import { createCliJsonlProviderTransportFactory } from './domains/cats/services/agents/providers/cli-jsonl/CliJsonlProviderTransportFactory.js';

@@ -33,10 +33,7 @@ export interface ProviderTransportCloseStaleOptions {
 export interface ProviderTransportFactory {
   readonly id: string;
   create(input: ProviderTransportInput): Promise<ProviderTransportCreateResult>;
-  closeStale?(
-    activeProfileIds: ReadonlySet<string>,
-    options?: ProviderTransportCloseStaleOptions,
-  ): Promise<void>;
+  closeStale?(activeProfileIds: ReadonlySet<string>, options?: ProviderTransportCloseStaleOptions): Promise<void>;
 }
 
 function declaredTransportId(providerTransport: unknown): string | null {

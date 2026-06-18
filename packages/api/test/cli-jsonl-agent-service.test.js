@@ -170,7 +170,10 @@ describe('CliJsonlAgentService', () => {
       ['system_info', 'text', 'done'],
     );
     assert.match(messages[0].content, /session_continuity_degraded/);
-    assert.equal(messages.some((m) => m.type === 'session_init'), false);
+    assert.equal(
+      messages.some((m) => m.type === 'session_init'),
+      false,
+    );
     assert.equal(messages[2].metadata.sessionId, undefined);
   });
 

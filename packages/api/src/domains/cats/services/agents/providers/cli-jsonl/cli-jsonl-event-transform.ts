@@ -25,11 +25,7 @@ export interface CliJsonlTransformOptions {
 }
 
 function isTurnResult(value: unknown): value is CliJsonlTurnResult {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { type?: unknown }).type === 'turn_result'
-  );
+  return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'turn_result';
 }
 
 function num(value: unknown): number | undefined {

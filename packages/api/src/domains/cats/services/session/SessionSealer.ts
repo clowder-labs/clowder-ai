@@ -87,7 +87,11 @@ export class SessionSealer implements ISessionSealer {
     private readonly summaryStore?: ISummaryStore,
   ) {}
 
-  async requestSeal(args: { sessionId: string; reason: SealReason; expectedCliSessionId?: string }): Promise<SealResult> {
+  async requestSeal(args: {
+    sessionId: string;
+    reason: SealReason;
+    expectedCliSessionId?: string;
+  }): Promise<SealResult> {
     const now = Date.now();
     const updated = await this.store.compareAndMarkSealing(args.sessionId, {
       sealReason: args.reason,

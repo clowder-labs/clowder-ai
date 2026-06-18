@@ -12,7 +12,7 @@ import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../
 import type { SpawnFn } from '../../../../../../utils/cli-types.js';
 import { CliRawArchive } from '../../../session/CliRawArchive.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { sanitizeRawEvent, type RawArchiveSink } from '../codex-audit-hooks.js';
+import { type RawArchiveSink, sanitizeRawEvent } from '../codex-audit-hooks.js';
 import { transformCliJsonlEvent } from './cli-jsonl-event-transform.js';
 
 export type CliJsonlSessionPolicy = 'resume' | 'stateless';
