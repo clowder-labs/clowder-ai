@@ -26,6 +26,7 @@ import {
   bootstrapDefaultCatCatalog,
   getConfigSessionStrategy,
   getDefaultCatId,
+  getProviderTransportConfig,
   isCatAvailable,
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
@@ -52,6 +53,7 @@ import { type AcpPoolRegistry } from './domains/cats/services/agents/providers/a
 import { createAcpProviderTransportFactory } from './domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
+import { createCliJsonlProviderTransportFactory } from './domains/cats/services/agents/providers/cli-jsonl/CliJsonlProviderTransportFactory.js';
 import {
   clearL0Cache,
   resolveL0CompilerScriptPath,
@@ -1160,6 +1162,7 @@ async function main(): Promise<void> {
   providerTransportRegistry.register(
     createAcpProviderTransportFactory({ poolRegistry: acpPoolRegistry, log: app.log }),
   );
+  providerTransportRegistry.register(createCliJsonlProviderTransportFactory({ log: app.log }));
 
   // ── F32-b: AgentRegistry (catId → AgentService) — one instance per cat ──
   // Each cat gets its own AgentService instance with its catId + model.
@@ -1184,6 +1187,7 @@ async function main(): Promise<void> {
         projectRoot,
         profileId: id,
         config,
+        providerTransport: getProviderTransportConfig(id, projectRoot),
       });
       if (providerTransport.handled) {
         markActiveProviderTransportProfile(activeProfileIdsByTransport, providerTransport.transportId, id);

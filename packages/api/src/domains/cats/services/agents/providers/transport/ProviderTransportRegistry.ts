@@ -13,6 +13,7 @@ export interface ProviderTransportInput {
   projectRoot: string;
   profileId: string;
   config: CatConfig;
+  providerTransport?: unknown;
 }
 
 export interface ProviderTransportCreateResult {
@@ -36,6 +37,12 @@ export interface ProviderTransportFactory {
     activeProfileIds: ReadonlySet<string>,
     options?: ProviderTransportCloseStaleOptions,
   ): Promise<void>;
+}
+
+function declaredTransportId(providerTransport: unknown): string | null {
+  if (typeof providerTransport !== 'object' || providerTransport === null) return null;
+  const transport = (providerTransport as { transport?: unknown }).transport;
+  return typeof transport === 'string' && transport.trim().length > 0 ? transport.trim() : null;
 }
 
 export function markActiveProviderTransportProfile(
@@ -69,6 +76,25 @@ export class ProviderTransportRegistry {
   }
 
   async createServiceForConfig(input: ProviderTransportInput): Promise<ProviderTransportResolution> {
+    if (input.providerTransport !== undefined && input.providerTransport !== null) {
+      const transportId = declaredTransportId(input.providerTransport);
+      if (!transportId) {
+        return { handled: true, transportId: 'invalid', service: null };
+      }
+
+      const factory = this.factories.get(transportId);
+      if (!factory) {
+        return { handled: true, transportId, service: null };
+      }
+
+      const result = await factory.create(input);
+      return {
+        handled: true,
+        transportId,
+        service: result.handled ? (result.service ?? null) : null,
+      };
+    }
+
     for (const factory of this.factories.values()) {
       const result = await factory.create(input);
       if (!result.handled) continue;

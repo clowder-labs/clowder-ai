@@ -1,0 +1,95 @@
+/**
+ * F241 Phase A: CLI JSONL AgentService.
+ */
+
+import './helpers/setup-cat-registry.js';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+const { CliJsonlAgentService } = await import(
+  '../dist/domains/cats/services/agents/providers/cli-jsonl/CliJsonlAgentService.js'
+);
+
+async function collect(iterable) {
+  const out = [];
+  for await (const item of iterable) out.push(item);
+  return out;
+}
+
+describe('CliJsonlAgentService', () => {
+  it('passes prompt via stdin and maps clowder-code turn_result to AgentMessages', async () => {
+    const seenOpts = [];
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+      startupArgs: ['--json', '--non-interactive'],
+    });
+
+    const messages = await collect(
+      service.invoke('hello from user', {
+        workingDirectory: '/tmp/project',
+        systemPrompt: 'SYSTEM',
+        callbackEnv: { CAT_CAFE_API_URL: 'http://127.0.0.1:3004' },
+        accountEnv: { HOME: '/tmp/cc-home' },
+        spawnCliOverride: async function* (opts) {
+          seenOpts.push(opts);
+          yield {
+            type: 'turn_result',
+            response: 'hello from runtime',
+            terminal: { kind: 'completed' },
+            stats: {
+              sessionId: 'cc-session-1',
+              inputTokens: 11,
+              outputTokens: 7,
+              tokensUsed: 18,
+            },
+          };
+        },
+      }),
+    );
+
+    assert.equal(seenOpts.length, 1);
+    assert.deepEqual(seenOpts[0].args, ['--json', '--non-interactive']);
+    assert.equal(seenOpts[0].stdinInput, 'SYSTEM\n\nhello from user');
+    assert.equal(seenOpts[0].cwd, '/tmp/project');
+    assert.equal(seenOpts[0].env.CAT_CAFE_API_URL, 'http://127.0.0.1:3004');
+    assert.equal(seenOpts[0].env.HOME, '/tmp/cc-home');
+    assert.equal(seenOpts[0].args.includes('hello from user'), false, 'prompt must not be passed through argv');
+
+    assert.deepEqual(
+      messages.map((m) => m.type),
+      ['session_init', 'agent_loop', 'text', 'done'],
+    );
+    assert.equal(messages[0].sessionId, 'cc-session-1');
+    assert.equal(messages[0].ephemeralSession, true);
+    assert.equal(messages[1].metadata.provider, 'clowder-code');
+    assert.equal(messages[1].metadata.usage.inputTokens, 11);
+    assert.equal(messages[2].content, 'hello from runtime');
+    assert.equal(messages[3].metadata.sessionId, 'cc-session-1');
+  });
+
+  it('emits a visible error when the CLI exits without a turn_result', async () => {
+    const service = new CliJsonlAgentService({
+      catId: 'clowder-code',
+      providerName: 'clowder-code',
+      modelName: 'reference-runtime',
+      command: 'clowder-code',
+    });
+
+    const messages = await collect(
+      service.invoke('hello', {
+        spawnCliOverride: async function* () {
+          // no events
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      messages.map((m) => m.type),
+      ['error', 'done'],
+    );
+    assert.match(messages[0].error, /without a JSONL turn_result/);
+  });
+});

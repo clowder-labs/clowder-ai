@@ -202,7 +202,23 @@ These are no longer blockers for feature-anchor acceptance, but must be settled 
 - Phase A first slice extracts host-owned provider transport selection into `ProviderTransportRegistry`.
 - ACP is the first registered host transport via `AcpProviderTransportFactory`, consuming the F161 `AcpServiceFactory`.
 - Transport selection remains before the legacy `clientId` provider switch. A declared transport that fails validation is terminal and must not fall back to a provider-specific branch.
+- Phase A second slice adds raw catalog `providerTransport` intake for host-owned transport selection. This is a temporary activation surface, not the Phase B F202 manifest resource.
+- `cli-jsonl` is the first constrained smoke transport for `clowder-code`-style runtimes while ACP/A2A support lands in the external runtime. Prompt delivery is stdin-only; command, cwd, env injection, timeout, and JSONL mapping remain host-owned.
 - F202 `agentProvider` manifest parsing/activation is intentionally not part of this first slice.
+
+Temporary raw catalog shape for Phase A smoke activation:
+
+```json
+{
+  "clientId": "clowder-code",
+  "providerTransport": {
+    "transport": "cli-jsonl",
+    "command": "clowder-code",
+    "startupArgs": ["--json", "--non-interactive"],
+    "outputProfile": "clowder-code-turn-result-v1"
+  }
+}
+```
 
 ## Timeline
 
@@ -211,3 +227,4 @@ These are no longer blockers for feature-anchor acceptance, but must be settled 
 - 2026-06-18: operator approved starting the feature locally because a private agent needs to be integrated.
 - 2026-06-18: maintainer decision accepted #941 as F241, with `clowder-code` as the reference runtime, Phase A/B/C rollout, and safety boundaries promoted to acceptance criteria.
 - 2026-06-18: Phase A first implementation slice started with host-owned `ProviderTransportRegistry` and ACP transport factory extraction.
+- 2026-06-18: Phase A second implementation slice started with raw `providerTransport` selection and `cli-jsonl` reference-runtime smoke transport.

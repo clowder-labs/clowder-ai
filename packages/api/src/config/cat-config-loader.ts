@@ -262,7 +262,15 @@ function readTemplate(templatePath: string): string {
  * across provider switches (e.g. template cli.defaultArgs surviving into a
  * catalog variant that switched to a different client).
  */
-const ATOMIC_OBJECT_KEYS = new Set(['cli', 'agyProfile', 'color', 'contextBudget', 'voiceConfig', 'acp']);
+const ATOMIC_OBJECT_KEYS = new Set([
+  'cli',
+  'agyProfile',
+  'color',
+  'contextBudget',
+  'voiceConfig',
+  'acp',
+  'providerTransport',
+]);
 
 /**
  * Deep merge two plain objects. `overlay` fields override `base` fields.
@@ -898,6 +906,44 @@ export interface AcpVariantConfig {
   };
 }
 
+export type ProviderTransportVariantConfig = Record<string, unknown>;
+
+function readRawVariantField(catId: string, fieldName: string, projectRoot?: string): unknown {
+  const templatePath = projectRoot
+    ? resolveProjectTemplatePath(projectRoot)
+    : (process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH);
+  const raw = mergeTemplateWithCatalog(templatePath) ?? readTemplate(templatePath);
+  const json = JSON.parse(raw) as {
+    breeds?: Array<{ catId?: string; variants?: Array<Record<string, unknown> & { catId?: string }> }>;
+  };
+  for (const breed of json.breeds ?? []) {
+    for (const variant of breed.variants ?? []) {
+      const resolvedCatId = variant.catId ?? breed.catId;
+      if (resolvedCatId === catId && Object.hasOwn(variant, fieldName)) return variant[fieldName];
+    }
+  }
+  return undefined;
+}
+
+/**
+ * F241 Phase A: raw host-owned provider transport declaration.
+ *
+ * This is intentionally not projected into CatConfig yet. Phase B will route
+ * plugin manifest resources through a stricter typed activation path.
+ */
+export function getProviderTransportConfig(
+  catId: string,
+  projectRoot?: string,
+): ProviderTransportVariantConfig | null | undefined {
+  try {
+    const value = readRawVariantField(catId, 'providerTransport', projectRoot);
+    if (value === null || value === undefined) return value as null | undefined;
+    return value as ProviderTransportVariantConfig;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Get ACP config for a cat from the resolved raw runtime variant.
  * Returns undefined if the variant has no `acp` section (= use legacy CLI).
@@ -905,19 +951,8 @@ export interface AcpVariantConfig {
  */
 export function getAcpConfig(catId: string, projectRoot?: string): AcpVariantConfig | undefined {
   try {
-    const templatePath = projectRoot
-      ? resolveProjectTemplatePath(projectRoot)
-      : (process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH);
-    const raw = mergeTemplateWithCatalog(templatePath) ?? readTemplate(templatePath);
-    const json = JSON.parse(raw) as {
-      breeds?: Array<{ catId?: string; variants?: Array<{ catId?: string; acp?: AcpVariantConfig | null }> }>;
-    };
-    for (const breed of json.breeds ?? []) {
-      for (const variant of breed.variants ?? []) {
-        const resolvedCatId = variant.catId ?? breed.catId;
-        if (resolvedCatId === catId && variant.acp) return variant.acp;
-      }
-    }
+    const value = readRawVariantField(catId, 'acp', projectRoot);
+    if (value) return value as AcpVariantConfig;
   } catch {
     // Config unreadable → no ACP config
   }

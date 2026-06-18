@@ -43,6 +43,32 @@ describe('ProviderTransportRegistry', () => {
     assert.deepEqual(result, { handled: false });
   });
 
+  it('keeps an explicit unknown transport terminal instead of falling back', async () => {
+    const registry = new ProviderTransportRegistry();
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput(),
+      providerTransport: { transport: 'missing-transport' },
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'missing-transport');
+    assert.equal(result.service, null);
+  });
+
+  it('keeps a malformed explicit transport terminal instead of falling back', async () => {
+    const registry = new ProviderTransportRegistry();
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput(),
+      providerTransport: { command: 'clowder-code' },
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'invalid');
+    assert.equal(result.service, null);
+  });
+
   it('returns a handled transport service before caller provider switch fallback', async () => {
     const registry = new ProviderTransportRegistry();
     const service = makeService();
