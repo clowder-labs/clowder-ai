@@ -806,6 +806,64 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(active.status, 'active');
   });
 
+  it('F241: session_continuity_degraded seals old active record before fresh cli-jsonl session_init', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    const sessionSealer = new SessionSealer(sessionChainStore);
+    const oldRecord = sessionChainStore.create({
+      cliSessionId: 'cli-old',
+      threadId: 'thread-f241-degraded',
+      catId: 'opus',
+      userId: 'user1',
+    });
+    const optionsSeen = [];
+
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({
+            type: 'session_continuity_degraded',
+            reason: 'cli_jsonl_resume_requires_single_line_prompt',
+            requestedSessionId: 'cli-old',
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'session_init', catId: 'opus', sessionId: 'cli-new', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'fresh fallback output', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = { ...makeDeps(), sessionChainStore, sessionSealer };
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-f241-degraded',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(optionsSeen[0].sessionId, 'cli-old', 'preflight should pass the old active session to provider');
+    const oldAfter = sessionChainStore.get(oldRecord.id);
+    assert.ok(oldAfter, 'old record should still exist for sealed transcript/digest access');
+    assert.notEqual(oldAfter.status, 'active', 'degraded old session must not remain active');
+    assert.equal(oldAfter.sealReason, 'session_continuity_degraded');
+
+    const active = sessionChainStore.getActive('opus', 'thread-f241-degraded');
+    assert.ok(active, 'fresh session_init should create a new active record');
+    assert.notEqual(active.id, oldRecord.id);
+    assert.equal(active.cliSessionId, 'cli-new');
+    assert.equal(active.messageCount, 1, 'fresh output should count against the new record');
+  });
+
   it('F211 A2: repeated Antigravity cascade updates runtime metadata without creating a new SessionRecord', async () => {
     const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const { RuntimeSessionStore } = await import(

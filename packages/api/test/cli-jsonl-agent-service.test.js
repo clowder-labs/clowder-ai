@@ -134,11 +134,12 @@ describe('CliJsonlAgentService', () => {
     assert.equal(seenOpts[0].stdinInput, 'SYSTEM\n\nfollow up');
     assert.deepEqual(
       messages.map((m) => m.type),
-      ['system_info', 'text', 'done'],
+      ['system_info', 'session_init', 'text', 'done'],
     );
     assert.match(messages[0].content, /cli_jsonl_resume_requires_single_line_prompt/);
-    assert.equal(messages.some((m) => m.type === 'session_init'), false);
-    assert.equal(messages[2].metadata.sessionId, undefined);
+    assert.equal(messages[1].sessionId, 'new-cold-session');
+    assert.equal(messages[1].ephemeralSession, false);
+    assert.equal(messages[3].metadata.sessionId, 'new-cold-session');
   });
 
   it('makes stateless session handling explicit instead of emitting continuity metadata', async () => {

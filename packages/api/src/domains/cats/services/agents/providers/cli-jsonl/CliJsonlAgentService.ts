@@ -210,7 +210,7 @@ export class CliJsonlAgentService implements AgentService {
         }
 
         const messages = transformCliJsonlEvent(event, this.catId, {
-          emitSessionInit: this.sessionPolicy === 'resume' && !sessionContinuityDegraded,
+          emitSessionInit: this.sessionPolicy === 'resume',
           ephemeralSession: false,
         });
         if (messages.length === 0) continue;

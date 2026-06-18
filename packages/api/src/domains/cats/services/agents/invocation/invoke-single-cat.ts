@@ -375,6 +375,20 @@ function isUserVisibleSessionOutput(msg: AgentMessage): boolean {
   return msg.type === 'text' || msg.type === 'tool_use' || msg.type === 'tool_result';
 }
 
+function parseSessionContinuityDegradation(msg: AgentMessage): { reason?: string; requestedSessionId?: string } | null {
+  if (msg.type !== 'system_info' || typeof msg.content !== 'string') return null;
+  try {
+    const parsed = JSON.parse(msg.content) as Record<string, unknown>;
+    if (parsed.type !== 'session_continuity_degraded') return null;
+    return {
+      ...(typeof parsed.reason === 'string' ? { reason: parsed.reason } : {}),
+      ...(typeof parsed.requestedSessionId === 'string' ? { requestedSessionId: parsed.requestedSessionId } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function syncAntigravityRuntimeMetadata(input: {
   runtimeSessionStore: IRuntimeSessionStore;
   sessionChainStore: ISessionChainStore;
@@ -1744,6 +1758,52 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const processMessage = async (msg: AgentMessage): Promise<AgentMessage[]> => {
       const outputs: AgentMessage[] = [];
 
+      const sealActiveSessionForContinuityDegradation = async (msg: AgentMessage): Promise<void> => {
+        const degradation = parseSessionContinuityDegradation(msg);
+        if (!degradation) return;
+        if (!deps.sessionChainStore || !sessionChainActive) return;
+
+        try {
+          const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+          if (!activeRecord) return;
+
+          if (deps.transcriptWriter) {
+            deps.transcriptWriter.appendEvent(
+              {
+                sessionId: activeRecord.id,
+                threadId,
+                catId: activeRecord.catId,
+                cliSessionId: activeRecord.cliSessionId,
+                seq: activeRecord.seq,
+              },
+              msg as unknown as Record<string, unknown>,
+              invocationId,
+            );
+          }
+
+          if (deps.sessionSealer) {
+            const result = await deps.sessionSealer.requestSeal({
+              sessionId: activeRecord.id,
+              reason: 'session_continuity_degraded',
+            });
+            if (result.accepted) {
+              deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+            }
+            return;
+          }
+
+          const now = Date.now();
+          await deps.sessionChainStore.update(activeRecord.id, {
+            status: 'sealed',
+            sealReason: 'session_continuity_degraded',
+            sealedAt: now,
+            updatedAt: now,
+          });
+        } catch {
+          /* best-effort: degradation visibility must not break invocation */
+        }
+      };
+
       // clowder#915 (cloud P1): F8/F24 usage + context_health block extracted so
       // it can run from BOTH the `done` branch (existing behavior) AND the
       // `agent_loop` branch (NEW — opencode's step_finish event carries
@@ -2086,6 +2146,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         hadStreamError = true;
         lastErrorMessage = msg.error;
       }
+
+      await sealActiveSessionForContinuityDegradation(msg);
 
       if (msg.type === 'session_init' && msg.sessionId) {
         log.info(
