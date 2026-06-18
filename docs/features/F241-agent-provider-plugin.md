@@ -197,9 +197,17 @@ These are no longer blockers for feature-anchor acceptance, but must be settled 
 3. How much Hub UI belongs in Phase B versus the reference-runtime proof.
 4. Final F143 / F161 / F202 boundary alignment for transport registry ownership and manifest activation.
 
+## Implementation Notes
+
+- Phase A first slice extracts host-owned provider transport selection into `ProviderTransportRegistry`.
+- ACP is the first registered host transport via `AcpProviderTransportFactory`, consuming the F161 `AcpServiceFactory`.
+- Transport selection remains before the legacy `clientId` provider switch. A declared transport that fails validation is terminal and must not fall back to a provider-specific branch.
+- F202 `agentProvider` manifest parsing/activation is intentionally not part of this first slice.
+
 ## Timeline
 
 - 2026-06-16: #941 opened for plugin-owned `agentProvider` resource / external agent runtime provider path.
 - 2026-06-17: #941 discussion converged on provider-extension feature framing, architecture diagram, F161/#899 and F240/#903 dependency roles.
 - 2026-06-18: operator approved starting the feature locally because a private agent needs to be integrated.
 - 2026-06-18: maintainer decision accepted #941 as F241, with `clowder-code` as the reference runtime, Phase A/B/C rollout, and safety boundaries promoted to acceptance criteria.
+- 2026-06-18: Phase A first implementation slice started with host-owned `ProviderTransportRegistry` and ACP transport factory extraction.

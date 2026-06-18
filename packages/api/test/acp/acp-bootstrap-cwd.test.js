@@ -177,14 +177,17 @@ describe('acp bootstrap cwd', () => {
   });
 
   it('guards AcpServiceFactory against wiring ACP clients back to repo cwd', () => {
-    const indexSource = readFileSync(new URL('../../src/index.ts', import.meta.url), 'utf-8');
+    const transportFactorySource = readFileSync(
+      new URL('../../src/domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.ts', import.meta.url),
+      'utf-8',
+    );
     const factorySource = readFileSync(
       new URL('../../src/domains/cats/services/agents/providers/acp/AcpServiceFactory.ts', import.meta.url),
       'utf-8',
     );
     assert.ok(
-      indexSource.includes('createAcpServiceForConfig'),
-      'REGRESSION: index.ts must keep generic ACP service construction delegated to AcpServiceFactory.',
+      transportFactorySource.includes('createAcpServiceForConfig'),
+      'REGRESSION: AcpProviderTransportFactory must keep generic ACP service construction delegated to AcpServiceFactory.',
     );
     assert.ok(
       factorySource.includes('resolveAcpBootstrapCwd'),
@@ -206,18 +209,26 @@ describe('acp bootstrap cwd', () => {
 
   it('REGRESSION: ACP registry sync detects config from the active project root', () => {
     const indexSource = readFileSync(new URL('../../src/index.ts', import.meta.url), 'utf-8');
+    const transportFactorySource = readFileSync(
+      new URL('../../src/domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.ts', import.meta.url),
+      'utf-8',
+    );
 
     assert.ok(
       indexSource.includes('resolveActiveProjectRoot'),
       'REGRESSION: index.ts must be able to resolve the active runtime project root during registry sync.',
     );
     assert.ok(
-      indexSource.includes('getAcpConfig(id, projectRoot)'),
-      'REGRESSION: syncAgentRegistry must pass the active project root to getAcpConfig().',
+      indexSource.includes('projectRoot,') && indexSource.includes('providerTransportRegistry.createServiceForConfig'),
+      'REGRESSION: syncAgentRegistry must pass the active project root to the provider transport registry.',
     );
     assert.ok(
-      !indexSource.includes('const acpConfig = getAcpConfig(id);'),
-      'REGRESSION: syncAgentRegistry must not read ACP config from the default template root.',
+      transportFactorySource.includes('getAcpConfig(input.profileId, input.projectRoot)'),
+      'REGRESSION: ACP transport factory must pass the active project root to getAcpConfig().',
+    );
+    assert.ok(
+      !transportFactorySource.includes('getAcpConfig(input.profileId)'),
+      'REGRESSION: ACP transport factory must not read ACP config from the default template root.',
     );
   });
 

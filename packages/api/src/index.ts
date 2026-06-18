@@ -24,7 +24,6 @@ import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
-  getAcpConfig,
   getConfigSessionStrategy,
   getDefaultCatId,
   isCatAvailable,
@@ -49,11 +48,8 @@ import type {
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { SessionContinuationCoordinator } from './domains/cats/services/agents/invocation/SessionContinuationCoordinator.js';
 import { SessionMutex } from './domains/cats/services/agents/invocation/SessionMutex.js';
-import {
-  type AcpPoolRegistry,
-  createAcpServiceForConfig,
-} from './domains/cats/services/agents/providers/acp/AcpServiceFactory.js';
-import { closeStaleAcpPools } from './domains/cats/services/agents/providers/acp/acp-pool-registry.js';
+import { type AcpPoolRegistry } from './domains/cats/services/agents/providers/acp/AcpServiceFactory.js';
+import { createAcpProviderTransportFactory } from './domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
 import {
@@ -61,6 +57,10 @@ import {
   resolveL0CompilerScriptPath,
   warmL0Cache,
 } from './domains/cats/services/agents/providers/l0-compiler.js';
+import {
+  markActiveProviderTransportProfile,
+  ProviderTransportRegistry,
+} from './domains/cats/services/agents/providers/transport/ProviderTransportRegistry.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import {
@@ -1156,6 +1156,10 @@ async function main(): Promise<void> {
 
   // ── F149 Phase C: ACP process pool registry (variantId → AcpProcessPool) ──
   const acpPoolRegistry: AcpPoolRegistry = new Map();
+  const providerTransportRegistry = new ProviderTransportRegistry();
+  providerTransportRegistry.register(
+    createAcpProviderTransportFactory({ poolRegistry: acpPoolRegistry, log: app.log }),
+  );
 
   // ── F32-b: AgentRegistry (catId → AgentService) — one instance per cat ──
   // Each cat gets its own AgentService instance with its catId + model.
@@ -1165,29 +1169,26 @@ async function main(): Promise<void> {
     agentRegistry.reset();
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
     const projectRoot = resolveActiveProjectRoot();
-    const activeAcpProfileIds = new Set<string>();
+    const activeProfileIdsByTransport = new Map<string, Set<string>>();
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
       // F32-b P1 fix: do NOT pass model here — let constructors resolve via
       // getCatModel(catId) which respects env override (CAT_*_MODEL > config > fallback)
       let service: AgentService;
 
-      // ── F161: Generic ACP transport path (provider-agnostic) ──
-      // Any clientId with an `acp` config section uses AcpAgentService.
-      // This check runs BEFORE the clientId switch — ACP is a transport, not a provider.
-      const acpConfig = getAcpConfig(id, projectRoot);
-      if (acpConfig) {
-        activeAcpProfileIds.add(id);
-        const acpService = await createAcpServiceForConfig({
-          projectRoot,
-          profileId: id,
-          config,
-          acpConfig,
-          poolRegistry: acpPoolRegistry,
-          log: app.log,
-        });
-        if (!acpService) continue;
-        service = acpService;
+      // ── F241 Phase A: host-owned provider transports ──
+      // Transport selection runs BEFORE the clientId switch. ACP remains the
+      // first registered host transport from F161; future agentProvider
+      // manifests may only reference allowlisted host transports here.
+      const providerTransport = await providerTransportRegistry.createServiceForConfig({
+        projectRoot,
+        profileId: id,
+        config,
+      });
+      if (providerTransport.handled) {
+        markActiveProviderTransportProfile(activeProfileIdsByTransport, providerTransport.transportId, id);
+        if (!providerTransport.service) continue;
+        service = providerTransport.service;
       } else
         switch (config.clientId) {
           // ── Provider-specific CLI paths (non-ACP) ──
@@ -1252,10 +1253,10 @@ async function main(): Promise<void> {
         }
       agentRegistry.register(id, service);
     }
-    await closeStaleAcpPools(acpPoolRegistry, activeAcpProfileIds, {
+    await providerTransportRegistry.closeStale(activeProfileIdsByTransport, {
       reason: 'config-sync',
-      onCloseError: (err, profileId, reason) => {
-        app.log.warn({ err, profileId, reason }, 'ACP registry sync failed to close stale member pool');
+      onCloseError: (err, transportId, profileId, reason) => {
+        app.log.warn({ err, transportId, profileId, reason }, 'Provider transport sync failed to close stale resource');
       },
     });
     if (router) router.refreshFromRegistry(agentRegistry);
