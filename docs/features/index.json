@@ -1448,8 +1448,8 @@
     },
     {
       "id": "F241",
-      "name": "Agent Provider Plugin — Pluggable Agent Provider Extension Surface",
-      "status": "spec | **Owner**: Maine Coon/Codex (GPT-5.5) + Cat Cafe maintainers | **Priority**: P1 | **Source**: operator private-agent integration request + clowder-ai#941",
+      "name": "Agent Provider Plugin / Hostable Provider Runtime — Pluggable Agent Provider Extension Surface",
+      "status": "accepted feature anchor | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1 | **Source**: operator private-agent integration request + clowder-ai#941 accepted 2026-06-18",
       "file": "F241-agent-provider-plugin.md"
     }
   ]

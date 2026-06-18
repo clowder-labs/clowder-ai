@@ -6,11 +6,11 @@ doc_kind: spec
 created: 2026-06-18
 ---
 
-# F241: Agent Provider Plugin — Pluggable Agent Provider Extension Surface
+# F241: Agent Provider Plugin / Hostable Provider Runtime
 
-> **Status**: spec | **Owner**: Maine Coon/Codex (GPT-5.5) + Cat Cafe maintainers | **Priority**: P1
-> **Source**: operator request 2026-06-18 — "我有自己的 agent 需要接入进来"; community architecture discussion [clowder-ai#941](https://github.com/zts212653/clowder-ai/issues/941).
-> **Decision**: create a new provider-extension feature anchor. This is **not** "F202 Phase 3" by default, and **not** a rename of F143. It is the F143 host-contract lineage plus the F202 plugin discovery/config surface, composed into a provider-as-plugin product capability.
+> **Status**: accepted feature anchor | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1
+> **Source**: operator request 2026-06-18 — "我有自己的 agent 需要接入进来"; community architecture discussion [clowder-ai#941](https://github.com/zts212653/clowder-ai/issues/941); maintainer decision [#941 comment 4739146327](https://github.com/zts212653/clowder-ai/issues/941#issuecomment-4739146327).
+> **Decision**: accepted as **F241: Agent Provider Plugin / Hostable Provider Runtime**. This is a new provider-extension feature anchor, **not** "F202 Phase 3" by default, and **not** a rename of F143. It is the F143 host-contract lineage plus the F202 plugin discovery/config surface, composed into a provider-as-plugin product capability.
 
 Architecture cell: `provider-extension` (new) — sits above F143 `hostable-runtime` and F202 `plugin`, composing both.
 
@@ -103,11 +103,11 @@ Important constraints:
 - callback/MCP credentials are injected only by host code.
 - provider identity must pass namespace and routeability checks before becoming a cat.
 
-## Phase Split
+## Accepted Phase Split
 
 ### Phase A — Host Transport Intake Slice
 
-Goal: prove one external runtime can be reached through a host-owned transport without adding a new bespoke provider branch.
+Goal: prove one host-owned transport path and one external runtime end to end without adding a new bespoke provider branch.
 
 Inputs:
 
@@ -138,7 +138,7 @@ Acceptance criteria:
 
 ### Phase C — Reference Runtime
 
-Goal: use the operator's private agent or `clowder-code` as the first reference runtime.
+Goal: use `clowder-code` as the reference runtime for proving the extension point without vendoring it into Cat Cafe core.
 
 Acceptance criteria:
 
@@ -188,15 +188,18 @@ These are acceptance boundaries, not implementation details:
 - Do not treat F240 IM connectors as equivalent trust tier to routeable agent providers.
 - Do not add a second, private transport registry under F241.
 
-## Open Questions
+## Design Gate Items
 
-1. Which runtime is the first reference target: the operator's private agent, `clowder-code`, or both?
-2. Does the first target expose ACP, or should Phase A use A2A / CLI JSONL as a smoke path?
-3. Should the first implementation ship only docs + manifest validation, or a minimal routeable runtime path?
-4. How much Hub UI is required before the first dogfood run?
+These are no longer blockers for feature-anchor acceptance, but must be settled before or during the first implementation slice:
+
+1. Whether Phase A requires ACP immediately or allows A2A / CLI JSONL as the first smoke path while ACP support lands.
+2. Exact `agentProvider` manifest shape after the host-owned registry contract exists.
+3. How much Hub UI belongs in Phase B versus the reference-runtime proof.
+4. Final F143 / F161 / F202 boundary alignment for transport registry ownership and manifest activation.
 
 ## Timeline
 
 - 2026-06-16: #941 opened for plugin-owned `agentProvider` resource / external agent runtime provider path.
 - 2026-06-17: #941 discussion converged on provider-extension feature framing, architecture diagram, F161/#899 and F240/#903 dependency roles.
 - 2026-06-18: operator approved starting the feature locally because a private agent needs to be integrated.
+- 2026-06-18: maintainer decision accepted #941 as F241, with `clowder-code` as the reference runtime, Phase A/B/C rollout, and safety boundaries promoted to acceptance criteria.
