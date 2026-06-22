@@ -6,9 +6,8 @@ import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { ProviderTransportRegistry, markActiveProviderTransportProfile } = await import(
-  '../dist/domains/cats/services/agents/providers/transport/ProviderTransportRegistry.js'
-);
+const { ProviderTransportRegistry, deriveReservedProviderTransportIdentities, markActiveProviderTransportProfile } =
+  await import('../dist/domains/cats/services/agents/providers/transport/ProviderTransportRegistry.js');
 
 function makeService() {
   return {
@@ -92,12 +91,65 @@ describe('ProviderTransportRegistry', () => {
     const result = await registry.createServiceForConfig({
       ...makeInput('codex'),
       providerTransport: { transport: 'cli-jsonl', command: 'clowder-code' },
+      reservedRouteableIds: new Set(['codex']),
     });
 
     assert.equal(result.handled, true);
     assert.equal(result.transportId, 'cli-jsonl');
     assert.equal(result.service, null);
     assert.equal(result.rejectionReason, 'builtin-cat:codex');
+  });
+
+  it('derives reserved routeable identities from template baseline plus active non-transport cats', () => {
+    const reserved = deriveReservedProviderTransportIdentities({
+      configs: {
+        'template-builtin': { id: 'template-builtin', clientId: 'clowder-code' },
+        'legacy-cat': { id: 'legacy-cat', clientId: 'anthropic' },
+        'external-provider': { id: 'external-provider', clientId: 'clowder-code' },
+      },
+      providerTransportsByProfileId: new Map([
+        ['template-builtin', { transport: 'cli-jsonl' }],
+        ['external-provider', { transport: 'cli-jsonl' }],
+      ]),
+      templateBuiltinIds: new Set(['template-builtin']),
+    });
+
+    assert.equal(reserved.has('template-builtin'), true, 'template builtin stays reserved even after PT injection');
+    assert.equal(reserved.has('legacy-cat'), true, 'active non-PT legacy cats stay reserved');
+    assert.equal(reserved.has('external-provider'), false, 'new external PT profiles remain activatable');
+  });
+
+  it('rejects self-hijack when a template builtin gains providerTransport and non-builtin clientId', async () => {
+    const registry = new ProviderTransportRegistry();
+    registry.register({ id: 'cli-jsonl', create: async () => ({ handled: true, service: makeService() }) });
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput('future-builtin'),
+      config: { id: 'future-builtin', clientId: 'clowder-code' },
+      providerTransport: { transport: 'cli-jsonl', command: 'clowder-code' },
+      reservedRouteableIds: new Set(['future-builtin']),
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'cli-jsonl');
+    assert.equal(result.service, null);
+    assert.equal(result.rejectionReason, 'builtin-cat:future-builtin');
+  });
+
+  it('rejects explicit providerTransport declarations when reserved identity baseline is unavailable', async () => {
+    const registry = new ProviderTransportRegistry();
+    registry.register({ id: 'cli-jsonl', create: async () => ({ handled: true, service: makeService() }) });
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput('external-provider'),
+      providerTransport: { transport: 'cli-jsonl', command: 'clowder-code' },
+      reservedRouteableIdentityError: 'template-baseline-unavailable',
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'cli-jsonl');
+    assert.equal(result.service, null);
+    assert.equal(result.rejectionReason, 'reserved-routeable-identities-unavailable');
   });
 
   it('returns a handled transport service before caller provider switch fallback', async () => {

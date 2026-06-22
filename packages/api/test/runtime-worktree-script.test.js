@@ -371,6 +371,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
       {
         cwd: projectDir,
         encoding: 'utf8',
+        env: isolatedRuntimeEnv(),
       },
     );
 

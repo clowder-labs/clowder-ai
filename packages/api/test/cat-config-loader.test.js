@@ -19,6 +19,7 @@ const {
   getCatEffort,
   getAcpConfig,
   getProviderTransportConfig,
+  getTemplateBuiltinCatIds,
   getCatFamily,
   _resetCachedConfig,
 } = await import('../dist/config/cat-config-loader.js');
@@ -1641,5 +1642,48 @@ describe('#772: template breeds must not leak into runtime', () => {
       else process.env.CAT_TEMPLATE_PATH = saved;
       _resetCachedConfig();
     }
+  });
+
+  it('getTemplateBuiltinCatIds reads base template ids before runtime providerTransport overlay', () => {
+    const templateBreed = makeBreed('new-builtin-family', 'future-builtin', ['@future']);
+    templateBreed.variants.push({
+      id: 'future-alt',
+      catId: 'future-alt',
+      clientId: 'anthropic',
+      defaultModel: 'claude-sonnet-4-6',
+      mcpSupport: true,
+      personality: 'future alternate personality',
+    });
+
+    const catalogBreed = makeBreed('new-builtin-family', 'future-builtin', ['@future']);
+    catalogBreed.variants[0].clientId = 'clowder-code';
+    catalogBreed.variants[0].providerTransport = {
+      transport: 'cli-jsonl',
+      command: 'clowder-code',
+    };
+
+    const { projectDir } = setupProjectDir([templateBreed], [catalogBreed]);
+
+    const ids = getTemplateBuiltinCatIds(projectDir);
+
+    assert.equal(ids.has('future-builtin'), true, 'base template builtin remains reserved after PT overlay');
+    assert.equal(ids.has('future-alt'), true, 'variant-level catId is part of the template builtin baseline');
+  });
+
+  it('getTemplateBuiltinCatIds throws when the base template baseline is unavailable', () => {
+    const missingProjectDir = mkdtempSync(join(tmpdir(), 'cat-missing-template-'));
+    assert.throws(
+      () => getTemplateBuiltinCatIds(missingProjectDir),
+      /Failed to read cat-template\.json/,
+      'missing base template must fail closed instead of returning an empty baseline',
+    );
+
+    const corruptProjectDir = mkdtempSync(join(tmpdir(), 'cat-corrupt-template-'));
+    writeFileSync(join(corruptProjectDir, 'cat-template.json'), '{"version": 2,');
+    assert.throws(
+      () => getTemplateBuiltinCatIds(corruptProjectDir),
+      (err) => err instanceof SyntaxError,
+      'corrupt base template JSON must fail closed instead of returning an empty baseline',
+    );
   });
 });

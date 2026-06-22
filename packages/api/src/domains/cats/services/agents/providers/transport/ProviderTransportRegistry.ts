@@ -14,6 +14,8 @@ export interface ProviderTransportInput {
   profileId: string;
   config: CatConfig;
   providerTransport?: unknown;
+  reservedRouteableIds?: ReadonlySet<string>;
+  reservedRouteableIdentityError?: string;
 }
 
 export interface ProviderTransportCreateResult {
@@ -55,33 +57,32 @@ const BUILTIN_CLIENT_IDS = new Set([
   'acp',
 ]);
 
-const BUILTIN_ROUTEABLE_IDS = new Set([
-  'opus',
-  'sonnet',
-  'opus-45',
-  'fable-5',
-  'codex',
-  'gpt52',
-  'spark',
-  'gemini',
-  'gemini25',
-  'gemini35',
-  'dare',
-  'antigravity',
-  'antig-opus',
-  'opencode',
-  'kimi',
-  'opus-47',
-]);
+export function deriveReservedProviderTransportIdentities(input: {
+  configs: Readonly<Record<string, CatConfig>>;
+  providerTransportsByProfileId: ReadonlyMap<string, unknown>;
+  templateBuiltinIds: ReadonlySet<string>;
+}): Set<string> {
+  const reserved = new Set<string>(input.templateBuiltinIds);
+  for (const id of Object.keys(input.configs)) {
+    const providerTransport = input.providerTransportsByProfileId.get(id);
+    if (providerTransport === undefined || providerTransport === null) {
+      reserved.add(id);
+    }
+  }
+  return reserved;
+}
 
 function reservedIdentityReason(input: ProviderTransportInput): string | null {
+  if (input.reservedRouteableIdentityError) return 'reserved-routeable-identities-unavailable';
+
   const clientId = String(input.config.clientId ?? '');
   if (BUILTIN_CLIENT_IDS.has(clientId)) return `builtin-client:${clientId}`;
 
+  const reservedRouteableIds = input.reservedRouteableIds;
   const configId = String(input.config.id ?? '');
-  if (BUILTIN_ROUTEABLE_IDS.has(configId)) return `builtin-cat:${configId}`;
+  if (reservedRouteableIds?.has(configId)) return `builtin-cat:${configId}`;
 
-  if (BUILTIN_ROUTEABLE_IDS.has(input.profileId)) return `builtin-profile:${input.profileId}`;
+  if (reservedRouteableIds?.has(input.profileId)) return `builtin-profile:${input.profileId}`;
 
   return null;
 }
@@ -118,30 +119,41 @@ export class ProviderTransportRegistry {
 
   async createServiceForConfig(input: ProviderTransportInput): Promise<ProviderTransportResolution> {
     if (input.providerTransport !== undefined && input.providerTransport !== null) {
-      const transportId = declaredTransportId(input.providerTransport);
-      if (!transportId) {
-        return { handled: true, transportId: 'invalid', service: null, rejectionReason: 'invalid-declaration' };
-      }
-
-      const identityReason = reservedIdentityReason(input);
-      if (identityReason) {
-        return { handled: true, transportId, service: null, rejectionReason: identityReason };
-      }
-
-      const factory = this.factories.get(transportId);
-      if (!factory) {
-        return { handled: true, transportId, service: null, rejectionReason: 'unknown-transport' };
-      }
-
-      const result = await factory.create(input);
-      return {
-        handled: true,
-        transportId,
-        service: result.handled ? (result.service ?? null) : null,
-        ...(!result.handled || !result.service ? { rejectionReason: 'factory-rejected' } : {}),
-      };
+      return this.createServiceForDeclaredTransport(input, input.providerTransport);
     }
 
+    return this.createServiceByFactoryProbe(input);
+  }
+
+  private async createServiceForDeclaredTransport(
+    input: ProviderTransportInput,
+    providerTransport: unknown,
+  ): Promise<ProviderTransportResolution> {
+    const transportId = declaredTransportId(providerTransport);
+    if (!transportId) {
+      return { handled: true, transportId: 'invalid', service: null, rejectionReason: 'invalid-declaration' };
+    }
+
+    const identityReason = reservedIdentityReason(input);
+    if (identityReason) {
+      return { handled: true, transportId, service: null, rejectionReason: identityReason };
+    }
+
+    const factory = this.factories.get(transportId);
+    if (!factory) {
+      return { handled: true, transportId, service: null, rejectionReason: 'unknown-transport' };
+    }
+
+    const result = await factory.create(input);
+    return {
+      handled: true,
+      transportId,
+      service: result.handled ? (result.service ?? null) : null,
+      ...(!result.handled || !result.service ? { rejectionReason: 'factory-rejected' } : {}),
+    };
+  }
+
+  private async createServiceByFactoryProbe(input: ProviderTransportInput): Promise<ProviderTransportResolution> {
     for (const factory of this.factories.values()) {
       const result = await factory.create(input);
       if (!result.handled) continue;

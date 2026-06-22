@@ -27,6 +27,7 @@ import {
   getConfigSessionStrategy,
   getDefaultCatId,
   getProviderTransportConfig,
+  getTemplateBuiltinCatIds,
   isCatAvailable,
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
@@ -60,6 +61,7 @@ import {
   warmL0Cache,
 } from './domains/cats/services/agents/providers/l0-compiler.js';
 import {
+  deriveReservedProviderTransportIdentities,
   markActiveProviderTransportProfile,
   ProviderTransportRegistry,
 } from './domains/cats/services/agents/providers/transport/ProviderTransportRegistry.js';
@@ -1173,6 +1175,25 @@ async function main(): Promise<void> {
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
     const projectRoot = resolveActiveProjectRoot();
     const activeProfileIdsByTransport = new Map<string, Set<string>>();
+    const providerTransportsByProfileId = new Map<string, unknown>();
+    for (const id of Object.keys(configs)) {
+      providerTransportsByProfileId.set(id, getProviderTransportConfig(id, projectRoot));
+    }
+    let reservedRouteableIdentityError: string | undefined;
+    let templateBuiltinIds: ReadonlySet<string> = new Set();
+    try {
+      templateBuiltinIds = getTemplateBuiltinCatIds(projectRoot);
+    } catch (err) {
+      reservedRouteableIdentityError = err instanceof Error ? err.message : String(err);
+      app.log.error({ err }, '[api] Provider transport builtin identity baseline unavailable');
+    }
+    const reservedRouteableIds = reservedRouteableIdentityError
+      ? new Set<string>()
+      : deriveReservedProviderTransportIdentities({
+          configs,
+          providerTransportsByProfileId,
+          templateBuiltinIds,
+        });
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
       // F32-b P1 fix: do NOT pass model here — let constructors resolve via
@@ -1187,7 +1208,9 @@ async function main(): Promise<void> {
         projectRoot,
         profileId: id,
         config,
-        providerTransport: getProviderTransportConfig(id, projectRoot),
+        providerTransport: providerTransportsByProfileId.get(id),
+        reservedRouteableIds,
+        reservedRouteableIdentityError,
       });
       if (providerTransport.handled) {
         if (!providerTransport.service) {
