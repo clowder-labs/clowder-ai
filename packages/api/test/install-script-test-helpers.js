@@ -36,10 +36,19 @@ export {
 };
 
 export function runSourceOnlySnippet(snippet) {
+  const env = { ...process.env };
+  delete env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  delete env.CAT_CAFE_RUNTIME_DIR;
+  delete env.CAT_CAFE_RUNTIME_BRANCH;
+  delete env.CAT_CAFE_RUNTIME_REMOTE;
+  delete env.CAT_CAFE_RUNTIME_ROOT;
+  delete env.CAT_CAFE_RUNTIME_SOURCE_BRANCH;
+  delete env.CAT_CAFE_RUNTIME_SYNC_COMMAND;
+
   const result = spawnSync(
     'bash',
     ['-lc', `set -e\nsource "${installScript}" --source-only >/dev/null 2>&1\n${snippet}`],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env },
   );
 
   assert.equal(

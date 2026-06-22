@@ -20,6 +20,18 @@ const tempProcs = [];
 
 process.env.CAT_CAFE_SKIP_NODE_RUNTIME_GUARD = '1';
 
+function isolatedRuntimeEnv(overrides = {}) {
+  const env = { ...process.env };
+  delete env.CAT_CAFE_RUNTIME_DIR;
+  delete env.CAT_CAFE_RUNTIME_BRANCH;
+  delete env.CAT_CAFE_RUNTIME_REMOTE;
+  delete env.CAT_CAFE_RUNTIME_ROOT;
+  delete env.CAT_CAFE_RUNTIME_SOURCE_BRANCH;
+  delete env.CAT_CAFE_RUNTIME_SYNC_COMMAND;
+
+  return { ...env, ...overrides };
+}
+
 function createTempProject(name) {
   const projectDir = mkdtempSync(join(tmpdir(), `${name}-`));
   tempDirs.push(projectDir);
@@ -127,12 +139,11 @@ exit 0
 
 function withStubbedPnpmEnv(projectDir) {
   const { binDir, logFile } = createPnpmStub(projectDir);
-  return {
-    ...process.env,
+  return isolatedRuntimeEnv({
     CAT_CAFE_RUNTIME_RESTART_OK: '1',
     PATH: `${binDir}:${process.env.PATH}`,
     RUNTIME_TEST_PNPM_LOG: logFile,
-  };
+  });
 }
 
 function seedRuntimeDependencyMarkers(projectDir) {
@@ -286,7 +297,7 @@ printf 'ok'`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: isolatedRuntimeEnv({ CAT_CAFE_RUNTIME_RESTART_OK: '1' }),
     });
 
     assert.equal(result.status, 0);
@@ -318,7 +329,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: isolatedRuntimeEnv({ CAT_CAFE_RUNTIME_RESTART_OK: '1' }),
     });
 
     assert.equal(result.status, 0, `exit=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
@@ -380,7 +391,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: isolatedRuntimeEnv({ CAT_CAFE_RUNTIME_RESTART_OK: '1' }),
     });
 
     assert.notEqual(result.status, 0);
@@ -461,7 +472,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: isolatedRuntimeEnv({ CAT_CAFE_RUNTIME_RESTART_OK: '1' }),
     });
 
     assert.equal(result.status, 0, `exit=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
@@ -489,12 +500,11 @@ server.listen(3002,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     tempProcs.push(server);
     await waitForLocalPort(3002);
 
-    const ncFallbackEnv = {
-      ...process.env,
+    const ncFallbackEnv = isolatedRuntimeEnv({
       API_SERVER_PORT: '3002',
       PATH: `${binDir}:${process.env.PATH}`,
       RUNTIME_TEST_PNPM_LOG: logFile,
-    };
+    });
     // Ensure CAT_CAFE_RUNTIME_RESTART_OK is not inherited from the parent env;
     // this test specifically validates that restart is REFUSED when the API port is active.
     delete ncFallbackEnv.CAT_CAFE_RUNTIME_RESTART_OK;
@@ -528,10 +538,9 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     tempProcs.push(server);
     await waitForLocalPort(3010);
 
-    const envFilePortEnv = {
-      ...process.env,
+    const envFilePortEnv = isolatedRuntimeEnv({
       CAT_CAFE_RUNTIME_DIR: projectDir,
-    };
+    });
     // Ensure CAT_CAFE_RUNTIME_RESTART_OK is not inherited from the parent env;
     // this test validates that restart is REFUSED when .env API_SERVER_PORT is active.
     delete envFilePortEnv.CAT_CAFE_RUNTIME_RESTART_OK;
@@ -674,11 +683,10 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'sync', '--no-install'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: {
-        ...process.env,
+      env: isolatedRuntimeEnv({
         CAT_CAFE_RUNTIME_DIR: normalizedRuntimeDir,
         API_SERVER_PORT: '19899',
-      },
+      }),
     });
 
     assert.notEqual(result.status, 0);
@@ -721,11 +729,10 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'sync', '--no-install'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: {
-        ...process.env,
+      env: isolatedRuntimeEnv({
         CAT_CAFE_RUNTIME_DIR: normalizedRuntimeDir,
         API_SERVER_PORT: '19899',
-      },
+      }),
     });
 
     assert.notEqual(result.status, 0);
@@ -770,11 +777,10 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'sync', '--no-install'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: {
-        ...process.env,
+      env: isolatedRuntimeEnv({
         CAT_CAFE_RUNTIME_DIR: normalizedRuntimeDir,
         API_SERVER_PORT: '19899',
-      },
+      }),
     });
 
     assert.notEqual(result.status, 0);

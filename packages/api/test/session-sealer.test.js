@@ -50,6 +50,30 @@ describe('SessionSealer', () => {
       assert.equal(updated?.status, 'sealing');
     });
 
+    test('rejects seal when expected cliSessionId no longer matches active record', async () => {
+      const { store, sealer } = await createFixtures();
+      const record = store.create(BASE_INPUT);
+      store.update(record.id, {
+        cliSessionId: 'cli-manual-bind',
+        updatedAt: Date.now(),
+      });
+
+      const result = await sealer.requestSeal({
+        sessionId: record.id,
+        reason: 'session_continuity_degraded',
+        expectedCliSessionId: 'cli-sess-1',
+      });
+
+      assert.equal(result.accepted, false);
+      assert.equal(result.status, 'active');
+
+      const updated = store.get(record.id);
+      assert.equal(updated?.status, 'active');
+      assert.equal(updated?.cliSessionId, 'cli-manual-bind');
+      assert.equal(updated?.sealReason, undefined);
+      assert.equal(store.getActive('opus', 'thread-1')?.id, record.id);
+    });
+
     test('clears active pointer after seal', async () => {
       const { store, sealer } = await createFixtures();
       const record = store.create(BASE_INPUT);

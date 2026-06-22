@@ -18,6 +18,7 @@ const {
   buildCatIdToBreedIndex,
   getCatEffort,
   getAcpConfig,
+  getProviderTransportConfig,
   getCatFamily,
   _resetCachedConfig,
 } = await import('../dist/config/cat-config-loader.js');
@@ -1607,6 +1608,34 @@ describe('#772: template breeds must not leak into runtime', () => {
     try {
       const acp = getAcpConfig('gemini');
       assert.equal(acp, undefined, 'template-only breed ACP must not leak into runtime');
+    } finally {
+      if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = saved;
+      _resetCachedConfig();
+    }
+  });
+
+  it('getProviderTransportConfig returns raw Phase A transport declaration from runtime catalog', () => {
+    const catalogBreed = makeBreed('ragdoll', 'clowder-code', ['@clowder-code']);
+    catalogBreed.variants[0].clientId = 'clowder-code';
+    catalogBreed.variants[0].providerTransport = {
+      transport: 'cli-jsonl',
+      command: 'clowder-code',
+      startupArgs: ['--json', '--non-interactive'],
+      outputProfile: 'clowder-code-turn-result-v1',
+    };
+    const { templatePath } = setupProjectDir([], [catalogBreed]);
+
+    const saved = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_TEMPLATE_PATH = templatePath;
+    _resetCachedConfig();
+    try {
+      assert.deepEqual(getProviderTransportConfig('clowder-code'), {
+        transport: 'cli-jsonl',
+        command: 'clowder-code',
+        startupArgs: ['--json', '--non-interactive'],
+        outputProfile: 'clowder-code-turn-result-v1',
+      });
     } finally {
       if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = saved;

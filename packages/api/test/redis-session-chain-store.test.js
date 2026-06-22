@@ -283,6 +283,44 @@ describe('RedisSessionChainStore', { skip: redisIsolationSkipReason(REDIS_URL) }
     assert.equal(old, null, 'old CLI session ID should be unlinked');
   });
 
+  it('update() rejects cliSessionId rotation after record is inactive', async () => {
+    const record = await store.create(BASE_INPUT);
+    await store.update(record.id, { status: 'sealing' });
+
+    const updated = await store.update(record.id, { cliSessionId: 'cli-new' });
+
+    assert.equal(updated, null);
+    assert.equal((await store.getByCliSessionId('cli-sess-1'))?.id, record.id);
+    assert.equal(await store.getByCliSessionId('cli-new'), null);
+  });
+
+  it('update() rejects cliSessionId rotation after record is superseded by active pointer', async () => {
+    const oldRecord = await store.create(BASE_INPUT);
+    const newRecord = await store.create({ ...BASE_INPUT, cliSessionId: 'cli-active' });
+
+    const updated = await store.update(oldRecord.id, { cliSessionId: 'cli-rebound' });
+
+    assert.equal(updated, null);
+    assert.equal((await store.getByCliSessionId('cli-sess-1'))?.id, oldRecord.id);
+    assert.equal(await store.getByCliSessionId('cli-rebound'), null);
+    assert.equal((await store.getActive('opus', 'thread-1'))?.id, newRecord.id);
+  });
+
+  it('compareAndMarkSealing() rejects records superseded by active pointer', async () => {
+    const oldRecord = await store.create(BASE_INPUT);
+    const newRecord = await store.create({ ...BASE_INPUT, cliSessionId: 'cli-new' });
+
+    const sealed = await store.compareAndMarkSealing(oldRecord.id, {
+      sealReason: 'session_continuity_degraded',
+      updatedAt: Date.now(),
+      expectedCliSessionId: 'cli-sess-1',
+    });
+
+    assert.equal(sealed, null);
+    assert.equal((await store.get(oldRecord.id))?.status, 'active');
+    assert.equal((await store.getActive('opus', 'thread-1'))?.id, newRecord.id);
+  });
+
   it('getChainByThread() returns all cats sessions for a thread', async () => {
     await store.create(BASE_INPUT);
     await store.create({ ...BASE_INPUT, catId: 'codex', cliSessionId: 'cli-codex-1' });

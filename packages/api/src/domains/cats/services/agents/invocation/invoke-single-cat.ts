@@ -377,6 +377,27 @@ function isUserVisibleSessionOutput(msg: AgentMessage): boolean {
   return msg.type === 'text' || msg.type === 'tool_use' || msg.type === 'tool_result';
 }
 
+function parseSessionContinuityDegradation(msg: AgentMessage): { reason?: string; requestedSessionId?: string } | null {
+  if (msg.type !== 'system_info' || typeof msg.content !== 'string') return null;
+  try {
+    const parsed = JSON.parse(msg.content) as Record<string, unknown>;
+    if (parsed.type !== 'session_continuity_degraded') return null;
+    return {
+      ...(typeof parsed.reason === 'string' ? { reason: parsed.reason } : {}),
+      ...(typeof parsed.requestedSessionId === 'string' ? { requestedSessionId: parsed.requestedSessionId } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function shouldSealActiveSessionForContinuityDegradation(degradation: {
+  reason?: string;
+  requestedSessionId?: string;
+}): boolean {
+  return degradation.reason === 'cli_jsonl_resume_requires_single_line_prompt';
+}
+
 async function syncAntigravityRuntimeMetadata(input: {
   runtimeSessionStore: IRuntimeSessionStore;
   sessionChainStore: ISessionChainStore;
@@ -1867,8 +1888,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       healthSnapshot: ContextHealth;
       activeRecord: SessionRecord;
     } | null = null;
+    let suppressSessionChainForStaleContinuityDegradation = false;
 
     const recordActiveSessionUserVisibleOutput = async (): Promise<void> => {
+      if (suppressSessionChainForStaleContinuityDegradation) return;
       if (!deps.sessionChainStore || !sessionChainActive) return;
       try {
         // F198 Bug #3: bg looks up its record by the stable chainKey, not
@@ -1893,6 +1916,59 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     const processMessage = async (msg: AgentMessage): Promise<AgentMessage[]> => {
       const outputs: AgentMessage[] = [];
+
+      const sealActiveSessionForContinuityDegradation = async (msg: AgentMessage): Promise<void> => {
+        const degradation = parseSessionContinuityDegradation(msg);
+        if (!degradation) return;
+        if (!shouldSealActiveSessionForContinuityDegradation(degradation)) return;
+        if (!deps.sessionChainStore || !sessionChainActive) return;
+
+        try {
+          const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+          if (!activeRecord || activeRecord.cliSessionId !== degradation.requestedSessionId) {
+            suppressSessionChainForStaleContinuityDegradation = true;
+            return;
+          }
+
+          if (deps.transcriptWriter) {
+            deps.transcriptWriter.appendEvent(
+              {
+                sessionId: activeRecord.id,
+                threadId,
+                catId: activeRecord.catId,
+                cliSessionId: activeRecord.cliSessionId,
+                seq: activeRecord.seq,
+              },
+              msg as unknown as Record<string, unknown>,
+              invocationId,
+            );
+          }
+
+          if (deps.sessionSealer) {
+            const result = await deps.sessionSealer.requestSeal({
+              sessionId: activeRecord.id,
+              reason: 'session_continuity_degraded',
+              expectedCliSessionId: degradation.requestedSessionId,
+            });
+            if (result.accepted) {
+              deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+            } else {
+              suppressSessionChainForStaleContinuityDegradation = true;
+            }
+            return;
+          }
+
+          const now = Date.now();
+          await deps.sessionChainStore.update(activeRecord.id, {
+            status: 'sealed',
+            sealReason: 'session_continuity_degraded',
+            sealedAt: now,
+            updatedAt: now,
+          });
+        } catch {
+          /* best-effort: degradation visibility must not break invocation */
+        }
+      };
 
       // clowder#915 (cloud P1): F8/F24 usage + context_health block extracted so
       // it can run from BOTH the `done` branch (existing behavior) AND the
@@ -1973,7 +2049,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         });
 
         // F24: Compute and emit context health (only when session chain is enabled)
-        if (sessionChainActive) {
+        if (sessionChainActive && !suppressSessionChainForStaleContinuityDegradation) {
           // #679: Gemini CLI token stats are cumulative across all turns — not usable
           // for context fill. Skip entire context_health block (raw usage still in
           // invocation_usage above). Guard auto-disables when lastTurnInputTokens exists.
@@ -2237,7 +2313,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         lastErrorMessage = msg.error;
       }
 
+      await sealActiveSessionForContinuityDegradation(msg);
+
       if (msg.type === 'session_init' && msg.sessionId) {
+        if (suppressSessionChainForStaleContinuityDegradation) return outputs;
         log.info(
           { cliSessionId: msg.sessionId, threadId, catId, userId, invocationId },
           'Session init: binding session',
@@ -2260,7 +2339,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         }
 
         // F24 + F198 Bug #3: ensure a SessionRecord exists for this session.
-        if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
+        if (
+          isBgCarrier &&
+          bgChainKey &&
+          deps.sessionChainStore &&
+          sessionChainActive &&
+          !suppressSessionChainForStaleContinuityDegradation
+        ) {
           // bg: look up the conversation by its stable chainKey. ACTIVE record →
           // just update cliSessionId to the current daemon shortId (NO seal+create
           // — that cascade is the multi-turn amnesia root cause). Missing (first
@@ -2299,7 +2384,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           } catch {
             // Best-effort — don't break the invocation chain
           }
-        } else if (deps.sessionChainStore && sessionChainActive) {
+        } else if (deps.sessionChainStore && sessionChainActive && !suppressSessionChainForStaleContinuityDegradation) {
           try {
             const existing = await deps.sessionChainStore.getActive(catId, threadId);
             if (existing) {
@@ -2495,7 +2580,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         // This counter is critical for unseal safety: empty sessions (0 messages)
         // can be displaced, but sessions with user-visible output must not be
         // silently sealed or folded away before a final done event arrives.
-        if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
+        if (
+          isBgCarrier &&
+          bgChainKey &&
+          deps.sessionChainStore &&
+          sessionChainActive &&
+          !suppressSessionChainForStaleContinuityDegradation
+        ) {
           // F198 Bug #3: bg updates its chainKey record — messageCount (unless
           // already counted this turn via recordActiveSessionUserVisibleOutput)
           // + latestResumeSessionId (the daemon's new fork UUID from done
@@ -2520,7 +2611,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           } catch {
             /* best-effort: messageCount miss won't break invocation */
           }
-        } else if (deps.sessionChainStore && sessionChainActive) {
+        } else if (deps.sessionChainStore && sessionChainActive && !suppressSessionChainForStaleContinuityDegradation) {
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
             if (activeRec) {
@@ -2749,7 +2840,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       // F24 Phase C: Record event to transcript buffer (best-effort)
-      if (deps.transcriptWriter && deps.sessionChainStore && sessionChainActive) {
+      if (
+        deps.transcriptWriter &&
+        deps.sessionChainStore &&
+        sessionChainActive &&
+        !suppressSessionChainForStaleContinuityDegradation
+      ) {
         try {
           const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
           if (activeRec) {
