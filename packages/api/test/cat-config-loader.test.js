@@ -512,22 +512,6 @@ describe('cat-config-loader', () => {
       assert.equal(isSessionChainEnabled('unknown-cat', config), true);
     });
 
-    it('opencode breed has sessionChain enabled in real cat-template.json (clowder#915)', () => {
-      // clowder#915 root cause 1: opencode breed had `features.sessionChain: false`,
-      // so the entire chain → seal → continuation → handoff infrastructure never spun
-      // up. Even though strategy fallback to GLOBAL_DEFAULT (handoff @ 0.75/0.85) was
-      // "correct", with sessionChain disabled the strategy could not execute and
-      // opencode hung when context filled.
-      // Guard the actual repo cat-template.json against re-introduction of this.
-      const repoTemplate = resolve(import.meta.dirname, '../../../cat-template.json');
-      const config = loadCatConfig(repoTemplate);
-      assert.equal(
-        isSessionChainEnabled('opencode', config),
-        true,
-        'opencode breed must have sessionChain enabled or context-fill handoff never fires (clowder#915)',
-      );
-    });
-
     it('prefers variant.sessionChain override over breed-level setting', () => {
       const cfg = validConfig();
       cfg.breeds[0].features = { sessionChain: true };
@@ -558,6 +542,12 @@ describe('cat-config-loader', () => {
       const config = loadCatConfig(templatePath);
       assert.equal(isSessionChainEnabled('antigravity', config), true);
       assert.equal(isSessionChainEnabled('antig-opus', config), true);
+    });
+
+    it('project config keeps OpenCode session chain enabled', () => {
+      const templatePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../cat-template.json');
+      const config = loadCatConfig(templatePath);
+      assert.equal(isSessionChainEnabled('opencode', config), true);
     });
 
     it('accepts features with empty object (all defaults)', () => {
@@ -1023,14 +1013,14 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.deepEqual(fable.mentionPatterns, ['@fable5', '@fable-5', '@claude-fable-5', '@宪宪5', '@布偶猫5']);
   });
 
-  it('total cat count is 15 (opus + sonnet + opus-45 + opus-47 + fable-5 + codex + gpt52 + spark + gemini + gemini25 + kimi + dare + antigravity + antig-opus + opencode)', () => {
+  it('total cat count is 16 (opus + sonnet + opus-45 + opus-47 + fable-5 + codex + gpt52 + spark + gemini + gemini25 + gemini35 + kimi + dare + antigravity + antig-opus + opencode)', () => {
     // Use template directly to avoid catalog overlay pollution from earlier tests
     const templatePath =
       process.env.CAT_TEMPLATE_PATH ??
       resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
     const config = loadCatConfig(templatePath);
     const all = toAllCatConfigs(config);
-    assert.equal(Object.keys(all).length, 15);
+    assert.equal(Object.keys(all).length, 16);
     assert.ok(all.opus);
     assert.ok(all.sonnet);
     assert.ok(all['opus-45']);
@@ -1041,6 +1031,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all.spark); // F032 Phase E: new cat added
     assert.ok(all.gemini);
     assert.ok(all.gemini25);
+    assert.ok(all.gemini35); // Gemini 3.5 Flash standalone breed
     assert.ok(all.kimi); // Kimi CLI cat (moonshot)
     assert.ok(all.dare); // F050: DARE external agent (dragon-li)
     assert.ok(all.antigravity); // F061: Bengal cat (Antigravity CDP bridge)

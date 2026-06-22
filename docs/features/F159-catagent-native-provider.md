@@ -256,7 +256,7 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 
 ## Review Gate
 
-- Phase A: Ragdoll + Maine Coon架构 review → team lead拍板
+- Phase A: Ragdoll + Maine Coon架构 review → operator拍板
 - Phase B-E: 跨 family review
 - Phase F-F1/F2: 安全敏感，必须跨 family review
 - Phase F-F3: 产品方向 + 宿主边界联合 review
