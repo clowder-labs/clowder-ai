@@ -226,6 +226,94 @@ Temporary raw catalog shape for Phase A smoke activation:
 }
 ```
 
+## Phase B Slice 2b Design Notes — Routeable Gate
+
+Settled 2026-06-22 via pre-worktree design gate (opus driving; codex + gpt52 independent review). 2a (`b4a87e3c`) shipped a non-routeable `transportReady` capability. Slice 2b promotes "declared" → "routeable" via a 6-step gate, with **explicit owner approval as the only path** from `routeable: false` to `routeable: true`.
+
+### 6-step routeable gate
+
+| # | Step | Owner | 2a delivered | 2b delta |
+|---|---|---|---|---|
+| 1 | manifest valid | `parseAgentProvider*` | ✅ | — |
+| 2 | host transport exists | `providerTransportRegistry.has(...)` | ✅ | — |
+| 3 | reserved + collision admission | `RoutingAdmissionService` (new) | — | new service |
+| 4 | explicit owner approval | host-owned `routeableApproved` field | — | new field + admin surface |
+| 5 | host health pass | `acpInitialize` / `cliProbe`, descriptor-bound | — | new, bound to descriptor hash |
+| 6 | AgentRegistry service registered | existing `syncAgentRegistry → createServiceForConfig` | — | enqueue to existing serialized sync coordinator |
+
+### Three-field state model
+
+Replaces 2a's two-field literal-`false` shape. The shared contract widens from literals to booleans (`packages/shared/src/types/capability.ts:49`) — without this, all subsequent state transitions lie via type casts.
+
+| Field | Semantics | Mutation source |
+|---|---|---|
+| `routeableApproved` | **owner intent** — operator affirmatively granted approval | host action only (admin surface). Reset to `false` automatically when descriptor hash changes. Never written by `activateAgentProvider`. |
+| `health` | **last health-check result** — `{ result, timestamp, ttlMs, descriptorHash }` | host runs declared `healthCheck` on approval (sync, blocking). Invalidated when descriptor hash changes. Refreshed synchronously on startup/sync when TTL expired. |
+| `routeable` | **effective truth** — "you can `@` this cat now" | computed: `admission.passed && routeableApproved && health.fresh && registry.synced`. Never written directly by the activator or manifest. |
+
+### RoutingAdmissionService
+
+Single source of truth for "is this candidate eligible to become routeable":
+
+- **Inputs**: candidate descriptor + binding + snapshot of (template baseline, all routeable providers/builtins/active cats).
+- **Output**: `{ admitted: boolean, reason?: string }`.
+- **Callers**: owner approval path (early failure) **and** `syncAgentRegistry` projection (re-validate before injecting any synthetic cat-config).
+- **Red line**: NEVER inject the candidate into runtime config/map before admission passes. Reserved snapshot is computed with the candidate explicitly excluded — mirrors Slice 1's pattern in `ProviderTransportRegistry`. Skipping this re-introduces parsing-order self-exemption, the exact hole Slice 1 closed.
+
+Collision check is broader than reserved namespace: candidate `providerId / profileId / catId / mentionPatterns` must not collide with **any** existing routeable provider/builtin/active cat.
+
+### Descriptor hash (canonical, persisted in capability row)
+
+Computed on every upsert in `activateAgentProvider`. If changed → reset `routeableApproved = false` and invalidate health. Owner must re-approve.
+
+Hash inputs:
+- `pluginId`, `capId` / resource name
+- `transport`, `command`, `startupArgs`, `resumeArgs`
+- `sessionPolicy`, `outputProfile`, `timeoutMs`
+- `mcpWhitelistRequest`, `sandboxRequest`
+- `healthCheck` (full object)
+- routeable identity claims: `providerId`, `profileId`, `catId`, `mentionPatterns`
+- plugin/package fingerprint (if available; tracked as residual risk if not — see Non-goals)
+
+### Routeable identity ownership
+
+Plugin manifest declares `providerId / displayName / mentionPatterns` as **claims**; host owns the actual binding record (`catId / @alias`) decoupled from manifest. Route resolver reads ONLY the host-owned binding — never the manifest resource directly. All routeable identity claims feed the descriptor hash, so any change forces re-approval.
+
+### Health timing
+
+- **On approval**: synchronous, blocking. Run declared `healthCheck`. Success → atomic write `routeableApproved=true + health.fresh + routeable=true`. Failure → `routeable=false`, log error, preserve previous state.
+- **On startup / sync** of already-approved capability with expired TTL: synchronous refresh. Failure → `routeable=false`, log error.
+- **Background flip `false → true`**: **NEVER**. Routeability is granted only through explicit operator approval; subsequent checks can DEGRADE but not GRANT.
+- **No declared `healthCheck`** on a candidate that wants `routeable`: fail-closed admission. No default probe substitute.
+
+### Sync trigger + serialization
+
+- Post-write enqueues to the **existing serialized sync coordinator** that already handles plugin enable/approve, cat-config change, and account change. No naked parallel sync, no separate watcher.
+- Idempotency key: `(pluginId, capId, descriptorHash, bindingHash)`.
+- Sync re-reads latest persisted capability/binding snapshot before projection — concurrent cat-config edits cannot strand the AgentRegistry on a stale snapshot.
+- Failure → no partial AgentRegistry state. Rollback effective `routeable=false`, record `lastSyncError`. Preserve `routeableApproved=true` and `health` if `descriptorHash` unchanged — retry doesn't need re-approval.
+
+### Failure recovery summary
+
+| Failure point | `routeable` | `routeableApproved` | `health` |
+|---|---|---|---|
+| Step 3 admission fail | stays `false` | unchanged | unchanged |
+| Step 4 (no approval) | stays `false` | unchanged | unchanged |
+| Step 5 health fail (approval-time) | stays `false` | stays `false` (atomic) | written as failed |
+| Step 5 health fail (TTL refresh) | flipped `false` | unchanged | refreshed to failed |
+| Step 6 sync fail | flipped `false`, `lastSyncError` recorded | unchanged | unchanged |
+| Descriptor hash change (manifest mutation) | flipped `false` | reset `false` | invalidated |
+
+### Non-goals for 2b
+
+- No auto-promotion of `mcpWhitelistRequest` / `sandboxRequest` into runtime grants — those stay request semantics; host grant flows through F202 capability policy, not manifest auto-promotion.
+- No multi-process or distributed sync coordination — the existing in-process serialized coordinator is sufficient for Phase B.
+- No Hub UI for owner approval — Phase B exposes the admin surface as a host-internal route + CLI; Hub admin UI is Phase C scope.
+
+### Residual risk (tracked, not blocking 2b)
+
+Plugin/package fingerprint: if a fingerprint is available (npm tarball hash, git SHA), it enters the descriptor hash and any plugin-body change forces re-approval. If only a directory path is available, the manifest can stay identical while the plugin body mutates silently. Tracked as F241 follow-on hardening, not a 2b blocker.
+
 ## Timeline
 
 - 2026-06-16: #941 opened for plugin-owned `agentProvider` resource / external agent runtime provider path.
@@ -235,3 +323,5 @@ Temporary raw catalog shape for Phase A smoke activation:
 - 2026-06-18: Phase A first implementation slice started with host-owned `ProviderTransportRegistry` and ACP transport factory extraction.
 - 2026-06-18: Phase A second implementation slice started with raw `providerTransport` selection and `cli-jsonl` reference-runtime smoke transport.
 - 2026-06-22: Phase B identity-governance foundation started to replace static routeable denylist drift with template-baseline plus active-catalog reserved identity derivation.
+- 2026-06-22: Phase B Slice 2a shipped `b4a87e3c` — `agentProvider` manifest descriptor, non-routeable / `transportReady` state, fail-closed transport activation.
+- 2026-06-22: Phase B Slice 2b design gate passed — 6-step routeable gate, three-field state model, `RoutingAdmissionService` + descriptor-hash invalidation + serialized sync coordinator (opus driving; codex + gpt52 design review).
