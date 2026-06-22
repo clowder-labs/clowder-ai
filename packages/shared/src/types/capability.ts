@@ -46,10 +46,63 @@ export interface CatCapabilityOverride {
   enabled: boolean;
 }
 
+/**
+ * F241 Phase B Slice 2b: last AgentRegistry sync attempt failure (Step 6 rollback path).
+ * Cleared on the next successful sync. See F241 doc § Phase B Slice 2b Design Notes.
+ */
+export interface AgentProviderSyncError {
+  /** Short, sanitized failure reason (no stack trace, no secrets). */
+  readonly message: string;
+  /** Epoch ms when the failure was recorded. */
+  readonly occurredAt: number;
+}
+
+/**
+ * F241 Phase B Slice 2b: result of the most recent host-side healthCheck run for this
+ * capability. Bound to `descriptorHash` — when the hash changes, the prior result is
+ * invalidated and routeability cannot rely on it. See § Phase B Slice 2b Design Notes.
+ */
+export interface AgentProviderHealthResult {
+  /** Whether the most recent check succeeded. */
+  readonly passed: boolean;
+  /** Epoch ms when the check completed. */
+  readonly checkedAt: number;
+  /** Time-to-live in ms. When `Date.now() > checkedAt + ttlMs`, the result is stale and
+   * MUST be refreshed before `routeable` can remain true (no background `false → true` flip). */
+  readonly ttlMs: number;
+  /** Descriptor hash this result is bound to. Mismatched hash → result invalidated. */
+  readonly descriptorHash: string;
+  /** Short, sanitized failure reason captured on failure. */
+  readonly failureReason?: string;
+}
+
+/**
+ * F241 Phase B Slice 2b: agentProvider capability descriptor.
+ *
+ * Widens 2a's literal-`false` shape into a three-field state model:
+ *   - `routeableApproved` is owner intent (host-owned positive write; reset to `false`
+ *     automatically when `descriptorHash` changes; never positively set by activator).
+ *   - `health` is the last health-check result, bound to `descriptorHash`.
+ *   - `routeable` is the effective truth — "you can @ this cat now" — and is computed
+ *     from admission + approval + fresh health + AgentRegistry sync success.
+ *
+ * `state` remains an informational lifecycle progression marker; it does NOT replace
+ * the boolean fields above.
+ */
 export interface AgentProviderCapabilityDescriptor extends PluginAgentProviderResource {
   state: AgentProviderLifecycleState;
-  routeable: false;
-  routeableApproved: false;
+  /** Effective truth — never written directly; always computed from approval + health + sync. */
+  routeable: boolean;
+  /** Owner intent — host-owned. Activator only ever resets this to `false` on descriptor change. */
+  routeableApproved: boolean;
+  /** Canonical hash of descriptor inputs (transport, command, args, session/output, sandbox/mcp
+   *  request, healthCheck, routeable identity claims, plugin fingerprint if available).
+   *  Recomputed on every upsert. When changed, activator resets `routeableApproved` to `false`. */
+  descriptorHash?: string;
+  /** Last health-check result, bound to `descriptorHash`. */
+  health?: AgentProviderHealthResult;
+  /** Last AgentRegistry sync failure (Step 6). Cleared on next successful sync. */
+  lastSyncError?: AgentProviderSyncError;
 }
 
 /** Single capability entry in capabilities.json */
