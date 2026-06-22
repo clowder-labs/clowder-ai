@@ -3,7 +3,7 @@
  * Used by GET /api/config/env-summary to report current values to the frontend.
  *
  * ⚠️  ALL CATS: 新增 process.env.XXX → 必须在下方 ENV_VARS 数组注册！
- *    不注册 = 前端「环境 & 文件」页面看不到 = 铲屎官不知道 = 不存在。
+ *    不注册 = 前端「环境 & 文件」页面看不到 = co-creator不知道 = 不存在。
  *    SOP.md「环境变量注册」章节有说明。
  *
  * To add a new env var:
@@ -233,6 +233,32 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
   {
+    name: 'CAT_CAFE_PROVISION_GLOBAL_SIDECAR',
+    defaultValue: '0',
+    description:
+      'F178 Persistent MCP Agent-Key Auth — 仅全局 sidecar owner（runtime 主实例）设为 1；alpha/dev 不得设置，避免覆盖 ~/.cat-cafe/agent-keys。',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
+    name: 'CAT_CAFE_AGENT_KEY_ALLOW_MEMORY_SIDECAR',
+    defaultValue: '0',
+    description:
+      'F178 Persistent MCP Agent-Key Auth — 本地降级开发开关；仅在 CAT_CAFE_PROVISION_GLOBAL_SIDECAR=1 且无 Redis 时允许 memory backend 写 sidecar。',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
+    name: 'CAT_CAFE_AGENT_KEY_SIDECAR_DISABLED',
+    defaultValue: '0',
+    description: 'F178 Persistent MCP Agent-Key Auth — 强制关闭全局 sidecar provisioning，优先级高于 owner 标记。',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
     name: 'CAT_CAFE_HOOK_TOKEN',
     defaultValue: '(空)',
     description: 'Hook 回调鉴权 token',
@@ -360,6 +386,30 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'COMMUNITY_PUBLISH_DEFAULT_REPO',
+    defaultValue: 'clowder-ai/cat-cafe',
+    description: 'F235 社区发布默认 GitHub 仓库（owner/repo 格式）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'COMMUNITY_PUBLISH_REPO_ALLOWLIST',
+    defaultValue: 'clowder-ai/cat-cafe',
+    description: 'F235 社区发布允许的 GitHub 仓库列表（逗号分隔 owner/repo）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'COMMUNITY_NARRATOR_THREAD_ID',
+    defaultValue: '(未设置 → 不启用)',
+    description: 'F168 社区 narrator 工作线程 ID（设置后 dispatch 自动 spawn narrator 讲人话）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'WEB_PUBLIC_DIR',
     defaultValue: '../web/public',
     description: 'Web 前端静态文件目录（connector gateway 静态资源服务）',
@@ -377,7 +427,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'CAT_CAFE_GLOBAL_CONFIG_ROOT',
     defaultValue: '(未设置 → homedir())',
-    description: '全局配置根目录（accounts / credentials 查找路径的父目录，实际路径为 ${ROOT}/.cat-cafe/）',
+    description: '全局配置根目录（accounts / credentials 查找路径的父目录，实际路径为 <ROOT>/.cat-cafe/）',
     category: 'server',
     sensitive: false,
     hubVisible: false,
@@ -861,231 +911,46 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
 
-  // --- connector ---
+  // --- connector infrastructure ---
+  // F240: Per-connector config (TELEGRAM_*, FEISHU_*, DINGTALK_*, XIAOYI_*,
+  // WEIXIN_*, WECOM_*, GITHUB_*) moved to YAML manifests (connector.yaml /
+  // plugin.yaml). Only infrastructure-level vars remain here.
   {
-    name: 'TELEGRAM_BOT_TOKEN',
-    defaultValue: '(未设置 → 不启用)',
-    description: 'Telegram Bot Token',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'FEISHU_APP_ID',
-    defaultValue: '(未设置 → 不启用)',
-    description: '飞书应用 App ID',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'FEISHU_APP_SECRET',
-    defaultValue: '(未设置)',
-    description: '飞书应用 App Secret',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'FEISHU_VERIFICATION_TOKEN',
-    defaultValue: '(未设置)',
-    description: '飞书 webhook 验证 token（仅 webhook 模式需要）',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'FEISHU_CONNECTION_MODE',
-    defaultValue: 'webhook',
-    description: '飞书连接模式：webhook（需公网 URL）或 websocket（长连接，无需公网）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'DINGTALK_APP_KEY',
-    defaultValue: '(未设置 → 不启用)',
-    description: '钉钉应用 AppKey',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'DINGTALK_APP_SECRET',
-    defaultValue: '(未设置)',
-    description: '钉钉应用 AppSecret',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'XIAOYI_AK',
-    defaultValue: '(未设置 → 不启用)',
-    description: '华为小艺 OpenClaw Access Key',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'XIAOYI_SK',
-    defaultValue: '(未设置)',
-    description: '华为小艺 OpenClaw Secret Key',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'XIAOYI_AGENT_ID',
-    defaultValue: '(未设置)',
-    description: '华为小艺 Agent ID',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'FEISHU_BOT_OPEN_ID',
-    defaultValue: '(未设置)',
-    description: '飞书机器人 Open ID（接收消息的 bot 身份标识）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'FEISHU_ADMIN_OPEN_IDS',
-    defaultValue: '(未设置)',
-    description: '飞书管理员 Open ID 列表（逗号分隔）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'WEIXIN_VOICE_ITEM_MODE',
-    defaultValue: 'minimal',
+    name: 'CONNECTOR_GATEWAY_AUTOSTART',
+    defaultValue: 'runtime-production-only',
     description:
-      '微信语音消息 voice_item 模式（minimal/playtime/playtime-sec，危险实验模式见 WEIXIN_ENABLE_UNSAFE_VOICE_MODES）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'WEIXIN_ENABLE_UNSAFE_VOICE_MODES',
-    defaultValue: '0',
-    description:
-      '是否允许危险语音实验模式（1=允许 playtime-encode/metadata，0=自动回退 playtime，避免“语音完全收不到”）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA',
-    defaultValue: '0',
-    description: '是否抓取入站微信语音媒体（1=把 voice media 当文件附件落盘，便于 SILK 二进制对比；0=保持当前行为）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'WEIXIN_BOT_TOKEN',
-    defaultValue: '(未设置 → 不启用)',
-    description: '微信机器人 Token（F137 微信个人网关）',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'WECOM_BOT_ID',
-    defaultValue: '(未设置 → 不启用智能机器人模式)',
-    description: '企业微信智能机器人 Bot ID（WebSocket 长连接模式）',
-    category: 'connector',
-    sensitive: false,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_BOT_SECRET',
-    defaultValue: '(未设置)',
-    description: '企业微信智能机器人 Bot Secret',
-    category: 'connector',
-    sensitive: true,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_CORP_ID',
-    defaultValue: '(未设置 → 不启用自建应用模式)',
-    description: '企业微信企业 ID（自建应用 HTTP 回调模式）',
-    category: 'connector',
-    sensitive: false,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_AGENT_ID',
-    defaultValue: '(未设置)',
-    description: '企业微信自建应用 AgentId',
-    category: 'connector',
-    sensitive: false,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_AGENT_SECRET',
-    defaultValue: '(未设置)',
-    description: '企业微信自建应用 Secret',
-    category: 'connector',
-    sensitive: true,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_TOKEN',
-    defaultValue: '(未设置)',
-    description: '企业微信回调 Token（HTTP 模式验签）',
-    category: 'connector',
-    sensitive: true,
-    exampleRecommended: true,
-  },
-  {
-    name: 'WECOM_ENCODING_AES_KEY',
-    defaultValue: '(未设置)',
-    description: '企业微信回调 EncodingAESKey（43字符，HTTP 模式解密用）',
-    category: 'connector',
-    sensitive: true,
-    exampleRecommended: true,
-  },
-
-  // --- GitHub Repo Inbox (F141) ---
-  {
-    name: 'GITHUB_WEBHOOK_SECRET',
-    defaultValue: '(未设置 → 不启用)',
-    description: 'GitHub webhook HMAC-SHA256 shared secret（F141 Repo Inbox）',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'GITHUB_REPO_ALLOWLIST',
-    defaultValue: '(未设置)',
-    description: '允许的仓库列表，逗号分隔（如 zts212653/clowder-ai）',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'GITHUB_REPO_INBOX_CAT_ID',
-    defaultValue: '(未设置)',
-    description: '接收 Repo Inbox 事件的猫 ID',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'GITHUB_AUTHORITATIVE_REVIEW_LOGINS',
-    defaultValue: 'chatgpt-codex-connector[bot]',
-    description:
-      '[DEPRECATED] F140 Phase E.2 cutover (2026-04-24): Rule B authoritative-source skip removed; this var now only serves as backward-compat fallback for GITHUB_SETUP_NOISE_BOT_LOGINS. Will be removed in a follow-up release.',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'GITHUB_SETUP_NOISE_BOT_LOGINS',
-    defaultValue: 'chatgpt-codex-connector[bot]',
-    description:
-      'Comma-separated GitHub bot logins whose conversation comments may contain Codex setup-only guidance. F140 polling-side setup-noise filter skips those (bot + conversation + setup-only body, no codex review content). Falls back to GITHUB_AUTHORITATIVE_REVIEW_LOGINS for backward compat.',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'GITHUB_SELF_LOGIN',
-    defaultValue: '(未设置 → gh api /user 自动解析)',
-    description:
-      'F140 echo filter: GitHub 登录名，用于过滤自己发的 PR comment 避免回流消息总线。设置后跳过 gh api /user 解析，适用于 gh CLI 不可用的环境',
+      '预配置 IM connector 自动接入开关：默认仅 runtime production（NODE_ENV=production + CAT_CAFE_RUNTIME_ROOT）启用；start:direct/alpha/dev 默认禁用。需在启动前通过 env/.env 设置，设 1 强制启用，0 强制禁用',
     category: 'connector',
     sensitive: false,
     runtimeEditable: false,
   },
   {
-    name: 'GITHUB_TOKEN',
+    name: 'WEIXIN_VOICE_ITEM_MODE',
     defaultValue: '(未设置)',
-    description: 'GitHub Personal Access Token（Scheduler 仓库活跃度模板 HTTP 请求鉴权）',
+    description:
+      '微信原生 voice_item 发送实验模式；未设置时音频按文件附件发送。可选 minimal / playtime / playtime-sec / playtime-encode / metadata',
     category: 'connector',
-    sensitive: true,
+    sensitive: false,
+    runtimeEditable: true,
+    allowedValues: ['minimal', 'playtime', 'playtime-sec', 'playtime-encode', 'metadata'],
+  },
+  {
+    name: 'WEIXIN_ENABLE_UNSAFE_VOICE_MODES',
+    defaultValue: '0',
+    description: '设为 1 时允许已知不稳定的微信原生 voice_item 实验模式（playtime-encode / metadata）',
+    category: 'connector',
+    sensitive: false,
+    runtimeEditable: true,
+    allowedValues: ['0', '1'],
+  },
+  {
+    name: 'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA',
+    defaultValue: '0',
+    description: '设为 1 时将微信入站语音媒体捕获为文件附件，便于调试语音/媒体链路',
+    category: 'connector',
+    sensitive: false,
+    runtimeEditable: true,
+    allowedValues: ['0', '1'],
   },
 
   // --- codex ---
@@ -1381,6 +1246,39 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'github_review',
     sensitive: true,
     runtimeEditable: true,
+  },
+  {
+    name: 'GITHUB_SELF_LOGIN',
+    defaultValue: '(未设置 → 自动使用 gh api /user 识别)',
+    description: 'GitHub review feedback 自身账号 fallback；当 gh api /user 无法识别时用于防止处理自己发出的评论',
+    category: 'github_review',
+    sensitive: false,
+    runtimeEditable: true,
+  },
+  {
+    name: 'GITHUB_WEBHOOK_SECRET',
+    defaultValue: '(未设置 → Repo Inbox webhook 不启用)',
+    description: 'GitHub Repo Inbox webhook secret（需与 GitHub 仓库 webhook 配置一致）',
+    category: 'github_review',
+    sensitive: true,
+    runtimeEditable: true,
+    exampleRecommended: true,
+  },
+  {
+    name: 'GITHUB_REPO_ALLOWLIST',
+    defaultValue: '(未设置)',
+    description: 'GitHub Repo Inbox 允许接收事件的仓库列表（owner/repo，多个用逗号分隔）',
+    category: 'github_review',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'GITHUB_REPO_INBOX_CAT_ID',
+    defaultValue: '(未设置)',
+    description: 'GitHub Repo Inbox 默认收件猫 catId',
+    category: 'github_review',
+    sensitive: false,
+    exampleRecommended: true,
   },
   {
     name: 'GITHUB_REVIEW_IMAP_PROXY',

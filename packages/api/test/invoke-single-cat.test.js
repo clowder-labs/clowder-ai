@@ -5,15 +5,33 @@
 
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const hasSourceStagingContent = existsSync(
+  new URL('../../../cat-cafe-skills/refs/l0-staging-content.md', import.meta.url),
+);
 
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 import { catRegistry } from '@cat-cafe/shared';
+
+function assertStagingPromptContract(prompt, mode) {
+  if (hasSourceStagingContent) {
+    assert.ok(
+      prompt.includes('摩擦上报'),
+      `staging wipers core trigger MUST appear in ${mode} prompt (ADR-038 每轮注入生效)`,
+    );
+    assert.ok(prompt.includes('[爪感差:'), `staging wipers report format MUST appear in ${mode} prompt`);
+    return;
+  }
+
+  assert.ok(!prompt.includes('摩擦上报'), `public export omits raw L0 staging content in ${mode} prompt`);
+  assert.ok(!prompt.includes('[爪感差:'), `public export omits staging wipers format in ${mode} prompt`);
+}
 
 async function collect(iterable) {
   const msgs = [];
@@ -4154,6 +4172,82 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(promptsSeen[0].includes('test'), 'F-BLOAT: original prompt should still be present');
   });
 
+  // L0-budget-defense PR-B-impl (ADR-038 件套 ④, Cloud R2 P1 + 砚砚 R4 P1 #2237):
+  // staging must reach service.invoke prompt on EVERY turn including resumes
+  // where systemPrompt is skipped. This regression directly tests the
+  // architectural contract: 折叠 staging into staticIdentity → resume drops it.
+  // 修法 = wire staging in invoke-single-cat at the same level as F225
+  // contextHintPrefix, independent of injectSystemPrompt.
+  it('PR-B-impl ADR-038: staging reaches service.invoke prompt on RESUME (systemPrompt skipped, staging still delivered)', async () => {
+    const promptsSeen = [];
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(prompt, options) {
+        promptsSeen.push(prompt);
+        optionsSeen.push({ ...options });
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'existing-sess',
+      store: async () => {},
+      delete: async () => {},
+    };
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'user message',
+        systemPrompt: 'static identity here',
+        userId: 'u1',
+        threadId: 'thread-staging-resume',
+        isLastCat: true,
+      }),
+    );
+    assert.equal(optionsSeen[0].sessionId, 'existing-sess', 'should resume existing session');
+    assert.ok(
+      !promptsSeen[0].includes('static identity here'),
+      'systemPrompt is skipped on resume (baseline, mirrors F-BLOAT)',
+    );
+    assertStagingPromptContract(promptsSeen[0], 'resume');
+    assert.ok(promptsSeen[0].includes('user message'), 'original user prompt still present');
+  });
+
+  it('PR-B-impl ADR-038: staging reaches service.invoke prompt on NEW SESSION (systemPrompt injected, staging also delivered)', async () => {
+    const promptsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => undefined,
+      store: async () => {},
+      delete: async () => {},
+    };
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'user message',
+        systemPrompt: 'static identity here',
+        userId: 'u1',
+        threadId: 'thread-staging-new',
+        isLastCat: true,
+      }),
+    );
+    assert.ok(promptsSeen[0].includes('static identity here'), 'systemPrompt prepended on new session');
+    assertStagingPromptContract(promptsSeen[0], 'new-session');
+    assert.ok(promptsSeen[0].includes('user message'), 'original user prompt still present');
+  });
+
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {
@@ -4541,6 +4635,92 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://api.template.example');
     assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.template.example');
     assert.equal(callbackEnv.OPENAI_API_KEY, 'sk-template-openai');
+  });
+
+  it('F161: resolves Anthropic account env templates before filtering accountEnv pass-through', async () => {
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
+    const root = await mkdtemp(join(tmpdir(), 'f161-anthropic-env-template-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.HOME = root;
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    const boundProfile = await createProviderProfile(root, {
+      provider: 'anthropic',
+      name: 'anthropic-env-template',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'anthropic',
+      apiKey: 'sk-custom-ant',
+      setActive: false,
+    });
+    const accountsPath = join(root, '.cat-cafe', 'accounts.json');
+    const accounts = JSON.parse(await readFile(accountsPath, 'utf-8'));
+    accounts[boundProfile.id].envVars = {
+      CUSTOM_TOKEN: '${api_key}',
+      CUSTOM_BASE: '${base_url}',
+      CUSTOM_BASE_MODEL: '${base_model}',
+      CUSTOM_MODEL: '${model}',
+    };
+    accounts[boundProfile.id].baseUrl = 'https://anthropic-proxy.example/v1';
+    await writeFile(accountsPath, `${JSON.stringify(accounts, null, 2)}\n`, 'utf-8');
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opus')?.config;
+    assert.ok(originalConfig, 'opus config should exist in registry');
+    const boundCatId = 'opus-anthropic-env-template';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      clientId: 'anthropic',
+      accountRef: boundProfile.id,
+      defaultModel: 'claude-opus-4-6',
+    });
+
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    const previousProxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED;
+    try {
+      process.env.ANTHROPIC_PROXY_ENABLED = '0';
+      process.chdir(apiDir);
+      await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test anthropic template env',
+          userId: 'user-f161-anthropic-env-template',
+          threadId: 'thread-f161-anthropic-env-template',
+          isLastCat: true,
+        }),
+      );
+    } finally {
+      process.chdir(previousCwd);
+      if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
+      else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rmWithRetry(root);
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE, 'api_key');
+    assert.equal(callbackEnv.CUSTOM_TOKEN, 'sk-custom-ant');
+    assert.equal(callbackEnv.CUSTOM_BASE, 'https://anthropic-proxy.example/v1');
+    assert.equal(callbackEnv.CUSTOM_BASE_MODEL, 'claude-opus-4-6');
+    assert.equal(callbackEnv.CUSTOM_MODEL, 'claude-opus-4-6');
   });
 
   it('F127 P2: ignores unreadable CAT_TEMPLATE_PATH before switching account roots', async () => {

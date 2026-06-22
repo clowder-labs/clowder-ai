@@ -111,6 +111,21 @@ interface MentionPattern {
   catId: CatId;
 }
 
+/**
+ * #969: Zero-width Unicode characters that LLMs may insert before mentions.
+ * These are invisible in consoles but break line-start `@` detection.
+ */
+function isZeroWidthChar(code: number): boolean {
+  return (
+    code === 0x200b || // Zero Width Space
+    code === 0x200c || // Zero Width Non-Joiner
+    code === 0x200d || // Zero Width Joiner
+    code === 0xfeff || // Zero Width No-Break Space (BOM)
+    code === 0x00ad || // Soft Hyphen
+    code === 0x2060 // Word Joiner
+  );
+}
+
 function getRouteLineStart(line: string): number | null {
   let cursor = line.match(LINE_START_MENTION_PREFIX_RE)?.[0].length ?? 0;
 
@@ -122,6 +137,10 @@ function getRouteLineStart(line: string): number | null {
   }
 
   while (line[cursor] === ' ' || line[cursor] === '\t') cursor++;
+  // #969: Skip zero-width chars and markdown bold/italic markers before @
+  while (cursor < line.length && isZeroWidthChar(line.charCodeAt(cursor))) cursor++;
+  while (cursor < line.length && (line[cursor] === '*' || line[cursor] === '_')) cursor++;
+  while (cursor < line.length && isZeroWidthChar(line.charCodeAt(cursor))) cursor++;
   return line[cursor] === '@' ? cursor : null;
 }
 
@@ -494,10 +513,18 @@ export interface AgentRouterOptions {
   worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   /** F093: World store for thread→world lookup */
   worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  /** F233 Phase B (B2): ball-custody ingest（注入 route deps 供旁路写球权事件，fail-open） */
+  ballCustody?: import('../../../../ball-custody/BallCustodyIngest.js').IBallCustodyIngest;
   /** F222: Frustration auto-issue store */
   frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
   /** F222: Pending request store — cancel burst detection */
   pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
+  /** F229: Concierge config store for duty-cat岗位 prompt injection */
+  conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17: HandleMap store for concierge R1/R2→anchor mapping */
+  conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B: TriagePlan store for triage-plan marker → confirm/cancel card actions */
+  conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
 }
 
 /**
@@ -552,9 +579,16 @@ export class AgentRouter {
   /** F093 */
   private worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   private worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  private ballCustody?: import('../../../../ball-custody/BallCustodyIngest.js').IBallCustodyIngest;
   /** F222 */
   private frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
   private pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
+  /** F229 */
+  private conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17 */
+  private conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B */
+  private conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
   private speechMentionRe: RegExp;
 
   /**
@@ -655,8 +689,12 @@ export class AgentRouter {
     this.dismissTracker = options.dismissTracker;
     this.worldContextProvider = options.worldContextProvider;
     this.worldStore = options.worldStore;
+    this.ballCustody = options.ballCustody;
     this.frustrationIssueStore = options.frustrationIssueStore;
     this.pendingRequestStore = options.pendingRequestStore;
+    this.conciergeConfigStore = options.conciergeConfigStore;
+    this.conciergeHandleMapStore = options.conciergeHandleMapStore;
+    this.conciergeTriagePlanStore = options.conciergeTriagePlanStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -1103,9 +1141,18 @@ export class AgentRouter {
         return this.applyThreadRoutingPolicy(thread, message, validPreferred);
       }
 
+      // F229: Concierge threads always route to the configured duty cat (preferredCats).
+      // Placed BEFORE findRecentUserMentionFallback: a previous @mention in the concierge
+      // thread must not re-route follow-up messages to a non-duty cat. The front-desk duty
+      // cat is the always-on responder; explicit @mentions in the current message (parsed
+      // above) still override this, but implicit mention carry-over does not.
+      if (thread?.threadKind === 'concierge' && validPreferred.length > 0) {
+        return this.applyThreadRoutingPolicy(thread, message, validPreferred);
+      }
+
       // F194 Phase Z5 AC-Z16: 优先用上一条 user message 的 mentions 作 fallback 候选集，
       // 不让 thread 里其他猫的发言（vision guard / cross-post）抢路由。
-      // 铲屎官原话："明明 at 的最后一只猫是 47 or 55 但是召唤出来的却是 46"
+      // co-creator原话："明明 at 的最后一只猫是 47 or 55 但是召唤出来的却是 46"
       const userMentionFallback = await this.findRecentUserMentionFallback(threadId);
       if (userMentionFallback && userMentionFallback.length > 0) {
         return this.applyThreadRoutingPolicy(thread, message, userMentionFallback);
@@ -1169,9 +1216,15 @@ export class AgentRouter {
         return this.applyThreadRoutingPolicy(thread, message, validPreferred);
       }
 
+      // F229: Concierge threads always route to the configured duty cat (preferredCats).
+      // Placed BEFORE findRecentUserMentionFallback — see matching comment in peekTargets.
+      if (thread?.threadKind === 'concierge' && validPreferred.length > 0) {
+        return this.applyThreadRoutingPolicy(thread, message, validPreferred);
+      }
+
       // F194 Phase Z5 AC-Z16: 优先用上一条 user message 的 mentions 作 fallback 候选集，
       // 不让 thread 里其他猫的发言（vision guard / cross-post）抢路由。
-      // 铲屎官原话："明明 at 的最后一只猫是 47 or 55 但是召唤出来的却是 46"
+      // co-creator原话："明明 at 的最后一只猫是 47 or 55 但是召唤出来的却是 46"
       const userMentionFallback = await this.findRecentUserMentionFallback(threadId);
       if (userMentionFallback && userMentionFallback.length > 0) {
         return this.applyThreadRoutingPolicy(thread, message, userMentionFallback);
@@ -1230,6 +1283,9 @@ export class AgentRouter {
         ...(this.signalArticleLookup ? { signalArticleLookup: this.signalArticleLookup } : {}),
         ...(this.guideSessionStore ? { guideSessionStore: this.guideSessionStore } : {}),
         ...(this.dismissTracker ? { dismissTracker: this.dismissTracker } : {}),
+        ...(this.conciergeConfigStore ? { conciergeConfigStore: this.conciergeConfigStore } : {}),
+        ...(this.conciergeHandleMapStore ? { conciergeHandleMapStore: this.conciergeHandleMapStore } : {}),
+        ...(this.conciergeTriagePlanStore ? { conciergeTriagePlanStore: this.conciergeTriagePlanStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,
@@ -1244,6 +1300,7 @@ export class AgentRouter {
       ...(this.worldStore ? { worldStore: this.worldStore } : {}),
       ...(this.frustrationIssueStore ? { frustrationIssueStore: this.frustrationIssueStore } : {}),
       ...(this.pendingRequestStore ? { pendingRequestStore: this.pendingRequestStore } : {}),
+      ...(this.ballCustody ? { ballCustody: this.ballCustody } : {}),
     };
   }
 
@@ -1440,6 +1497,9 @@ export class AgentRouter {
        *  true/undefined = user-origin (eligible, default for backward compat).
        *  false = agent/connector-origin (A2A handoff) — suppress detection. */
       frustrationAutoIssueEligible?: boolean;
+      /** #949 P2: Whether verdict-without-pass warning fires at route end.
+       *  true/undefined = warn (default). false = suppress for connector-sourced flows only. */
+      verdictPassWarningEnabled?: boolean;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -1554,6 +1614,10 @@ export class AgentRouter {
       // F222 P1: thread provenance flag so route-serial/route-parallel can gate detection
       ...(options?.frustrationAutoIssueEligible !== undefined
         ? { frustrationAutoIssueEligible: options.frustrationAutoIssueEligible }
+        : {}),
+      // #949 P2: connector-sourced verdict-pass warning suppression
+      ...(options?.verdictPassWarningEnabled !== undefined
+        ? { verdictPassWarningEnabled: options.verdictPassWarningEnabled }
         : {}),
     };
 

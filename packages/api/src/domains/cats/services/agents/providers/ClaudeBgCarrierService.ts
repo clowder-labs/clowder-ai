@@ -45,6 +45,7 @@ import {
   buildClaudeEnvOverrides,
   resolveClaudeModelSelection,
   resolveDefaultClaudeMcpServerPath,
+  SUBSCRIPTION_MODE_DENY_KEYS,
 } from './ClaudeAgentService.js';
 import { JobEventConsumer } from './JobEventConsumer.js';
 import { compileL0ViaSubprocess } from './l0-compiler.js';
@@ -218,7 +219,7 @@ export class ClaudeBgCarrierService implements AgentService {
       // explicitly strip CLAUDE_CODE_ENTRYPOINT. Otherwise transcript entrypoint
       // becomes sdk-cli regardless of flag. See F198 spike commit 8c5da78c7.
       //
-      // F198 refactor (CVO directive 2026-05-14): delegate env construction
+      // F198 refactor (operator directive 2026-05-14): delegate env construction
       // to the shared `buildClaudeEnvOverrides` helper (exported from
       // ClaudeAgentService) instead of re-implementing 80% of subscription/
       // ENTRYPOINT/Anthropic-clearing rules. Coordinate-system fix for the
@@ -236,6 +237,16 @@ export class ClaudeBgCarrierService implements AgentService {
         for (const [k, v] of Object.entries(options.accountEnv)) {
           envOverrides[k] = v;
         }
+      }
+      // #883: Subscription deny-list must survive accountEnv merge.
+      // bg carrier is ALWAYS subscription (api_key fallback routes to
+      // ClaudeAgentService per KD-3). Use the effective mode from
+      // callbackEnvWithMode — which defaults to 'subscription' — so the
+      // deny-list fires even when the caller doesn't explicitly pass mode.
+      // Only an explicit api_key callbackEnv (which overrides the default
+      // at line 233) bypasses the deny-list.
+      if (callbackEnvWithMode[ANTHROPIC_PROFILE_MODE_KEY] === 'subscription') {
+        for (const key of SUBSCRIPTION_MODE_DENY_KEYS) envOverrides[key] = null;
       }
       envOverrides.CLAUDE_CODE_ENTRYPOINT = null;
       envOverrides.CLAUDECODE = null;
@@ -285,7 +296,7 @@ export class ClaudeBgCarrierService implements AgentService {
       // ClaudeBgCarrierService ('--bg' carrier) was missing this flag → the
       // daemon-spawned claude process reverted to default permission mode →
       // every tool call prompted inside the detached daemon TTY (invisible
-      // from web UI) → invocations hung. Realized when 铲屎官 flipped
+      // from web UI) → invocations hung. Realized when co-creator flipped
       // CAT_CAFE_CLAUDE_CARRIER=bg_daemon in runtime and布偶猫 cats stalled
       // on first Bash call. Parity-keep with ClaudeAgentService PERMISSION_MODE.
       args.push('--permission-mode', 'bypassPermissions');

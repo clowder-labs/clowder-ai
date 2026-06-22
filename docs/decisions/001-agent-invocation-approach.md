@@ -141,7 +141,7 @@ Cat Café 需要程序化调用三只 AI 猫猫（Claude/Codex/Gemini），并�
 - Ragdoll（Claude Opus 4.5）
 - Maine Coon（GPT Codex）
 - Siamese（Gemini 3 Pro）
-- 铲屎官
+- operator
 
 ---
 

@@ -10,6 +10,7 @@ const { bootstrapCatCatalog, resolveCatCatalogPath, writeCatCatalog } = await im
 const { createRuntimeCat, deleteRuntimeCat, readRuntimeCatCatalog, updateRuntimeCat } = await import(
   '../dist/config/runtime-cat-catalog.js'
 );
+const { getAcpConfig, _resetCachedConfig } = await import('../dist/config/cat-config-loader.js');
 
 function validConfig() {
   return {
@@ -240,7 +241,7 @@ describe('cat-catalog-store', () => {
     else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
   });
 
-  it('bootstraps an empty catalog by default (first-run quest)', () => {
+  it('bootstraps with one seed breed from template (#948)', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-default-'));
     const templatePath = join(projectRoot, 'cat-template.json');
     const template = makeF127BootstrapTemplate();
@@ -249,10 +250,11 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
 
-    assert.deepEqual(runtimeCatalog.breeds, []);
-    assert.deepEqual(runtimeCatalog.roster, {
-      owner: { family: 'owner', roles: ['owner'], lead: false, available: true, evaluation: '铲屎官 / 大当家' },
-    });
+    // #948: New catalogs seed the first breed from template so the app starts
+    // with at least one usable member (empty registry crashes before wizard).
+    assert.equal(runtimeCatalog.breeds.length, 1, 'should seed exactly one breed');
+    assert.equal(runtimeCatalog.breeds[0].id, 'ragdoll', 'seed breed should be the first template breed');
+    assert.ok(runtimeCatalog.roster?.owner, 'owner roster entry must be present');
     // Non-breed config (reviewPolicy, coCreator) is preserved from template.
     assert.deepEqual(runtimeCatalog.reviewPolicy, template.reviewPolicy);
     assert.deepEqual(runtimeCatalog.coCreator, template.coCreator);
@@ -466,6 +468,32 @@ describe('cat-catalog-store', () => {
     updated = catalog.breeds.find((breed) => breed.catId === 'opus');
     assert.ok(updated, 'opus breed should still exist after clearing voiceConfig');
     assert.equal(updated.variants[0]?.voiceConfig, undefined);
+  });
+
+  it('persists acp tombstone when disabling template-inherited ACP transport', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    const template = validConfig();
+    template.breeds[0].variants[0].clientId = 'google';
+    template.breeds[0].variants[0].acp = { command: 'gemini', startupArgs: ['--acp'] };
+    writeFileSync(templatePath, JSON.stringify(template, null, 2));
+    writeCatCatalog(projectRoot, template);
+
+    await updateRuntimeCat(projectRoot, 'opus', { clientId: 'openai', acp: null });
+
+    const rawCatalog = JSON.parse(readFileSync(resolveCatCatalogPath(projectRoot), 'utf-8'));
+    assert.equal(rawCatalog.breeds[0].variants[0].acp, null, 'runtime overlay must keep an ACP tombstone');
+
+    const saved = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_TEMPLATE_PATH = templatePath;
+    _resetCachedConfig();
+    try {
+      assert.equal(getAcpConfig('opus'), undefined, 'template ACP must not reappear after runtime acp:null');
+    } finally {
+      if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = saved;
+      _resetCachedConfig();
+    }
   });
 
   it('keeps sessionChain updates scoped to non-default variants', async () => {

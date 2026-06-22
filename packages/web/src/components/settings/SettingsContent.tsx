@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
+import { ConnectorPluginInstallButton } from '../ConnectorPluginInstallButton';
 import { CatOverviewTab, type ConfigData } from '../config-viewer-tabs';
 import { HubAccountsTab } from '../HubAccountsTab';
 import { HubCatEditor } from '../HubCatEditor';
@@ -12,6 +13,7 @@ import { HubEnvFilesTab } from '../HubEnvFilesTab';
 import { PushSettingsPanel } from '../PushSettingsPanel';
 import { useConfirm } from '../useConfirm';
 import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
+import { ConciergeSettingsContent } from './ConciergeSettingsContent';
 import { MarketplaceContent } from './MarketplaceContent';
 import { McpManageContent } from './McpManageContent';
 import { OpsContent } from './OpsContent';
@@ -38,6 +40,7 @@ export function SettingsContent({ section, initialEditCatId }: SettingsContentPr
   const [createDraft, setCreateDraft] = useState<Parameters<typeof HubCatEditor>[0]['draft']>(null);
   const [togglingCatId, setTogglingCatId] = useState<string | null>(null);
   const [coCreatorEditorOpen, setCoCreatorEditorOpen] = useState(false);
+  const [imRefreshKey, setImRefreshKey] = useState(0);
   const confirm = useConfirm();
 
   const fetchData = useCallback(async () => {
@@ -172,7 +175,7 @@ export function SettingsContent({ section, initialEditCatId }: SettingsContentPr
       case 'accounts':
         return <HubAccountsTab />;
       case 'im':
-        return <HubConnectorConfigTab />;
+        return <HubConnectorConfigTab refreshKey={imRefreshKey} />;
       case 'voice':
         return (
           <div className="space-y-6">
@@ -202,6 +205,8 @@ export function SettingsContent({ section, initialEditCatId }: SettingsContentPr
         return <McpManageContent />;
       case 'plugins':
         return <PluginsContent />;
+      case 'concierge':
+        return <ConciergeSettingsContent />;
       default:
         return <SettingsPlaceholder section={meta.label} description="此分区即将上线" />;
     }
@@ -209,7 +214,9 @@ export function SettingsContent({ section, initialEditCatId }: SettingsContentPr
 
   return (
     <>
-      <SettingsPageHeader title={meta.label} subtitle={meta.description} />
+      <SettingsPageHeader title={meta.label} subtitle={meta.description}>
+        {section === 'im' && <ConnectorPluginInstallButton onInstalled={() => setImRefreshKey((k) => k + 1)} />}
+      </SettingsPageHeader>
       {content}
       {editorOpen && (
         <HubCatEditor

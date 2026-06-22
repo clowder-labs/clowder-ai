@@ -4,10 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 const DEFAULT_FSEVENTSD_RSS_MAX_KB = 4 * 1024 * 1024;
-// 6398=worktree dev / 6399=runtime sanctuary / 6401=user-redis persistent user data.
+// 6099=fork runtime sanctuary / 6398=worktree dev /
+// 6399=runtime sanctuary / 6401=user-redis persistent user data.
 // 6401 must be protected too — flagging it as a killable orphan led to it being murdered
 // alongside 6399 (CAFE-INCIDENT-20260527).
-const PROTECTED_REDIS_PORTS = new Set([6398, 6399, 6401]);
+const PROTECTED_REDIS_PORTS = new Set([6099, 6398, 6399, 6401]);
 const ALLOWED_LOCAL_REDIS_PORTS = new Set([6379, ...PROTECTED_REDIS_PORTS]);
 // Concurrent-gate detection — another gate / pre-merge-check is already running.
 // Downgraded from hard-block to soft-warning (#1912 added this hard-block): gates run in
@@ -129,7 +130,7 @@ function readRedisListeners() {
 
 // True ownership proof: query Redis-owned filesystem paths via CONFIG GET.
 // Redis 8 can report an empty `dir` while still exposing absolute pidfile/logfile
-// paths, so check the whole read-only CONFIG response for known Cat Cafe test
+// paths, so check the whole read-only CONFIG response for known Clowder AI test
 // tempdir prefixes.
 function isOwnedTestRedis(port) {
   const text = readFixtureOrCommand('CAT_CAFE_GATE_GUARD_REDIS_CONFIG_FIXTURE', 'redis-cli', [
@@ -185,7 +186,7 @@ function runPressureChecks(holderPid) {
   // Phase 1: clean orphan Redis with TRUE ownership proof.
   // Step 1: find candidates (ppid=1 + redis-server proctitle + non-sanctuary port).
   // Step 2: for each candidate, query read-only CONFIG paths. If dir/pidfile/logfile
-  //   matches a known Cat Cafe test tmpdir prefix, it's ours.
+  //   matches a known Clowder AI test tmpdir prefix, it's ours.
   // Step 3: port-based shutdown on OWNED instances only.
   // Non-owned Redis (different datadir) is never touched — fails to manual guidance.
   const orphanRedisPattern = /(?:^|\/)redis-server\s+\S*:(\d{2,5})\b/;

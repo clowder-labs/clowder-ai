@@ -79,8 +79,12 @@ import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
 import { resolveBootcampWorkspaceRoot } from '../../bootcamp/workspace-root.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
+// L0-budget-defense PR-B-impl (ADR-038): staging layer prepend, wired here
+// (next to F225 contextHintPrefix) so it lands every turn including resumes.
+import { buildStagingPrepend } from '../../context/StagingContent.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
+import { extractUserEnvTemplates, hasSupportedEnvTemplate, resolveEnvMap } from '../providers/env-map.js';
 import { compileL0ViaSubprocess } from '../providers/l0-compiler.js';
 import { OC_INSTRUCTIONS_ONLY_ENV } from '../providers/OpenCodeAgentService.js';
 import {
@@ -541,6 +545,12 @@ export interface InvocationDeps {
       relatedDiscussions?: readonly { sessionId: string; snippet: string; score: number }[] | undefined;
     }[]
   >;
+  /** F229: Concierge config store for duty-cat岗位 prompt injection (optional, fail-open) */
+  readonly conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17: HandleMap store for concierge R1/R2 short-handle → anchor mapping (optional, fail-open) */
+  readonly conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B: TriagePlan store for triage-plan marker → confirm/cancel card actions (optional, fail-open) */
+  readonly conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
 }
 
 /**
@@ -789,9 +799,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // to one. Model comes from getCatModel(catId) — the SAME source as the system-prompt
     // identity line (env CAT_{CATID}_MODEL > runtime catRegistry), so the author name
     // tracks the cat's real model (opus-45 → claude-opus-4-8), not the catId or a stale
-    // catalog copy. Email is intentionally NOT set — it inherits git config (the CVO's
+    // catalog copy. Email is intentionally NOT set — it inherits git config (the operator's
     // GitHub noreply account) so contribution-graph attribution stays on one account
-    // while the name distinguishes the cat. (CVO directive 2026-05-28)
+    // while the name distinguishes the cat. (operator directive 2026-05-28)
     ...buildCatGitIdentityEnv(
       catId as string,
       catRegistry.tryGet(catId as string)?.config?.breedId,
@@ -1363,9 +1373,43 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    // F161: ACP is a transport, not a provider. Derive credential protocol from the
+    // bound account's client family so env injection branches (MOONSHOT_API_KEY,
+    // GEMINI_API_KEY, etc.) fire correctly for ACP subprocesses.
+    if (provider === 'acp' && !effectiveProtocol && resolvedAccount?.client) {
+      effectiveProtocol = protocolForProvider[resolvedAccount.client] ?? null;
+    }
+
     // effectiveProtocol is used below for env injection branching (anthropic/openai/google)
     // but is NOT passed to callbackEnv — it should not influence CLI routing decisions.
 
+    // ── F161: Data-driven env var injection via resolveEnvMap ──────────────
+    // Standard provider credential env vars (OPENAI_API_KEY, GEMINI_API_KEY, etc.)
+    // are resolved from BUILTIN_ENV_MAPS templates. Cat Cafe internal routing vars
+    // (CAT_CAFE_*_PROFILE_MODE, CODEX_AUTH_MODE, proxy) remain explicit below.
+    const userEnvTemplates = resolvedAccount?.envVars ? extractUserEnvTemplates(resolvedAccount.envVars) : undefined;
+
+    // Inject standard provider env vars for api_key accounts
+    if (resolvedAccount?.authType === 'api_key') {
+      const credentialAccount = {
+        apiKey: resolvedAccount.apiKey,
+        baseUrl: resolvedAccount.baseUrl,
+        baseModel: defaultModel,
+      };
+      // Protocol-level mapping (anthropic → ANTHROPIC_API_KEY, openai → OPENAI_API_KEY, google → GEMINI_API_KEY, etc.)
+      if (effectiveProtocol) {
+        const protocolKey = effectiveProtocol === 'openai-responses' ? 'openai' : effectiveProtocol;
+        const envFromMap = resolveEnvMap(protocolKey, undefined, credentialAccount, userEnvTemplates);
+        Object.assign(callbackEnv, envFromMap);
+      }
+      // Dare has its own env vars regardless of effectiveProtocol (dare's protocol = 'openai')
+      if (provider === 'dare') {
+        const dareEnv = resolveEnvMap('dare', undefined, credentialAccount);
+        Object.assign(callbackEnv, dareEnv);
+      }
+    }
+
+    // ── Cat Cafe internal routing vars (not in BUILTIN_ENV_MAPS) ──────────
     if (effectiveProtocol === 'anthropic') {
       if (resolvedAccount?.authType === 'api_key') {
         callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'api_key';
@@ -1401,36 +1445,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
       }
     } else if (effectiveProtocol === 'openai' || effectiveProtocol === 'openai-responses') {
+      // Standard env vars (OPENAI_API_KEY, etc.) already set by resolveEnvMap above
       if (resolvedAccount?.authType === 'api_key') {
         callbackEnv.CODEX_AUTH_MODE = 'api_key';
-        if (resolvedAccount.apiKey) {
-          callbackEnv.OPENAI_API_KEY = resolvedAccount.apiKey;
-          // OpenCode selects provider by model prefix; `openrouter/...` models require this key name.
-          callbackEnv.OPENROUTER_API_KEY = resolvedAccount.apiKey;
-        }
-        if (resolvedAccount.baseUrl) {
-          callbackEnv.OPENAI_BASE_URL = resolvedAccount.baseUrl;
-          callbackEnv.OPENAI_API_BASE = resolvedAccount.baseUrl;
-        }
       } else if (effectiveAccountRef) {
         callbackEnv.CODEX_AUTH_MODE = 'oauth';
-      }
-    } else if (effectiveProtocol === 'google') {
-      if (resolvedAccount?.authType === 'api_key' && resolvedAccount.apiKey) {
-        // Gemini CLI: native Google SDK, uses GEMINI_API_KEY
-        callbackEnv.GEMINI_API_KEY = resolvedAccount.apiKey;
-        callbackEnv.GOOGLE_API_KEY = resolvedAccount.apiKey;
-        // opencode CLI: OpenRouter provider uses OPENROUTER_API_KEY
-        callbackEnv.OPENROUTER_API_KEY = resolvedAccount.apiKey;
-        if (resolvedAccount.baseUrl) {
-          callbackEnv.GEMINI_BASE_URL = resolvedAccount.baseUrl;
-        }
       }
     } else if (effectiveProtocol === 'kimi') {
       if (resolvedAccount?.authType === 'api_key' && resolvedAccount.apiKey) {
         callbackEnv.CAT_CAFE_KIMI_PROFILE_MODE = 'api_key';
         callbackEnv.CAT_CAFE_KIMI_API_KEY = resolvedAccount.apiKey;
-        callbackEnv.MOONSHOT_API_KEY = resolvedAccount.apiKey;
+        // MOONSHOT_API_KEY already set by resolveEnvMap above
         if (resolvedAccount.baseUrl) {
           callbackEnv.CAT_CAFE_KIMI_BASE_URL = resolvedAccount.baseUrl;
         }
@@ -1441,23 +1466,23 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Fallback for unresolved accounts on anthropic/opencode providers
       callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
     }
-
-    // Dare has its own env vars regardless of protocol-based injection above
-    if (provider === 'dare' && resolvedAccount?.authType === 'api_key') {
-      if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
-      if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
-    }
+    // Note: google and dare protocol branches no longer need explicit credential injection
+    // — fully handled by resolveEnvMap above.
 
     // F171: User-defined env vars from account config.
     // Passed separately via accountEnv — NOT injected into callbackEnv.
     // callbackEnv is for MCP callback routing; accountEnv is applied LAST
     // in subprocess env so user vars override provider-injected values.
+    // F161: Template entries (${api_key} / ${base_url}) are already resolved by
+    // resolveEnvMap above — filter them out to prevent literal "${...}" leaking.
     let accountEnv: Record<string, string> | undefined;
     if (resolvedAccount?.envVars) {
       const validEnvKey = /^[A-Z_][A-Za-z0-9_]*$/;
       const filtered: Record<string, string> = {};
       for (const [k, v] of Object.entries(resolvedAccount.envVars)) {
         if (!validEnvKey.test(k) || k.startsWith('CAT_CAFE_')) continue;
+        // Skip template entries — already resolved by resolveEnvMap
+        if (hasSupportedEnvTemplate(v)) continue;
         filtered[k] = v;
       }
       if (Object.keys(filtered).length > 0) accountEnv = filtered;
@@ -1521,7 +1546,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // config when the fully-qualified model is not already routable by `opencode models`.
     //
     // MCP injection: even known models need a runtime config to get deterministic
-    // Cat Cafe MCP server access (especially in game threads where project-level
+    // Clowder AI MCP server access (especially in game threads where project-level
     // opencode.json may not be discoverable).
     const hasExplicitOcProvider = Boolean(modelProviderName);
     const configuredMcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH?.trim();
@@ -1576,6 +1601,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    const openCodeExternalDirs: string[] = [];
+    if (provider === 'opencode') {
+      if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
+        // External project — grant access to Cat Cafe host root (configs, MCP, etc.)
+        openCodeExternalDirs.push(hostProjectRoot);
+      }
+      if (workingProjectRoot && workingProjectRoot !== workingDirectory) {
+        // Working directory is a subdirectory of a monorepo — grant monorepo root.
+        openCodeExternalDirs.push(workingProjectRoot);
+      }
+    }
+
     // authType is either 'api_key' or 'oauth' — both need runtime config (MCP +
     // L0 + model routing). The only difference is credential injection below.
     const isApiKey = resolvedAccount?.authType === 'api_key';
@@ -1607,6 +1644,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         mcpServerPath,
         // F203 Phase I: inject compiled L0 + OPENCODE.md into instructions.
         instructions: openCodeL0InstructionPaths,
+        // #935: External directory permissions for Windows/cross-project access.
+        ...(openCodeExternalDirs.length > 0 ? { externalDirectories: openCodeExternalDirs } : {}),
       } as const;
       openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
         projectRoot,
@@ -1654,6 +1693,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         catId as string,
         invocationId,
         openCodeL0InstructionPaths,
+        openCodeExternalDirs,
       );
       callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
       callbackEnv[OC_INSTRUCTIONS_ONLY_ENV] = '1';
@@ -1710,6 +1750,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const contextHintPrefix = takeContextHintPrefix(compressionKey);
     if (contextHintPrefix) {
       effectivePrompt = `${contextHintPrefix}\n\n---\n\n${effectivePrompt}`;
+    }
+
+    // L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging layer prepend.
+    // Wired here (next to F225 contextHintPrefix) and NOT folded into
+    // staticIdentity — Cloud R2 P1 #2237 L1099: folding into staticIdentity
+    // would let resumed session-chain turns drop staging because the
+    // staticIdentity injection is skipped on canSkipOnResume + isResume
+    // turns. ADR-038 contract is "每轮注入生效" → must mirror F225 pattern
+    // (independent of injectSystemPrompt). Staging content goes to runtime
+    // prompt path, NOT compiled native L0 (砚砚 PR #2221 R1 P2 boundary).
+    const stagingPrepend = buildStagingPrepend(catId);
+    if (stagingPrepend) {
+      effectivePrompt = `${stagingPrepend}\n\n---\n\n${effectivePrompt}`;
     }
 
     effectivePrompt = appendTranscriptPathHints(effectivePrompt, TRANSCRIPT_DIR, threadId);
@@ -1784,6 +1837,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(catAgentScopedCallbacks ? { catAgentScopedCallbacks } : {}),
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
+      ...(isResume && !injectSystemPrompt && params.systemPrompt
+        ? { resumeFallbackSystemPrompt: params.systemPrompt }
+        : {}),
       // F118 Phase B: Enable liveness probe for all CLI providers.
       // #774: stallAutoKill clears truly stuck idle-silent CLIs before F216's 10m stale-processing guard.
       // #854: Windows cannot sample CPU; suppress suspected_stall there so CLI_TIMEOUT_MS stays binding.

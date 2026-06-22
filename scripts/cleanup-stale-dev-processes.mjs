@@ -4,10 +4,11 @@ import { execFileSync } from 'node:child_process';
 const HOUR = 60 * 60;
 const KILL_GRACE_MS = 2000;
 
-// 6379=default / 6398=worktree dev / 6399=runtime sanctuary / 6401=user-redis persistent data.
+// 6379=default / 6099=fork runtime sanctuary / 6398=worktree dev /
+// 6399=runtime sanctuary / 6401=user-redis persistent data.
 // These are NEVER orphans to clean — excluding them is the primary safety guard for the
 // orphan-isolated-redis rule below (CAFE-INCIDENT-20260527).
-const PROTECTED_REDIS_PORTS = new Set([6379, 6398, 6399, 6401]);
+const PROTECTED_REDIS_PORTS = new Set([6379, 6099, 6398, 6399, 6401]);
 
 const RULES = [
   {
@@ -15,7 +16,7 @@ const RULES = [
     minAgeSeconds: 10 * 60,
     // Unmanaged isolated test Redis reparented to init (parent gate/test died) on a
     // non-sanctuary port. ppid===1 means the parent is gone, so this is a true orphan;
-    // the port exclusion guarantees we never touch the 6398/6399/6401 sanctuary.
+    // the port exclusion guarantees we never touch sanctuary ports.
     match: (p) => {
       if (p.ppid !== 1) return false;
       const m = p.command.match(/(?:^|\/)redis-server\s+\S*:(\d{2,5})\b/);
@@ -41,7 +42,7 @@ const RULES = [
     id: 'catcafe-test-tmux',
     minAgeSeconds: HOUR,
     match: (p) => p.ppid === 1 && /tmux\b.*\bcatcafe-test-agent-spawn-/.test(p.command),
-    reason: 'orphaned Cat Cafe test tmux session',
+    reason: 'orphaned Clowder AI test tmux session',
   },
   {
     id: 'orphan-alpha-start',
@@ -113,7 +114,7 @@ function listProcesses() {
 
 function printFindings(findings) {
   if (findings.length === 0) {
-    console.log('[stale-dev-processes] no stale Cat Cafe dev processes found');
+    console.log('[stale-dev-processes] no stale Clowder AI dev processes found');
     return;
   }
   for (const item of findings) {

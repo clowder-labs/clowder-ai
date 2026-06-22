@@ -122,7 +122,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
   it('HubConnectorConfigTab uses SettingsRow-aligned shadow, not --hub-shadow var', () => {
     const src = readSrc('HubConnectorConfigTab.tsx');
     expect(src).not.toContain('var(--hub-shadow)');
-    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).toContain('console-list-card rounded-xl overflow-hidden shadow-[var(--console-shadow-soft)]');
     expect(src).not.toContain('shadow-[0_12px_30px');
   });
 
@@ -629,16 +629,16 @@ describe('#723 IM connector — typography and card guard', () => {
     expect(src).not.toContain('text-base font-extrabold');
   });
 
-  it('WeComBotSetupPanel inputs use field-bg pattern, not border-cafe', () => {
-    const src = readSrc('WeComBotSetupPanel.tsx');
-    expect(src).toContain('border-transparent');
-    expect(src).toContain('console-field-bg');
+  it('ConfigFieldRenderer inputs use field-bg pattern, not border-cafe', () => {
+    const src = readSrc('settings/primitives/ConfigFieldRenderer.tsx');
+    expect(src).toContain('console-form-input');
     expect(src).not.toMatch(/border border-cafe rounded-lg/);
   });
 
-  it('FeishuQrPanel QR card uses shadow, not border', () => {
-    const src = readSrc('FeishuQrPanel.tsx');
-    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  it('ActionRenderer QR card uses shadow, not border', () => {
+    const src = readSrc('settings/primitives/ActionRendererParts.tsx');
+    expect(src).toContain('shadow-[var(--console-shadow-soft)]');
+    expect(src).not.toContain('border border-cafe');
   });
 });
 
@@ -764,10 +764,10 @@ describe('#723 interactive button guard — no grey pill on action/toggle contro
     expect(src).toContain('text-cafe-secondary');
   });
 
-  it('ChatContainerHeader: RightPanelToggle text color in conditional branches, no cascade conflict', () => {
+  it('ChatContainerHeader: PanelToggle text color in conditional branches, no cascade conflict', () => {
     const src = readSrc('ChatContainerHeader.tsx');
     const lines = src.split('\n');
-    const start = lines.findIndex((l) => l.includes('function RightPanelToggle'));
+    const start = lines.findIndex((l) => l.includes('function PanelToggle'));
     const fnSrc = lines.slice(start, start + 50).join('\n');
     expect(fnSrc).not.toContain('hover:bg-[var(--console-hover-bg)]');
     expect(fnSrc).toContain('hover:text-cafe-accent');
@@ -975,7 +975,7 @@ describe('#723 round 4.1 — deeper primitive convergence guard', () => {
 
   it('HubConnectorConfigTab card shells match SettingsRow: rounded-xl + 0.04 shadow', () => {
     const src = readSrc('HubConnectorConfigTab.tsx');
-    expect(src).toContain('rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).toContain('rounded-xl overflow-hidden shadow-[var(--console-shadow-soft)]');
     expect(src).not.toContain('shadow-[0_12px_30px');
   });
 });
@@ -1165,7 +1165,7 @@ describe('#723 round 6 — select/toggle/button primitive convergence', () => {
   });
 });
 
-describe('#723 round 7 — CVO visual convergence: tabs, search, selects, buttons, cards', () => {
+describe('#723 round 7 — operator visual convergence: tabs, search, selects, buttons, cards', () => {
   it('OpsContent: active tab uses Memory underline (border-b-2 + emphasis)', () => {
     const src = readSrc('settings/OpsContent.tsx');
     expect(src).toContain('border-b-2');
@@ -1283,15 +1283,6 @@ describe('#723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(skeleton![0]).not.toMatch(/style=.*borderRadius/);
   });
 
-  it('McpInstallForm: no form-input class, uses field-bg + input-stroke, buttons use secondary/accent pattern', () => {
-    const src = readSrc('McpInstallForm.tsx');
-    expect(src).not.toContain('form-input');
-    expect(src).not.toContain('bg-cafe-surface');
-    expect(src).not.toContain('border border-cafe');
-    expect(src).toContain('console-field-bg');
-    expect(src).toContain('console-input-stroke');
-  });
-
   it('InstallPlanDetail: disabled (direct_mcp) button uses neutral secondary, not accent', () => {
     const src = readSrc('marketplace/install-plan-detail.tsx');
     expect(src).toContain('cursor-not-allowed');
@@ -1308,7 +1299,7 @@ describe('#723 round 7 — CVO visual convergence: tabs, search, selects, button
   });
 });
 
-describe('#723 round 8 — CVO: refresh button, ops underline tabs, service toggle state machine', () => {
+describe('#723 round 8 — operator: refresh button, ops underline tabs, service toggle state machine', () => {
   it('HubGovernanceTab refresh: standard secondary pattern (px-3 py-1.5 + transition-colors)', () => {
     const src = readSrc('HubGovernanceTab.tsx');
     const refreshBtn = src.match(/<button[^>]*onClick=\{fetchHealth\}[^>]*>/);
