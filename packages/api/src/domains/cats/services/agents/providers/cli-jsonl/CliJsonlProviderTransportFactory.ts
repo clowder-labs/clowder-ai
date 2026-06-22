@@ -25,9 +25,33 @@ interface ParsedCliJsonlTransportConfig {
 
 const DEFAULT_STARTUP_ARGS = ['--json', '--non-interactive'];
 const DEFAULT_RESUME_ARGS = ['resume', '{sessionId}', '--json'];
+const OUTPUT_PROFILE = 'clowder-code-turn-result-v1';
 
 function parseStringArray(value: unknown): string[] | null {
   return Array.isArray(value) && value.every((arg) => typeof arg === 'string') ? value : null;
+}
+
+function parseTimeoutMs(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+function parseSessionPolicy(value: unknown): CliJsonlSessionPolicy | null {
+  const sessionPolicy = value ?? 'resume';
+  return sessionPolicy === 'resume' || sessionPolicy === 'stateless' ? sessionPolicy : null;
+}
+
+function parseResumeArgs(value: unknown, sessionPolicy: CliJsonlSessionPolicy): string[] | null {
+  const resumeArgs = value === undefined ? DEFAULT_RESUME_ARGS : parseStringArray(value);
+  if (!resumeArgs) return null;
+  if (sessionPolicy === 'resume' && !resumeArgs.some((arg) => arg.includes('{sessionId}'))) return null;
+  return resumeArgs;
+}
+
+function parseOutputProfile(value: unknown): typeof OUTPUT_PROFILE | null {
+  const outputProfile = value ?? OUTPUT_PROFILE;
+  return outputProfile === OUTPUT_PROFILE ? outputProfile : null;
 }
 
 function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportConfig | null {
@@ -37,23 +61,21 @@ function parseCliJsonlTransportConfig(value: unknown): ParsedCliJsonlTransportCo
   if (typeof raw.command !== 'string' || raw.command.trim().length === 0) return null;
   const startupArgs = raw.startupArgs === undefined ? DEFAULT_STARTUP_ARGS : parseStringArray(raw.startupArgs);
   if (!startupArgs) return null;
-  const sessionPolicy = raw.sessionPolicy ?? 'resume';
-  if (sessionPolicy !== 'resume' && sessionPolicy !== 'stateless') return null;
-  const resumeArgs = raw.resumeArgs === undefined ? DEFAULT_RESUME_ARGS : parseStringArray(raw.resumeArgs);
+  const sessionPolicy = parseSessionPolicy(raw.sessionPolicy);
+  if (!sessionPolicy) return null;
+  const resumeArgs = parseResumeArgs(raw.resumeArgs, sessionPolicy);
   if (!resumeArgs) return null;
-  if (sessionPolicy === 'resume' && !resumeArgs.some((arg) => arg.includes('{sessionId}'))) return null;
-  const outputProfile = raw.outputProfile ?? 'clowder-code-turn-result-v1';
-  if (outputProfile !== 'clowder-code-turn-result-v1') return null;
-  if (raw.timeoutMs !== undefined && (typeof raw.timeoutMs !== 'number' || !Number.isInteger(raw.timeoutMs))) {
-    return null;
-  }
+  const outputProfile = parseOutputProfile(raw.outputProfile);
+  if (!outputProfile) return null;
+  const timeoutMs = parseTimeoutMs(raw.timeoutMs);
+  if (timeoutMs === null) return null;
   return {
     command: raw.command.trim(),
     startupArgs,
     resumeArgs,
     sessionPolicy,
     outputProfile,
-    ...(typeof raw.timeoutMs === 'number' ? { timeoutMs: raw.timeoutMs } : {}),
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
   };
 }
 

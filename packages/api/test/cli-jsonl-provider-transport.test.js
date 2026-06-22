@@ -97,4 +97,23 @@ describe('CliJsonlProviderTransportFactory', () => {
     assert.equal(result.service, null);
     assert.equal(warnings.length, 1);
   });
+
+  it('rejects negative timeoutMs declarations', async () => {
+    const warnings = [];
+    const factory = createCliJsonlProviderTransportFactory({
+      log: { warn: (payload, message) => warnings.push({ payload, message }) },
+    });
+
+    const result = await factory.create(
+      makeInput({
+        transport: 'cli-jsonl',
+        command: 'clowder-code',
+        timeoutMs: -1,
+      }),
+    );
+
+    assert.equal(result.handled, true);
+    assert.equal(result.service, null);
+    assert.equal(warnings.length, 1);
+  });
 });
