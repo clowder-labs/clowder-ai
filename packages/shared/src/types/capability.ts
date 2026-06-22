@@ -7,6 +7,7 @@
 
 import type { MarketplaceEcosystem } from './marketplace.js';
 import type { MountRuleEntry, SkillsSyncState } from './mount-rules.js';
+import type { AgentProviderLifecycleState, PluginAgentProviderResource } from './plugin.js';
 
 /** MCP transport type — stdio (default) or remote HTTP (TD104) */
 export type McpTransport = 'stdio' | 'streamableHttp';
@@ -45,12 +46,18 @@ export interface CatCapabilityOverride {
   enabled: boolean;
 }
 
+export interface AgentProviderCapabilityDescriptor extends PluginAgentProviderResource {
+  state: AgentProviderLifecycleState;
+  routeable: false;
+  routeableApproved: false;
+}
+
 /** Single capability entry in capabilities.json */
 export interface CapabilityEntry {
   /** Unique capability ID (usually MCP server name) */
   id: string;
   /** Type of capability (F126: 'limb' for device/hardware nodes; F202 Phase 2: 'schedule' for plugin-managed tasks) */
-  type: 'mcp' | 'skill' | 'limb' | 'schedule';
+  type: 'mcp' | 'skill' | 'limb' | 'schedule' | 'agentProvider';
   /** Global enabled state (MCP/limb/schedule still use this; skill uses globalEnabled) */
   enabled: boolean;
   /**
@@ -84,6 +91,8 @@ export interface CapabilityEntry {
   limbNodeId?: string;
   /** F202 Phase 2: Runtime task ID assigned by TaskRunnerV2 (schedule resources only) */
   scheduleTaskId?: string;
+  /** F241 Phase B Slice 2a: non-routeable agent provider descriptor. */
+  agentProvider?: AgentProviderCapabilityDescriptor;
 }
 
 /** Sanitized MCP server details included in the capability board payload. */

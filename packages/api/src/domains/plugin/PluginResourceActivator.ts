@@ -3,6 +3,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import {
+  type AgentProviderCapabilityDescriptor,
   type CapabilitiesConfig,
   type CapabilityEntry,
   type ILimbNode,
@@ -57,6 +58,8 @@ export interface PluginResourceActivatorDeps {
   taskRunner?: ScheduleTaskRunner;
   /** F202 Phase 2: Dependencies injected into schedule factory createTaskSpec */
   scheduleFactoryDeps?: ScheduleFactoryDeps;
+  /** F241 Phase B Slice 2a: host-owned provider transport registry. */
+  providerTransportRegistry?: { has(transportId: string): boolean };
 }
 
 export function withPersistedLimbNodeId<T extends ILimbNode>(node: T, persistedNodeId?: string): T {
@@ -221,6 +224,9 @@ export class PluginResourceActivator {
       case 'schedule':
         await this.activateSchedule(manifest, resource);
         break;
+      case 'agentProvider':
+        await this.activateAgentProvider(manifest, resource);
+        break;
       default:
         throw new Error(`Unsupported resource type: ${resource.type}`);
     }
@@ -239,6 +245,9 @@ export class PluginResourceActivator {
         break;
       case 'schedule':
         await this.deactivateSchedule(manifest, resource);
+        break;
+      case 'agentProvider':
+        await this.deactivateAgentProvider(manifest, resource);
         break;
       default:
         throw new Error(`Unsupported resource type: ${resource.type}`);
@@ -481,12 +490,33 @@ export class PluginResourceActivator {
     }
   }
 
+  private async activateAgentProvider(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
+    if (!resource.agentProvider) throw new Error('AgentProvider resource must have an agentProvider descriptor');
+    if (!this.deps.providerTransportRegistry) throw new Error('ProviderTransportRegistry not configured');
+    if (!this.deps.providerTransportRegistry.has(resource.agentProvider.transport)) {
+      throw new Error(`Unknown agentProvider transport '${resource.agentProvider.transport}'`);
+    }
+
+    const agentProvider: AgentProviderCapabilityDescriptor = {
+      ...resource.agentProvider,
+      state: 'transportReady',
+      routeable: false,
+      routeableApproved: false,
+    };
+    await this.upsertCapabilityEntry(manifest, resource, true, undefined, undefined, agentProvider);
+  }
+
+  private async deactivateAgentProvider(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
+    await this.removeCapabilityEntry(manifest, resource);
+  }
+
   private async upsertCapabilityEntry(
     manifest: PluginManifest,
     resource: PluginResourceDef,
     enabled: boolean,
     limbNodeId?: string,
     scheduleTaskId?: string,
+    agentProvider?: AgentProviderCapabilityDescriptor,
   ): Promise<CapabilitiesConfig | null> {
     return this.deps.withCapabilityLock(async () => {
       const config = await this.deps.readCapabilities();
@@ -528,14 +558,22 @@ export class PluginResourceActivator {
         if (resource.type === 'mcp') {
           delete existing.limbNodeId;
           delete existing.scheduleTaskId;
+          delete existing.agentProvider;
           existing.mcpServer = this.buildMcpServer(manifest, resource);
         } else if (resource.type === 'schedule') {
           delete existing.mcpServer;
           delete existing.limbNodeId;
+          delete existing.agentProvider;
           if (scheduleTaskId) existing.scheduleTaskId = scheduleTaskId;
+        } else if (resource.type === 'agentProvider') {
+          delete existing.mcpServer;
+          delete existing.limbNodeId;
+          delete existing.scheduleTaskId;
+          if (agentProvider) existing.agentProvider = agentProvider;
         } else {
           delete existing.mcpServer;
           delete existing.scheduleTaskId;
+          delete existing.agentProvider;
           if (resource.type === 'limb' && limbNodeId !== undefined) {
             existing.limbNodeId = limbNodeId;
           } else {
@@ -553,6 +591,7 @@ export class PluginResourceActivator {
           pluginId: manifest.id,
           ...(limbNodeId ? { limbNodeId } : {}),
           ...(scheduleTaskId ? { scheduleTaskId } : {}),
+          ...(agentProvider ? { agentProvider } : {}),
         };
 
         if (resource.type === 'mcp') {

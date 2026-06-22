@@ -137,6 +137,7 @@ export {
 export type { CallbackPrincipal } from './callback-principal.js';
 // Capability types (F041 统一能力模型)
 export type {
+  AgentProviderCapabilityDescriptor,
   BootstrapAction,
   BootstrapReport,
   CapabilitiesConfig,
@@ -573,6 +574,14 @@ export type {
 } from './pack.js';
 // Plugin Framework types (F202 声明式插件注册)
 export type {
+  AgentProviderHealthCheckRequest,
+  AgentProviderHealthCheckType,
+  AgentProviderLifecycleState,
+  AgentProviderOutputProfile,
+  AgentProviderSandboxRequest,
+  AgentProviderSessionPolicy,
+  AgentProviderTransportId,
+  PluginAgentProviderResource,
   PluginConfigField,
   PluginHealthCheck,
   PluginInfo,

@@ -3,6 +3,7 @@ import { posix, win32 } from 'node:path';
 import type { PluginHealthCheck, PluginManifest, PluginResourceDef, ValueConfigField } from '@cat-cafe/shared';
 import { parse as parseYaml } from 'yaml';
 import { getValueFields, parseConfigFields } from '../../infrastructure/config-field-parser.js';
+import { parseAgentProviderResource } from './agent-provider-manifest.js';
 import { resourceCapId } from './PluginRegistry.js';
 
 const SYSTEM_ENV_DENYLIST_PREFIXES = [
@@ -19,7 +20,7 @@ const SYSTEM_ENV_DENYLIST_PREFIXES = [
 
 const SYSTEM_ENV_DENYLIST_EXACT = new Set(['NODE_OPTIONS', 'NODE_ENV', 'PATH', 'HOME', 'SHELL', 'PORT']);
 
-const SUPPORTED_RESOURCE_TYPES = new Set(['skill', 'mcp', 'limb', 'schedule']);
+const SUPPORTED_RESOURCE_TYPES = new Set(['skill', 'mcp', 'limb', 'schedule', 'agentProvider']);
 const DEFERRED_RESOURCE_TYPES = new Set<string>();
 
 export const BUILTIN_PLUGIN_IDS = new Set<string>();
@@ -198,6 +199,7 @@ export function parsePluginManifest(yamlPath: string): PluginManifest {
           throw new Error(`Schedule resource name "${name}" in ${yamlPath} must not contain backslashes`);
         }
       }
+      const agentProvider = type === 'agentProvider' ? parseAgentProviderResource(rr, name, yamlPath) : undefined;
 
       // F202 Phase 2 follow-up: parse optional flag for resources
       const optional = rr['optional'] === true;
@@ -205,6 +207,7 @@ export function parsePluginManifest(yamlPath: string): PluginManifest {
       resources.push({
         type: type as PluginResourceDef['type'],
         ...(type === 'schedule' && factoryId ? { factoryId } : {}),
+        ...(agentProvider ? { agentProvider } : {}),
         ...(optional ? { optional } : {}),
         path,
         name,

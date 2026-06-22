@@ -147,6 +147,7 @@ export class PluginRegistry {
         path: r.path,
         name: r.name,
         enabled: capEntry?.enabled ?? false,
+        ...(capEntry?.agentProvider?.state ? { agentProviderState: capEntry.agentProvider.state } : {}),
       };
     });
 

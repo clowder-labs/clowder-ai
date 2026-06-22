@@ -2196,6 +2196,7 @@ async function main(): Promise<void> {
       // F202-2B: Mutable deps ref — populated via rehydrateGitHubSchedules after GitHub services created
       scheduleFactoryDeps:
         scheduleFactoryDeps as import('./domains/plugin/ScheduleFactoryRegistry.js').ScheduleFactoryDeps,
+      providerTransportRegistry,
     });
 
     const startupCaps = await readCapabilitiesConfig(resolveActiveProjectRoot());

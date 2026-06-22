@@ -303,6 +303,98 @@ describe('parsePluginManifest security', () => {
     assert.equal(manifest.resources[1].type, 'skill');
   });
 
+  it('parses agentProvider as strict non-routeable transport declaration', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json", "--non-interactive"]',
+        '    resumeArgs: ["resume", "{sessionId}", "--json"]',
+        '    sessionPolicy: resume',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    timeoutMs: 60000',
+        '    mcpWhitelist:',
+        '      - cat-cafe-collab',
+        '    sandbox: workspace-write',
+        '    healthCheck:',
+        '      type: cliProbe',
+      ].join('\n'),
+    );
+
+    const manifest = parsePluginManifest(yamlPath);
+    const resource = manifest.resources[0];
+
+    assert.equal(resource.type, 'agentProvider');
+    assert.equal(resource.name, 'clowder-code');
+    assert.deepEqual(resource.agentProvider, {
+      name: 'clowder-code',
+      transport: 'cli-jsonl',
+      command: 'clowder-code',
+      startupArgs: ['--json', '--non-interactive'],
+      resumeArgs: ['resume', '{sessionId}', '--json'],
+      sessionPolicy: 'resume',
+      outputProfile: 'clowder-code-turn-result-v1',
+      timeoutMs: 60000,
+      mcpWhitelistRequest: ['cat-cafe-collab'],
+      sandboxRequest: 'workspace-write',
+      healthCheck: { type: 'cliProbe' },
+    });
+  });
+
+  it('rejects agentProvider with unknown transport', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'bad-provider',
+      [
+        'id: bad-provider',
+        'name: Bad Provider',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: bad-provider',
+        '    transport: shell',
+        '    command: bad-provider',
+        '    startupArgs: ["--json"]',
+      ].join('\n'),
+    );
+
+    assert.throws(() => parsePluginManifest(yamlPath), /agentProvider transport/);
+  });
+
+  it('rejects agentProvider with negative timeoutMs', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'bad-provider',
+      [
+        'id: bad-provider',
+        'name: Bad Provider',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: bad-provider',
+        '    transport: cli-jsonl',
+        '    command: bad-provider',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    timeoutMs: -1',
+      ].join('\n'),
+    );
+
+    assert.throws(() => parsePluginManifest(yamlPath), /timeoutMs/);
+  });
+
   it('rejects schedule resource without factoryId', () => {
     tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
     const yamlPath = writeTmpManifest(

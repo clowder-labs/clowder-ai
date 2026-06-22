@@ -19,13 +19,42 @@ export interface PluginHealthCheck {
   mcpProbe?: string;
 }
 
+export type AgentProviderTransportId = 'acp' | 'cli-jsonl';
+export type AgentProviderLifecycleState = 'declared' | 'transportReady' | 'routeableApproved' | 'healthy';
+export type AgentProviderSessionPolicy = 'resume' | 'stateless';
+export type AgentProviderOutputProfile = 'clowder-code-turn-result-v1';
+export type AgentProviderSandboxRequest = 'workspace-read' | 'workspace-write';
+export type AgentProviderHealthCheckType = 'acpInitialize' | 'cliProbe';
+
+export interface AgentProviderHealthCheckRequest {
+  type: AgentProviderHealthCheckType;
+}
+
+export interface PluginAgentProviderResource {
+  name: string;
+  transport: AgentProviderTransportId;
+  command: string;
+  startupArgs: string[];
+  resumeArgs?: string[];
+  sessionPolicy?: AgentProviderSessionPolicy;
+  outputProfile?: AgentProviderOutputProfile;
+  timeoutMs?: number;
+  /** Plugin-requested capability names. Host policy decides the actual grant in later slices. */
+  mcpWhitelistRequest?: string[];
+  /** Plugin-requested sandbox tier. Host policy decides the actual grant in later slices. */
+  sandboxRequest?: AgentProviderSandboxRequest;
+  healthCheck?: AgentProviderHealthCheckRequest;
+}
+
 /** Plugin resource declaration */
 export interface PluginResourceDef {
-  type: 'skill' | 'mcp' | 'limb' | 'schedule';
+  type: 'skill' | 'mcp' | 'limb' | 'schedule' | 'agentProvider';
   /** F202 Phase 2: Factory ID for schedule resources (white-list reference, no arbitrary scripts) */
   factoryId?: string;
   /** F202 Phase 2 follow-up: optional resources don't count toward 'partial' status when deps are missing */
   optional?: boolean;
+  /** F241 Phase B Slice 2a: non-routeable agent provider declaration. */
+  agentProvider?: PluginAgentProviderResource;
   path?: string;
   name?: string;
   command?: string;
@@ -59,6 +88,7 @@ export interface PluginResourceStatus {
   path?: string;
   name?: string;
   enabled: boolean;
+  agentProviderState?: AgentProviderLifecycleState;
   error?: string;
 }
 
