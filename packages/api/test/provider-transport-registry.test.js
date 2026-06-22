@@ -8,6 +8,9 @@ import { describe, it } from 'node:test';
 
 const { ProviderTransportRegistry, deriveReservedProviderTransportIdentities, markActiveProviderTransportProfile } =
   await import('../dist/domains/cats/services/agents/providers/transport/ProviderTransportRegistry.js');
+const { createCliJsonlProviderTransportFactory } = await import(
+  '../dist/domains/cats/services/agents/providers/cli-jsonl/CliJsonlProviderTransportFactory.js'
+);
 
 function makeService() {
   return {
@@ -66,6 +69,25 @@ describe('ProviderTransportRegistry', () => {
     assert.equal(result.handled, true);
     assert.equal(result.transportId, 'invalid');
     assert.equal(result.service, null);
+  });
+
+  it('rejects cli-jsonl providerTransport with negative timeoutMs', async () => {
+    const registry = new ProviderTransportRegistry();
+    registry.register(createCliJsonlProviderTransportFactory({ log: { warn: () => {} } }));
+
+    const result = await registry.createServiceForConfig({
+      ...makeInput('external-provider'),
+      providerTransport: {
+        transport: 'cli-jsonl',
+        command: 'clowder-code',
+        timeoutMs: -1,
+      },
+    });
+
+    assert.equal(result.handled, true);
+    assert.equal(result.transportId, 'cli-jsonl');
+    assert.equal(result.service, null);
+    assert.equal(result.rejectionReason, 'factory-rejected');
   });
 
   it('rejects explicit providerTransport declarations on builtin client identities', async () => {
