@@ -1,0 +1,166 @@
+name: Sync upstream main
+
+on:
+  schedule:
+    # 05:00 Asia/Shanghai daily.
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: zts212653/clowder-ai
+  SYNC_BRANCH: sync/upstream-main-to-develop
+
+jobs:
+  sync:
+    name: Sync upstream/main into main and develop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch refs
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch --prune origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+          git fetch --prune upstream \
+            +refs/heads/main:refs/remotes/upstream/main
+
+      - name: Merge upstream into main
+        id: main
+        run: |
+          set -euo pipefail
+          git switch main
+          git reset --hard origin/main
+
+          before="$(git rev-parse HEAD)"
+          git merge --no-edit upstream/main
+          after="$(git rev-parse HEAD)"
+
+          if [ "$before" = "$after" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.main.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Gate merged main
+        if: steps.main.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          pnpm check
+          pnpm --filter @cat-cafe/shared build
+          pnpm --filter @cat-cafe/api build
+          pnpm --filter @cat-cafe/web build
+          pnpm --filter @cat-cafe/api run test:public
+          bash scripts/check-dir-size.sh
+
+      - name: Push main
+        if: steps.main.outputs.changed == 'true'
+        run: git push origin HEAD:main
+
+      - name: Prepare develop sync branch
+        id: develop
+        run: |
+          set -euo pipefail
+          git switch -C "$SYNC_BRANCH" origin/develop
+
+          if git merge-base --is-ancestor main HEAD; then
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            echo "push_branch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git merge --no-edit main
+
+          if git diff --quiet origin/develop HEAD; then
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            echo "push_branch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "needs_pr=true" >> "$GITHUB_OUTPUT"
+
+          remote_ref="refs/remotes/origin/${SYNC_BRANCH}"
+          if git ls-remote --exit-code --heads origin "$SYNC_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "+refs/heads/${SYNC_BRANCH}:${remote_ref}"
+            if git diff --quiet "$remote_ref" HEAD; then
+              echo "push_branch=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "push_branch=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "push_branch=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push develop sync branch
+        if: steps.develop.outputs.needs_pr == 'true' && steps.develop.outputs.push_branch == 'true'
+        run: git push --force-with-lease origin HEAD:refs/heads/${SYNC_BRANCH}
+
+      - name: Create or update develop PR
+        if: steps.develop.outputs.needs_pr == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          body="$(cat <<'BODY'
+          Automated daily sync from `main` into `develop`.
+
+          This PR is created after the scheduled upstream sync workflow gates the merged `main` branch.
+          BODY
+          )"
+
+          pr_number="$(
+            gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --head "$SYNC_BRANCH" \
+              --base develop \
+              --state open \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+
+          if [ -n "$pr_number" ]; then
+            gh pr edit "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "sync: main to develop" \
+              --body "$body"
+          else
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base develop \
+              --head "$SYNC_BRANCH" \
+              --title "sync: main to develop" \
+              --body "$body"
+          fi
