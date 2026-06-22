@@ -207,6 +207,7 @@ These are no longer blockers for feature-anchor acceptance, but must be settled 
 - Raw `providerTransport` is rejected for builtin client identities and existing routeable cat IDs; the temporary raw surface cannot replace `codex`, `opus`, or other trusted builtin participants.
 - `cli-jsonl` defaults to resumable session behavior when the reference runtime can receive the prompt without lossy encoding. Fresh turns use `startupArgs`; follow-up turns with a host `sessionId` use `resumeArgs` with a required `{sessionId}` placeholder only for raw single-line prompts. If the effective prompt contains real line breaks, the host emits `session_continuity_degraded`, seals the old active SessionRecord, runs a fresh one-shot invocation with the original prompt payload, and binds any fresh `session_init` to a new SessionRecord. A transport that is intentionally stateless must declare `sessionPolicy: "stateless"`.
 - `cli-jsonl` participates in host raw-event archive diagnostics by passing `rawArchivePath` into `spawnCli` and appending sanitized JSONL events by invocation ID.
+- Phase B identity-governance foundation derives reserved routeable IDs from a host-owned base `cat-template.json` builtin baseline plus active non-`providerTransport` profiles. Raw `providerTransport` activation fails closed when that baseline cannot be read, so catalog/plugin input cannot self-remove a trusted cat ID from the reserved set.
 - F202 `agentProvider` manifest parsing/activation is intentionally not part of this first slice.
 
 Temporary raw catalog shape for Phase A smoke activation:
@@ -233,3 +234,4 @@ Temporary raw catalog shape for Phase A smoke activation:
 - 2026-06-18: maintainer decision accepted #941 as F241, with `clowder-code` as the reference runtime, Phase A/B/C rollout, and safety boundaries promoted to acceptance criteria.
 - 2026-06-18: Phase A first implementation slice started with host-owned `ProviderTransportRegistry` and ACP transport factory extraction.
 - 2026-06-18: Phase A second implementation slice started with raw `providerTransport` selection and `cli-jsonl` reference-runtime smoke transport.
+- 2026-06-22: Phase B identity-governance foundation started to replace static routeable denylist drift with template-baseline plus active-catalog reserved identity derivation.

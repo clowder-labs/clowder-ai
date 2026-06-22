@@ -579,6 +579,22 @@ export function getAllCatIdsFromConfig(): readonly string[] {
 }
 
 /**
+ * F241 Phase B: host-owned builtin identity baseline.
+ *
+ * Reads the base cat-template.json directly, before .cat-cafe/cat-catalog.json
+ * overlay can inject a raw providerTransport. Callers must treat thrown errors
+ * as fail-closed for providerTransport activation.
+ */
+export function getTemplateBuiltinCatIds(projectRoot?: string): ReadonlySet<string> {
+  const templatePath = projectRoot
+    ? resolveProjectTemplatePath(projectRoot)
+    : (process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH);
+  const raw = readTemplate(templatePath);
+  const json = JSON.parse(raw) as { breeds?: BreedWithResolvedCatIds[] };
+  return collectResolvedCatIds(Array.isArray(json.breeds) ? json.breeds : []);
+}
+
+/**
  * Find a breed by checking mention patterns against text.
  * F32-b P4c: Uses longest-match-first to avoid prefix collisions
  * (e.g. `@布偶sonnet` must match Sonnet variant, not breed-level `@布偶`).

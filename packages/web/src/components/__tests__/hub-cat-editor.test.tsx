@@ -53,6 +53,11 @@ const emptyAcpFields = {
   acpIdleTtlMinutes: '',
 };
 
+const emptyNativeToolFields = {
+  nativeToolLevel: '' as const,
+  commandPolicyPreset: '' as const,
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -447,6 +452,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyAcpFields,
     } as HubCatEditorFormState;
 
     const payload = buildCatPayload(form, null) as Record<string, unknown>;
@@ -485,6 +491,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyAcpFields,
     } as HubCatEditorFormState;
     const existingCat = {
       id: 'runtime-catagent',
@@ -537,6 +544,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyAcpFields,
     } as HubCatEditorFormState;
     const existingCat = {
       id: 'runtime-catagent',
@@ -605,6 +613,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
@@ -650,6 +659,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
@@ -741,6 +751,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'deepseek-cli',
@@ -794,6 +805,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
@@ -854,6 +866,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'kimi',
@@ -912,6 +925,7 @@ describe('HubCatEditor', () => {
       maxMessages: '',
       maxContentLengthPerMsg: '',
       ...emptyVoiceFields,
+      ...emptyNativeToolFields,
       acpEnabled: true,
       acpTransport: 'stdio',
       acpCommand: 'some-acp-agent',
