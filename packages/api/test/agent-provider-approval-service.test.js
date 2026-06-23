@@ -70,6 +70,7 @@ function makeService({
   }),
   healthExecutor,
   now = () => 1_700_000_000_000,
+  onRouteablePromoted,
 } = {}) {
   const store = makeStore({ version: 1, capabilities });
   const service = new AgentProviderApprovalService({
@@ -82,6 +83,7 @@ function makeService({
       providerTransportRegistry: { has: hasTransport },
       now,
     }),
+    onRouteablePromoted,
   });
   return { service, store };
 }
@@ -263,6 +265,94 @@ describe('AgentProviderApprovalService.approveRouteable', () => {
         catId: 'clowder-cat',
       });
       assert.equal(result.ok, true);
+    });
+  });
+
+  // F241 Phase B Slice 2b Step 5a — post-approval sync hook contract.
+  describe('post-approval sync hook (onRouteablePromoted)', () => {
+    it('fires onRouteablePromoted with the promoted descriptor on successful approval', async () => {
+      const seen = [];
+      const { service } = makeService({
+        onRouteablePromoted: async (capability) => {
+          seen.push(capability);
+        },
+      });
+      const result = await service.approveRouteable({
+        pluginId: 'clowder-code',
+        capId: 'clowder-code',
+        catId: 'clowder-cat',
+      });
+      assert.equal(result.ok, true);
+      assert.equal(seen.length, 1, 'hook should fire exactly once');
+      assert.equal(seen[0].routeable, true);
+      assert.equal(seen[0].routeableApproved, true);
+      assert.equal(seen[0].state, 'healthy');
+    });
+
+    it('does NOT fire onRouteablePromoted when admission fails', async () => {
+      const seen = [];
+      const { service } = makeService({
+        onRouteablePromoted: async (capability) => {
+          seen.push(capability);
+        },
+      });
+      const result = await service.approveRouteable({
+        pluginId: 'clowder-code',
+        capId: 'clowder-code',
+        catId: 'anthropic', // reserved-baseline collision
+      });
+      assert.equal(result.ok, false);
+      assert.equal(seen.length, 0, 'hook must not fire on admission denial');
+    });
+
+    it('does NOT fire onRouteablePromoted when health fails', async () => {
+      const seen = [];
+      const failingExecutor = async (ctx) => ({
+        passed: false,
+        checkedAt: 1,
+        ttlMs: 60_000,
+        descriptorHash: ctx.descriptorHash,
+        failureReason: 'test-induced',
+      });
+      const { service } = makeService({
+        healthExecutor: failingExecutor,
+        onRouteablePromoted: async (capability) => {
+          seen.push(capability);
+        },
+      });
+      const result = await service.approveRouteable({
+        pluginId: 'clowder-code',
+        capId: 'clowder-code',
+        catId: 'clowder-cat',
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.reason, 'health-check-failed');
+      assert.equal(seen.length, 0, 'hook must not fire on health failure');
+    });
+
+    it('rolls back effective routeable + records lastSyncError when the hook throws; preserves approval intent', async () => {
+      const { service, store } = makeService({
+        onRouteablePromoted: async () => {
+          throw new Error('sync coordinator unavailable');
+        },
+      });
+      const result = await service.approveRouteable({
+        pluginId: 'clowder-code',
+        capId: 'clowder-code',
+        catId: 'clowder-cat',
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.reason, 'post-approval-sync-failed');
+      assert.match(result.details, /sync coordinator unavailable/);
+
+      const persisted = store.get().capabilities[0].agentProvider;
+      // Routeable rolled back, approval intent + health preserved.
+      assert.equal(persisted.routeable, false);
+      assert.equal(persisted.routeableApproved, true);
+      assert.ok(persisted.health);
+      assert.equal(persisted.health.passed, true);
+      assert.ok(persisted.lastSyncError);
+      assert.match(persisted.lastSyncError.message, /sync coordinator unavailable/);
     });
   });
 });

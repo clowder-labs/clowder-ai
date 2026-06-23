@@ -65,6 +65,24 @@ export interface AgentProviderApprovalDeps {
     descriptor: AgentProviderCapabilityDescriptor,
     descriptorHash: string,
   ) => Pick<AgentProviderHealthExecutionContext, 'providerTransportRegistry' | 'now'>;
+  /**
+   * F241 Phase B Slice 2b Step 5a — post-approval sync hook. Fires AFTER a
+   * successful atomic promotion to `routeable=true`, while still under
+   * `withCapabilityLock`. The host wires this to the existing serialized
+   * sync coordinator (e.g. `syncAgentRegistry(catRegistry.getAllConfigs())`)
+   * so the new routeable capability gets projected into AgentRegistry.
+   *
+   * Failures inside this hook are caught and recorded as `lastSyncError`
+   * on the descriptor (rolling back effective `routeable` to false), per
+   * the Step 6 failure-recovery rule in the design notes. `routeableApproved`
+   * and `health` are preserved — owner intent is not invalidated by a host
+   * wiring failure.
+   *
+   * Optional: when omitted, approval still writes routeable=true but the
+   * caller is responsible for triggering sync separately (used in tests
+   * + deployments without the host wiring).
+   */
+  readonly onRouteablePromoted?: (capability: AgentProviderCapabilityDescriptor) => Promise<void>;
 }
 
 /** The operator's binding decision at approval time. */
@@ -90,7 +108,8 @@ export type AgentProviderApprovalDenialReason =
   | 'capability-not-agent-provider'
   | 'descriptor-hash-missing'
   | RoutingAdmissionDenialReason
-  | 'health-check-failed';
+  | 'health-check-failed'
+  | 'post-approval-sync-failed';
 
 /** Result of an approval attempt. */
 export type AgentProviderApprovalResult =
@@ -207,6 +226,36 @@ export class AgentProviderApprovalService {
         lastSyncError: undefined,
       };
       await this.persistDescriptor(config, entry.id, promoted);
+
+      // F241 Phase B Slice 2b Step 5a — fire post-approval sync hook. Failures
+      // here roll back effective `routeable=false` and record `lastSyncError`,
+      // but preserve `routeableApproved` + `health` (Step 6 failure-recovery
+      // table in the design notes: host wiring failure ≠ operator withdrawing
+      // approval; retry doesn't need re-approval).
+      if (this.deps.onRouteablePromoted) {
+        try {
+          await this.deps.onRouteablePromoted(promoted);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const rolledBack: AgentProviderCapabilityDescriptor = {
+            ...promoted,
+            routeable: false,
+            // Keep state='healthy' so the operator can see the health pass
+            // was real; routeable flipping false signals the sync issue.
+            lastSyncError: {
+              message: `post-approval-sync-failed: ${message}`,
+              occurredAt: Date.now(),
+            },
+          };
+          await this.persistDescriptor(await this.deps.readCapabilities(), entry.id, rolledBack);
+          return {
+            ok: false,
+            reason: 'post-approval-sync-failed',
+            details: `post-approval sync hook failed: ${message}`,
+            health,
+          };
+        }
+      }
 
       return { ok: true, capability: promoted };
     });

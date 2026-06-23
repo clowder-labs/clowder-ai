@@ -2362,6 +2362,20 @@ async function main(): Promise<void> {
       getHealthExecutorContext: () => ({
         providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
       }),
+      // F241 Phase B Slice 2b Step 5a — post-approval sync hook.
+      // Re-runs the existing AgentRegistry sync so the freshly-routeable
+      // capability gets projected into the runtime. The actual synthetic
+      // cat-config projection for plugin agentProvider rows is Step 5b
+      // follow-on work; this hook is the architectural commitment that
+      // approval triggers sync (per design notes' "post-write enqueues
+      // to the existing serialized sync coordinator" contract).
+      onRouteablePromoted: async (capability) => {
+        app.log.info(
+          { pluginId: capability.descriptorHash ? 'agentProvider' : 'unknown', capability: capability.name },
+          '[F241] agentProvider approved as routeable — triggering AgentRegistry sync',
+        );
+        await syncAgentRegistry(catRegistry.getAllConfigs());
+      },
     });
 
     registerPluginRoutes(app, {
