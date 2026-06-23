@@ -286,6 +286,17 @@ Plugin manifest declares `providerId / displayName / mentionPatterns` as **claim
 - **Background flip `false → true`**: **NEVER**. Routeability is granted only through explicit operator approval; subsequent checks can DEGRADE but not GRANT.
 - **No declared `healthCheck`** on a candidate that wants `routeable`: fail-closed admission. No default probe substitute.
 
+### Background actor permission split
+
+Settled via codex + gpt52 Q3 convergence round (2026-06-23). Shared invariant: **`routeable=true` may only be produced by an auditable explicit admission/sync chain — `approval + descriptor-hash-bound fresh health + reserved/admission pass + AgentRegistry projection`**. Health worker provides evidence; it is never the routing authority.
+
+| Actor | May do | Must NOT do |
+|---|---|---|
+| Background health worker | Refresh `health.checkedAt / passed / failureReason` as telemetry. Degrade `routeable: true → false` when a refresh fails. Enqueue a sync request to the serialized coordinator (which then runs through the explicit projection path). | Directly write `routeable: false → true`, even when `routeableApproved=true` and a fresh health re-check passes. |
+| Explicit synchronous paths (approval, startup, `syncAgentRegistry` projection, `plugin enable`) | Exclusively own the `routeable: false → true` promotion, atomically with admission + fresh health. | Skip admission, skip the descriptor-hash binding on health, or rely on background-supplied `routeable: true` without re-checking the full chain. |
+
+This split is the security/audit boundary, not a runtime convenience knob: it ensures that whenever an operator observes `routeable=true`, there is a traceable host transaction (with the descriptor-bound health result) responsible for it. Silent self-healing from a degraded state is forbidden by design.
+
 ### Sync trigger + serialization
 
 - Post-write enqueues to the **existing serialized sync coordinator** that already handles plugin enable/approve, cat-config change, and account change. No naked parallel sync, no separate watcher.
@@ -325,3 +336,4 @@ Plugin/package fingerprint: if a fingerprint is available (npm tarball hash, git
 - 2026-06-22: Phase B identity-governance foundation started to replace static routeable denylist drift with template-baseline plus active-catalog reserved identity derivation.
 - 2026-06-22: Phase B Slice 2a shipped `b4a87e3c` — `agentProvider` manifest descriptor, non-routeable / `transportReady` state, fail-closed transport activation.
 - 2026-06-22: Phase B Slice 2b design gate passed — 6-step routeable gate, three-field state model, `RoutingAdmissionService` + descriptor-hash invalidation + serialized sync coordinator (opus driving; codex + gpt52 design review).
+- 2026-06-23: Phase B Slice 2b Q3 TTL convergence round (codex + gpt52) — both converged on `S1 No / S2 No / S3 Yes`; locked shared invariant that `routeable: false → true` is the exclusive domain of explicit synchronous paths. Background actors may refresh telemetry and degrade, never promote. Design notes amended.
