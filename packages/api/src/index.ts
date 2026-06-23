@@ -2318,7 +2318,59 @@ async function main(): Promise<void> {
       });
     };
 
-    registerPluginRoutes(app, { pluginRegistry, pluginActivator, limbRegistry, pluginsDir });
+    // F241 Phase B Slice 2b — approval orchestration service. Holds the single
+    // explicit synchronous promotion path for routeable=true. Snapshot builder
+    // closes over host accessors (catRegistry, getTemplateBuiltinCatIds,
+    // getProviderTransportConfig) so the orchestration stays decoupled from
+    // those file-system concerns.
+    const { AgentProviderApprovalService } = await import('./domains/plugin/agent-provider-approval-service.js');
+    const { buildAgentProviderAdmissionSnapshot } = await import(
+      './domains/plugin/agent-provider-admission-snapshot.js'
+    );
+    const agentProviderApprovalService = new AgentProviderApprovalService({
+      readCapabilities: () => readCapabilitiesConfig(resolveActiveProjectRoot()),
+      writeCapabilities: async (config) => {
+        const root = resolveActiveProjectRoot();
+        await writeCapabilitiesConfig(root, config);
+        const { paths } = resolveStartupCliConfigContext(root);
+        await generateCliConfigs(config, paths);
+      },
+      withCapabilityLock: (fn) => withCapabilityLock(resolveActiveProjectRoot(), fn),
+      buildAdmissionSnapshot: async (pluginId, capId, capabilitiesConfig) => {
+        const projectRoot = resolveActiveProjectRoot();
+        let templateBaselineIds: ReadonlySet<string> = new Set();
+        try {
+          templateBaselineIds = getTemplateBuiltinCatIds(projectRoot);
+        } catch (err) {
+          app.log.warn(
+            { err },
+            '[api] agentProvider admission: template builtin baseline unavailable — admission will be strict (empty baseline)',
+          );
+        }
+        return buildAgentProviderAdmissionSnapshot({
+          capabilitiesConfig,
+          activeCatConfigs: catRegistry.getAllConfigs(),
+          templateBaselineIds,
+          hasProviderTransportConfig: (id) => {
+            const pt = getProviderTransportConfig(id, projectRoot);
+            return pt !== undefined && pt !== null;
+          },
+          candidatePluginId: pluginId,
+          candidateCapId: capId,
+        });
+      },
+      getHealthExecutorContext: () => ({
+        providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
+      }),
+    });
+
+    registerPluginRoutes(app, {
+      pluginRegistry,
+      pluginActivator,
+      limbRegistry,
+      pluginsDir,
+      agentProviderApprovalService,
+    });
   }
   // F174 D2b-1 — single notifier instance shared between callback auth preHandler
   // (posts in-context surface on 401) and the hide-similar debug endpoint

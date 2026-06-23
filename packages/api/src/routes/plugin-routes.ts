@@ -16,6 +16,7 @@ import {
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { LimbRegistry } from '../domains/limb/LimbRegistry.js';
 import { loadLimbDeclaration } from '../domains/limb/limb-yaml-loader.js';
+import type { AgentProviderApprovalService } from '../domains/plugin/agent-provider-approval-service.js';
 import type { PluginRegistry } from '../domains/plugin/PluginRegistry.js';
 import { normalizeCapId, resolvePluginResourcePath, resourceCapId } from '../domains/plugin/PluginRegistry.js';
 import type { PluginResourceActivator as PluginResourceActivatorType } from '../domains/plugin/PluginResourceActivator.js';
@@ -29,6 +30,9 @@ interface PluginRoutesOpts {
   pluginActivator: PluginResourceActivatorType;
   limbRegistry: LimbRegistry;
   pluginsDir: string;
+  /** F241 Phase B Slice 2b — optional approval service. When undefined, the
+   *  approve-routeable route is omitted (deployments without 2b stay on 2a). */
+  agentProviderApprovalService?: AgentProviderApprovalService;
 }
 
 function refreshPluginRegistry(pluginRegistry: PluginRegistry) {
@@ -80,7 +84,7 @@ function pluginAccessError(reply: FastifyReply, error: PluginWriteAccessError): 
 }
 
 export function registerPluginRoutes(app: FastifyInstance, opts: PluginRoutesOpts): void {
-  const { pluginRegistry, pluginActivator, limbRegistry, pluginsDir } = opts;
+  const { pluginRegistry, pluginActivator, limbRegistry, pluginsDir, agentProviderApprovalService } = opts;
 
   app.get('/api/plugins', async (request, reply) => {
     const access = requirePluginReadAccess(request);
@@ -170,6 +174,87 @@ export function registerPluginRoutes(app: FastifyInstance, opts: PluginRoutesOpt
       await auditLog.append({
         type: AuditEventTypes.CONFIG_UPDATED,
         data: { target: 'plugin-disable', pluginId: id, operator },
+      });
+    } catch {
+      /* audit failure is non-critical */
+    }
+
+    return result;
+  });
+
+  // F241 Phase B Slice 2b — explicit operator approval to promote an
+  // agentProvider capability to routeable=true. Runs:
+  //   1. admission (reserved + collision) via RoutingAdmissionService
+  //   2. blocking health check bound to descriptorHash
+  //   3. atomic write of routeableApproved + health + routeable
+  // Background actors NEVER reach this code path (per Q3 convergence).
+  app.post<{
+    Params: { id: string; capId: string };
+    Body: { catId: string; profileId?: string; mentionPatterns?: string[] };
+  }>('/api/plugins/:id/capabilities/:capId/approve-routeable', async (request, reply) => {
+    const access = requirePluginWriteAccess(request);
+    if ('error' in access) {
+      return pluginAccessError(reply, access);
+    }
+    const { operator } = access;
+
+    if (!agentProviderApprovalService) {
+      reply.status(503);
+      return { error: 'agentProvider approval service is not enabled on this deployment' };
+    }
+
+    const { id: pluginId, capId } = request.params;
+    const body = request.body ?? ({} as { catId?: string; profileId?: string; mentionPatterns?: string[] });
+    if (!body.catId || typeof body.catId !== 'string' || body.catId.trim().length === 0) {
+      reply.status(400);
+      return { error: 'Request body must include a non-empty catId binding' };
+    }
+    if (
+      body.mentionPatterns !== undefined &&
+      (!Array.isArray(body.mentionPatterns) || body.mentionPatterns.some((p) => typeof p !== 'string'))
+    ) {
+      reply.status(400);
+      return { error: 'mentionPatterns must be an array of strings when provided' };
+    }
+
+    refreshPluginRegistry(pluginRegistry);
+    const manifest = pluginRegistry.getManifest(pluginId);
+    if (!manifest) {
+      reply.status(404);
+      return { error: `Plugin '${pluginId}' not found` };
+    }
+
+    const result = await agentProviderApprovalService.approveRouteable({
+      pluginId,
+      capId,
+      catId: body.catId.trim(),
+      profileId: body.profileId,
+      mentionPatterns: body.mentionPatterns,
+    });
+
+    if (!result.ok) {
+      // 422 for admission/health failures, 404 for not-found, 409 for hash-missing.
+      reply.status(
+        result.reason === 'capability-not-found' || result.reason === 'capability-not-agent-provider'
+          ? 404
+          : result.reason === 'descriptor-hash-missing'
+            ? 409
+            : 422,
+      );
+      return result;
+    }
+
+    try {
+      const auditLog = getEventAuditLog();
+      await auditLog.append({
+        type: AuditEventTypes.CONFIG_UPDATED,
+        data: {
+          target: 'agentProvider-approve-routeable',
+          pluginId,
+          capId,
+          catId: body.catId,
+          operator,
+        },
       });
     } catch {
       /* audit failure is non-critical */
