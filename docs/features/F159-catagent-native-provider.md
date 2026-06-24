@@ -387,9 +387,9 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 - [ ] AC-G19: 保留 `client-routing.test.js:10` 旧 assertion 不变（保护 client-level default 语义）；G2 加新测试覆盖 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 含 `anthropic-messages` + `openai-chat` 两种 + 非 catagent fallthrough；audit 所有 `protocolForClient('catagent')` / `builtinAccountFamilyForClient('catagent')` 调用点，逐个判断走 default 还是迁移到 effective* 变体
 
 ##### Axis 4: AccountConfig api_key clientFamily
-- [ ] AC-G20: `AccountConfig` (@cat-cafe/shared) 在 api_key 账号 schema 加 optional `clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode'`
-- [ ] AC-G21: `accountToRuntimeProfile` 对 api_key 账号从 `account.clientFamily` 读 family 设到 `profile.client`；缺省 fall through（向下兼容现有 api_key 账号未声明 family）
-- [ ] AC-G22: `catagent-credentials.ts` 的 G1 narrow guard 在 api_key + 声明 family 路径上也生效（完整 family fail-closed）
+- [x] AC-G20: `AccountConfig` (@cat-cafe/shared) 在 api_key 账号 schema 加 optional `clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode'`（coexists with F171 freeform `clientId`；rename 被否决，原因是 `accounts.json` in the wild 已有 `clientId` set，silent data loss > naming duplication；TODO G3+ Hub UI 迁移后 sunset `clientId`）
+- [x] AC-G21: `accountToRuntimeProfile` 对 api_key 账号从 `account.clientFamily` 读 family 设到 `profile.client`；缺省 fall through（向下兼容现有 api_key 账号未声明 family）；严格 NEVER 从 legacy `clientId` 读，避免改动 F171 行为
+- [x] AC-G22: `catagent-credentials.ts` 的 G1 narrow guard 在 api_key + 声明 family 路径上也生效（完整 family fail-closed）；现有 guard `profile.client !== undefined && profile.client !== clientFamily` 行为不变，AC-G21 让 api_key 路径自动落入
 
 ##### Axis 5: OpenAIChatAdapter 实现
 - [ ] AC-G23: `OpenAIChatAdapter` 实现 `CatAgentProtocolAdapter` 全部七个方法 + `clientFamily='openai'` + `protocolId='openai-chat-v1'`
@@ -515,3 +515,4 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 | 2026-06-24 | Phase G Slice G1 implementation merge (`b8bab800` PR #23) | refactor-only adapter seam + AnthropicMessagesAdapter 落地；166/166 tests pass + AC-G12 verifier PASS；P2 OAuth builtin family guard 收口 |
 | 2026-06-24 | Phase G Slice G2 升级到 in-design：协议选择位 + OpenAIChatAdapter | 触发：co-creator dogfood 撞 OpenAI-only 代理 `403 permission_error: "This group does not allow /v1/messages dispatch"` 实证 (KD-23)；@gpt555 G2 pre-design push back 扩 scope 到真相源协议选择位 + shared routing contract + api_key clientFamily schema 4 axes (KD-19~22)；新增 AC-G13~G28 |
 | 2026-06-24 | Phase G Slice G2 spec 修订（design gate iteration） | @gpt555 G2 design gate review P1+P2：P1 merge gate gap → AC-G29/G30/G31 + KD-25 把 G1 Anthropic broad suite + golden-wire + factory 默认分支锁成显式硬门；P2 shared helper contract 二选一 → KD-24 拍板保留现有 `protocolForClient` / `builtinAccountFamilyForClient` 作 client-level default，新增 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 承担 member-level protocol-aware，避免污染 shared routing 语义 |
+| 2026-06-24 | Phase G Slice G2 Axis 4 impl ship (`2af8aad2` + biome chore `f8e6ff6c`) | AC-G20/G21/G22 全过：AccountConfig api_key `clientFamily` 字段 + `accountToRuntimeProfile` 设 `profile.client` + G1 narrow guard 自动 cover api_key 路径；KD-22 收口。106/106 定向回归 PASS (security-baseline 21 + account-resolver 18 + phase-e 8 + phase-f 16 + golden-wire 8 + factory 35) + AC-G12 verifier PASS。Rename `clientId` → `clientFamily` 被否决（数据兼容 > 命名一致），保留两字段共存 + TODO 标记 G3+ sunset |
