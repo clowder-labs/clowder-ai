@@ -86,6 +86,16 @@ jobs:
         # treated as "missing" — which is the wrong semantics for sync. The
         # incremental check still runs on regular PRs against fork develop,
         # where the diff range is correct.
+        #
+        # GIT_* env vars mirror upstream ci.yml's Test (Public) job (added in
+        # upstream PR #994). F208 execute-apply tests spawn `git commit` inside
+        # scripts/with-test-home.sh sandbox, which switches HOME and drops the
+        # workflow's `git config` settings — env vars survive that switch.
+        env:
+          GIT_AUTHOR_NAME: CI Runner
+          GIT_AUTHOR_EMAIL: ci@clowder-ai.dev
+          GIT_COMMITTER_NAME: CI Runner
+          GIT_COMMITTER_EMAIL: ci@clowder-ai.dev
         run: |
           set -euo pipefail
           pnpm biome check . --diagnostic-level=error
