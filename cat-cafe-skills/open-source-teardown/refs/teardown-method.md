@@ -81,7 +81,13 @@ gh repo clone https://github.com/{owner}/{repo}.git
 cd {repo}
 
 # 3. 索引（中等项目 1.5k 文件实测 13 秒）
-gitnexus analyze
+#
+# ⚠️ 必须用 --index-only！裸 `gitnexus analyze` 不是 read-only：会注入 AGENTS.md / CLAUDE.md
+#    section + 在 .claude/skills/gitnexus/ 下安装 6 个 gitnexus 自带 skill（refactoring / debugging /
+#    exploring / cli / impact-analysis / guide）。这些注入会污染审计目标——后续 `rg / find`
+#    收集"上游真实产物"的证据时会把 gitnexus 自己的注入误当成项目自带，破坏拆解准确性。
+gitnexus analyze --index-only
+# 或单独跳过部分注入：--skip-agents-md / --skip-skills（细粒度组合）
 # warning "FTS extension unavailable; continuing without FTS" 可忽略——影响关键词排序，不影响图查询
 
 # 4. 看索引规模（决定后续查询深度）
