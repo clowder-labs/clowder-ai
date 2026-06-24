@@ -9,7 +9,7 @@ community_issue: "zts212653/clowder-ai#434"
 
 # F159: CatAgent Native Provider — Opt-in API Path
 
-> **Status**: in-review（Phase A-E 已合入；Phase F F1/F2/F3-min 已实现，等待跨 family review + dogfood） | **Owner**: 社区 (bouillipx) + Ragdoll + Maine Coon | **Priority**: P1
+> **Status**: in-review（Phase A-E 已合入；Phase F F1/F2/F3-min 已实现，等待跨 family review + dogfood；Phase G `in-design`：Protocol Abstraction） | **Owner**: 社区 (bouillipx) + Ragdoll + Maine Coon | **Priority**: P1
 
 ## Why
 
@@ -144,6 +144,97 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
    - `create_task` / raw `post_message` / `cross_post_message` / 任意 A2A routing 全部后置
    - 不走 MCP bridge；未来若 F143 `toolBridge` / `permission policy` seam 落地，再评估是否抽象上提
 
+### Phase G: Protocol Abstraction（in-design）
+
+把 CatAgent 从“写死 Anthropic Messages 协议”重构成多协议可扩展的 native provider，对齐 “cat-as-an-agent” 的通用定位。当前 `CatAgentService` 直接调 Anthropic 专用函数（`buildAnthropicMessagesUrl` / `ANTHROPIC_API_VERSION` / `parseAnthropicSSE`），事实上把厂商绑定暴露成了通用入口；Phase G 在 service 层抽出中性 protocol adapter seam，再把现有 Anthropic 实现搬进 `AnthropicMessagesAdapter`——protocol 特定命名留在 adapter 内（truthful）。
+
+Phase G 不开放新厂商支持，只完成抽象 seam；新协议 adapter（OpenAI Chat / Gemini）作为 G2 / G3 deferred slice。
+
+#### Slice G1: Protocol Adapter Seam（refactor-only, behavior-preserving）
+
+> **Review iteration** (2026-06-24, @gpt555 P1 finding)：G1 seam 必须扩到 **transcript codec + protocol-neutral block/event contract** 两层，不能只抽 HTTP/stream 一层。当前真实耦合不仅在 `buildAnthropicMessagesUrl` / headers / parser：`CatAgentService.ts:229-233` 直接把 `result.contentBlocks` 塞回 `{ role: 'assistant', content: ... }`、用 Anthropic `tool_result` 形状继续下一轮；`consumeTurn` (L253/L293) 的 turn state 建在 `AnthropicContentBlock`；连"共享事件契约"`CatAgentStreamEvent` 也漏 Anthropic 类型 (`catagent-stream-parser.ts:9, 15-20` —— `AnthropicContentBlock` + `AnthropicUsage`)。若 G1 只抽 HTTP/stream 半边，G2 上 OpenAI Chat 时 service 还要再拆一次 transcript codec + event 类型。
+
+G1 分两层：
+
+##### Layer 1: Protocol-neutral block & event contract
+
+把 `CatAgentStreamEvent` / turn state 从 Anthropic-specific 类型解耦，改用中性类型：
+
+- `CatAgentTextBlock { type: 'text'; text: string }`
+- `CatAgentToolCallBlock { type: 'tool_call'; id: string; name: string; input: unknown }`
+- `CatAgentNeutralBlock = CatAgentTextBlock | CatAgentToolCallBlock`（service-side turn state）
+- `CatAgentUsageDelta { inputTokens?: number; outputTokens?: number }`（取代 `AnthropicUsage` 在事件契约里的位置）
+- `CatAgentStreamEvent` 重新定义，**只引用 neutral 类型**：
+  - `text_delta` 不变
+  - `content_block_complete` 携带 `CatAgentNeutralBlock`（不是 `AnthropicContentBlock`）
+  - `usage_update` 携带 `CatAgentUsageDelta`
+  - `stop` / `stream_error` 不变
+
+`CatAgentService.consumeTurn` 的 `blocksByIndex` / `contentBlocks` / `TurnResult` 全部从 `AnthropicContentBlock` 切到 `CatAgentNeutralBlock`；service 层不再 import 任何 `Anthropic*` 类型。
+
+##### Layer 2: Adapter interface（HTTP + stream + transcript codec）
+
+`CatAgentProtocolAdapter` 必须覆盖**整条 wire 边界**（HTTP / stream / transcript 三层），不能只抽 HTTP/stream：
+
+1. **HTTP / stream**：
+   - `buildRequestUrl(baseURL?: string): string`
+   - `buildRequestHeaders(credentials: { apiKey: string }): Record<string, string>`
+   - `buildRequestBody(input: AdapterRequestInput): unknown`
+   - `parseStreamEvents(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncIterable<CatAgentStreamEvent>`（产出 neutral events；Anthropic-specific 解析+映射全部封闭在 adapter 内）
+2. **Transcript codec**（P1 修复关键面）：
+   - `encodeAssistantTurn(blocks: CatAgentNeutralBlock[]): AdapterMessage`
+   - `encodeToolResults(results: ReadonlyArray<{ id: string; content: string; status: 'ok' | 'error' }>): AdapterMessage`
+   - `AdapterMessage` 是 adapter 内部知道形状的不透明类型；service 不解构、不读 keys，只 push 到 `messages: AdapterMessage[]` 数组
+3. **Family / id**：
+   - `readonly clientFamily: string`（account resolver 选 profile family）
+   - `readonly protocolId: string`（如 `anthropic-messages-v1`，用于审计 / Hub UI）
+
+把 `CatAgentService.ts:229-233` 直接拼 `{ role: 'assistant', content: contentBlocks }` 和 `{ role: 'user', content: tool_result[] }` 的 Anthropic-specific 形状**全部上提到 adapter**；service 只持有 `AdapterMessage[]`，**不知道 protocol 怎么编**。
+
+##### 实施细节（共用于 Layer 1 + Layer 2）
+
+3. **抽 `AnthropicMessagesAdapter` 第一实现**：搬 `buildAnthropicMessagesUrl`、Anthropic header（`x-api-key + anthropic-version: 2023-06-01`）、`parseAnthropicSSE`（内部产出 neutral events，外部不暴露 Anthropic 类型）、Anthropic 请求 body 拼接、以及 `encodeAssistantTurn` 产出 `{ role: 'assistant', content: AnthropicContentBlock[] }`、`encodeToolResults` 产出 `{ role: 'user', content: { type: 'tool_result', tool_use_id, content }[] }`。命名保持 `Anthropic*` / `anthropic-*`（truthful 协议绑定）。
+4. **AdapterFactory（最小实现）**：`createCatAgentProtocolAdapter(catConfig: CatConfig)` 当前唯一返回 `new AnthropicMessagesAdapter()`；留扩展点 `if (catConfig.catAgentProtocol === 'openai-chat') return new OpenAIChatAdapter()`。
+5. **`resolveApiCredentials` 调整**：改为接受 `clientFamily` 参数（由 adapter 提供），代替写死的 `resolveForClient(projectRoot, 'anthropic', boundRef)`；单 adapter 下行为等价（`clientFamily='anthropic'`）。
+
+##### Merge gate 强化（@gpt555 P2 finding）
+
+G1 是 refactor-only，但"行为保持"必须在**两个层级**都可验证，避免 broad suite 绿但 wire contract 漂：
+
+1. **既有测试 100% 不变化通过**：Phase A-F 全套 + Phase E SSE 流式回归（`catagent-phase-e.test.js`）+ Phase F write/exec 端到端（`catagent-phase-f.test.js`）
+2. **新增 `AnthropicMessagesAdapter` golden-wire contract test**（AC-G10）：锁住 byte-stable 协议细节
+   - request URL 字面值（含 `/v1/messages` 后缀拼接的所有 base URL 形态）
+   - request headers 字面值（`anthropic-version: 2023-06-01`、`x-api-key`、`Content-Type: application/json`）
+   - request body JSON 序列化形状（`model/max_tokens/messages/stream/tools/system` 全部 keys + value shape）
+   - 每种 Anthropic SSE event → neutral event 映射（含 boundary case：unclosed block、orphan tool_use、missing message_stop）
+   - `encodeAssistantTurn(blocks)` 产出 `{ role: 'assistant', content: AnthropicContentBlock[] }` 形状不变
+   - `encodeToolResults(results)` 产出 `{ role: 'user', content: { type: 'tool_result', tool_use_id, content }[] }` 形状不变
+
+Broad suite 绿了只能证明高层结果一致；wire-contract test 才能证明 G2 实施前**协议细节没漂**。
+
+#### Slice G2 (deferred): Second Adapter — OpenAI Chat Completions
+
+在 G1 seam 上加第二个 protocol adapter（候选 OpenAI Chat Completions），证明 seam 是真的多协议而不是 cosmetic 抽象：
+
+1. `OpenAIChatAdapter` 实现：
+   - `buildRequestUrl` → `${baseURL}/v1/chat/completions`
+   - `buildRequestHeaders` → `Authorization: Bearer ${apiKey}`
+   - `buildRequestBody` → OpenAI 风格 messages + tools（function calling）
+   - `parseStreamEvents` → 把 OpenAI SSE delta 翻译为 `CatAgentStreamEvent`（共享下游事件契约）
+
+2. Adapter 选择策略（design gate 议题，G2 决定）：
+   - 选项 A：`CatConfig.catAgentProtocol?: 'anthropic-messages' | 'openai-chat'`，默认 `anthropic-messages`
+   - 选项 B：探测 baseUrl 路径形态（脆，不推荐）
+   - 选项 C：account 声明 `clientFamily` + adapter 自带 family 匹配
+
+3. Hub UI 加 protocol 字段（如选 A），与 `clientId='catagent'` 联动；Account resolver 按 adapter `clientFamily` 解析
+
+G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream event / usage 映射边界，待 G1 落地后另起 design gate。
+
+#### Slice G3 (deferred): Third Adapter — Gemini
+
+在 G2 验证 seam 之后加 Gemini，证明 seam 不是 Anthropic↔OpenAI 二元抽象，而是真的可扩展。Slice G3 详细方案在 G2 完成后另起 design。
+
 ## Acceptance Criteria
 
 ### Phase A（RFC 收敛 + ADR 边界）
@@ -195,6 +286,25 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 - [x] AC-F14: 行为测试覆盖写入越权、symlink 祖先逃逸、大小超限、hash 不匹配、策略矩阵拒绝、超时杀进程、env 不泄露、callback scoping 拒绝
 - [x] AC-F15: ADR-001 修订完成，明确 F159 Phase F 在分级授权下有条件开放 write/exec；这是 Phase F merge gate
 
+### Phase G（Protocol Abstraction）
+
+#### Slice G1（Adapter Seam — refactor-only）
+- [ ] AC-G1: 新增 `CatAgentProtocolAdapter` 接口，定义 `buildRequestUrl/Headers/Body` + `parseStreamEvents` + `clientFamily` + `protocolId`
+- [ ] AC-G2: 抽出 `AnthropicMessagesAdapter` 实现，把现有 `buildAnthropicMessagesUrl` / Anthropic header / `parseAnthropicSSE` / 请求 body 拼接全部搬进 adapter；命名保持 `Anthropic*`（truthful）
+- [ ] AC-G3: `CatAgentService` 全部走 adapter；service 层不再直接出现 `Anthropic*` 标识符
+- [ ] AC-G4: `createCatAgentProtocolAdapter(catConfig)` factory 落地，当前唯一返回 `AnthropicMessagesAdapter`
+- [ ] AC-G5: `resolveApiCredentials` 接受 `clientFamily` 参数（由 adapter 提供）；当前等价于 `'anthropic'`
+- [ ] AC-G6: Phase A-F 全部既有测试 100% 不变化通过（refactor-only 行为保持）
+- [ ] AC-G7: Phase E SSE 流式回归（`catagent-phase-e.test.js`）100% 不变化通过
+- [ ] AC-G8: Phase F write/exec 端到端测试 100% 不变化通过
+- [ ] AC-G9: 跨 family review 通过
+- [ ] AC-G10: 新增 `AnthropicMessagesAdapter` golden-wire contract test（byte-stable）：request URL / headers / body 序列化、stream event → neutral event 映射（含 unclosed block / orphan tool_use / missing message_stop 边界）、`encodeAssistantTurn` / `encodeToolResults` 产出的 transcript 形状不变
+- [ ] AC-G11: `CatAgentStreamEvent` 重新定义为只引用 neutral 类型（`CatAgentNeutralBlock` / `CatAgentUsageDelta`），`catagent-stream-parser.ts` 不再 export Anthropic-specific 类型给 service 层
+- [ ] AC-G12: `CatAgentService` 持有的 `messages: AdapterMessage[]` 是 adapter-opaque 类型；service 层全文搜索不到 `Anthropic*` 标识符（含 import 和类型引用）
+
+#### Slice G2 / G3（deferred）
+- AC 在 G1 merge 后另起 design gate 定义
+
 > Implementation note (2026-06-16): `update_current_task_status` 只从 thread metadata 中显式选中的 current task 注入；callback 执行时会重新校验 `threadId` 和 `ownerCatId`。未选中 task、跨 thread、跨 owner 时不注册该工具。`post_current_thread_status` / raw `post_message` / `create_task` / cross-thread / A2A routing 仍未进入 Phase F 工具面。
 
 ## 需求点 Checklist
@@ -235,6 +345,12 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 | side-effect 审计依赖 transcript 截断导致证据不足 | write/exec 工具独立产出结构化审计记录 |
 | callback tool 触发 A2A / cross-thread / task lifecycle 连锁副作用 | Phase F Core 只交付 `update_current_task_status`；raw message/task/cross-thread/A2A routing deferred |
 | F159 原 ADR 边界与 Phase F write/exec 冲突 | ADR-001 修订作为 Phase F merge gate，不把契约修订后置到 launch gate |
+| Phase G 抽 adapter 后退化成 cosmetic 抽象，不实施第二 adapter | Slice G2（OpenAI Chat）列入 spec roadmap，G1 仅作为 seam；G2 之前不对外宣称多协议 |
+| G1 seam 只抽 HTTP/stream 半边，transcript / 事件类型仍绑 Anthropic | KD-17：G1 seam 必须覆盖 HTTP + stream + transcript codec + 中性 block/event 类型四层；AC-G11/G12 验证 service 层全文搜索不到 `Anthropic*` | 
+| G1 refactor "行为保持"靠 broad suite 兜底，wire contract 漂移未被覆盖 | KD-18 + AC-G10：新增 `AnthropicMessagesAdapter` golden-wire contract test，锁住 request URL / headers / body / stream event 映射 / transcript 形状 byte-stable |
+| Phase G refactor 破坏 Phase F write/exec 行为 | G1 限定 refactor-only，merge gate = Phase A-F 既有测试 100% 不变化通过 |
+| Adapter 选择策略未定，G2 实施时陷入 design 反复 | Slice G2 单独走 design gate，G1 不预判选择策略 |
+| `resolveApiCredentials` 改参数化 `clientFamily` 后破坏现有 catagent 凭据解析 | G1 在 Anthropic 单 adapter 下行为等价；现有回归测试 100% 覆盖 |
 
 ## Key Decisions
 
@@ -253,6 +369,11 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 | KD-11 | `run_command` 采用结构化 `{ binary, args }` + `commandPolicy`，不接受字符串命令 | 消除 shell 解析歧义，并把命令授权粒度收紧到 `binary/subcommand/flag` | 2026-06-16 |
 | KD-12 | Cat Cafe 深度集成先收 `F3-min`：mandatory 仅 `update_current_task_status`，raw message/task/cross-thread/A2A routing 后置 | 保留“强耦合”产品目标，同时避免 callback surface 触发 A2A / task lifecycle 级联副作用 | 2026-06-16 |
 | KD-13 | write/exec side-effect 工具必须独立产出结构化审计 | 现有 transcript 中 500 字符 `tool_result` 截断不足以承担 side-effect audit | 2026-06-16 |
+| KD-14 | Phase G 走「先抽 seam (G1)，再加第二 adapter (G2)」两步走，G1 限定 refactor-only | 避免一次性大重构同时引入新协议；先证明 seam 不破坏 Phase A-F 既有行为，再讨论协议选择策略 | 2026-06-24 |
+| KD-15 | `AnthropicMessagesAdapter` 保留 `Anthropic*` 命名（不改成 `CatAgent*` 通用名） | adapter 是协议特定实现，命名 truthful；中性命名留给 service 层入口（`adapter.buildRequestUrl()`），区分"通用入口"与"协议特定实现"两层 | 2026-06-24 |
+| KD-16 | G2 候选第二 adapter = OpenAI Chat Completions（非 Gemini） | OpenAI 兼容代理覆盖最广，且与 Anthropic Messages 在 tool calling / stream event / usage 字段三处差异最大，最能压力测试 seam 是否真的多协议 | 2026-06-24 |
+| KD-17 | G1 seam 必须覆盖 **HTTP + stream + transcript codec + 中性 block/event 类型** 全部四层，不允许只抽 HTTP/stream 半边 | @gpt555 design gate P1：若 G1 只抽 HTTP/stream 半边，service 仍持有 `AnthropicContentBlock` turn state + 直接拼 `{ role, content }` 形状的 message 数组，G2 上 OpenAI Chat 时还要再拆一次；先抽一半 seam = 没抽 seam | 2026-06-24 |
+| KD-18 | G1 merge gate 必须 broad suite 绿 + `AnthropicMessagesAdapter` golden-wire contract test 绿，二者缺一不可 | @gpt555 design gate P2：refactor-only 的"行为保持"在 broad suite 层级只能证明高层结果一致；wire-contract test 才能证明协议细节 byte-stable，避免 G2 前协议漂移 | 2026-06-24 |
 
 ## Review Gate
 
@@ -262,6 +383,8 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 - Phase F-F3: 产品方向 + 宿主边界联合 review
 - Phase F merge gate: AC-F15（ADR-001 边界修订）必须先完成
 - Phase F exit / launch gate: 默认权限策略、dogfood、审计可见性、fail-closed 验证
+- Phase G Slice G1: 跨 family review（必须）；merge gate = AC-G6 / AC-G7 / AC-G8 全过（refactor-only 行为保持）
+- Phase G Slice G2: 独立 design gate，需 co-creator approve 协议选择策略后才开 slice
 
 ## Revision History
 
@@ -271,3 +394,5 @@ Phase F 采用分级工具面和分 slice 推进，而不是一次性开放所�
 | 2026-04-24 | Phase E：strict streaming fail-closed 定稿 | 明确 streaming 终态和审计边界 |
 | 2026-06-16 | Phase F：Write/Exec Tool Surface 规划并回归 F159 真相源 | 本地误开的 F188 草案并回 F159；保持 feature 编号单一真相源 |
 | 2026-06-16 | Phase F F1/F2/F3-min 实现完成，进入 review | 分级工具面、write/patch、run_command policy、current-task scoped callback 已落地 |
+| 2026-06-24 | Phase G 立项：Protocol Abstraction（in-design） | 承接 co-creator 反馈："CatAgent 拼 endpoint URL 入口应改为通用命名，不绑定某厂商"；抽 `CatAgentProtocolAdapter` seam，区分通用入口（service 层）与协议特定实现（adapter 层） |
+| 2026-06-24 | Phase G Slice G1 spec 修订（design gate iteration） | @gpt555 design gate review P1+P2：G1 seam 扩到 HTTP/stream/transcript codec/中性 block & event 四层；新增 AC-G10/G11/G12 + KD-17/18 + golden-wire contract test 强化 merge gate；service 层全文不再出现 `Anthropic*` 标识符 |
