@@ -106,12 +106,18 @@ describe('AgentProviderApprovalService.approveRouteable', () => {
       assert.ok(result.capability.health);
       assert.equal(result.capability.health.passed, true);
       assert.equal(result.capability.health.descriptorHash, result.capability.descriptorHash);
+      // Step 5b: binding persisted on success so projection can build the synthetic config.
+      assert.ok(result.capability.routeableBinding);
+      assert.equal(result.capability.routeableBinding.catId, 'clowder-cat');
+      assert.equal(result.capability.routeableBinding.profileId, 'clowder-profile');
+      assert.deepEqual(result.capability.routeableBinding.mentionPatterns, ['clowder']);
 
       // Persisted state matches the returned capability
       const persisted = store.get().capabilities[0].agentProvider;
       assert.equal(persisted.routeable, true);
       assert.equal(persisted.routeableApproved, true);
       assert.equal(persisted.state, 'healthy');
+      assert.equal(persisted.routeableBinding.catId, 'clowder-cat');
     });
   });
 

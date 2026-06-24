@@ -139,6 +139,7 @@ export type { CallbackPrincipal } from './callback-principal.js';
 export type {
   AgentProviderCapabilityDescriptor,
   AgentProviderHealthResult,
+  AgentProviderRouteableBinding,
   AgentProviderSyncError,
   BootstrapAction,
   BootstrapReport,

@@ -1170,14 +1170,81 @@ async function main(): Promise<void> {
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
-  const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
+  const syncAgentRegistry = async (configsInput: Record<string, CatConfig>) => {
     agentRegistry.reset();
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
     const projectRoot = resolveActiveProjectRoot();
     const activeProfileIdsByTransport = new Map<string, Set<string>>();
+
+    // F241 Phase B Slice 2b Step 5b: merge plugin-projected routeable
+    // agentProvider rows into the configs map BEFORE the loop. The projection
+    // re-runs admission on the live snapshot (per design notes red line) so
+    // a manifest-mutated row that lost admission gets silently dropped here.
+    const { listApprovedRouteableRows, projectRouteableAgentProviders } = await import(
+      './domains/plugin/agent-provider-projection.js'
+    );
+    const { buildAgentProviderAdmissionSnapshot } = await import(
+      './domains/plugin/agent-provider-admission-snapshot.js'
+    );
+    const { readCapabilitiesConfig: readCaps } = await import('./config/capabilities/capability-orchestrator.js');
+    let configs: Record<string, CatConfig> = configsInput;
+    try {
+      const capabilitiesConfig = await readCaps(projectRoot);
+      const rows = listApprovedRouteableRows(capabilitiesConfig);
+      if (rows.length > 0) {
+        let templateBaselineIds: ReadonlySet<string> = new Set();
+        try {
+          templateBaselineIds = getTemplateBuiltinCatIds(projectRoot);
+        } catch (err) {
+          app.log.warn(
+            { err },
+            '[F241] projection: template baseline unavailable — admission will be strict (empty baseline)',
+          );
+        }
+        const projection = projectRouteableAgentProviders({
+          rows,
+          buildSnapshot: (pluginId, capId) =>
+            buildAgentProviderAdmissionSnapshot({
+              capabilitiesConfig,
+              activeCatConfigs: configsInput,
+              templateBaselineIds,
+              hasProviderTransportConfig: (id) => {
+                const pt = getProviderTransportConfig(id, projectRoot);
+                return pt !== undefined && pt !== null;
+              },
+              candidatePluginId: pluginId,
+              candidateCapId: capId,
+            }),
+          now: () => Date.now(),
+          onSkip: (pluginId, capId, reason) => {
+            app.log.warn({ pluginId, capId, reason }, '[F241] projection: skipping routeable agentProvider row');
+          },
+        });
+        if (Object.keys(projection.configs).length > 0) {
+          configs = { ...configsInput, ...projection.configs };
+          app.log.info(
+            { admitted: projection.admitted.length, skipped: projection.skipped.length },
+            '[F241] projection: merged routeable plugin agentProvider rows',
+          );
+        }
+      }
+    } catch (err) {
+      app.log.error(
+        { err },
+        '[F241] projection: failed to project routeable agentProvider rows — falling back to base configs',
+      );
+    }
+
     const providerTransportsByProfileId = new Map<string, unknown>();
     for (const id of Object.keys(configs)) {
-      providerTransportsByProfileId.set(id, getProviderTransportConfig(id, projectRoot));
+      // For synthetic / plugin-projected configs, providerTransport is inline
+      // on the merged CatConfig; for on-disk configs, fall back to the loader.
+      const inline = (configs[id] as CatConfig & { providerTransport?: unknown }).providerTransport;
+      if (inline !== undefined) {
+        providerTransportsByProfileId.set(id, inline);
+      } else {
+        providerTransportsByProfileId.set(id, getProviderTransportConfig(id, projectRoot));
+      }
     }
     let reservedRouteableIdentityError: string | undefined;
     let templateBuiltinIds: ReadonlySet<string> = new Set();

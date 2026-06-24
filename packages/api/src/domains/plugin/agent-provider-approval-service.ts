@@ -217,6 +217,9 @@ export class AgentProviderApprovalService {
 
       // Step 6: atomic write of the routeable promotion. Activator preserves
       // these on re-activation when descriptorHash matches (Slice 2b Step 3).
+      // routeableBinding captures the operator's catId/profileId/mentionPatterns
+      // choice so Slice 2b projection (Step 5b) can build the synthetic
+      // cat-config from a host-owned source — never from the manifest directly.
       const promoted: AgentProviderCapabilityDescriptor = {
         ...descriptor,
         state: 'healthy',
@@ -224,6 +227,11 @@ export class AgentProviderApprovalService {
         routeableApproved: true,
         health,
         lastSyncError: undefined,
+        routeableBinding: {
+          catId: request.catId,
+          profileId: request.profileId,
+          mentionPatterns: request.mentionPatterns,
+        },
       };
       await this.persistDescriptor(config, entry.id, promoted);
 

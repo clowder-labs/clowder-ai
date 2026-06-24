@@ -77,6 +77,24 @@ export interface AgentProviderHealthResult {
 }
 
 /**
+ * F241 Phase B Slice 2b: host-owned routeable binding record.
+ *
+ * The plugin manifest declares claims (providerId, displayName, mentionPatterns),
+ * but the actual cat-id binding is host-owned and chosen by the operator at
+ * approval time. The route resolver reads this binding — never the manifest
+ * resource directly (see F241 doc § Phase B Slice 2b Design Notes —
+ * Routeable identity ownership).
+ */
+export interface AgentProviderRouteableBinding {
+  /** The cat-id the operator chose to bind this provider to. */
+  readonly catId: string;
+  /** Optional profile-id binding. */
+  readonly profileId?: string;
+  /** @-mention patterns the provider responds to (operator-confirmed). */
+  readonly mentionPatterns?: readonly string[];
+}
+
+/**
  * F241 Phase B Slice 2b: agentProvider capability descriptor.
  *
  * Widens 2a's literal-`false` shape into a three-field state model:
@@ -103,6 +121,8 @@ export interface AgentProviderCapabilityDescriptor extends PluginAgentProviderRe
   health?: AgentProviderHealthResult;
   /** Last AgentRegistry sync failure (Step 6). Cleared on next successful sync. */
   lastSyncError?: AgentProviderSyncError;
+  /** Host-owned routeable binding — persisted on successful approval. Empty until then. */
+  routeableBinding?: AgentProviderRouteableBinding;
 }
 
 /** Single capability entry in capabilities.json */
