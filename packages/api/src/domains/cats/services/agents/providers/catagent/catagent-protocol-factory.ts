@@ -6,7 +6,7 @@
  * `catConfig.catAgentProtocol`:
  * - `undefined` / `'anthropic-messages'` → `AnthropicMessagesAdapter` (G1 default,
  *   preserves G1 catagent member behavior — KD-25 first half byte-stable)
- * - `'openai-chat'` → `OpenAIChatAdapter` (G2 Axis 5, implementation pending)
+ * - `'openai-chat'` → `OpenAIChatAdapter` (G2 Axis 5)
  * - unknown value → **fail closed (throw)** — KD-20: no fallback, no
  *   runtime protocol guessing, no silent vendor routing
  *
@@ -18,6 +18,7 @@
 import type { CatAgentProtocol, CatConfig } from '@cat-cafe/shared';
 import { AnthropicMessagesAdapter } from './anthropic-messages-adapter.js';
 import type { CatAgentProtocolAdapter } from './catagent-protocol-adapter.js';
+import { OpenAIChatAdapter } from './openai-chat-adapter.js';
 
 /**
  * Select and instantiate the protocol adapter for a CatAgent member.
@@ -44,13 +45,7 @@ export function createCatAgentProtocolAdapter(catConfig: CatConfig | null): CatA
   }
 
   if (protocol === 'openai-chat') {
-    // G2 Axis 5 — OpenAIChatAdapter implementation is the next slice in this
-    // PR. Until it lands, this branch fail-closes with an actionable error
-    // so a user who Hub-configures 'openai-chat' early gets a clear signal
-    // instead of silently routing to Anthropic Messages (which would 404 on
-    // any OpenAI-only proxy — exactly the failure mode that triggered G2,
-    // KD-23).
-    throw new CatAgentProtocolNotImplementedError(protocol);
+    return new OpenAIChatAdapter();
   }
 
   // KD-20 fail-closed: unrecognised protocol values throw. Service surfaces
@@ -66,18 +61,6 @@ export class CatAgentProtocolUnknownError extends Error {
         `Valid values: 'anthropic-messages' | 'openai-chat'.`,
     );
     this.name = 'CatAgentProtocolUnknownError';
-    this.protocol = protocol;
-  }
-}
-
-export class CatAgentProtocolNotImplementedError extends Error {
-  readonly protocol: CatAgentProtocol;
-  constructor(protocol: CatAgentProtocol) {
-    super(
-      `[catagent] catAgentProtocol "${protocol}" is recognised but its adapter is not yet implemented in this build. ` +
-        `Tracking: F159 Phase G G2 Axis 5 (OpenAIChatAdapter). Until then, use 'anthropic-messages' or leave catAgentProtocol unset.`,
-    );
-    this.name = 'CatAgentProtocolNotImplementedError';
     this.protocol = protocol;
   }
 }

@@ -4,20 +4,20 @@
  * Verifies fail-closed dispatch per KD-20:
  * - undefined / 'anthropic-messages' → AnthropicMessagesAdapter (G1 default
  *   byte-stable, KD-25 first half)
- * - 'openai-chat' → throws CatAgentProtocolNotImplementedError (G2 Axis 5
- *   adapter pending)
+ * - 'openai-chat' → OpenAIChatAdapter
  * - unknown string → throws CatAgentProtocolUnknownError (KD-20 strict)
  */
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const { createCatAgentProtocolAdapter, CatAgentProtocolUnknownError, CatAgentProtocolNotImplementedError } =
+const { createCatAgentProtocolAdapter, CatAgentProtocolUnknownError } =
   await import('../dist/domains/cats/services/agents/providers/catagent/catagent-protocol-factory.js');
 
 const { AnthropicMessagesAdapter } = await import(
   '../dist/domains/cats/services/agents/providers/catagent/anthropic-messages-adapter.js'
 );
+const { OpenAIChatAdapter } = await import('../dist/domains/cats/services/agents/providers/catagent/openai-chat-adapter.js');
 
 describe('createCatAgentProtocolAdapter dispatch (AC-G17 / KD-20 fail-closed)', () => {
   test('null catConfig → AnthropicMessagesAdapter (legacy/test path)', () => {
@@ -41,21 +41,15 @@ describe('createCatAgentProtocolAdapter dispatch (AC-G17 / KD-20 fail-closed)', 
     assert.ok(adapter instanceof AnthropicMessagesAdapter);
   });
 
-  test("catAgentProtocol='openai-chat' → CatAgentProtocolNotImplementedError (Axis 5 pending)", () => {
-    assert.throws(
-      () =>
-        createCatAgentProtocolAdapter({
-          id: 'opus',
-          clientId: 'catagent',
-          catAgentProtocol: 'openai-chat',
-        }),
-      (err) => {
-        assert.ok(err instanceof CatAgentProtocolNotImplementedError);
-        assert.equal(err.protocol, 'openai-chat');
-        assert.match(err.message, /OpenAIChatAdapter|Axis 5/);
-        return true;
-      },
-    );
+  test("catAgentProtocol='openai-chat' → OpenAIChatAdapter", () => {
+    const adapter = createCatAgentProtocolAdapter({
+      id: 'opus',
+      clientId: 'catagent',
+      catAgentProtocol: 'openai-chat',
+    });
+    assert.ok(adapter instanceof OpenAIChatAdapter);
+    assert.equal(adapter.clientFamily, 'openai');
+    assert.equal(adapter.protocolId, 'openai-chat-v1');
   });
 
   test('unknown protocol value → CatAgentProtocolUnknownError (KD-20 strict fail-closed)', () => {
