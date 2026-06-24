@@ -231,8 +231,18 @@ export type AccountProtocol = 'anthropic' | 'openai' | 'openai-responses' | 'goo
  */
 export interface AccountConfig {
   readonly authType: 'oauth' | 'api_key';
-  /** F171: Explicit client identity for API key accounts (e.g. 'anthropic', 'openai'). */
+  /** F171 (legacy display): freeform client identity surfaced in Hub UI.
+   *  Do NOT use for routing/security decisions — prefer `clientFamily`,
+   *  which is typed and drives `profile.client` in `accountToRuntimeProfile`.
+   *  TODO(F159 G3+): sunset once Hub UI migrates fully to `clientFamily`. */
   readonly clientId?: string;
+  /** F159 G2 (AC-G20): typed client family for api_key accounts.
+   *  Authoritative source for adapter routing. When set on api_key accounts,
+   *  drives `profile.client` in `accountToRuntimeProfile`, which enables the
+   *  family fail-closed guard in `catagent-credentials.ts` (AC-G22).
+   *  Optional: existing api_key accounts without `clientFamily` continue to
+   *  resolve best-effort (no `profile.client` set → guard falls through). */
+  readonly clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode';
   readonly baseUrl?: string;
   readonly models?: readonly string[];
   readonly displayName?: string;
