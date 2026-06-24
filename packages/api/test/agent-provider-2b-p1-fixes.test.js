@@ -338,6 +338,51 @@ describe('P1.5 — TTL-expired health refresh on sync', () => {
     assert.deepEqual(after.config.mentionPatterns, ['clowder-cat']);
   });
 
+  it('P1.4 follow-up #2 (codex twice-around) — snapshot skips configs carrying pluginProjection so re-sync does not self-collide', () => {
+    // Reproduces the codex-found regression: on the SECOND sync, activeCatConfigs
+    // (sourced from catRegistry.getAllConfigs()) contains the synthetic config
+    // we projected last sync. If the snapshot builder counts it as an
+    // "active non-providerTransport cat", the projection's admission re-run
+    // denies the candidate (active-cat-collision), and stale-cleanup
+    // unregisters the still-valid synthetic.
+    const syntheticConfig = {
+      id: 'clowder-cat',
+      mentionPatterns: ['clowder'],
+      pluginProjection: { pluginId: 'clowder-code', capId: 'clowder-code', descriptorHash: 'hash-1' },
+    };
+    const realCat = {
+      id: 'opus',
+      mentionPatterns: ['opus', 'opus47'],
+      // no pluginProjection marker
+    };
+    const snapshot = buildAgentProviderAdmissionSnapshot({
+      capabilitiesConfig: { version: 1, capabilities: [] },
+      activeCatConfigs: {
+        'clowder-cat': syntheticConfig,
+        opus: realCat,
+      },
+      templateBaselineIds: new Set(),
+      hasProviderTransportConfig: () => false,
+      candidatePluginId: 'clowder-code',
+      candidateCapId: 'clowder-code',
+    });
+    // The synthetic plugin-projected catId must NOT appear in the snapshot's
+    // active-cat set (it is the projection's own output, not a separate cat).
+    assert.equal(
+      snapshot.activeNonProviderTransportIdentities.has('clowder-cat'),
+      false,
+      'plugin-projected synthetic must not self-collide on next sync',
+    );
+    assert.equal(
+      snapshot.activeNonProviderTransportIdentities.has('clowder'),
+      false,
+      'plugin-projected synthetic mentionPatterns must not self-collide either',
+    );
+    // Real catalog cat is still represented.
+    assert.equal(snapshot.activeNonProviderTransportIdentities.has('opus'), true);
+    assert.equal(snapshot.activeNonProviderTransportIdentities.has('opus47'), true);
+  });
+
   it('P1.4 follow-up — stale-cleanup still removes a truly stale synthetic projection (positive control)', () => {
     // Positive control: when the registered entry is still plugin-owned (the
     // synthetic config the projection wrote), stale cleanup removes it.

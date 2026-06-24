@@ -75,9 +75,23 @@ export function buildAgentProviderAdmissionSnapshot(
   // P1.3 fix: include active cats' mentionPatterns (and id) so a plugin cannot
   // claim @opus / @sonnet / @opus47 alias of a real cat just because the
   // mentionPattern doesn't match the cat id literally.
+  //
+  // P1.4 follow-up #2 (codex twice-around review): on subsequent syncs the
+  // `activeCatConfigs` map is `catRegistry.getAllConfigs()` which already
+  // contains synthetic plugin-projected configs from the previous sync.
+  // Those carry a `pluginProjection` marker (see agent-provider-projection.ts
+  // → synthesizeCatConfig). They are PROJECTION OUTPUTS, not active "other"
+  // cats — feeding them back into the snapshot would make the candidate
+  // collide with its own previously-projected synthetic catId / mention
+  // patterns, projection's admission re-run would deny, and stale-cleanup
+  // would unregister the still-valid synthetic. So we skip them here:
+  // catalog cats are kept; plugin-projected synthetics are filtered out
+  // (they are independently represented via `existingRouteableIdentities`
+  // built from the capabilities config and properly excluding the candidate).
   const activeNonProviderTransportIdentities = new Set<string>();
   for (const [id, config] of Object.entries(inputs.activeCatConfigs)) {
     if (inputs.hasProviderTransportConfig(id)) continue;
+    if ((config as { pluginProjection?: unknown }).pluginProjection !== undefined) continue;
     activeNonProviderTransportIdentities.add(id);
     for (const pattern of config.mentionPatterns ?? []) {
       if (pattern) activeNonProviderTransportIdentities.add(pattern);
