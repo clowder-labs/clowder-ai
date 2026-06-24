@@ -1170,6 +1170,11 @@ async function main(): Promise<void> {
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
+  // F241 Phase B Slice 2b P1.4 fix: track catRegistry IDs registered by
+  // plugin projection so we can unregister stale ones on the next sync.
+  // catalog-sourced cats are never in this set — only synthetic plugin-projected
+  // ones, so the unregister loop can never strip a real cat.
+  const pluginProjectedCatIds = new Set<string>();
   const syncAgentRegistry = async (configsInput: Record<string, CatConfig>) => {
     agentRegistry.reset();
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
@@ -1186,26 +1191,55 @@ async function main(): Promise<void> {
     const { buildAgentProviderAdmissionSnapshot } = await import(
       './domains/plugin/agent-provider-admission-snapshot.js'
     );
-    const { readCapabilitiesConfig: readCaps } = await import('./config/capabilities/capability-orchestrator.js');
+    const { refreshExpiredHealthInPlace } = await import('./domains/plugin/agent-provider-health-refresh.js');
+    const { transportAvailabilityHealthExecutor } = await import('./domains/plugin/agent-provider-health-executor.js');
+    const { readCapabilitiesConfig: readCaps, writeCapabilitiesConfig: writeCaps } = await import(
+      './config/capabilities/capability-orchestrator.js'
+    );
     let configs: Record<string, CatConfig> = configsInput;
+    const newlyProjectedCatIds = new Set<string>();
     try {
       const capabilitiesConfig = await readCaps(projectRoot);
       const rows = listApprovedRouteableRows(capabilitiesConfig);
       if (rows.length > 0) {
-        let templateBaselineIds: ReadonlySet<string> = new Set();
+        // P1.2 fix: baseline unavailable → SKIP projection entirely (fail
+        // closed). Routeable rows stay persisted-as-routeable but won't be
+        // projected this sync — once the baseline is back, the next sync
+        // will re-project. Never proceed with empty baseline.
+        let templateBaselineIds: ReadonlySet<string>;
         try {
           templateBaselineIds = getTemplateBuiltinCatIds(projectRoot);
         } catch (err) {
-          app.log.warn(
+          app.log.error(
             { err },
-            '[F241] projection: template baseline unavailable — admission will be strict (empty baseline)',
+            '[F241] projection: template baseline unavailable — skipping projection (fail-closed)',
           );
+          throw err;
         }
-        const projection = projectRouteableAgentProviders({
+
+        // P1.5 fix: synchronously refresh TTL-expired health BEFORE projection.
+        // Per Q3 design notes: startup/sync of an already-approved capability
+        // with expired TTL must synchronously re-run the health executor.
+        // Refresh failure → persist routeable=false (degrade), don't skip-silently.
+        const refreshedCapabilities = await refreshExpiredHealthInPlace({
+          capabilities: capabilitiesConfig,
           rows,
+          now: () => Date.now(),
+          healthExecutor: transportAvailabilityHealthExecutor,
+          getHealthExecutorContext: () => ({
+            providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
+          }),
+          persist: async (next) => writeCaps(projectRoot, next),
+          log: (level, payload, msg) => app.log[level](payload, msg),
+        });
+        const liveCapabilities = refreshedCapabilities ?? capabilitiesConfig;
+        const liveRows = refreshedCapabilities ? listApprovedRouteableRows(refreshedCapabilities) : rows;
+
+        const projection = projectRouteableAgentProviders({
+          rows: liveRows,
           buildSnapshot: (pluginId, capId) =>
             buildAgentProviderAdmissionSnapshot({
-              capabilitiesConfig,
+              capabilitiesConfig: liveCapabilities,
               activeCatConfigs: configsInput,
               templateBaselineIds,
               hasProviderTransportConfig: (id) => {
@@ -1222,6 +1256,7 @@ async function main(): Promise<void> {
         });
         if (Object.keys(projection.configs).length > 0) {
           configs = { ...configsInput, ...projection.configs };
+          for (const id of Object.keys(projection.configs)) newlyProjectedCatIds.add(id);
           app.log.info(
             { admitted: projection.admitted.length, skipped: projection.skipped.length },
             '[F241] projection: merged routeable plugin agentProvider rows',
@@ -1233,6 +1268,23 @@ async function main(): Promise<void> {
         { err },
         '[F241] projection: failed to project routeable agentProvider rows — falling back to base configs',
       );
+    }
+
+    // P1.4 fix: sync plugin-projected synthetic configs into the GLOBAL
+    // catRegistry so mention parsing (AgentRouter / a2a-mentions) can resolve
+    // @<binding.catId>. Unregister stale projections from previous syncs
+    // (e.g. plugin disabled, descriptor delta reset approval), then register
+    // current ones. Catalog-sourced cats are NEVER in pluginProjectedCatIds,
+    // so this can never strip a real cat.
+    for (const staleId of pluginProjectedCatIds) {
+      if (!newlyProjectedCatIds.has(staleId)) {
+        catRegistry.unregister(staleId);
+      }
+    }
+    pluginProjectedCatIds.clear();
+    for (const id of newlyProjectedCatIds) {
+      catRegistry.registerOrReplace(id, configs[id]);
+      pluginProjectedCatIds.add(id);
     }
 
     const providerTransportsByProfileId = new Map<string, unknown>();
@@ -2405,15 +2457,11 @@ async function main(): Promise<void> {
       withCapabilityLock: (fn) => withCapabilityLock(resolveActiveProjectRoot(), fn),
       buildAdmissionSnapshot: async (pluginId, capId, capabilitiesConfig) => {
         const projectRoot = resolveActiveProjectRoot();
-        let templateBaselineIds: ReadonlySet<string> = new Set();
-        try {
-          templateBaselineIds = getTemplateBuiltinCatIds(projectRoot);
-        } catch (err) {
-          app.log.warn(
-            { err },
-            '[api] agentProvider admission: template builtin baseline unavailable — admission will be strict (empty baseline)',
-          );
-        }
+        // P1.2 fix: baseline unavailable → fail closed by throwing. The
+        // approval service catches and surfaces the error to the operator
+        // rather than admitting with an empty reserved set (which would
+        // reopen the Slice 1 self-exemption hole).
+        const templateBaselineIds: ReadonlySet<string> = getTemplateBuiltinCatIds(projectRoot);
         return buildAgentProviderAdmissionSnapshot({
           capabilitiesConfig,
           activeCatConfigs: catRegistry.getAllConfigs(),

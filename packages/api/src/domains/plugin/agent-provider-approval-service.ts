@@ -107,6 +107,7 @@ export type AgentProviderApprovalDenialReason =
   | 'capability-not-found'
   | 'capability-not-agent-provider'
   | 'descriptor-hash-missing'
+  | 'admission-snapshot-unavailable'
   | RoutingAdmissionDenialReason
   | 'health-check-failed'
   | 'post-approval-sync-failed';
@@ -169,7 +170,20 @@ export class AgentProviderApprovalService {
       }
 
       // Step 3: admission with candidate EXCLUDED from snapshot.
-      const snapshot = await this.deps.buildAdmissionSnapshot(request.pluginId, request.capId, config);
+      // P1.2 fix: if the snapshot builder throws (e.g. baseline read failed),
+      // fail closed with an explicit denial reason rather than crashing.
+      // Slice 1's red line is preserved: no admission proceeds without the
+      // reserved baseline.
+      let snapshot: RoutingAdmissionSnapshot;
+      try {
+        snapshot = await this.deps.buildAdmissionSnapshot(request.pluginId, request.capId, config);
+      } catch (err) {
+        return {
+          ok: false,
+          reason: 'admission-snapshot-unavailable',
+          details: `Admission snapshot unavailable — cannot fail-closed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
       const candidate: RoutingAdmissionCandidate = {
         pluginId: request.pluginId,
         capId: request.capId,

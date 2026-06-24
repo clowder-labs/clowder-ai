@@ -47,6 +47,10 @@ export function buildAgentProviderAdmissionSnapshot(
 ): RoutingAdmissionSnapshot {
   const candidateCapIdNormalized = normalizeCapId(inputs.candidateCapId);
 
+  // P1.3 fix: collect ALL identity surfaces of existing routeable agentProviders,
+  // not just the descriptor name. Two plugins must not be able to claim the same
+  // routeableBinding catId / profileId / mentionPatterns even if their `name`
+  // fields differ.
   const existingRouteableIdentities = new Set<string>();
   for (const cap of inputs.capabilitiesConfig?.capabilities ?? []) {
     if (cap.type !== 'agentProvider' || !cap.agentProvider) continue;
@@ -58,12 +62,26 @@ export function buildAgentProviderAdmissionSnapshot(
     const descriptor = cap.agentProvider as AgentProviderCapabilityDescriptor;
     if (!descriptor.routeable) continue;
     if (descriptor.name) existingRouteableIdentities.add(descriptor.name);
+    const binding = descriptor.routeableBinding;
+    if (binding) {
+      if (binding.catId) existingRouteableIdentities.add(binding.catId);
+      if (binding.profileId) existingRouteableIdentities.add(binding.profileId);
+      for (const pattern of binding.mentionPatterns ?? []) {
+        if (pattern) existingRouteableIdentities.add(pattern);
+      }
+    }
   }
 
+  // P1.3 fix: include active cats' mentionPatterns (and id) so a plugin cannot
+  // claim @opus / @sonnet / @opus47 alias of a real cat just because the
+  // mentionPattern doesn't match the cat id literally.
   const activeNonProviderTransportIdentities = new Set<string>();
-  for (const id of Object.keys(inputs.activeCatConfigs)) {
+  for (const [id, config] of Object.entries(inputs.activeCatConfigs)) {
     if (inputs.hasProviderTransportConfig(id)) continue;
     activeNonProviderTransportIdentities.add(id);
+    for (const pattern of config.mentionPatterns ?? []) {
+      if (pattern) activeNonProviderTransportIdentities.add(pattern);
+    }
   }
 
   return {
