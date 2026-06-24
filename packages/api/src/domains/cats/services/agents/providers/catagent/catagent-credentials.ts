@@ -1,10 +1,12 @@
 /**
  * CatAgent Credentials — F159: Native Provider Security Baseline
  *
- * Resolves Anthropic API key for direct API calls using the
- * account-binding fail-closed pattern from invoke-single-cat.
+ * Resolves API credentials for direct API calls using the account-binding
+ * fail-closed pattern from invoke-single-cat. G1 (AC-G5): `clientFamily`
+ * is parameterised so adapters that don't speak Anthropic (G2 OpenAI Chat;
+ * G3 Gemini) can resolve their own account profile family.
  *
- * Single source of truth: catConfig.accountRef → resolveForClient.
+ * Single source of truth: catConfig.accountRef → resolveForClient(clientFamily).
  * No env override, no fallback scan — fail closed if binding is missing.
  */
 
@@ -27,11 +29,17 @@ export interface ApiCredentials {
  * Single resolution path: catConfig.accountRef → resolveBoundAccountRefForCat → resolveForClient.
  * No env override — account binding is the sole source of truth (AC-B1).
  * No wildcard credential scan — if the bound account doesn't resolve, returns null.
+ *
+ * `clientFamily` defaults to `'anthropic'` for backward compatibility with
+ * pre-G1 call sites; new G1+ callers (`CatAgentService` via adapter)
+ * pass `adapter.clientFamily` explicitly to keep the adapter as the single
+ * source of truth for protocol identity.
  */
 export function resolveApiCredentials(
   projectRoot: string,
   catId: string,
   catConfig: CatConfig | null | undefined,
+  clientFamily: string = 'anthropic',
 ): ApiCredentials | null {
   const boundRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
   if (!boundRef) {
@@ -39,12 +47,12 @@ export function resolveApiCredentials(
     return null;
   }
 
-  const profile = resolveForClient(projectRoot, 'anthropic', boundRef);
+  const profile = resolveForClient(projectRoot, clientFamily, boundRef);
   if (!profile?.apiKey) {
-    log.warn(`[${catId}] Bound account "${boundRef}" did not resolve to an API key`);
+    log.warn(`[${catId}] Bound account "${boundRef}" did not resolve to an API key (family=${clientFamily})`);
     return null;
   }
 
-  log.info(`[${catId}] Resolved API key from bound account: ${boundRef}`);
+  log.info(`[${catId}] Resolved API key from bound account: ${boundRef} (family=${clientFamily})`);
   return { apiKey: profile.apiKey, baseURL: profile.baseUrl, source: `bound:${boundRef}` };
 }

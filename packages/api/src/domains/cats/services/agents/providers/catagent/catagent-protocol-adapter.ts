@@ -154,4 +154,37 @@ export interface CatAgentProtocolAdapter {
    * `tool`-role messages, or something else is an adapter-internal concern.
    */
   encodeToolResults(results: ReadonlyArray<AdapterToolResult>): AdapterMessage;
+
+  // ── Error formatting (protocol-neutral surface, protocol-aware text) ──
+
+  /**
+   * Map a HTTP-level fetch error (status + message) into a user-facing error
+   * text. Replaces pre-G1 `service.handleFetchError` directly calling
+   * `mapAnthropicError` (which emitted `"Anthropic API error (...)"` strings
+   * straight from service code, leaking the protocol vendor name into a
+   * service-layer responsibility).
+   *
+   * Service composes the returned `errorText` into the standard `error` +
+   * `done` AgentMessage pair using its own context (catId, model, usage).
+   */
+  mapError(err: { status?: number; message?: string }): { errorText: string };
+
+  // ── Stop-reason classification (protocol-aware terminal set) ──
+
+  /**
+   * Whether a `stop` event's `stopReason` indicates a terminal turn end
+   * (model finished naturally, hit max tokens, refused, etc.) vs. a
+   * pause-for-tool-use intermediate stop.
+   *
+   * Each protocol has its own terminal set:
+   * - Anthropic: `end_turn` / `max_tokens` / `stop_sequence` / `refusal` /
+   *   `model_context_window_exceeded`
+   * - OpenAI: `stop` / `length` / `content_filter`
+   * - Gemini: `STOP` / `MAX_TOKENS` / `SAFETY` / `RECITATION`
+   *
+   * Keeping this on the adapter (instead of letting service consult a shared
+   * `TERMINAL_STOP_REASONS` constant) avoids the pre-G1 leak where service
+   * had to know the Anthropic-specific terminal whitelist.
+   */
+  isTerminalStopReason(stopReason: string | null): boolean;
 }
