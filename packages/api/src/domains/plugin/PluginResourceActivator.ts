@@ -17,6 +17,7 @@ import { mountSkillSymlinks, unmountSkillSymlinks } from '../../skills/skill-man
 import { classifyMountPath } from '../../skills/skill-sync-engine.js';
 import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../../utils/skill-mount.js';
 import type { LimbRegistry } from '../limb/LimbRegistry.js';
+import { computeAgentProviderDescriptorHash } from './agent-provider-descriptor-hash.js';
 import { normalizeCapId, resolvePluginResourcePath, resourceCapId, resourcePathBasename } from './PluginRegistry.js';
 import { resolvePluginEnv } from './plugin-config-store.js';
 import type { ScheduleFactoryDeps, ScheduleFactoryRegistry } from './ScheduleFactoryRegistry.js';
@@ -497,13 +498,65 @@ export class PluginResourceActivator {
       throw new Error(`Unknown agentProvider transport '${resource.agentProvider.transport}'`);
     }
 
-    const agentProvider: AgentProviderCapabilityDescriptor = {
-      ...resource.agentProvider,
-      state: 'transportReady',
-      routeable: false,
-      routeableApproved: false,
-    };
+    // F241 Phase B Slice 2b: compute the canonical descriptor hash so we can decide
+    // whether to preserve host-owned state (routeableApproved / health / lastSyncError)
+    // or reset it. The activator NEVER writes positive approval — it only resets to
+    // `false` on descriptor delta. Operator must re-approve through the explicit
+    // synchronous path. See F241 doc § Phase B Slice 2b Design Notes.
+    const capId = resourceCapId(manifest.id, resource);
+    const descriptorHash = computeAgentProviderDescriptorHash({
+      pluginId: manifest.id,
+      capId,
+      resource: resource.agentProvider,
+    });
+    const existing = await this.readExistingAgentProviderDescriptor(manifest.id, capId);
+
+    const agentProvider: AgentProviderCapabilityDescriptor =
+      existing && existing.descriptorHash === descriptorHash
+        ? {
+            // Descriptor unchanged — preserve host-owned state verbatim. Spread `existing`
+            // first to keep host fields, then overlay manifest fields from `resource` so
+            // any non-hash-contributing manifest field (none today, but future-proofing)
+            // is refreshed without disturbing host state.
+            ...existing,
+            ...resource.agentProvider,
+            state: existing.state,
+            routeable: existing.routeable,
+            routeableApproved: existing.routeableApproved,
+            descriptorHash,
+            ...(existing.health !== undefined ? { health: existing.health } : {}),
+            ...(existing.lastSyncError !== undefined ? { lastSyncError: existing.lastSyncError } : {}),
+          }
+        : {
+            // New activation or descriptor delta — reset host-owned state to fail-closed
+            // defaults. `health` and `lastSyncError` are intentionally omitted (undefined).
+            ...resource.agentProvider,
+            state: 'transportReady',
+            routeable: false,
+            routeableApproved: false,
+            descriptorHash,
+          };
+
     await this.upsertCapabilityEntry(manifest, resource, true, undefined, undefined, agentProvider);
+  }
+
+  /**
+   * F241 Phase B Slice 2b: read the existing agentProvider descriptor for a given
+   * (pluginId, capId), if any. Returns undefined when no capability row exists, when
+   * the row belongs to a different plugin, or when the row is not an agentProvider.
+   * Pure read — no mutation, no side effects.
+   */
+  private async readExistingAgentProviderDescriptor(
+    pluginId: string,
+    capId: string,
+  ): Promise<AgentProviderCapabilityDescriptor | undefined> {
+    const config = await this.deps.readCapabilities();
+    if (!config) return undefined;
+    const entry = config.capabilities.find((c) => normalizeCapId(c.id) === capId);
+    if (!entry || entry.type !== 'agentProvider' || entry.pluginId !== pluginId) {
+      return undefined;
+    }
+    return entry.agentProvider;
   }
 
   private async deactivateAgentProvider(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {

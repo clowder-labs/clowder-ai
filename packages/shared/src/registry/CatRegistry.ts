@@ -29,6 +29,28 @@ export class CatRegistry {
     this.revision += 1;
   }
 
+  /**
+   * F241 Phase B Slice 2b: register-or-replace for dynamically-sourced cats
+   * (e.g. plugin-projected routeable agentProviders). Unlike `register`, this
+   * never throws — used by `syncAgentRegistry` projection which needs to
+   * idempotently re-publish the synthetic CatConfig on every sync.
+   */
+  registerOrReplace(catId: string, config: CatConfig): void {
+    this.entries.set(catId, { config });
+    this.revision += 1;
+  }
+
+  /**
+   * F241 Phase B Slice 2b: remove a previously-registered cat. Used to clear
+   * a stale plugin-projected synthetic config when the source row is no
+   * longer routeable (descriptor delta reset, plugin disabled, etc).
+   */
+  unregister(catId: string): boolean {
+    const had = this.entries.delete(catId);
+    if (had) this.revision += 1;
+    return had;
+  }
+
   has(catId: string): boolean {
     return this.entries.has(catId);
   }

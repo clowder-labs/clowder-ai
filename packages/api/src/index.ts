@@ -1170,14 +1170,149 @@ async function main(): Promise<void> {
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
-  const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
+  // F241 Phase B Slice 2b P1.4 fix: track catRegistry IDs registered by
+  // plugin projection so we can unregister stale ones on the next sync.
+  // catalog-sourced cats are never in this set — only synthetic plugin-projected
+  // ones, so the unregister loop can never strip a real cat.
+  const pluginProjectedCatIds = new Set<string>();
+  const syncAgentRegistry = async (configsInput: Record<string, CatConfig>) => {
     agentRegistry.reset();
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
     const projectRoot = resolveActiveProjectRoot();
     const activeProfileIdsByTransport = new Map<string, Set<string>>();
+
+    // F241 Phase B Slice 2b Step 5b: merge plugin-projected routeable
+    // agentProvider rows into the configs map BEFORE the loop. The projection
+    // re-runs admission on the live snapshot (per design notes red line) so
+    // a manifest-mutated row that lost admission gets silently dropped here.
+    const { listApprovedRouteableRows, projectRouteableAgentProviders } = await import(
+      './domains/plugin/agent-provider-projection.js'
+    );
+    const { buildAgentProviderAdmissionSnapshot } = await import(
+      './domains/plugin/agent-provider-admission-snapshot.js'
+    );
+    const { refreshExpiredHealthInPlace } = await import('./domains/plugin/agent-provider-health-refresh.js');
+    const { transportAvailabilityHealthExecutor } = await import('./domains/plugin/agent-provider-health-executor.js');
+    const { readCapabilitiesConfig: readCaps, writeCapabilitiesConfig: writeCaps } = await import(
+      './config/capabilities/capability-orchestrator.js'
+    );
+    let configs: Record<string, CatConfig> = configsInput;
+    const newlyProjectedCatIds = new Set<string>();
+    try {
+      const capabilitiesConfig = await readCaps(projectRoot);
+      const rows = listApprovedRouteableRows(capabilitiesConfig);
+      if (rows.length > 0) {
+        // P1.2 fix: baseline unavailable → SKIP projection entirely (fail
+        // closed). Routeable rows stay persisted-as-routeable but won't be
+        // projected this sync — once the baseline is back, the next sync
+        // will re-project. Never proceed with empty baseline.
+        let templateBaselineIds: ReadonlySet<string>;
+        try {
+          templateBaselineIds = getTemplateBuiltinCatIds(projectRoot);
+        } catch (err) {
+          app.log.error(
+            { err },
+            '[F241] projection: template baseline unavailable — skipping projection (fail-closed)',
+          );
+          throw err;
+        }
+
+        // P1.5 fix: synchronously refresh TTL-expired health BEFORE projection.
+        // Per Q3 design notes: startup/sync of an already-approved capability
+        // with expired TTL must synchronously re-run the health executor.
+        // Refresh failure → persist routeable=false (degrade), don't skip-silently.
+        const refreshedCapabilities = await refreshExpiredHealthInPlace({
+          capabilities: capabilitiesConfig,
+          rows,
+          now: () => Date.now(),
+          healthExecutor: transportAvailabilityHealthExecutor,
+          getHealthExecutorContext: () => ({
+            providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
+          }),
+          persist: async (next) => writeCaps(projectRoot, next),
+          log: (level, payload, msg) => app.log[level](payload, msg),
+        });
+        const liveCapabilities = refreshedCapabilities ?? capabilitiesConfig;
+        const liveRows = refreshedCapabilities ? listApprovedRouteableRows(refreshedCapabilities) : rows;
+
+        const projection = projectRouteableAgentProviders({
+          rows: liveRows,
+          buildSnapshot: (pluginId, capId) =>
+            buildAgentProviderAdmissionSnapshot({
+              capabilitiesConfig: liveCapabilities,
+              activeCatConfigs: configsInput,
+              templateBaselineIds,
+              hasProviderTransportConfig: (id) => {
+                const pt = getProviderTransportConfig(id, projectRoot);
+                return pt !== undefined && pt !== null;
+              },
+              candidatePluginId: pluginId,
+              candidateCapId: capId,
+            }),
+          now: () => Date.now(),
+          onSkip: (pluginId, capId, reason) => {
+            app.log.warn({ pluginId, capId, reason }, '[F241] projection: skipping routeable agentProvider row');
+          },
+        });
+        if (Object.keys(projection.configs).length > 0) {
+          configs = { ...configsInput, ...projection.configs };
+          for (const id of Object.keys(projection.configs)) newlyProjectedCatIds.add(id);
+          app.log.info(
+            { admitted: projection.admitted.length, skipped: projection.skipped.length },
+            '[F241] projection: merged routeable plugin agentProvider rows',
+          );
+        }
+      }
+    } catch (err) {
+      app.log.error(
+        { err },
+        '[F241] projection: failed to project routeable agentProvider rows — falling back to base configs',
+      );
+    }
+
+    // P1.4 fix: sync plugin-projected synthetic configs into the GLOBAL
+    // catRegistry so mention parsing (AgentRouter / a2a-mentions) can resolve
+    // @<binding.catId>. Unregister stale projections from previous syncs
+    // (e.g. plugin disabled, descriptor delta reset approval), then register
+    // current ones.
+    //
+    // P1.4 follow-up (codex review): the stale-cleanup loop MUST verify the
+    // currently-registered entry is still plugin-owned before unregistering.
+    // If between sync calls a real catalog cat got registered with the same
+    // id as a previously-projected synthetic, deleting it by id alone would
+    // wipe the real cat. Ownership marker: synthetic configs carry a
+    // `pluginProjection` field (see agent-provider-projection.ts); catalog
+    // configs do not. We only unregister when the registered entry still
+    // bears that marker — otherwise it has been taken over by a real cat
+    // and stays.
+    for (const staleId of pluginProjectedCatIds) {
+      if (newlyProjectedCatIds.has(staleId)) continue;
+      const current = catRegistry.tryGet(staleId)?.config as (CatConfig & { pluginProjection?: unknown }) | undefined;
+      if (current && current.pluginProjection !== undefined) {
+        catRegistry.unregister(staleId);
+      } else if (current) {
+        app.log.info(
+          { staleId },
+          '[F241] stale-projection cleanup: skipping unregister — id has been re-registered as a non-plugin cat (likely catalog takeover)',
+        );
+      }
+    }
+    pluginProjectedCatIds.clear();
+    for (const id of newlyProjectedCatIds) {
+      catRegistry.registerOrReplace(id, configs[id]);
+      pluginProjectedCatIds.add(id);
+    }
+
     const providerTransportsByProfileId = new Map<string, unknown>();
     for (const id of Object.keys(configs)) {
-      providerTransportsByProfileId.set(id, getProviderTransportConfig(id, projectRoot));
+      // For synthetic / plugin-projected configs, providerTransport is inline
+      // on the merged CatConfig; for on-disk configs, fall back to the loader.
+      const inline = (configs[id] as CatConfig & { providerTransport?: unknown }).providerTransport;
+      if (inline !== undefined) {
+        providerTransportsByProfileId.set(id, inline);
+      } else {
+        providerTransportsByProfileId.set(id, getProviderTransportConfig(id, projectRoot));
+      }
     }
     let reservedRouteableIdentityError: string | undefined;
     let templateBuiltinIds: ReadonlySet<string> = new Set();
@@ -2318,7 +2453,69 @@ async function main(): Promise<void> {
       });
     };
 
-    registerPluginRoutes(app, { pluginRegistry, pluginActivator, limbRegistry, pluginsDir });
+    // F241 Phase B Slice 2b — approval orchestration service. Holds the single
+    // explicit synchronous promotion path for routeable=true. Snapshot builder
+    // closes over host accessors (catRegistry, getTemplateBuiltinCatIds,
+    // getProviderTransportConfig) so the orchestration stays decoupled from
+    // those file-system concerns.
+    const { AgentProviderApprovalService } = await import('./domains/plugin/agent-provider-approval-service.js');
+    const { buildAgentProviderAdmissionSnapshot } = await import(
+      './domains/plugin/agent-provider-admission-snapshot.js'
+    );
+    const agentProviderApprovalService = new AgentProviderApprovalService({
+      readCapabilities: () => readCapabilitiesConfig(resolveActiveProjectRoot()),
+      writeCapabilities: async (config) => {
+        const root = resolveActiveProjectRoot();
+        await writeCapabilitiesConfig(root, config);
+        const { paths } = resolveStartupCliConfigContext(root);
+        await generateCliConfigs(config, paths);
+      },
+      withCapabilityLock: (fn) => withCapabilityLock(resolveActiveProjectRoot(), fn),
+      buildAdmissionSnapshot: async (pluginId, capId, capabilitiesConfig) => {
+        const projectRoot = resolveActiveProjectRoot();
+        // P1.2 fix: baseline unavailable → fail closed by throwing. The
+        // approval service catches and surfaces the error to the operator
+        // rather than admitting with an empty reserved set (which would
+        // reopen the Slice 1 self-exemption hole).
+        const templateBaselineIds: ReadonlySet<string> = getTemplateBuiltinCatIds(projectRoot);
+        return buildAgentProviderAdmissionSnapshot({
+          capabilitiesConfig,
+          activeCatConfigs: catRegistry.getAllConfigs(),
+          templateBaselineIds,
+          hasProviderTransportConfig: (id) => {
+            const pt = getProviderTransportConfig(id, projectRoot);
+            return pt !== undefined && pt !== null;
+          },
+          candidatePluginId: pluginId,
+          candidateCapId: capId,
+        });
+      },
+      getHealthExecutorContext: () => ({
+        providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
+      }),
+      // F241 Phase B Slice 2b Step 5a — post-approval sync hook.
+      // Re-runs the existing AgentRegistry sync so the freshly-routeable
+      // capability gets projected into the runtime. The actual synthetic
+      // cat-config projection for plugin agentProvider rows is Step 5b
+      // follow-on work; this hook is the architectural commitment that
+      // approval triggers sync (per design notes' "post-write enqueues
+      // to the existing serialized sync coordinator" contract).
+      onRouteablePromoted: async (capability) => {
+        app.log.info(
+          { pluginId: capability.descriptorHash ? 'agentProvider' : 'unknown', capability: capability.name },
+          '[F241] agentProvider approved as routeable — triggering AgentRegistry sync',
+        );
+        await syncAgentRegistry(catRegistry.getAllConfigs());
+      },
+    });
+
+    registerPluginRoutes(app, {
+      pluginRegistry,
+      pluginActivator,
+      limbRegistry,
+      pluginsDir,
+      agentProviderApprovalService,
+    });
   }
   // F174 D2b-1 — single notifier instance shared between callback auth preHandler
   // (posts in-context surface on 401) and the hide-similar debug endpoint

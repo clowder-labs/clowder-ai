@@ -138,6 +138,9 @@ export type { CallbackPrincipal } from './callback-principal.js';
 // Capability types (F041 统一能力模型)
 export type {
   AgentProviderCapabilityDescriptor,
+  AgentProviderHealthResult,
+  AgentProviderRouteableBinding,
+  AgentProviderSyncError,
   BootstrapAction,
   BootstrapReport,
   CapabilitiesConfig,
