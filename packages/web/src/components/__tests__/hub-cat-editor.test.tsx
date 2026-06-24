@@ -584,6 +584,78 @@ describe('HubCatEditor', () => {
     expect(clearPayload.commandPolicy).toBeNull();
   });
 
+  // F159 Phase G G2 (AC-G16, @gpt555 P2 UI State Drift fix):
+  // Verify that AccountSection's Client switch onChange explicitly resets
+  // catAgentProtocol when switching away from catagent — without this,
+  // users can silently carry over an incompatible protocol selection.
+  it('AccountSection Client switch clears catAgentProtocol form state when leaving catagent', async () => {
+    const { AccountSection } = await import('../hub-cat-editor.sections');
+    const onChange = vi.fn();
+    const form: HubCatEditorFormState = {
+      catId: 'switch-protocol',
+      name: '协议切换猫',
+      displayName: '协议切换猫',
+      variantLabel: '',
+      nickname: '',
+      avatar: '/avatars/catagent.png',
+      colorPrimary: '#16a34a',
+      colorSecondary: '#bbf7d0',
+      mentionPatterns: '@switch-protocol',
+      roleDescription: '协议切换验证',
+      personality: '',
+      teamStrengths: '',
+      caution: '',
+      strengths: '',
+      clientId: 'catagent',
+      accountRef: 'codex-for-me',
+      defaultModel: 'gpt-5.5',
+      commandArgs: '',
+      cliConfigArgs: [],
+      nativeToolLevel: '',
+      commandPolicyPreset: '',
+      catAgentProtocol: 'openai-chat',
+      cliEffort: '',
+      provider: '',
+      sessionChain: 'true',
+      maxPromptTokens: '',
+      maxContextTokens: '',
+      maxMessages: '',
+      maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
+      ...emptyAcpFields,
+    };
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(
+        React.createElement(AccountSection, {
+          form,
+          modelOptions: [],
+          availableProfiles: [],
+          loadingProfiles: false,
+          onChange,
+        }),
+      );
+    });
+
+    // Switch Client away from catagent → onChange must include catAgentProtocol: ''
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'openai', 'change');
+    const calls = (onChange as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = calls[calls.length - 1]?.[0] as Partial<HubCatEditorFormState>;
+    expect(lastCall.clientId).toBe('openai');
+    expect(lastCall.catAgentProtocol).toBe('');
+
+    // Sanity: switching to another catagent (idempotent) does NOT clear it
+    // (the spread is gated on nextClient !== 'catagent').
+    onChange.mockClear();
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'catagent', 'change');
+    const catagentCall = (onChange as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Partial<HubCatEditorFormState>;
+    expect(catagentCall.clientId).toBe('catagent');
+    expect(catagentCall.catAgentProtocol).toBeUndefined();
+  });
+
   // F159 Phase G G2 (AC-G16): catAgentProtocol round-trip — mirror the
   // nativeToolLevel persist/clear matrix at the Hub payload boundary.
   it('buildCatPayload emits catAgentProtocol on catagent member and clears on non-catagent', () => {

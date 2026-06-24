@@ -405,6 +405,12 @@ export function AccountSection({
               cliEffort: '',
               acpEnabled: nextAcpEnabled,
               ...(nextAcpEnabled ? acpDefaultsForClientSwitch(form, nextClient) : {}),
+              // F159 Phase G G2 (AC-G16, @gpt555 P2 UI State Drift fix):
+              // model注释 + AC-G16 都承诺 clientId !== 'catagent' 时清空
+              // catAgentProtocol。否则用户先选 'openai-chat'，切到非 catagent，
+              // 再切回 catagent 时旧协议会悄悄留在 form state 里，可能让
+              // payload 提交一个跟新账号 family 不匹配的协议选择。
+              ...(nextClient !== 'catagent' ? { catAgentProtocol: '' as const } : {}),
             });
           }}
           required
