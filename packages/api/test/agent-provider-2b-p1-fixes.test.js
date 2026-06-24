@@ -293,6 +293,76 @@ describe('P1.5 — TTL-expired health refresh on sync', () => {
     assert.equal(registry.unregister('a'), false);
   });
 
+  it('P1.4 follow-up — stale-cleanup must NOT unregister a real catalog cat that took over the id (ownership marker check)', () => {
+    // Reproduces codex's review concern: between sync calls, a real catalog
+    // cat was registered with the same id as a previously-projected synthetic.
+    // The stale cleanup MUST NOT delete it — the ownership marker
+    // (`pluginProjection` field) distinguishes synthetic from real.
+    const registry = new CatRegistry();
+
+    // 1. First sync: plugin projected 'clowder-cat' as a synthetic config.
+    const syntheticConfig = {
+      id: 'clowder-cat',
+      mentionPatterns: ['clowder'],
+      pluginProjection: { pluginId: 'clowder-code', capId: 'clowder-code' },
+    };
+    registry.register('clowder-cat', syntheticConfig);
+    const pluginProjectedCatIds = new Set(['clowder-cat']);
+
+    // 2. Between syncs: operator created a real catalog cat with the SAME id.
+    //    The catalog write path called registerOrReplace, overwriting the
+    //    synthetic with a non-plugin-marked config.
+    const realCatalogConfig = {
+      id: 'clowder-cat',
+      mentionPatterns: ['clowder-cat'],
+      // NOTE: NO pluginProjection field — this is a catalog-sourced cat.
+    };
+    registry.registerOrReplace('clowder-cat', realCatalogConfig);
+
+    // 3. Second sync: plugin admission denied (or projection skipped); new
+    //    set is empty. Apply the production stale-cleanup contract.
+    const newlyProjectedCatIds = new Set();
+    for (const staleId of pluginProjectedCatIds) {
+      if (newlyProjectedCatIds.has(staleId)) continue;
+      const current = registry.tryGet(staleId)?.config;
+      const isStillPluginOwned = current && current.pluginProjection !== undefined;
+      if (isStillPluginOwned) {
+        registry.unregister(staleId);
+      }
+    }
+
+    // Assertion: the real catalog cat survives the stale cleanup.
+    const after = registry.tryGet('clowder-cat');
+    assert.ok(after, 'real catalog cat must NOT be deleted by stale-projection cleanup');
+    assert.equal(after.config.pluginProjection, undefined, 'real catalog cat is identified by missing marker');
+    assert.deepEqual(after.config.mentionPatterns, ['clowder-cat']);
+  });
+
+  it('P1.4 follow-up — stale-cleanup still removes a truly stale synthetic projection (positive control)', () => {
+    // Positive control: when the registered entry is still plugin-owned (the
+    // synthetic config the projection wrote), stale cleanup removes it.
+    const registry = new CatRegistry();
+    const syntheticConfig = {
+      id: 'old-plugin-cat',
+      mentionPatterns: ['old'],
+      pluginProjection: { pluginId: 'old-plugin', capId: 'old-cap' },
+    };
+    registry.register('old-plugin-cat', syntheticConfig);
+    const pluginProjectedCatIds = new Set(['old-plugin-cat']);
+    const newlyProjectedCatIds = new Set(); // plugin disabled / approval reset
+
+    for (const staleId of pluginProjectedCatIds) {
+      if (newlyProjectedCatIds.has(staleId)) continue;
+      const current = registry.tryGet(staleId)?.config;
+      const isStillPluginOwned = current && current.pluginProjection !== undefined;
+      if (isStillPluginOwned) {
+        registry.unregister(staleId);
+      }
+    }
+
+    assert.equal(registry.has('old-plugin-cat'), false, 'stale synthetic must be removed');
+  });
+
   it('does NOT refresh when health.descriptorHash mismatches current descriptorHash', async () => {
     const row = makeRow({
       overrides: {

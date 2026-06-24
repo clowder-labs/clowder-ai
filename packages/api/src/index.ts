@@ -1274,11 +1274,27 @@ async function main(): Promise<void> {
     // catRegistry so mention parsing (AgentRouter / a2a-mentions) can resolve
     // @<binding.catId>. Unregister stale projections from previous syncs
     // (e.g. plugin disabled, descriptor delta reset approval), then register
-    // current ones. Catalog-sourced cats are NEVER in pluginProjectedCatIds,
-    // so this can never strip a real cat.
+    // current ones.
+    //
+    // P1.4 follow-up (codex review): the stale-cleanup loop MUST verify the
+    // currently-registered entry is still plugin-owned before unregistering.
+    // If between sync calls a real catalog cat got registered with the same
+    // id as a previously-projected synthetic, deleting it by id alone would
+    // wipe the real cat. Ownership marker: synthetic configs carry a
+    // `pluginProjection` field (see agent-provider-projection.ts); catalog
+    // configs do not. We only unregister when the registered entry still
+    // bears that marker — otherwise it has been taken over by a real cat
+    // and stays.
     for (const staleId of pluginProjectedCatIds) {
-      if (!newlyProjectedCatIds.has(staleId)) {
+      if (newlyProjectedCatIds.has(staleId)) continue;
+      const current = catRegistry.tryGet(staleId)?.config as (CatConfig & { pluginProjection?: unknown }) | undefined;
+      if (current && current.pluginProjection !== undefined) {
         catRegistry.unregister(staleId);
+      } else if (current) {
+        app.log.info(
+          { staleId },
+          '[F241] stale-projection cleanup: skipping unregister — id has been re-registered as a non-plugin cat (likely catalog takeover)',
+        );
       }
     }
     pluginProjectedCatIds.clear();
