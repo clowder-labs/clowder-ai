@@ -9,7 +9,7 @@ community_issue: "zts212653/clowder-ai#434"
 
 # F159: CatAgent Native Provider — Opt-in API Path
 
-> **Status**: in-review（Phase A-E 已合入；Phase F F1/F2/F3-min 已实现，等待跨 family review + dogfood；Phase G `in-design`：Protocol Abstraction） | **Owner**: 社区 (bouillipx) + Ragdoll + Maine Coon | **Priority**: P1
+> **Status**: in-review（Phase A-E 已合入；Phase F F1/F2/F3-min 已实现，等待跨 family review + dogfood；Phase G G1 protocol adapter seam 已合入；Phase G G2 `in-design`：OpenAI Chat Adapter + 协议选择位） | **Owner**: 社区 (bouillipx) + Ragdoll + Maine Coon | **Priority**: P1
 
 ## Why
 
@@ -212,28 +212,88 @@ G1 是 refactor-only，但"行为保持"必须在**两个层级**都可验证，
 
 Broad suite 绿了只能证明高层结果一致；wire-contract test 才能证明 G2 实施前**协议细节没漂**。
 
-#### Slice G2 (deferred): Second Adapter — OpenAI Chat Completions
+#### Slice G2: Second Adapter + 协议选择位（in-design）
 
-在 G1 seam 上加第二个 protocol adapter（候选 OpenAI Chat Completions），证明 seam 是真的多协议而不是 cosmetic 抽象：
+> **触发**：co-creator dogfood 实证（2026-06-24）撞到 `403 permission_error: "This group does not allow /v1/messages dispatch"`——`blackaicoding.com` 这类 OpenAI-only 兼容代理不允许 Anthropic Messages endpoint。G1 vendor-neutral seam 已就位，但 catagent 当前协议写死 Anthropic Messages，OpenAI-only 代理用不了。
+>
+> **范围扩展（@gpt555 G2 pre-design push back）**：G2 不能只写"`OpenAIChatAdapter` + `api_key.clientFamily` schema 扩展"，必须先把"协议选择位"加到真相源——否则会被迫回到"按 account / model / baseUrl 猜协议"的老路。
 
-1. `OpenAIChatAdapter` 实现：
-   - `buildRequestUrl` → `${baseURL}/v1/chat/completions`
-   - `buildRequestHeaders` → `Authorization: Bearer ${apiKey}`
-   - `buildRequestBody` → OpenAI 风格 messages + tools（function calling）
-   - `parseStreamEvents` → 把 OpenAI SSE delta 翻译为 `CatAgentStreamEvent`（共享下游事件契约）
+G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上线时还要再补）：
 
-2. Adapter 选择策略（design gate 议题，G2 决定）：
-   - 选项 A：`CatConfig.catAgentProtocol?: 'anthropic-messages' | 'openai-chat'`，默认 `anthropic-messages`
-   - 选项 B：探测 baseUrl 路径形态（脆，不推荐）
-   - 选项 C：account 声明 `clientFamily` + adapter 自带 family 匹配
+##### Axis 1: 协议选择位写入真相源链路
 
-3. Hub UI 加 protocol 字段（如选 A），与 `clientId='catagent'` 联动；Account resolver 按 adapter `clientFamily` 解析
+1. **`CatConfig` schema**：新增 `catAgentProtocol?: 'anthropic-messages' | 'openai-chat'`
+   - 仅在 `clientId === 'catagent'` 时合法
+   - 缺省值：`'anthropic-messages'`（向下兼容 G1 既有 catagent member）
+   - 持久化到 `cat-catalog.json` variant（与 `nativeToolLevel` / `commandPolicy` 同处）
+2. **`runtime-cat-catalog.ts`**：
+   - `RuntimeCatInput` / `RuntimeCatUpdate` 加 `catAgentProtocol` field
+   - `createBreedFromInput` / `updateRuntimeCat` 落盘逻辑：仅 `clientId === 'catagent'` 时保留；切走 catagent 时与 `nativeToolLevel` / `commandPolicy` 同步清空
+3. **`packages/api/src/routes/cats.ts`**：
+   - `createCatSchema` + `updateCatSchema` zod schema 加 `catAgentProtocol`
+   - POST / PATCH 写盘路径透传到 `runtime-cat-catalog`
+   - GET response（`toCatResponse`）暴露给 Hub UI
+4. **Hub UI**（`hub-cat-editor-advanced.tsx` + `hub-cat-editor.model.ts` + `hub-cat-editor.payload.ts`）：
+   - `clientId === 'catagent'` 时显示"协议"下拉（`anthropic-messages` / `openai-chat`），与 `nativeToolLevel` 同行
+   - 切走 catagent 时与 `nativeToolLevel` / `commandPolicy` 同步清空
+   - 切换协议时给 hint：协议变化可能让现有 accountRef 不再兼容
+5. **Hub UX 配合**：协议选择 + 账号 family 给可配的边界提示（OpenAI 协议需要 `clientFamily='openai'` 的 account；Anthropic 协议需要 `clientFamily='anthropic'`）
 
-G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream event / usage 映射边界，待 G1 落地后另起 design gate。
+##### Axis 2: Adapter 选择策略 — fail-closed，禁止猜协议
 
-#### Slice G3 (deferred): Third Adapter — Gemini
+1. **`catagent-protocol-factory.ts`**：
+   - 当前 `return new AnthropicMessagesAdapter()` 无条件 → 改为基于 `catConfig.catAgentProtocol` dispatch
+   - `'anthropic-messages'` → `AnthropicMessagesAdapter`
+   - `'openai-chat'` → `OpenAIChatAdapter`（G2 新建）
+   - **未识别值 → fail closed（throw）**：禁止 fallback 猜 baseUrl / model 形态
+2. **不接受 runtime 探测路径**：spec 选项 B（探测 baseUrl 形态）显式拒绝——脆弱、不可审计、增加表面积
+3. **不在 adapter 内部隐式 family**：adapter 自带 `clientFamily` 仍是只读属性（KD-15 truthful naming），factory 负责选择，service 层仍只持有 `CatAgentProtocolAdapter` interface
 
-在 G2 验证 seam 之后加 Gemini，证明 seam 不是 Anthropic↔OpenAI 二元抽象，而是真的可扩展。Slice G3 详细方案在 G2 完成后另起 design。
+##### Axis 3: Shared routing contract 重审
+
+1. **`packages/shared` 的 `protocolForClient('catagent')`**（当前写死 `'anthropic'`）：
+   - 改成 protocol-aware：必须接受 `catConfig.catAgentProtocol` 参数（或类似的 contextual 数据）
+   - 或：把 `protocolForClient` 限制为 client→default-protocol mapping，新增 `effectiveProtocolForCat(catConfig)` 给 catagent 用真实选择位
+   - 决定哪条由 G2 design gate 决定
+2. **`packages/shared/test/client-routing.test.js:10`**：当前 assertion `protocolForClient('catagent') === 'anthropic'` 必须配套更新
+3. **下游消费方影响 audit**：`builtinAccountFamilyForClient('catagent') === 'anthropic'` 也是写死的——G2 必须 audit 所有 `clientId === 'catagent'` 的 hardcoded routing 假设，确认它们要么从 `catConfig.catAgentProtocol` 拿，要么仍是合理的 client-level default
+
+##### Axis 4: AccountConfig schema 加 explicit `clientFamily` on api_key accounts
+
+> 收掉 G1 P2 (`a3c775dc`) 留下的另一半——OAuth builtin family guard 已在 G1 收，api_key 账号没有 schema-level family 还是 G2 题。
+
+1. **`AccountConfig` schema**（在 `@cat-cafe/shared`）：api_key 账号加 `clientFamily?: 'anthropic' | 'openai' | 'google' | ...`
+2. **`accountToRuntimeProfile`**（`account-resolver.ts:234`）：
+   - 对 api_key 账号，从 `account.clientFamily` 读 family 设到 `profile.client`
+   - 缺省（向下兼容现有 api_key 账号未声明 family 的）：fall through，保留 G1 的 best-effort 路径
+3. **Migration 策略**：现有 `account.json` 文件不强制写 `clientFamily`；Hub UI 在创建 api_key 账号时引导 user 选 family；CLI 初始化时（若有）也补
+4. **完整 `clientFamily` fail-closed**：当 api_key 账号声明了 `clientFamily` + adapter 请求的 family 不匹配 → fail closed（同 G1 OAuth builtin 路径）
+
+##### Axis 5: OpenAIChatAdapter 实现
+
+1. `buildRequestUrl` → `${baseURL}/v1/chat/completions`（同样做 base URL 末尾 `/v1` 归一化，复用 G1 pattern）
+2. `buildRequestHeaders` → `Authorization: Bearer ${apiKey}` + `Content-Type: application/json`
+3. `buildRequestBody` → OpenAI 风格 `{ model, messages, tools, stream, max_tokens }`
+   - `tools`：function-calling schema `{ type: 'function', function: { name, description, parameters } }`
+   - `tool_choice`：先不支持，按 OpenAI 默认（model autonomy）
+4. `parseStreamEvents` → OpenAI SSE delta → neutral `CatAgentStreamEvent`：
+   - `choices[0].delta.content` → `text_delta`
+   - `choices[0].delta.tool_calls[i]` → 累计成 `CatAgentToolCallBlock` → `content_block_complete`（id 字段映射 `tool_calls[i].id`，name 映射 `tool_calls[i].function.name`，input 映射 `JSON.parse(tool_calls[i].function.arguments)`）
+   - `choices[0].finish_reason` → `stop` 事件
+   - `usage`（chunk 内或末尾）→ `CatAgentUsageDelta`（`prompt_tokens → inputTokens`，`completion_tokens → outputTokens`，无 cache 字段时省略）
+5. `encodeUserPrompt` → `{ role: 'user', content: prompt }`
+6. `encodeAssistantTurn`（neutral blocks → OpenAI assistant message）：
+   - text blocks → `content` 字符串（拼接）或 `content: null`（若仅 tool_calls）
+   - tool_call blocks → `tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(input) } }]`
+7. `encodeToolResults`（neutral results → OpenAI tool messages）：
+   - 每个 result → 一条 `{ role: 'tool', tool_call_id: r.id, content: r.content }`（OpenAI 用多条 message 而不是 Anthropic 的 single user-with-content-array 形状——`encodeToolResults` 返回 `AdapterMessage` 仍是 opaque，内部可以是数组或合并消息）
+8. `mapError` → `OpenAI API error (<status>): <msg>`（truthful 命名）
+9. `isTerminalStopReason` → OpenAI 终态白名单 `'stop' | 'length' | 'content_filter' | 'tool_calls' (非 terminal)`
+10. `clientFamily = 'openai' as const`，`protocolId = 'openai-chat-v1' as const`
+
+##### Slice G3 (deferred): Third Adapter — Gemini
+
+在 G2 验证 seam 之后加 Gemini，证明 seam 不是 Anthropic↔OpenAI 二元抽象，而是真的可扩展。Slice G3 详细方案在 G2 完成后另起 design——其时若 Axis 1-4 都已落地，G3 只剩 adapter 实现 + 协议白名单扩展。
 
 ## Acceptance Criteria
 
@@ -302,8 +362,35 @@ G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream 
 - [ ] AC-G11: `CatAgentStreamEvent` 重新定义为只引用 neutral 类型（`CatAgentNeutralBlock` / `CatAgentUsageDelta`），`catagent-stream-parser.ts` 不再 export Anthropic-specific 类型给 service 层
 - [ ] AC-G12: `CatAgentService` 持有的 `messages: AdapterMessage[]` 是 adapter-opaque 类型；service 层全文搜索不到 `Anthropic*` 标识符（含 import 和类型引用）
 
-#### Slice G2 / G3（deferred）
-- AC 在 G1 merge 后另起 design gate 定义
+#### Slice G2（OpenAIChatAdapter + 协议选择位 — in-design）
+
+##### Axis 1: 协议选择位写入真相源
+- [ ] AC-G13: `CatConfig` schema 新增 `catAgentProtocol?: 'anthropic-messages' | 'openai-chat'`，仅 `clientId === 'catagent'` 时合法；缺省 `'anthropic-messages'`（向下兼容 G1 既有 catagent member）
+- [ ] AC-G14: `runtime-cat-catalog.ts` 持久化 `catAgentProtocol` 与 `nativeToolLevel` / `commandPolicy` 同处；切走 catagent 时同步清空
+- [ ] AC-G15: `routes/cats.ts` create/update schema + POST/PATCH 写盘路径 + GET response 全部透传 `catAgentProtocol`
+- [ ] AC-G16: Hub UI 在 `clientId === 'catagent'` 时显示协议下拉，切走 catagent 时同步清空，协议变化时 hint 协议-账号兼容边界
+
+##### Axis 2: Adapter 选择策略 — fail-closed
+- [ ] AC-G17: `catagent-protocol-factory.ts` 基于 `catConfig.catAgentProtocol` dispatch；未识别值 fail closed（throw），禁止 fallback 猜协议（spec 选项 B 显式拒绝）
+
+##### Axis 3: Shared routing contract
+- [ ] AC-G18: `protocolForClient('catagent')` / `builtinAccountFamilyForClient('catagent')` 不再 hardcode `'anthropic'`；改为接受 `catConfig.catAgentProtocol` 参数 或新增 `effectiveProtocolForCat(catConfig)` 给 catagent 用真实选择位
+- [ ] AC-G19: `client-routing.test.js` 旧 assertion 替换为 protocol-aware 用例（覆盖 `anthropic-messages` + `openai-chat` 两种）；audit 所有 `clientId === 'catagent'` 的 hardcoded routing 假设
+
+##### Axis 4: AccountConfig api_key clientFamily
+- [ ] AC-G20: `AccountConfig` (@cat-cafe/shared) 在 api_key 账号 schema 加 optional `clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode'`
+- [ ] AC-G21: `accountToRuntimeProfile` 对 api_key 账号从 `account.clientFamily` 读 family 设到 `profile.client`；缺省 fall through（向下兼容现有 api_key 账号未声明 family）
+- [ ] AC-G22: `catagent-credentials.ts` 的 G1 narrow guard 在 api_key + 声明 family 路径上也生效（完整 family fail-closed）
+
+##### Axis 5: OpenAIChatAdapter 实现
+- [ ] AC-G23: `OpenAIChatAdapter` 实现 `CatAgentProtocolAdapter` 全部七个方法 + `clientFamily='openai'` + `protocolId='openai-chat-v1'`
+- [ ] AC-G24: tool calling 在 OpenAI 协议下 lossless 映射：`tool_calls[i].id` ↔ neutral `id`，`tool_calls[i].function.name` ↔ neutral `name`，`JSON.parse(tool_calls[i].function.arguments)` ↔ neutral `input`
+- [ ] AC-G25: 新增 `openai-chat-adapter-golden.test.js` golden-wire byte-stable lock（与 G1 Anthropic golden-wire 同形式）：URL / headers / body / SSE event 映射 / transcript codec / mapError / isTerminalStopReason
+- [ ] AC-G26: 新增 e2e 行为测试：建一只 `clientId='catagent'` + `catAgentProtocol='openai-chat'` 的猫，绑一个 mock OpenAI Chat 账号，跑 single-turn 文本 + 含 tool_call 的多轮路径，断言行为对齐 G1 Anthropic 路径
+
+##### Cross-cutting
+- [ ] AC-G27: AC-G12 grep verifier 扩展：service 层也不允许 `Openai*` / `openai*` 代码标识符（保持 vendor-neutral）；扩多协议后 verifier 仍 pass
+- [ ] AC-G28: 跨 family review 通过；Hub UI 跨 protocol switch UX 走暹罗猫审美 review
 
 > Implementation note (2026-06-16): `update_current_task_status` 只从 thread metadata 中显式选中的 current task 注入；callback 执行时会重新校验 `threadId` 和 `ownerCatId`。未选中 task、跨 thread、跨 owner 时不注册该工具。`post_current_thread_status` / raw `post_message` / `create_task` / cross-thread / A2A routing 仍未进入 Phase F 工具面。
 
@@ -348,6 +435,11 @@ G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream 
 | Phase G 抽 adapter 后退化成 cosmetic 抽象，不实施第二 adapter | Slice G2（OpenAI Chat）列入 spec roadmap，G1 仅作为 seam；G2 之前不对外宣称多协议 |
 | G1 seam 只抽 HTTP/stream 半边，transcript / 事件类型仍绑 Anthropic | KD-17：G1 seam 必须覆盖 HTTP + stream + transcript codec + 中性 block/event 类型四层；AC-G11/G12 验证 service 层全文搜索不到 `Anthropic*` | 
 | G1 refactor "行为保持"靠 broad suite 兜底，wire contract 漂移未被覆盖 | KD-18 + AC-G10：新增 `AnthropicMessagesAdapter` golden-wire contract test，锁住 request URL / headers / body / stream event 映射 / transcript 形状 byte-stable |
+| G2 只实现 adapter 不加真相源选择位 → 被迫"按 account/model/baseUrl 猜协议" | KD-19 + AC-G13~G19：先扩 CatConfig / catalog / routes / Hub / shared routing 协议选择位，factory fail-closed；G2 不写 protocol detection 代码 |
+| Hub UI 切换协议后 accountRef 跟新 protocol 不兼容（如 anthropic→openai 但 accountRef 仍是 anthropic builtin） | AC-G16 hint + AC-G22 完整 fail-closed credentials guard；Hub UX 协议切换时给账号兼容性 warning |
+| OpenAI Chat 协议下 tool calling 映射 lossless 难度高（function call arguments stream chunked, id 跨 chunk 累计） | AC-G24 显式 acceptance；golden-wire test 覆盖累计 tool_call 边界 case |
+| `protocolForClient('catagent')` 改 protocol-aware 影响下游 audit / OTel / metrics 路由 | AC-G18 + AC-G19 audit 所有 hardcoded routing 假设；shared routing contract 重审作为 G2 merge gate 一部分 |
+| api_key 账号现有未声明 family 的，AC-G20/G21 backward-compat fall through 可能让 G1 narrow guard 继续半空 | KD-22 + AC-G22：现有账号 best-effort 不阻塞，新建账号 Hub 引导；G3 时若仍残留可再设迁移 deadline |
 | Phase G refactor 破坏 Phase F write/exec 行为 | G1 限定 refactor-only，merge gate = Phase A-F 既有测试 100% 不变化通过 |
 | Adapter 选择策略未定，G2 实施时陷入 design 反复 | Slice G2 单独走 design gate，G1 不预判选择策略 |
 | `resolveApiCredentials` 改参数化 `clientFamily` 后破坏现有 catagent 凭据解析 | G1 在 Anthropic 单 adapter 下行为等价；现有回归测试 100% 覆盖 |
@@ -374,6 +466,11 @@ G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream 
 | KD-16 | G2 候选第二 adapter = OpenAI Chat Completions（非 Gemini） | OpenAI 兼容代理覆盖最广，且与 Anthropic Messages 在 tool calling / stream event / usage 字段三处差异最大，最能压力测试 seam 是否真的多协议 | 2026-06-24 |
 | KD-17 | G1 seam 必须覆盖 **HTTP + stream + transcript codec + 中性 block/event 类型** 全部四层，不允许只抽 HTTP/stream 半边 | @gpt555 design gate P1：若 G1 只抽 HTTP/stream 半边，service 仍持有 `AnthropicContentBlock` turn state + 直接拼 `{ role, content }` 形状的 message 数组，G2 上 OpenAI Chat 时还要再拆一次；先抽一半 seam = 没抽 seam | 2026-06-24 |
 | KD-18 | G1 merge gate 必须 broad suite 绿 + `AnthropicMessagesAdapter` golden-wire contract test 绿，二者缺一不可 | @gpt555 design gate P2：refactor-only 的"行为保持"在 broad suite 层级只能证明高层结果一致；wire-contract test 才能证明协议细节 byte-stable，避免 G2 前协议漂移 | 2026-06-24 |
+| KD-19 | G2 不只 implement OpenAIChatAdapter，必须先在真相源（CatConfig + catalog + routes + Hub + shared routing）加协议选择位 | @gpt555 G2 pre-design push back：当前真相源里根本没有 catagent 协议选择位（`catagent-protocol-factory.ts:22` 注释占位但代码无条件返回 Anthropic；`runtime-cat-catalog` 只持久化 nativeToolLevel/commandPolicy；`routes/cats.ts` schema 无 protocol；`client-routing.test.js:10` 写死 `protocolForClient('catagent') === 'anthropic'`）。先 implement adapter 会被迫回到"按 account/model/baseUrl 猜协议"老路 | 2026-06-24 |
+| KD-20 | adapter 选择策略 fail-closed，禁止 runtime 猜协议 | spec 选项 B（探测 baseUrl 形态）脆弱、不可审计、扩协议时表面积指数增长；显式 `catAgentProtocol` 字段是唯一受信入口；未识别值 throw，不 fallback | 2026-06-24 |
+| KD-21 | adapter `clientFamily` 仍是只读属性（KD-15），factory 负责选择，service 仍只持 interface | 维持 G1 三层分离（service 中性 / factory 选择 / adapter truthful），protocol-aware 决策点单一可审计 | 2026-06-24 |
+| KD-22 | G2 完成 G1 P2 留下的另一半：`AccountConfig` api_key 账号 schema 加 explicit `clientFamily` | G1 narrow guard 只 cover OAuth builtin；api_key 路径 best-effort 不算 fail-closed。G2 schema 扩展 + Hub UI 创建账号引导 + 向下兼容现有未声明 family 的 api_key 账号 | 2026-06-24 |
+| KD-23 | G2 触发自 co-creator 真实 dogfood (2026-06-24 OpenAI-only 代理 403 permission_error)，从"过度工程"重定为"真实需求" | 实证驱动节奏决定 | 2026-06-24 |
 
 ## Review Gate
 
@@ -384,7 +481,8 @@ G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream 
 - Phase F merge gate: AC-F15（ADR-001 边界修订）必须先完成
 - Phase F exit / launch gate: 默认权限策略、dogfood、审计可见性、fail-closed 验证
 - Phase G Slice G1: 跨 family review（必须）；merge gate = AC-G6 / AC-G7 / AC-G8 全过（refactor-only 行为保持）
-- Phase G Slice G2: 独立 design gate，需 co-creator approve 协议选择策略后才开 slice
+- Phase G Slice G2: 独立 design gate（本 spec PR）；spec merge 后跨 family code review；merge gate = AC-G13~G28 全部 met + golden-wire OpenAIChatAdapter PASS + AC-G12 verifier 扩展后仍 PASS
+- Phase G Slice G3 (Gemini, deferred)：G2 完成后另起 design gate；若 Axis 1-4 已落地，G3 只剩 adapter 实现 + 协议白名单扩展
 
 ## Revision History
 
@@ -396,3 +494,5 @@ G2 详细设计、tool calling 在 OpenAI 协议下的 lossless 映射、stream 
 | 2026-06-16 | Phase F F1/F2/F3-min 实现完成，进入 review | 分级工具面、write/patch、run_command policy、current-task scoped callback 已落地 |
 | 2026-06-24 | Phase G 立项：Protocol Abstraction（in-design） | 承接 co-creator 反馈："CatAgent 拼 endpoint URL 入口应改为通用命名，不绑定某厂商"；抽 `CatAgentProtocolAdapter` seam，区分通用入口（service 层）与协议特定实现（adapter 层） |
 | 2026-06-24 | Phase G Slice G1 spec 修订（design gate iteration） | @gpt555 design gate review P1+P2：G1 seam 扩到 HTTP/stream/transcript codec/中性 block & event 四层；新增 AC-G10/G11/G12 + KD-17/18 + golden-wire contract test 强化 merge gate；service 层全文不再出现 `Anthropic*` 标识符 |
+| 2026-06-24 | Phase G Slice G1 implementation merge (`b8bab800` PR #23) | refactor-only adapter seam + AnthropicMessagesAdapter 落地；166/166 tests pass + AC-G12 verifier PASS；P2 OAuth builtin family guard 收口 |
+| 2026-06-24 | Phase G Slice G2 升级到 in-design：协议选择位 + OpenAIChatAdapter | 触发：co-creator dogfood 撞 OpenAI-only 代理 `403 permission_error: "This group does not allow /v1/messages dispatch"` 实证 (KD-23)；@gpt555 G2 pre-design push back 扩 scope 到真相源协议选择位 + shared routing contract + api_key clientFamily schema 4 axes (KD-19~22)；新增 AC-G13~G28 |
