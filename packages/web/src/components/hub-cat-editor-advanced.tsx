@@ -2,6 +2,7 @@
 
 import type { CatData } from '@/hooks/useCatData';
 import {
+  CAT_AGENT_PROTOCOL_OPTIONS,
   CATAGENT_COMMAND_POLICY_PRESET_OPTIONS,
   CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION,
   CODEX_APPROVAL_OPTIONS,
@@ -10,7 +11,6 @@ import {
   type CodexRuntimeSettings,
   getCliEffortOptionsForClient,
   type HubCatEditorFormState,
-  CAT_AGENT_PROTOCOL_OPTIONS,
   NATIVE_TOOL_LEVEL_OPTIONS,
   SESSION_CHAIN_OPTIONS,
   SESSION_STRATEGY_OPTIONS,
@@ -191,14 +191,12 @@ export function AdvancedRuntimeSection({
               label="协议 (CatAgent)"
               value={form.catAgentProtocol}
               options={CAT_AGENT_PROTOCOL_OPTIONS}
-              onChange={(value) =>
-                onChange({ catAgentProtocol: value as HubCatEditorFormState['catAgentProtocol'] })
-              }
+              onChange={(value) => onChange({ catAgentProtocol: value as HubCatEditorFormState['catAgentProtocol'] })}
               tone="success"
             />
             <p className="text-label leading-4 text-cafe-muted">
-              选择 catagent 调用的 wire protocol。默认 Anthropic Messages，需要绑 Anthropic 兼容账号；
-              OpenAI Chat 走 `/v1/chat/completions`，需要绑 OpenAI 兼容账号——切换协议后请确认账号 family 匹配。
+              选择 catagent 调用的 wire protocol。默认 Anthropic Messages，需要绑 Anthropic 兼容账号； OpenAI Chat 走
+              `/v1/chat/completions`，需要绑 OpenAI 兼容账号——切换协议后请确认账号 family 匹配。
             </p>
           </div>
         ) : null}

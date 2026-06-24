@@ -1,10 +1,10 @@
 import {
   builtinAccountFamilyForClient,
+  type CatAgentProtocol,
   CLI_EFFORT_VALUES,
   type CliEffortValue,
   type CommandPolicyEntry,
   getCliEffortOptionsForProvider,
-  type CatAgentProtocol,
   type NativeToolLevel,
   builtinAccountIdForClient as sharedBuiltinAccountIdForClient,
 } from '@cat-cafe/shared';

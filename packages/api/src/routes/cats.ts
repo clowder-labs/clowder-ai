@@ -758,9 +758,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           cli: resolvedCli,
           ...(body.cliConfigArgs ? { cliConfigArgs: body.cliConfigArgs } : {}),
           ...(body.clientId === 'catagent' && body.nativeToolLevel ? { nativeToolLevel: body.nativeToolLevel } : {}),
-          ...(body.clientId === 'catagent' && body.catAgentProtocol
-            ? { catAgentProtocol: body.catAgentProtocol }
-            : {}),
+          ...(body.clientId === 'catagent' && body.catAgentProtocol ? { catAgentProtocol: body.catAgentProtocol } : {}),
           ...(body.clientId === 'catagent' && body.commandPolicy ? { commandPolicy: body.commandPolicy } : {}),
           ...(body.provider || providerNameForValidation
             ? { provider: body.provider ?? providerNameForValidation }

@@ -445,7 +445,7 @@ describe('cat-catalog-store', () => {
     });
 
     let catalog = readRuntimeCatCatalog(projectRoot);
-    let created = catalog.breeds.find((breed) => breed.catId === 'protocol-cat');
+    const created = catalog.breeds.find((breed) => breed.catId === 'protocol-cat');
     assert.ok(created, 'protocol-cat breed should be created');
     assert.equal(created.variants[0]?.catAgentProtocol, 'openai-chat');
 
@@ -469,7 +469,11 @@ describe('cat-catalog-store', () => {
     catalog = readRuntimeCatCatalog(projectRoot);
     const nonCatagent = catalog.breeds.find((breed) => breed.catId === 'non-catagent');
     assert.ok(nonCatagent, 'non-catagent breed should be created');
-    assert.equal(nonCatagent.variants[0]?.catAgentProtocol, undefined, 'catAgentProtocol must not persist on non-catagent variants');
+    assert.equal(
+      nonCatagent.variants[0]?.catAgentProtocol,
+      undefined,
+      'catAgentProtocol must not persist on non-catagent variants',
+    );
   });
 
   it('updates and clears catAgentProtocol on existing catagent member, and clears on client switch away', async () => {
@@ -525,7 +529,11 @@ describe('cat-catalog-store', () => {
     });
     catalog = readRuntimeCatCatalog(projectRoot);
     updated = catalog.breeds.find((breed) => breed.catId === 'patch-protocol-cat');
-    assert.equal(updated.variants[0]?.catAgentProtocol, undefined, 'switching away from catagent must clear catAgentProtocol');
+    assert.equal(
+      updated.variants[0]?.catAgentProtocol,
+      undefined,
+      'switching away from catagent must clear catAgentProtocol',
+    );
     // nativeToolLevel / commandPolicy 同样路径已被既有测试 cover;此处只断言 protocol 字段被清
   });
 

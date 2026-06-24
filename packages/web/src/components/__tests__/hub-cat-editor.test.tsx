@@ -698,10 +698,10 @@ describe('HubCatEditor', () => {
     expect(createPayload.catAgentProtocol).toBe('openai-chat');
 
     // 2. catagent + catAgentProtocol '' (backend default) → field omitted (no patch)
-    const defaultPayload = buildCatPayload(
-      { ...formCatAgentOpenAI, catAgentProtocol: '' },
-      null,
-    ) as Record<string, unknown>;
+    const defaultPayload = buildCatPayload({ ...formCatAgentOpenAI, catAgentProtocol: '' }, null) as Record<
+      string,
+      unknown
+    >;
     expect(Object.hasOwn(defaultPayload, 'catAgentProtocol')).toBe(false);
 
     // 3. Switching away from catagent + existing cat had catAgentProtocol → null clears

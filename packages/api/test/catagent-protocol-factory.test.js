@@ -12,13 +12,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const {
-  createCatAgentProtocolAdapter,
-  CatAgentProtocolUnknownError,
-  CatAgentProtocolNotImplementedError,
-} = await import(
-  '../dist/domains/cats/services/agents/providers/catagent/catagent-protocol-factory.js'
-);
+const { createCatAgentProtocolAdapter, CatAgentProtocolUnknownError, CatAgentProtocolNotImplementedError } =
+  await import('../dist/domains/cats/services/agents/providers/catagent/catagent-protocol-factory.js');
 
 const { AnthropicMessagesAdapter } = await import(
   '../dist/domains/cats/services/agents/providers/catagent/anthropic-messages-adapter.js'
