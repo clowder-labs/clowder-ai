@@ -251,12 +251,21 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 
 ##### Axis 3: Shared routing contract 重审
 
-1. **`packages/shared` 的 `protocolForClient('catagent')`**（当前写死 `'anthropic'`）：
-   - 改成 protocol-aware：必须接受 `catConfig.catAgentProtocol` 参数（或类似的 contextual 数据）
-   - 或：把 `protocolForClient` 限制为 client→default-protocol mapping，新增 `effectiveProtocolForCat(catConfig)` 给 catagent 用真实选择位
-   - 决定哪条由 G2 design gate 决定
-2. **`packages/shared/test/client-routing.test.js:10`**：当前 assertion `protocolForClient('catagent') === 'anthropic'` 必须配套更新
-3. **下游消费方影响 audit**：`builtinAccountFamilyForClient('catagent') === 'anthropic'` 也是写死的——G2 必须 audit 所有 `clientId === 'catagent'` 的 hardcoded routing 假设，确认它们要么从 `catConfig.catAgentProtocol` 拿，要么仍是合理的 client-level default
+> **设计决定 (KD-24, design gate iteration 收砚砚 P2)**：保留现有 `protocolForClient` / `builtinAccountFamilyForClient` 作为**纯 `clientId → default family/protocol` 映射**（client-level default），不接受 member-level `catConfig` 参数；新增 catagent-specific `effectiveProtocolForCat(catConfig)` 承担 protocol-aware 解析。
+>
+> 理由：现有 helper 被 `packages/shared/src/types/client-routing.ts:16`、`packages/api/src/routes/first-run-quest.ts:435`、`packages/web/src/components/hub-cat-editor.model.ts:368` 等通用流程直接消费，把它们改成依赖 member-level `catConfig` 会污染 shared routing 语义 + 强制全面扩参——这不是实现细节，是 shared contract 决策。
+
+1. **保留 `protocolForClient('catagent') === 'anthropic'`** 作为 catagent client 的 default protocol——这仍然是 sensible default（缺省 `catAgentProtocol`'anthropic-messages'）；shared helper 的"通用 client-level mapping"语义不变
+2. **新增 `effectiveProtocolForCat(catConfig: CatConfig): 'anthropic' | 'openai' | ...`**（in `@cat-cafe/shared`）：
+   - 接收 member-level `catConfig`
+   - 对 `catConfig.clientId === 'catagent'`：返回 `catConfig.catAgentProtocol === 'openai-chat' ? 'openai' : 'anthropic'`（基于 G2 选择位）
+   - 对其他 `clientId`：fall through 到 `protocolForClient(clientId)` 保持现有行为
+3. **`builtinAccountFamilyForClient('catagent')`**：同样保留为 client-level default `'anthropic'`；新增 `effectiveClientFamilyForCat(catConfig)` 承担 member-level family 解析（与 protocolForClient 同模式）
+4. **`packages/shared/test/client-routing.test.js:10`** assertion 保留（保护 client-level default 语义不漂移）；G2 加新测试覆盖 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 行为
+5. **下游消费方迁移 audit**：G2 必须列出所有 `protocolForClient('catagent')` / `builtinAccountFamilyForClient('catagent')` 调用点，**逐个判断**：
+   - 走 client-level default（OK，不动）
+   - 需要 member-level protocol-aware（迁移到 `effective*` 变体）
+   - 当前已知调用点（按砚砚证据）：`client-routing.ts:16`、`first-run-quest.ts:435`、`hub-cat-editor.model.ts:368`、`account-resolver.ts` 内部 + `catagent-protocol-factory.ts`
 
 ##### Axis 4: AccountConfig schema 加 explicit `clientFamily` on api_key accounts
 
@@ -374,8 +383,8 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 - [ ] AC-G17: `catagent-protocol-factory.ts` 基于 `catConfig.catAgentProtocol` dispatch；未识别值 fail closed（throw），禁止 fallback 猜协议（spec 选项 B 显式拒绝）
 
 ##### Axis 3: Shared routing contract
-- [ ] AC-G18: `protocolForClient('catagent')` / `builtinAccountFamilyForClient('catagent')` 不再 hardcode `'anthropic'`；改为接受 `catConfig.catAgentProtocol` 参数 或新增 `effectiveProtocolForCat(catConfig)` 给 catagent 用真实选择位
-- [ ] AC-G19: `client-routing.test.js` 旧 assertion 替换为 protocol-aware 用例（覆盖 `anthropic-messages` + `openai-chat` 两种）；audit 所有 `clientId === 'catagent'` 的 hardcoded routing 假设
+- [ ] AC-G18: 保留 `protocolForClient` / `builtinAccountFamilyForClient` 作为纯 client-level default mapping（不变），新增 `effectiveProtocolForCat(catConfig)` + `effectiveClientFamilyForCat(catConfig)` 在 `@cat-cafe/shared` 承担 catagent-specific protocol-aware 解析 (KD-24)
+- [ ] AC-G19: 保留 `client-routing.test.js:10` 旧 assertion 不变（保护 client-level default 语义）；G2 加新测试覆盖 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 含 `anthropic-messages` + `openai-chat` 两种 + 非 catagent fallthrough；audit 所有 `protocolForClient('catagent')` / `builtinAccountFamilyForClient('catagent')` 调用点，逐个判断走 default 还是迁移到 effective* 变体
 
 ##### Axis 4: AccountConfig api_key clientFamily
 - [ ] AC-G20: `AccountConfig` (@cat-cafe/shared) 在 api_key 账号 schema 加 optional `clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode'`
@@ -391,6 +400,11 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 ##### Cross-cutting
 - [ ] AC-G27: AC-G12 grep verifier 扩展：service 层也不允许 `Openai*` / `openai*` 代码标识符（保持 vendor-neutral）；扩多协议后 verifier 仍 pass
 - [ ] AC-G28: 跨 family review 通过；Hub UI 跨 protocol switch UX 走暹罗猫审美 review
+
+##### Regression hard gate (G2 merge 必经，收砚砚 P1 finding)
+- [ ] AC-G29: G1 既有的 Anthropic broad suite (catagent-phase-e/f/d/provider/security-baseline/stream-parser/phase-b-completion = 130+ tests) 在 G2 之后 **100% 不变化通过**；任何 regression 视为 G2 blocker，不允许"新路径全绿就 merge"
+- [ ] AC-G30: G1 `AnthropicMessagesAdapter` golden-wire contract test (`anthropic-messages-adapter-golden.test.js`, 35 tests) 在 G2 之后 **byte-stable 100% pass**——共享 routing / catalog / routes / credentials 改动不能让 Anthropic wire shape 漂移哪怕 1 byte
+- [ ] AC-G31: AC-G12 verifier 不仅 service neutrality PASS，还必须验证现有 catagent member 在 `catAgentProtocol` 缺省时**继续走 Anthropic adapter**（factory 默认分支行为不变）
 
 > Implementation note (2026-06-16): `update_current_task_status` 只从 thread metadata 中显式选中的 current task 注入；callback 执行时会重新校验 `threadId` 和 `ownerCatId`。未选中 task、跨 thread、跨 owner 时不注册该工具。`post_current_thread_status` / raw `post_message` / `create_task` / cross-thread / A2A routing 仍未进入 Phase F 工具面。
 
@@ -440,6 +454,8 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 | OpenAI Chat 协议下 tool calling 映射 lossless 难度高（function call arguments stream chunked, id 跨 chunk 累计） | AC-G24 显式 acceptance；golden-wire test 覆盖累计 tool_call 边界 case |
 | `protocolForClient('catagent')` 改 protocol-aware 影响下游 audit / OTel / metrics 路由 | AC-G18 + AC-G19 audit 所有 hardcoded routing 假设；shared routing contract 重审作为 G2 merge gate 一部分 |
 | api_key 账号现有未声明 family 的，AC-G20/G21 backward-compat fall through 可能让 G1 narrow guard 继续半空 | KD-22 + AC-G22：现有账号 best-effort 不阻塞，新建账号 Hub 引导；G3 时若仍残留可再设迁移 deadline |
+| G2 merge gate 只看新路径全绿，共享 routing/catalog/routes/credentials 改坏默认 Anthropic 路径也能 merge | KD-25 + AC-G29/G30/G31：显式双门，G1 broad suite + Anthropic golden-wire byte-stable + factory 默认分支不变 |
+| 把 `protocolForClient` 改成接 catConfig 参数 → 通用调用点全面扩参 + shared routing 语义被污染 | KD-24：保留现有 helper 作 client-level default，新增 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 承担 member-level protocol-aware 解析 |
 | Phase G refactor 破坏 Phase F write/exec 行为 | G1 限定 refactor-only，merge gate = Phase A-F 既有测试 100% 不变化通过 |
 | Adapter 选择策略未定，G2 实施时陷入 design 反复 | Slice G2 单独走 design gate，G1 不预判选择策略 |
 | `resolveApiCredentials` 改参数化 `clientFamily` 后破坏现有 catagent 凭据解析 | G1 在 Anthropic 单 adapter 下行为等价；现有回归测试 100% 覆盖 |
@@ -471,6 +487,8 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 | KD-21 | adapter `clientFamily` 仍是只读属性（KD-15），factory 负责选择，service 仍只持 interface | 维持 G1 三层分离（service 中性 / factory 选择 / adapter truthful），protocol-aware 决策点单一可审计 | 2026-06-24 |
 | KD-22 | G2 完成 G1 P2 留下的另一半：`AccountConfig` api_key 账号 schema 加 explicit `clientFamily` | G1 narrow guard 只 cover OAuth builtin；api_key 路径 best-effort 不算 fail-closed。G2 schema 扩展 + Hub UI 创建账号引导 + 向下兼容现有未声明 family 的 api_key 账号 | 2026-06-24 |
 | KD-23 | G2 触发自 co-creator 真实 dogfood (2026-06-24 OpenAI-only 代理 403 permission_error)，从"过度工程"重定为"真实需求" | 实证驱动节奏决定 | 2026-06-24 |
+| KD-24 | 保留现有 `protocolForClient` / `builtinAccountFamilyForClient` 作为纯 client-level default mapping，**不接受 member-level `catConfig` 参数**；新增 catagent-specific `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 承担 protocol-aware 解析 | @gpt555 G2 design gate iteration P2：把 shared helper 改成依赖 member-level `catConfig` 会污染 shared routing 语义 + 强制通用调用点 (`client-routing.ts:16` / `first-run-quest.ts:435` / `hub-cat-editor.model.ts:368`) 全面扩参。两层 helper（client-level default + member-level effective）分离 — 这是 shared contract 决策，不是实现细节 | 2026-06-24 |
+| KD-25 | G2 merge gate 不只要求新路径全绿，还要求 G1 Anthropic broad suite + golden-wire byte-stable 全绿（双门） | @gpt555 G2 design gate iteration P1：spec 把 `catAgentProtocol` 缺省承诺成回落 `anthropic-messages`，但若 merge gate 只看 OpenAI 新路径，共享 routing / catalog / routes / credentials 改动可能让默认 Anthropic 路径回归被 merge——AC-G29~G31 把 G1 byte-stable 锁成显式硬门 | 2026-06-24 |
 
 ## Review Gate
 
@@ -481,7 +499,7 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 - Phase F merge gate: AC-F15（ADR-001 边界修订）必须先完成
 - Phase F exit / launch gate: 默认权限策略、dogfood、审计可见性、fail-closed 验证
 - Phase G Slice G1: 跨 family review（必须）；merge gate = AC-G6 / AC-G7 / AC-G8 全过（refactor-only 行为保持）
-- Phase G Slice G2: 独立 design gate（本 spec PR）；spec merge 后跨 family code review；merge gate = AC-G13~G28 全部 met + golden-wire OpenAIChatAdapter PASS + AC-G12 verifier 扩展后仍 PASS
+- Phase G Slice G2: 独立 design gate（本 spec PR）；spec merge 后跨 family code review；merge gate = AC-G13~G28 全部 met + golden-wire OpenAIChatAdapter PASS + AC-G12 verifier 扩展后仍 PASS + **G1 Anthropic 回归硬门 AC-G29/G30/G31 全过**（双门，KD-25）
 - Phase G Slice G3 (Gemini, deferred)：G2 完成后另起 design gate；若 Axis 1-4 已落地，G3 只剩 adapter 实现 + 协议白名单扩展
 
 ## Revision History
@@ -496,3 +514,4 @@ G2 覆盖**四个真相源轴**（任何一个缺，G2 就是局部解，G3 上�
 | 2026-06-24 | Phase G Slice G1 spec 修订（design gate iteration） | @gpt555 design gate review P1+P2：G1 seam 扩到 HTTP/stream/transcript codec/中性 block & event 四层；新增 AC-G10/G11/G12 + KD-17/18 + golden-wire contract test 强化 merge gate；service 层全文不再出现 `Anthropic*` 标识符 |
 | 2026-06-24 | Phase G Slice G1 implementation merge (`b8bab800` PR #23) | refactor-only adapter seam + AnthropicMessagesAdapter 落地；166/166 tests pass + AC-G12 verifier PASS；P2 OAuth builtin family guard 收口 |
 | 2026-06-24 | Phase G Slice G2 升级到 in-design：协议选择位 + OpenAIChatAdapter | 触发：co-creator dogfood 撞 OpenAI-only 代理 `403 permission_error: "This group does not allow /v1/messages dispatch"` 实证 (KD-23)；@gpt555 G2 pre-design push back 扩 scope 到真相源协议选择位 + shared routing contract + api_key clientFamily schema 4 axes (KD-19~22)；新增 AC-G13~G28 |
+| 2026-06-24 | Phase G Slice G2 spec 修订（design gate iteration） | @gpt555 G2 design gate review P1+P2：P1 merge gate gap → AC-G29/G30/G31 + KD-25 把 G1 Anthropic broad suite + golden-wire + factory 默认分支锁成显式硬门；P2 shared helper contract 二选一 → KD-24 拍板保留现有 `protocolForClient` / `builtinAccountFamilyForClient` 作 client-level default，新增 `effectiveProtocolForCat` / `effectiveClientFamilyForCat` 承担 member-level protocol-aware，避免污染 shared routing 语义 |
