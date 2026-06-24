@@ -4,6 +4,7 @@ import {
   type CliEffortValue,
   type CommandPolicyEntry,
   getCliEffortOptionsForProvider,
+  type CatAgentProtocol,
   type NativeToolLevel,
   builtinAccountIdForClient as sharedBuiltinAccountIdForClient,
 } from '@cat-cafe/shared';
@@ -55,6 +56,10 @@ export interface HubCatEditorFormState {
   nativeToolLevel: NativeToolLevel | '';
   /** F159 Phase F: safe command policy preset for CatAgent L2. */
   commandPolicyPreset: CatAgentCommandPolicyPreset;
+  /** F159 Phase G G2 (AC-G16): CatAgent wire protocol selection.
+   *  '' = backend default ('anthropic-messages'); switching catagent → catagent
+   *  preserves whatever value was loaded. Cleared when clientId !== 'catagent'. */
+  catAgentProtocol: CatAgentProtocol | '';
   cliEffort: CliEffortValue | '';
   provider: string;
   acpEnabled: boolean;
@@ -130,6 +135,14 @@ export const NATIVE_TOOL_LEVEL_OPTIONS: Array<{ value: NativeToolLevel | ''; lab
   { value: '', label: 'L0 · 只读（默认）' },
   { value: 'L1', label: 'L1 · 读 + 写文件' },
   { value: 'L2', label: 'L2 · 读 + 写 + 执行命令' },
+];
+
+/** F159 Phase G G2 (AC-G16): CatAgent wire protocol options.
+ *  '' renders the backend default (Anthropic Messages, G1 catagent baseline). */
+export const CAT_AGENT_PROTOCOL_OPTIONS: Array<{ value: CatAgentProtocol | ''; label: string }> = [
+  { value: '', label: 'Anthropic Messages（默认）' },
+  { value: 'anthropic-messages', label: 'Anthropic Messages · /v1/messages + x-api-key' },
+  { value: 'openai-chat', label: 'OpenAI Chat · /v1/chat/completions + Bearer' },
 ];
 
 export const CATAGENT_GIT_READONLY_COMMAND_POLICY: readonly CommandPolicyEntry[] = [
@@ -448,6 +461,10 @@ export function initialState(cat?: CatData | null, draft?: HubCatEditorDraft | n
     cliConfigArgs: [...(cat?.cliConfigArgs ?? [])],
     nativeToolLevel: cat?.nativeToolLevel && cat.nativeToolLevel !== 'L0' ? cat.nativeToolLevel : '',
     commandPolicyPreset: detectCatAgentCommandPolicyPreset(cat?.commandPolicy),
+    // F159 Phase G G2 (AC-G16): preserve loaded value verbatim; '' means
+    // "use backend default" (Anthropic Messages). Hub UI dropdown surfaces
+    // the explicit option for visibility.
+    catAgentProtocol: cat?.catAgentProtocol ?? '',
     cliEffort: isCliEffortValue(persistedCliEffort) ? persistedCliEffort : '',
     provider: cat?.provider ?? '',
     acpEnabled:

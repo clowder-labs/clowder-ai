@@ -5,7 +5,7 @@
  * Fetches once per session, caches module-level. All consumers share same data.
  */
 
-import type { CommandPolicyEntry } from '@cat-cafe/shared';
+import type { CatAgentProtocol, CommandPolicyEntry } from '@cat-cafe/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { UNKNOWN_CAT_COLOR } from '@/lib/color-defaults';
 import { refreshMentionData } from '@/lib/mention-highlight';
@@ -37,6 +37,8 @@ export interface CatData {
   nativeToolLevel?: 'L0' | 'L1' | 'L2';
   /** F159 Phase F: CatAgent L2 command allowlist. */
   commandPolicy?: CommandPolicyEntry[];
+  /** F159 Phase G G2 (AC-G15): CatAgent wire protocol — surfaces from /api/cats GET. */
+  catAgentProtocol?: CatAgentProtocol;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
   provider?: string;
   /** F161: ACP transport config. Presence means this member runs through ACP instead of legacy CLI. */
