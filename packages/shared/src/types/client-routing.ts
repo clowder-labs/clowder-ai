@@ -66,10 +66,26 @@ export function protocolForClient(client: ClientId): BuiltinAccountProtocol | nu
 // the client-level default), falling through to the client-level helpers
 // otherwise.
 //
-// Migration audit (G2 follow-up): downstream call sites for protocolForClient
-// / builtinAccountFamilyForClient should each be evaluated individually for
-// whether they want the client-level default (keep) or the member-level
-// effective answer (migrate to effective* variant).
+// ── AC-G19 Migration Audit (completed 2026-06-24 per @gpt555 G2 Axis 3 P2) ──
+//
+// Audit of every existing `protocolForClient('catagent')` /
+// `builtinAccountFamilyForClient('catagent')` call site with per-site decision:
+//
+// | Call site                                         | Decision  | Rationale                                                                                                                                                |
+// | ------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+// | account-resolver.ts:45  resolveBuiltinClientForProvider(provider: ClientId) | KEEP   | Helper accepts only ClientId; caller has no catConfig context. Catagent-aware credential resolution flows through `catagent-credentials.ts` w/ `adapter.clientFamily` (Axis 2 already wires this end-to-end). |
+// | account-resolver.ts:131 builtinProtocol from BUILTIN_ACCOUNT_MAP ref           | KEEP   | Profile-shape derivation from synthetic builtin ref (OAuth fallback); catAgentProtocol does not apply at the account-profile layer.                                                              |
+// | account-resolver.ts:165 same as :131 in preferred-ref branch                   | KEEP   | Same — synthetic builtin profile shape; not member-level.                                                                                                                                       |
+// | account-resolver.ts:202 same as :131 in walk-discovery-chain branch           | KEEP   | Same.                                                                                                                                                                                            |
+// | account-resolver.ts:241 same as :131 in synthetic-fallback branch             | KEEP   | Same.                                                                                                                                                                                            |
+// | first-run-quest.ts:437  buildProbeEnv(clientId, ...)                          | KEEP   | First-run credential probe runs BEFORE any cat is persisted — there is no CatConfig at this point, only the operator's chosen clientId for probing. Catagent-specific protocol is decided post-creation.       |
+// | hub-cat-editor.model.ts:381 resolveBuiltinClientFamily → filterAccounts       | DEFERRED | Hub UI account-picker filter; for catagent + 'openai-chat' the picker should arguably show OpenAI accounts. Migration requires threading `form.catAgentProtocol` through `filterAccounts`. Tracked as Axis 6 cross-cutting UX polish — does NOT block G2 merge gate (credentials path still fails-closed at adapter level via Axis 2). |
+//
+// Outcome: 6 sites KEEP client-level default (correct semantics — they
+// operate on ClientId / profile shape, not member-level routing). 1 site
+// DEFERRED with explicit follow-up tracker. Zero sites required immediate
+// migration to satisfy AC-G19; the client-level / member-level split is
+// honored everywhere a catConfig is actually in scope.
 
 /**
  * Resolve the effective wire protocol for a CatAgent member, honoring the
