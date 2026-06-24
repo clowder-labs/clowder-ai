@@ -63,6 +63,34 @@ export function resolveApiCredentials(
     return null;
   }
 
+  // G1 P2 fix (@gpt555 implementation review on PR #23): `clientFamily`
+  // must actually guard the resolved profile, not just be passed through.
+  // resolveForClient's `preferredAccountRef` branch (account-resolver.ts:161-162)
+  // returns the account by ref without verifying its family — so an OAuth
+  // Anthropic builtin (e.g. `claude`) could resolve under
+  // `clientFamily='openai'` silently, making AC-G5 cosmetic and exposing
+  // G2 to silent family routing failures when OpenAIChatAdapter lands.
+  //
+  // Post-check: if the profile carries a builtin client identity
+  // (`profile.client` is set only for OAuth/builtin accounts per
+  // `accountToRuntimeProfile`), it MUST match the requested clientFamily.
+  // Mismatch → fail closed.
+  //
+  // Scope note (deferred to G2 spec): api_key accounts today have no
+  // explicit family on schema (`accountToRuntimeProfile` only sets
+  // `profile.client` for OAuth builtins). The G2 spec must define how
+  // api_key accounts declare family so this guard becomes complete
+  // (not just OAuth/builtin half). For now api_key + missing family is
+  // best-effort and falls through — the runtime API call will fail if
+  // the proxy doesn't speak the requested protocol, surfacing the
+  // mismatch at first invocation rather than silently routing.
+  if (profile.client !== undefined && profile.client !== clientFamily) {
+    log.warn(
+      `[${catId}] Bound account "${boundRef}" client=${profile.client} mismatch with adapter clientFamily=${clientFamily} — fail closed`,
+    );
+    return null;
+  }
+
   log.info(`[${catId}] Resolved API key from bound account: ${boundRef} (family=${clientFamily})`);
   return { apiKey: profile.apiKey, baseURL: profile.baseUrl, source: `bound:${boundRef}` };
 }
