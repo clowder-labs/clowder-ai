@@ -12,6 +12,10 @@
 
 import type { CatConfig } from '@cat-cafe/shared';
 import { resolveForClient } from '../../../../../../config/account-resolver.js';
+// `BuiltinAccountClient` is the resolver's narrow union (subset of ClientId).
+// Imported as a type-only re-export from account-resolver to avoid importing
+// from @cat-cafe/shared twice in this file.
+import type { BuiltinAccountClient } from '../../../../../../config/account-resolver.js';
 import { resolveBoundAccountRefForCat } from '../../../../../../config/cat-account-binding.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 
@@ -47,7 +51,13 @@ export function resolveApiCredentials(
     return null;
   }
 
-  const profile = resolveForClient(projectRoot, clientFamily, boundRef);
+  // G1: adapter declares clientFamily as `string` to leave room for future
+  // protocols (G2 OpenAI Chat / G3 Gemini); resolveForClient currently
+  // accepts a narrow `BuiltinAccountClient | AccountProtocol` union. Cast
+  // at this boundary — if a future adapter ships a clientFamily not in
+  // that union, resolveForClient will return null and credentials resolution
+  // will fail closed (existing behaviour for unknown profiles, AC-B1).
+  const profile = resolveForClient(projectRoot, clientFamily as BuiltinAccountClient, boundRef);
   if (!profile?.apiKey) {
     log.warn(`[${catId}] Bound account "${boundRef}" did not resolve to an API key (family=${clientFamily})`);
     return null;
