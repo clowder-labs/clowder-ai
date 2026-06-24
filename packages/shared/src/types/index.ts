@@ -213,6 +213,8 @@ export type { BuiltinAccountClient } from './client-routing.js';
 export {
   builtinAccountFamilyForClient,
   builtinAccountIdForClient,
+  effectiveClientFamilyForCat,
+  effectiveProtocolForCat,
   protocolForClient,
 } from './client-routing.js';
 // Command types (F142 Phase B — slash command framework)
