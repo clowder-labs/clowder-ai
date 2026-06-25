@@ -22,6 +22,7 @@ export interface ReviewFeedbackSignal {
   task: TaskItem;
   repoFullName: string;
   prNumber: number;
+  headSha?: string;
   newComments: PrFeedbackComment[];
   newDecisions: PrReviewDecision[];
   commitCursor: () => Promise<void>;
@@ -388,6 +389,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 task,
                 repoFullName,
                 prNumber,
+                headSha: prMetadata?.headSha,
                 newComments,
                 newDecisions,
                 commitCursor: () =>
@@ -449,6 +451,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
           {
             repoFullName: signal.repoFullName,
             prNumber: signal.prNumber,
+            headSha: signal.headSha,
             newComments: signal.newComments,
             newDecisions: signal.newDecisions,
           },
@@ -457,6 +460,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             catId: task.ownerCatId ?? '',
             userId: task.userId ?? '',
             trackingInstructions: task.automationState?.trackingInstructions,
+            trackingInstructionsHeadSha: task.automationState?.trackingInstructionsHeadSha,
           },
         );
 

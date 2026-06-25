@@ -3021,6 +3021,149 @@ describe('Callback Routes', () => {
     assert.equal(stored.automationState.trackingInstructions, '');
   });
 
+  test('POST register-pr-tracking binds instructions to the seeded PR head', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 105,
+        instructions: 'Handle this head before merge.',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.task.automationState.trackingInstructions, 'Handle this head before merge.');
+    assert.equal(body.task.automationState.trackingInstructionsHeadSha, 'test-head');
+  });
+
+  test('POST register-pr-tracking rebinds updated instructions to the current active PR head', async () => {
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    const boundaryCalls = [];
+    const boundaries = [
+      {
+        review: { lastCommentCursor: 10, lastDecisionCursor: 20 },
+        ci: { headSha: 'sha-old', lastFingerprint: 'sha-old:pass', lastBucket: 'pass' },
+      },
+      {
+        review: { lastCommentCursor: 110, lastDecisionCursor: 220 },
+        ci: { headSha: 'sha-current', lastFingerprint: 'sha-current:pending', lastBucket: 'pending' },
+      },
+    ];
+    await app.register(callbacksRoutes, {
+      registry,
+      messageStore,
+      socketManager,
+      taskStore,
+      threadStore,
+      evidenceStore,
+      reflectionService,
+      markerQueue,
+      fetchPrTrackingBoundary: async (repoFullName, prNumber) => {
+        boundaryCalls.push({ repoFullName, prNumber });
+        return boundaries.shift();
+      },
+    });
+
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+    const headers = { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 106,
+        instructions: 'Handle old head.',
+      },
+    });
+    assert.equal(first.statusCode, 200);
+    assert.equal(JSON.parse(first.body).task.automationState.trackingInstructionsHeadSha, 'sha-old');
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 106,
+        instructions: 'Handle current head.',
+      },
+    });
+    assert.equal(second.statusCode, 200);
+    const updated = JSON.parse(second.body).task.automationState;
+    assert.equal(updated.trackingInstructions, 'Handle current head.');
+    assert.equal(updated.trackingInstructionsHeadSha, 'sha-current');
+    assert.deepEqual(boundaryCalls, [
+      { repoFullName: 'zts212653/cat-cafe', prNumber: 106 },
+      { repoFullName: 'zts212653/cat-cafe', prNumber: 106 },
+    ]);
+  });
+
+  test('POST register-pr-tracking rejects active instruction updates when current PR head is unavailable', async () => {
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    const boundaries = [
+      {
+        review: { lastCommentCursor: 10, lastDecisionCursor: 20 },
+        ci: { headSha: 'sha-old', lastFingerprint: 'sha-old:pass', lastBucket: 'pass' },
+      },
+      {
+        review: { lastCommentCursor: 110, lastDecisionCursor: 220 },
+      },
+    ];
+    await app.register(callbacksRoutes, {
+      registry,
+      messageStore,
+      socketManager,
+      taskStore,
+      threadStore,
+      evidenceStore,
+      reflectionService,
+      markerQueue,
+      fetchPrTrackingBoundary: async () => boundaries.shift(),
+    });
+
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+    const headers = { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 107,
+        instructions: 'Handle old head.',
+      },
+    });
+    assert.equal(first.statusCode, 200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 107,
+        instructions: 'Handle current head.',
+      },
+    });
+    assert.equal(second.statusCode, 503);
+    assert.deepEqual(JSON.parse(second.body), { error: 'PR tracking boundary unavailable — try again later' });
+
+    const stored = taskStore.getBySubject('pr:zts212653/cat-cafe#107');
+    assert.equal(stored.automationState.trackingInstructions, 'Handle old head.');
+    assert.equal(stored.automationState.trackingInstructionsHeadSha, 'sha-old');
+  });
+
   test('POST register-pr-tracking seeds PR feedback and CI boundaries after unregister/re-register', async () => {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const app = Fastify();
