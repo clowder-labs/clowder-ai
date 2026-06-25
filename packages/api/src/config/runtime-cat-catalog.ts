@@ -1,6 +1,7 @@
 import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type {
+  CatAgentProtocol,
   CatBreed,
   CatCafeConfig,
   CatColor,
@@ -46,6 +47,8 @@ export interface RuntimeCatInput {
   cliConfigArgs?: string[];
   nativeToolLevel?: NativeToolLevel;
   commandPolicy?: CommandPolicyEntry[];
+  /** F159 Phase G G2 (AC-G14): CatAgent wire protocol; only persisted when clientId === 'catagent'. */
+  catAgentProtocol?: CatAgentProtocol;
   contextBudget?: ContextBudget;
   voiceConfig?: VoiceConfig;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
@@ -77,6 +80,8 @@ export interface RuntimeCatUpdate {
   cliConfigArgs?: string[];
   nativeToolLevel?: NativeToolLevel | null;
   commandPolicy?: CommandPolicyEntry[] | null;
+  /** F159 Phase G G2 (AC-G14): CatAgent wire protocol; null to clear, undefined to skip. */
+  catAgentProtocol?: CatAgentProtocol | null;
   contextBudget?: ContextBudget | null;
   voiceConfig?: VoiceConfig | null;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
@@ -238,6 +243,9 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
         ...(input.clientId === 'catagent' && input.nativeToolLevel ? { nativeToolLevel: input.nativeToolLevel } : {}),
         ...(input.clientId === 'catagent' && input.commandPolicy && input.commandPolicy.length > 0
           ? { commandPolicy: input.commandPolicy }
+          : {}),
+        ...(input.clientId === 'catagent' && input.catAgentProtocol
+          ? { catAgentProtocol: input.catAgentProtocol }
           : {}),
         ...(input.provider ? { provider: input.provider } : {}),
         ...(input.contextBudget ? { contextBudget: input.contextBudget } : {}),
@@ -457,9 +465,19 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
         delete variant.commandPolicy;
       }
     }
+    // F159 Phase G G2 (AC-G14): catAgentProtocol persisted only when clientId === 'catagent';
+    // null clears, undefined skips. Switching away from catagent below also clears it.
+    if (patch.catAgentProtocol !== undefined) {
+      if (patch.catAgentProtocol) {
+        variant.catAgentProtocol = patch.catAgentProtocol;
+      } else {
+        delete variant.catAgentProtocol;
+      }
+    }
   } else {
     delete variant.nativeToolLevel;
     delete variant.commandPolicy;
+    delete variant.catAgentProtocol;
   }
   if (patch.provider !== undefined) {
     if (patch.provider) {

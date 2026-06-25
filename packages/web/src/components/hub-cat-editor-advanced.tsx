@@ -2,6 +2,7 @@
 
 import type { CatData } from '@/hooks/useCatData';
 import {
+  CAT_AGENT_PROTOCOL_OPTIONS,
   CATAGENT_COMMAND_POLICY_PRESET_OPTIONS,
   CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION,
   CODEX_APPROVAL_OPTIONS,
@@ -185,6 +186,18 @@ export function AdvancedRuntimeSection({
                 当前成员已有自定义策略；此处只保留或切换到内置预设，不编辑自定义 JSON。
               </p>
             ) : null}
+            {/* F159 Phase G G2 (AC-G16): wire protocol selector for CatAgent. */}
+            <SelectField
+              label="协议 (CatAgent)"
+              value={form.catAgentProtocol}
+              options={CAT_AGENT_PROTOCOL_OPTIONS}
+              onChange={(value) => onChange({ catAgentProtocol: value as HubCatEditorFormState['catAgentProtocol'] })}
+              tone="success"
+            />
+            <p className="text-label leading-4 text-cafe-muted">
+              选择 catagent 调用的 wire protocol。默认 Anthropic Messages，需要绑 Anthropic 兼容账号； OpenAI Chat 走
+              `/v1/chat/completions`，需要绑 OpenAI 兼容账号——切换协议后请确认账号 family 匹配。
+            </p>
           </div>
         ) : null}
       </div>

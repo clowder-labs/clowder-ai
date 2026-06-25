@@ -194,6 +194,15 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
           ? { commandPolicy: null }
           : {}
         : {};
+  // F159 Phase G G2 (AC-G16): catAgentProtocol patch — only emit on catagent
+  // members; clear when switching away from catagent (mirrors nativeToolLevel
+  // pattern). '' on the form means "backend default", not "no value to send".
+  const catAgentProtocolPatch: Record<string, unknown> =
+    isCatAgent && form.catAgentProtocol
+      ? { catAgentProtocol: form.catAgentProtocol }
+      : cat?.catAgentProtocol
+        ? { catAgentProtocol: null }
+        : {};
   const common = {
     displayName,
     variantLabel: trimText(form.variantLabel),
@@ -241,6 +250,7 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
     cliConfigArgs: (form.cliConfigArgs ?? []).filter((arg) => arg.trim().length > 0),
     ...nativeToolLevelPatch,
     ...commandPolicyPatch,
+    ...catAgentProtocolPatch,
     ...buildProviderPatch(form, cat),
   };
 }

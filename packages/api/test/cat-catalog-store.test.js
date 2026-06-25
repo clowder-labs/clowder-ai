@@ -414,6 +414,129 @@ describe('cat-catalog-store', () => {
     });
   });
 
+  // F159 Phase G G2 step 1a (@gpt555 P2 coverage gap fix):
+  // mirror the nativeToolLevel/commandPolicy persistence test matrix for the
+  // new catAgentProtocol truth-source field — three behaviors that matter:
+  //   1. create persists when clientId === 'catagent'
+  //   2. patch updates / null clears existing catAgentProtocol
+  //   3. switching clientId away from 'catagent' clears catAgentProtocol
+  it('persists catAgentProtocol when creating a catagent member, clears for non-catagent', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
+    writeCatCatalog(projectRoot, validConfig());
+
+    // 1. catagent + catAgentProtocol → persisted
+    await createRuntimeCat(projectRoot, {
+      catId: 'protocol-cat',
+      breedId: 'protocol-cat',
+      name: '协议猫',
+      displayName: '协议猫',
+      avatar: '/avatars/protocol-cat.png',
+      color: { primary: '#0ea5e9', secondary: '#e0f2fe' },
+      mentionPatterns: ['@protocol-cat'],
+      roleDescription: '协议位测试',
+      clientId: 'catagent',
+      accountRef: 'claude',
+      defaultModel: 'claude-opus-4-6',
+      mcpSupport: false,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+      catAgentProtocol: 'openai-chat',
+    });
+
+    let catalog = readRuntimeCatCatalog(projectRoot);
+    const created = catalog.breeds.find((breed) => breed.catId === 'protocol-cat');
+    assert.ok(created, 'protocol-cat breed should be created');
+    assert.equal(created.variants[0]?.catAgentProtocol, 'openai-chat');
+
+    // 2. non-catagent clientId with catAgentProtocol → field NOT persisted
+    await createRuntimeCat(projectRoot, {
+      catId: 'non-catagent',
+      breedId: 'non-catagent',
+      name: '非原生猫',
+      displayName: '非原生猫',
+      avatar: '/avatars/non-catagent.png',
+      color: { primary: '#dc2626', secondary: '#fee2e2' },
+      mentionPatterns: ['@non-catagent'],
+      roleDescription: '非 catagent 隔离测试',
+      clientId: 'openai',
+      defaultModel: 'gpt-5.4',
+      mcpSupport: true,
+      cli: { command: 'codex', outputFormat: 'json' },
+      catAgentProtocol: 'openai-chat',
+    });
+
+    catalog = readRuntimeCatCatalog(projectRoot);
+    const nonCatagent = catalog.breeds.find((breed) => breed.catId === 'non-catagent');
+    assert.ok(nonCatagent, 'non-catagent breed should be created');
+    assert.equal(
+      nonCatagent.variants[0]?.catAgentProtocol,
+      undefined,
+      'catAgentProtocol must not persist on non-catagent variants',
+    );
+  });
+
+  it('updates and clears catAgentProtocol on existing catagent member, and clears on client switch away', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
+    writeCatCatalog(projectRoot, validConfig());
+
+    // Seed: create catagent member with catAgentProtocol='openai-chat'
+    await createRuntimeCat(projectRoot, {
+      catId: 'patch-protocol-cat',
+      breedId: 'patch-protocol-cat',
+      name: '更新协议猫',
+      displayName: '更新协议猫',
+      avatar: '/avatars/patch-protocol-cat.png',
+      color: { primary: '#7c3aed', secondary: '#ede9fe' },
+      mentionPatterns: ['@patch-protocol-cat'],
+      roleDescription: '协议位 patch 测试',
+      clientId: 'catagent',
+      accountRef: 'claude',
+      defaultModel: 'claude-opus-4-6',
+      mcpSupport: false,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+      catAgentProtocol: 'openai-chat',
+    });
+
+    // Patch: switch protocol to anthropic-messages
+    await updateRuntimeCat(projectRoot, 'patch-protocol-cat', {
+      catAgentProtocol: 'anthropic-messages',
+    });
+    let catalog = readRuntimeCatCatalog(projectRoot);
+    let updated = catalog.breeds.find((breed) => breed.catId === 'patch-protocol-cat');
+    assert.equal(updated.variants[0]?.catAgentProtocol, 'anthropic-messages');
+
+    // Patch null clears
+    await updateRuntimeCat(projectRoot, 'patch-protocol-cat', {
+      catAgentProtocol: null,
+    });
+    catalog = readRuntimeCatCatalog(projectRoot);
+    updated = catalog.breeds.find((breed) => breed.catId === 'patch-protocol-cat');
+    assert.equal(updated.variants[0]?.catAgentProtocol, undefined, 'patch null must clear catAgentProtocol');
+
+    // Re-seed catAgentProtocol then switch clientId away from catagent
+    await updateRuntimeCat(projectRoot, 'patch-protocol-cat', {
+      catAgentProtocol: 'openai-chat',
+    });
+    catalog = readRuntimeCatCatalog(projectRoot);
+    updated = catalog.breeds.find((breed) => breed.catId === 'patch-protocol-cat');
+    assert.equal(updated.variants[0]?.catAgentProtocol, 'openai-chat', 're-seed sanity check');
+
+    await updateRuntimeCat(projectRoot, 'patch-protocol-cat', {
+      clientId: 'openai',
+    });
+    catalog = readRuntimeCatCatalog(projectRoot);
+    updated = catalog.breeds.find((breed) => breed.catId === 'patch-protocol-cat');
+    assert.equal(
+      updated.variants[0]?.catAgentProtocol,
+      undefined,
+      'switching away from catagent must clear catAgentProtocol',
+    );
+    // nativeToolLevel / commandPolicy 同样路径已被既有测试 cover;此处只断言 protocol 字段被清
+  });
+
   it('updates an existing runtime member in place', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
     const templatePath = join(projectRoot, 'cat-template.json');

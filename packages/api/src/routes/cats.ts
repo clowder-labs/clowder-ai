@@ -185,6 +185,8 @@ const createNormalCatSchema = baseCatSchema.extend({
       }),
     )
     .optional(),
+  /** F159 Phase G G2 (AC-G15): CatAgent wire protocol — only valid when clientId === 'catagent'. */
+  catAgentProtocol: z.enum(['anthropic-messages', 'openai-chat']).optional(),
   provider: z.string().min(1).optional(),
   acp: acpConfigSchema.optional(), // F161: optional ACP transport for any client
 });
@@ -249,6 +251,8 @@ const updateCatSchema = z.object({
     )
     .nullable()
     .optional(),
+  /** F159 Phase G G2 (AC-G15): CatAgent wire protocol — nullable to allow clearing. */
+  catAgentProtocol: z.enum(['anthropic-messages', 'openai-chat']).nullable().optional(),
   provider: z.string().min(1).nullable().optional(),
   voiceConfig: voiceConfigSchema.nullable().optional(),
   acp: acpConfigSchema.nullable().optional(), // F161: nullable to allow removing ACP transport
@@ -256,19 +260,24 @@ const updateCatSchema = z.object({
 
 type UpdateCatRequestBody = z.infer<typeof updateCatSchema>;
 
-function hasNativeToolSettings(body: unknown): boolean {
+// F159 Phase G G2 step 1b: helpers gate catagent-only fields. Extended from
+// the pre-G2 nativeToolLevel/commandPolicy pair to also cover catAgentProtocol
+// — same persistence gating boundary at runtime-cat-catalog level.
+const CAT_AGENT_ONLY_FIELDS = ['nativeToolLevel', 'commandPolicy', 'catAgentProtocol'] as const;
+
+function hasCatAgentOnlySettings(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
-  return Object.hasOwn(body, 'nativeToolLevel') || Object.hasOwn(body, 'commandPolicy');
+  return CAT_AGENT_ONLY_FIELDS.some((key) => Object.hasOwn(body, key));
 }
 
-function hasNonNullNativeToolSettings(body: unknown): boolean {
+function hasNonNullCatAgentOnlySettings(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
   const record = body as Record<string, unknown>;
-  return record.nativeToolLevel != null || record.commandPolicy != null;
+  return CAT_AGENT_ONLY_FIELDS.some((key) => record[key] != null);
 }
 
-function catAgentNativeToolError(clientId: ClientId): string {
-  return `nativeToolLevel and commandPolicy are only supported for catagent clients (received ${clientId})`;
+function catAgentOnlySettingsError(clientId: ClientId): string {
+  return `${CAT_AGENT_ONLY_FIELDS.join(' / ')} are only supported for catagent clients (received ${clientId})`;
 }
 
 function resolveOperator(raw: unknown): string | null {
@@ -501,6 +510,7 @@ async function toCatResponse(
       ? {
           nativeToolLevel: cat.nativeToolLevel,
           commandPolicy: cat.commandPolicy,
+          catAgentProtocol: cat.catAgentProtocol,
         }
       : {}),
     provider: cat.provider,
@@ -624,9 +634,9 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const managedIdsBefore = getManagedCatalogIds(projectRoot);
     const body = parsed.data;
 
-    if (body.clientId !== 'catagent' && hasNativeToolSettings(body)) {
+    if (body.clientId !== 'catagent' && hasCatAgentOnlySettings(body)) {
       reply.status(400);
-      return { error: catAgentNativeToolError(body.clientId) };
+      return { error: catAgentOnlySettingsError(body.clientId) };
     }
 
     // Validate alias uniqueness across all existing members
@@ -748,6 +758,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           cli: resolvedCli,
           ...(body.cliConfigArgs ? { cliConfigArgs: body.cliConfigArgs } : {}),
           ...(body.clientId === 'catagent' && body.nativeToolLevel ? { nativeToolLevel: body.nativeToolLevel } : {}),
+          ...(body.clientId === 'catagent' && body.catAgentProtocol ? { catAgentProtocol: body.catAgentProtocol } : {}),
           ...(body.clientId === 'catagent' && body.commandPolicy ? { commandPolicy: body.commandPolicy } : {}),
           ...(body.provider || providerNameForValidation
             ? { provider: body.provider ?? providerNameForValidation }
@@ -818,9 +829,9 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
       return { error: `Cat "${request.params.id}" not found` };
     }
     const effectiveClient = body.clientId ?? currentCat.clientId;
-    if (effectiveClient !== 'catagent' && hasNonNullNativeToolSettings(body)) {
+    if (effectiveClient !== 'catagent' && hasNonNullCatAgentOnlySettings(body)) {
       reply.status(400);
-      return { error: catAgentNativeToolError(effectiveClient) };
+      return { error: catAgentOnlySettingsError(effectiveClient) };
     }
     const currentEffectiveAccountRef = await resolveEffectiveAccountRef(currentCat);
     let targetAccountRef = resolveAccountRef(body);
@@ -917,14 +928,19 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           ? {
               ...(body.nativeToolLevel !== undefined ? { nativeToolLevel: body.nativeToolLevel } : {}),
               ...(body.commandPolicy !== undefined ? { commandPolicy: body.commandPolicy } : {}),
+              // F159 Phase G G2 step 1b (AC-G15): catAgentProtocol透传 — only on catagent path.
+              ...(body.catAgentProtocol !== undefined ? { catAgentProtocol: body.catAgentProtocol } : {}),
             }
           : currentCat.nativeToolLevel !== undefined ||
               currentCat.commandPolicy !== undefined ||
+              currentCat.catAgentProtocol !== undefined ||
               body.nativeToolLevel === null ||
-              body.commandPolicy === null
+              body.commandPolicy === null ||
+              body.catAgentProtocol === null
             ? {
                 nativeToolLevel: null,
                 commandPolicy: null,
+                catAgentProtocol: null,
               }
             : {};
       updateRuntimeCat(projectRoot, request.params.id, {
