@@ -3021,6 +3021,27 @@ describe('Callback Routes', () => {
     assert.equal(stored.automationState.trackingInstructions, '');
   });
 
+  test('POST register-pr-tracking binds instructions to the seeded PR head', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 105,
+        instructions: 'Handle this head before merge.',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.task.automationState.trackingInstructions, 'Handle this head before merge.');
+    assert.equal(body.task.automationState.trackingInstructionsHeadSha, 'test-head');
+  });
+
   test('POST register-pr-tracking seeds PR feedback and CI boundaries after unregister/re-register', async () => {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const app = Fastify();

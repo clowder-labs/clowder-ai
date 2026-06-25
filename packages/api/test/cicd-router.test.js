@@ -95,6 +95,30 @@ describe('CiCdRouter', () => {
     socketMock = mockSocketManager();
   });
 
+  describe('tracking instructions head binding', () => {
+    it('keeps instructions when they describe the current CI head', () => {
+      const content = buildCiMessageContent(
+        makePollResult({ headSha: 'abc1234567890' }),
+        'Proceed to merge readiness.',
+        'abc1234567890',
+      );
+
+      assert.ok(content.includes('📌 **Tracking Instructions**'));
+      assert.ok(content.includes('Proceed to merge readiness.'));
+    });
+
+    it('omits stale instructions when CI reports a newer head', () => {
+      const content = buildCiMessageContent(
+        makePollResult({ headSha: 'newhead1234567890' }),
+        'Handle old head review finding before merge.',
+        'oldhead1234567890',
+      );
+
+      assert.ok(!content.includes('📌 **Tracking Instructions**'));
+      assert.ok(!content.includes('Handle old head review finding before merge.'));
+    });
+  });
+
   // ── AC-A6: Unregistered PR skipped ──────────────────────────────
 
   describe('unregistered PR', () => {

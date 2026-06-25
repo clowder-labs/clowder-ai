@@ -2319,8 +2319,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         }
       }
 
+      const trackingInstructionsHeadSha =
+        instructions !== undefined && instructions !== ''
+          ? (seededPrBoundary?.ci?.headSha ?? existing?.automationState?.ci?.headSha)
+          : instructions === ''
+            ? ''
+            : undefined;
       const automationState = {
-        ...(instructions !== undefined ? { trackingInstructions: instructions } : {}),
+        ...(instructions !== undefined
+          ? {
+              trackingInstructions: instructions,
+              ...(trackingInstructionsHeadSha !== undefined ? { trackingInstructionsHeadSha } : {}),
+            }
+          : {}),
         ...(seededPrBoundary ?? {}),
       };
 

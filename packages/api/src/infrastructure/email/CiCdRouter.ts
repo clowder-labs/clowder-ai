@@ -161,12 +161,16 @@ export class CiCdRouter {
       threadId: string;
       ownerCatId: string | null;
       userId?: string;
-      automationState?: { trackingInstructions?: string };
+      automationState?: { trackingInstructions?: string; trackingInstructionsHeadSha?: string };
     },
     fingerprint: string,
   ): Promise<CiRouteResult> {
     const { taskStore, log } = this.opts;
-    const content = buildCiMessageContent(poll, task.automationState?.trackingInstructions);
+    const content = buildCiMessageContent(
+      poll,
+      task.automationState?.trackingInstructions,
+      task.automationState?.trackingInstructionsHeadSha,
+    );
 
     const source: ConnectorSource = {
       connector: 'github-ci',
@@ -208,7 +212,11 @@ export class CiCdRouter {
   }
 }
 
-export function buildCiMessageContent(poll: CiPollResult, trackingInstructions?: string): string {
+export function buildCiMessageContent(
+  poll: CiPollResult,
+  trackingInstructions?: string,
+  trackingInstructionsHeadSha?: string,
+): string {
   const bucketEmoji = poll.aggregateBucket === 'pass' ? '✅' : '❌';
   const bucketLabel = poll.aggregateBucket === 'pass' ? 'CI 通过' : 'CI 失败';
 
@@ -234,9 +242,20 @@ export function buildCiMessageContent(poll: CiPollResult, trackingInstructions?:
   }
 
   // F202 Phase 2C (AC-C2): append user-provided tracking instructions
-  if (trackingInstructions) {
+  if (shouldAppendTrackingInstructions(trackingInstructions, poll.headSha, trackingInstructionsHeadSha)) {
     lines.push('', '📌 **Tracking Instructions**', trackingInstructions);
   }
 
   return lines.join('\n');
+}
+
+function shouldAppendTrackingInstructions(
+  trackingInstructions: string | undefined,
+  currentHeadSha: string | undefined,
+  instructionsHeadSha: string | undefined,
+): trackingInstructions is string {
+  if (!trackingInstructions) return false;
+  if (!instructionsHeadSha) return true;
+  if (!currentHeadSha) return true;
+  return instructionsHeadSha === currentHeadSha;
 }

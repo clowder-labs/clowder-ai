@@ -68,6 +68,42 @@ describe('ReviewFeedbackRouter', () => {
     socketMock = mockSocketManager();
   });
 
+  describe('tracking instructions head binding', () => {
+    it('keeps instructions when they describe the current review head', () => {
+      const content = buildReviewFeedbackContent(
+        {
+          repoFullName: 'owner/repo',
+          prNumber: 42,
+          headSha: 'abc1234567890',
+          newComments: [{ id: 1, author: 'bot', body: 'LGTM', createdAt: '2026-06-26', commentType: 'conversation' }],
+          newDecisions: [],
+        },
+        'Proceed to merge readiness.',
+        'abc1234567890',
+      );
+
+      assert.ok(content.includes('📌 **Tracking Instructions**'));
+      assert.ok(content.includes('Proceed to merge readiness.'));
+    });
+
+    it('omits stale instructions when review feedback is for a newer head', () => {
+      const content = buildReviewFeedbackContent(
+        {
+          repoFullName: 'owner/repo',
+          prNumber: 42,
+          headSha: 'newhead1234567890',
+          newComments: [{ id: 1, author: 'bot', body: 'LGTM', createdAt: '2026-06-26', commentType: 'conversation' }],
+          newDecisions: [],
+        },
+        'Handle old head review finding before merge.',
+        'oldhead1234567890',
+      );
+
+      assert.ok(!content.includes('📌 **Tracking Instructions**'));
+      assert.ok(!content.includes('Handle old head review finding before merge.'));
+    });
+  });
+
   it('delivers review feedback with correct connector (AC-A3/A4)', async () => {
     const router = createRouter();
     const result = await router.route(
