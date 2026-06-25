@@ -2302,6 +2302,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       const intent = parsed.data.intent ?? existing?.automationState?.intent ?? 'review';
       const shouldSeedPrBoundary = !existing || existing.status === 'done';
       let seededPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
+      let instructionsPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
       if (shouldSeedPrBoundary) {
         if (!fetchPrTrackingBoundary) {
           reply.status(503);
@@ -2317,11 +2318,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           reply.status(503);
           return { error: 'PR tracking boundary unavailable — try again later' };
         }
+      } else if (instructions !== undefined && instructions !== '' && fetchPrTrackingBoundary) {
+        try {
+          instructionsPrBoundary = await fetchPrTrackingBoundary(repoFullName, prNumber);
+        } catch {
+          reply.status(503);
+          return { error: 'PR tracking boundary unavailable — try again later' };
+        }
       }
 
       const trackingInstructionsHeadSha =
         instructions !== undefined && instructions !== ''
-          ? (seededPrBoundary?.ci?.headSha ?? existing?.automationState?.ci?.headSha)
+          ? (seededPrBoundary?.ci?.headSha ??
+            instructionsPrBoundary?.ci?.headSha ??
+            existing?.automationState?.ci?.headSha)
           : instructions === ''
             ? ''
             : undefined;

@@ -97,6 +97,26 @@ Known unrelated checks:
 - `pnpm check` passed Biome and then failed `check-feature-truth` on an existing `ROADMAP` reference to missing `F207`.
 - An accidental broad API test run hit an unrelated `capabilities-route.test.js` timeout; the targeted suites above passed.
 
+### Receive-Review Update
+
+Reviewer found one P2 on active re-register: updating instructions on an already
+tracked PR could reuse old `automationState.ci.headSha`. Fixed by fetching the
+current PR boundary for non-empty active instruction updates and using that
+head only for `trackingInstructionsHeadSha`, without reseeding review/CI cursors.
+
+Red→Green:
+- `POST register-pr-tracking rebinds updated instructions to the current active PR head`: failed with `sha-old`, now passes with `sha-current`.
+
+Additional verification after the fix:
+- `pnpm --dir packages/api run build`: passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 --test-name-pattern "rebinds updated instructions" packages/api/test/callback-routes.test.js`: 1 test passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/cicd-router.test.js packages/api/test/review-feedback-router.test.js`: 41 tests / 17 suites passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 --test-name-pattern "binds instructions|rebinds updated instructions|allows empty instructions" packages/api/test/callback-routes.test.js`: 4 tests passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/f202-phase2-c.test.js packages/api/test/task-store-instructions.test.js`: 30 tests / 11 suites passed
+- `pnpm --dir packages/api run lint`: passed
+- `git diff --check`: passed
+- `pnpm check`: Biome passed, then hit the existing unrelated `ROADMAP`/missing `F207` feature-truth issue
+
 ### Related Documents
 
 - `docs/features/F133-cicd-tracking.md`
