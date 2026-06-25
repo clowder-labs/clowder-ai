@@ -56,9 +56,9 @@ None.
 
 ## Next Action
 
-Please do a non-author current-SHA review of PR #29 at
-`3ed5438210baf32491bfff847583bd62fca66096`. If there are P1/P2 findings, route
-back to receive-review. If clean, approve and include the focused validation you ran.
+Please do a non-author current-SHA review of PR #29. If there are P1/P2
+findings, route back to receive-review. If clean, approve and include the
+focused validation you ran.
 
 ## Review Sandbox
 
