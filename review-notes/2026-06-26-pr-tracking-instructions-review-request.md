@@ -27,9 +27,10 @@ the receiver to handle stale findings from an earlier head.
 ## Tradeoff
 
 This keeps backward compatibility by still appending instructions for older
-tasks that have no stored `trackingInstructionsHeadSha`, and it fails open when
-a callback has no current head SHA. That avoids silently dropping instructions
-from legacy/manual tracking records while fixing the stale-head replay path.
+tasks that have no stored `trackingInstructionsHeadSha`. Head-bound
+instructions now fail closed when the callback cannot prove the current head,
+which avoids replaying stale head-specific actions during transient metadata
+failures.
 
 ## Architecture Ownership
 
@@ -94,7 +95,6 @@ Dogfood:
 - Built `buildCiMessageContent()` with a current head plus old-head instructions; output omitted the stale Tracking Instructions block.
 
 Known unrelated checks:
-- `pnpm check` passed Biome and then failed `check-feature-truth` on an existing `ROADMAP` reference to missing `F207`.
 - An accidental broad API test run hit an unrelated `capabilities-route.test.js` timeout; the targeted suites above passed.
 
 ### Receive-Review Update
@@ -115,7 +115,40 @@ Additional verification after the fix:
 - `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/f202-phase2-c.test.js packages/api/test/task-store-instructions.test.js`: 30 tests / 11 suites passed
 - `pnpm --dir packages/api run lint`: passed
 - `git diff --check`: passed
-- `pnpm check`: Biome passed, then hit the existing unrelated `ROADMAP`/missing `F207` feature-truth issue
+- `pnpm check`: initially hit an unrelated `ROADMAP`/missing `F207` feature-truth issue; the PR now removes that stale ROADMAP row and `pnpm check` passes.
+
+### Receive-Review Update 2
+
+Cloud review found two P2s after the active re-register fix:
+
+1. Active instruction updates still should not fall back to a cached
+   `automationState.ci.headSha` if the fresh PR boundary cannot provide the
+   current head.
+2. Review feedback for head-bound tracking instructions should fail closed when
+   the current review head is unknown.
+
+Fixes:
+- `register-pr-tracking` now rejects non-empty active instruction updates with
+  `503` when the fresh PR boundary is unavailable or lacks `ci.headSha`; it no
+  longer binds new instructions to cached CI head state.
+- CI/review-feedback formatters still fail open for legacy unbound
+  instructions, but fail closed for head-bound instructions when the callback
+  head is unavailable.
+
+Red→Green:
+- `POST register-pr-tracking rejects active instruction updates when current PR head is unavailable`: failed with `200`, now passes with `503`.
+- `omits head-bound instructions when the current review head is unknown`: failed with stale Tracking Instructions present, now passes with the block omitted.
+
+Additional verification after the fix:
+- `pnpm --dir packages/api run build`: passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 --test-name-pattern "rejects active instruction updates" packages/api/test/callback-routes.test.js`: 1 test passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 --test-name-pattern "omits head-bound instructions" packages/api/test/review-feedback-router.test.js`: 1 test passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/cicd-router.test.js packages/api/test/review-feedback-router.test.js`: 42 tests / 17 suites passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 --test-name-pattern "binds instructions|rebinds updated instructions|rejects active instruction updates|allows empty instructions" packages/api/test/callback-routes.test.js`: 5 tests passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import ./packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/f202-phase2-c.test.js packages/api/test/task-store-instructions.test.js`: 30 tests / 11 suites passed
+- `pnpm --dir packages/api run lint`: passed
+- `git diff --check`: passed
+- `pnpm check`: passed
 
 ### Related Documents
 

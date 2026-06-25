@@ -102,6 +102,22 @@ describe('ReviewFeedbackRouter', () => {
       assert.ok(!content.includes('📌 **Tracking Instructions**'));
       assert.ok(!content.includes('Handle old head review finding before merge.'));
     });
+
+    it('omits head-bound instructions when the current review head is unknown', () => {
+      const content = buildReviewFeedbackContent(
+        {
+          repoFullName: 'owner/repo',
+          prNumber: 42,
+          newComments: [{ id: 1, author: 'bot', body: 'LGTM', createdAt: '2026-06-26', commentType: 'conversation' }],
+          newDecisions: [],
+        },
+        'Handle old head review finding before merge.',
+        'oldhead1234567890',
+      );
+
+      assert.ok(!content.includes('📌 **Tracking Instructions**'));
+      assert.ok(!content.includes('Handle old head review finding before merge.'));
+    });
   });
 
   it('delivers review feedback with correct connector (AC-A3/A4)', async () => {

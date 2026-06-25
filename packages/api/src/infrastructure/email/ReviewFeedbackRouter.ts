@@ -199,7 +199,7 @@ function shouldAppendTrackingInstructions(
 ): trackingInstructions is string {
   if (!trackingInstructions) return false;
   if (!instructionsHeadSha) return true;
-  if (!currentHeadSha) return true;
+  if (!currentHeadSha) return false;
   return instructionsHeadSha === currentHeadSha;
 }
 

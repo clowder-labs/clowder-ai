@@ -2301,6 +2301,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       const existing = await taskStore.getBySubject(subjectKey);
       const intent = parsed.data.intent ?? existing?.automationState?.intent ?? 'review';
       const shouldSeedPrBoundary = !existing || existing.status === 'done';
+      const shouldBindInstructionsHead = instructions !== undefined && instructions !== '';
       let seededPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
       let instructionsPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
       if (shouldSeedPrBoundary) {
@@ -2318,10 +2319,18 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           reply.status(503);
           return { error: 'PR tracking boundary unavailable — try again later' };
         }
-      } else if (instructions !== undefined && instructions !== '' && fetchPrTrackingBoundary) {
+      } else if (shouldBindInstructionsHead) {
+        if (!fetchPrTrackingBoundary) {
+          reply.status(503);
+          return { error: 'PR tracking boundary fetcher not configured' };
+        }
         try {
           instructionsPrBoundary = await fetchPrTrackingBoundary(repoFullName, prNumber);
         } catch {
+          reply.status(503);
+          return { error: 'PR tracking boundary unavailable — try again later' };
+        }
+        if (!instructionsPrBoundary.ci?.headSha) {
           reply.status(503);
           return { error: 'PR tracking boundary unavailable — try again later' };
         }
@@ -2329,9 +2338,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
       const trackingInstructionsHeadSha =
         instructions !== undefined && instructions !== ''
-          ? (seededPrBoundary?.ci?.headSha ??
-            instructionsPrBoundary?.ci?.headSha ??
-            existing?.automationState?.ci?.headSha)
+          ? (seededPrBoundary?.ci?.headSha ?? instructionsPrBoundary?.ci?.headSha)
           : instructions === ''
             ? ''
             : undefined;
