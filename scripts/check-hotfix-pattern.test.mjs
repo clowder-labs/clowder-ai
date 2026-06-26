@@ -61,6 +61,33 @@ describe('check-hotfix-pattern', () => {
     ]);
   });
 
+  test('detects normalized hotfix label objects as hotfix work', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: neutral update',
+      labels: [{ name: ' HotFix ' }],
+      commits: [{ message: 'docs: neutral update' }],
+    });
+
+    assert.equal(result.hotfix, true);
+    assert.deepEqual(result.matches, [
+      {
+        source: 'label',
+        term: 'hotfix',
+        text: 'HotFix',
+      },
+    ]);
+  });
+
+  test('ignores non-hotfix labels that contain hotfix as prose', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: neutral update',
+      labels: ['not-hotfix', 'no-hotfix'],
+      commits: [{ message: 'docs: neutral update' }],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('ignores copied detector JSON output in commit evidence', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',

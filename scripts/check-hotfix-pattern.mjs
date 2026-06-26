@@ -38,6 +38,15 @@ const DETECTOR_OUTPUT_PREFIX_REGEX = new RegExp(
 export function detectHotfixSignals(pr) {
   const matches = [];
   for (const candidate of collectCandidates(pr)) {
+    if (candidate.term) {
+      matches.push({
+        source: candidate.source,
+        term: candidate.term,
+        text: candidate.text,
+      });
+      continue;
+    }
+
     const textForMatch = candidate.textForMatch ?? stripDetectorSelfReferenceTokens(candidate.text);
     for (const pattern of HOTFIX_PATTERNS) {
       if (pattern.regex.test(textForMatch)) {
@@ -63,7 +72,10 @@ function collectCandidates(pr) {
   for (const label of labels) {
     const text = typeof label === 'string' ? label : label?.name;
     if (typeof text === 'string' && text.trim()) {
-      candidates.push({ source: 'label', text: text.trim() });
+      const normalizedLabel = text.trim();
+      if (normalizedLabel.toLowerCase() === 'hotfix') {
+        candidates.push({ source: 'label', term: 'hotfix', text: normalizedLabel });
+      }
     }
   }
 
