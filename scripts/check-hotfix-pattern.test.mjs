@@ -76,6 +76,26 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores copied detector fenced JSON output in commit evidence', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody: [
+            'Verification: check-hotfix-pattern returned:',
+            '```json',
+            '{"hotfix":true,"matches":[{"text":"quick fix"}]}',
+            '```',
+            'No runtime change.',
+          ].join('\n'),
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('preserves real hotfix metadata outside copied detector output', () => {
     const result = detectHotfixSignals({
       title: 'chore: release metadata',

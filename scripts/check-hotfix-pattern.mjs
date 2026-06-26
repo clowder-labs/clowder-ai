@@ -126,7 +126,7 @@ function findDetectorOutputEnd(text, outputStart) {
   if (text[trimmedStart] === '{') {
     const objectEnd = findBalancedObjectEnd(text, trimmedStart);
     if (objectEnd === -1) return outputStart;
-    return text[objectEnd + 1] === '`' ? objectEnd + 2 : objectEnd + 1;
+    return consumeClosingBackticks(text, objectEnd + 1);
   }
 
   const booleanMatch = /^(?:\\?["']hot[-\s]?fix\\?["']|\bhot[-\s]?fix\b)\s*[:=]\s*(?:true|false)\b`?/i.exec(
@@ -138,8 +138,36 @@ function findDetectorOutputEnd(text, outputStart) {
 }
 
 function skipWhitespaceAndBackticks(text, start) {
+  let index = skipWhitespace(text, start);
+  const fencedContentStart = findFencedCodeContentStart(text, index);
+  if (fencedContentStart !== -1) return skipWhitespace(text, fencedContentStart);
+
+  while (index < text.length && text[index] === '`') index += 1;
+  return skipWhitespace(text, index);
+}
+
+function skipWhitespace(text, start) {
   let index = start;
-  while (index < text.length && /[\s`]/.test(text[index])) index += 1;
+  while (index < text.length && /\s/.test(text[index])) index += 1;
+  return index;
+}
+
+function findFencedCodeContentStart(text, fenceStart) {
+  if (!text.startsWith('```', fenceStart)) return -1;
+
+  let index = fenceStart + 3;
+  while (index < text.length && text[index] !== '\n' && text[index] !== '\r') {
+    index += 1;
+  }
+  if (index >= text.length) return -1;
+
+  if (text[index] === '\r' && text[index + 1] === '\n') return index + 2;
+  return index + 1;
+}
+
+function consumeClosingBackticks(text, start) {
+  let index = start;
+  while (index < text.length && text[index] === '`') index += 1;
   return index;
 }
 
