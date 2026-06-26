@@ -24,11 +24,16 @@ const HOTFIX_PATTERNS = [
 const DETECTOR_FILE_PATHS = new Set(['scripts/check-hotfix-pattern.mjs', 'scripts/check-hotfix-pattern.test.mjs']);
 const DETECTOR_OUTPUT_BEGIN_MARKER = '<<<HOTFIX-DETECTOR-V1-BEGIN>>>';
 const DETECTOR_OUTPUT_END_MARKER = '<<<HOTFIX-DETECTOR-V1-END>>>';
-const DETECTOR_REFERENCE_REGEX = /\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern(?:\.mjs)?)\b/i;
-const DETECTOR_REFERENCE_GLOBAL_REGEX = /\bhot[-\s]?fix\s+detector\b|\bcheck-hotfix-pattern(?:\.mjs)?\b/gi;
-const DETECTOR_REFERENCE_SCAN_REGEX = /\bhot[-\s]?fix\s+detector\b|\bcheck-hotfix-pattern(?:\.mjs)?\b/gi;
-const DETECTOR_OUTPUT_PREFIX_REGEX =
-  /(?:\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern(?:\.mjs)?)\b\s*(?:(?:`[^`\r\n]*`|[^`\r\n]*\bcheck-hotfix-pattern(?:\.mjs)?\b[^`\r\n]*?)\s*)?|`[^`\r\n]*\bcheck-hotfix-pattern(?:\.mjs)?\b[^`\r\n]*`\s*)(?:(?::\s*)?\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*|:\s*)/gi;
+const CHECK_HOTFIX_PATTERN_TOKEN = String.raw`check-hotfix-pattern(?:\.mjs)?`;
+const DETECTOR_NAME_TOKEN = String.raw`hot[-\s]?fix[-\s]+detector`;
+const DETECTOR_REFERENCE_TOKEN = String.raw`(?:${DETECTOR_NAME_TOKEN}|${CHECK_HOTFIX_PATTERN_TOKEN})`;
+const DETECTOR_REFERENCE_REGEX = new RegExp(String.raw`\b${DETECTOR_REFERENCE_TOKEN}\b`, 'i');
+const DETECTOR_REFERENCE_GLOBAL_REGEX = new RegExp(String.raw`\b${DETECTOR_REFERENCE_TOKEN}\b`, 'gi');
+const DETECTOR_REFERENCE_SCAN_REGEX = new RegExp(String.raw`\b${DETECTOR_REFERENCE_TOKEN}\b`, 'gi');
+const DETECTOR_OUTPUT_PREFIX_REGEX = new RegExp(
+  String.raw`(?:\b${DETECTOR_REFERENCE_TOKEN}\b\s*(?:(?:\`[^\`\r\n]*\`|[^\`\r\n]*\b${CHECK_HOTFIX_PATTERN_TOKEN}\b[^\`\r\n]*?)\s*)?|\`[^\`\r\n]*\b${CHECK_HOTFIX_PATTERN_TOKEN}\b[^\`\r\n]*\`\s*)(?:(?::\s*)?\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*|:\s*)`,
+  'gi',
+);
 
 export function detectHotfixSignals(pr) {
   const matches = [];

@@ -106,6 +106,21 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores copied hyphenated detector JSON output in commit evidence', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody:
+            'Verification: hotfix-detector returned {"hotfix":true,"matches":[{"text":"quick fix"}]}; gate passed.',
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('ignores copied detector JSON output after unrecognized transition wording', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',
@@ -171,6 +186,15 @@ describe('check-hotfix-pattern', () => {
             'Verification: <<<HOTFIX-DETECTOR-V1-BEGIN>>>{"hotfix":true,"matches":[{"text":"quick fix"}]}<<<HOTFIX-DETECTOR-V1-END>>> gate passed.',
         },
       ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
+  test('ignores hyphenated detector references in neutral titles', () => {
+    const result = detectHotfixSignals({
+      title: 'chore: tune hotfix-detector script',
+      commits: [],
     });
 
     assert.deepEqual(result, { hotfix: false, matches: [] });
