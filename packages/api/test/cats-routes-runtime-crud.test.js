@@ -3173,4 +3173,44 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const listed = JSON.parse(listRes.body).cats.find((cat) => cat.id === 'migrate-oc-to-acp');
     assert.equal(listed.provider, undefined, 'GET should confirm no stale provider remains after migration');
   });
+
+  // F159 G2 follow-up: AC for runtimeDefaults extension of /api/cat-templates.
+  // Without this, picking a catagent template leaves form.clientId='anthropic' and
+  // catAgentProtocol='' → created member silently falls back to anthropic-messages → /v1/messages 403.
+  it('GET /api/cat-templates exposes breed defaultVariant runtimeDefaults (kitten → catagent + openai-chat)', async () => {
+    createProjectRootFromRepoTemplate();
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const res = await app.inject({ method: 'GET', url: '/api/cat-templates' });
+    assert.equal(res.statusCode, 200);
+    const { templates } = JSON.parse(res.body);
+    assert.ok(Array.isArray(templates) && templates.length > 0, 'templates non-empty');
+
+    const kitten = templates.find((t) => t.id === 'kitten');
+    assert.ok(kitten, 'kitten template present in /api/cat-templates response');
+    assert.deepEqual(kitten.runtimeDefaults, {
+      clientId: 'catagent',
+      defaultModel: 'gpt-5.5',
+      catAgentProtocol: 'openai-chat',
+      nativeToolLevel: 'L1',
+    });
+
+    // ragdoll family: regular anthropic-style template, no catAgentProtocol field surfaces.
+    const ragdoll = templates.find((t) => t.id === 'ragdoll');
+    assert.ok(ragdoll, 'ragdoll template present');
+    assert.equal(ragdoll.runtimeDefaults?.clientId, 'anthropic');
+    assert.equal(ragdoll.runtimeDefaults?.defaultModel, 'claude-opus-4-6');
+    assert.equal(ragdoll.runtimeDefaults?.catAgentProtocol, undefined);
+    assert.equal(ragdoll.runtimeDefaults?.nativeToolLevel, undefined);
+
+    // maine-coon family: openai client, no catAgentProtocol (it's not a catagent member).
+    const maineCoon = templates.find((t) => t.id === 'maine-coon');
+    assert.ok(maineCoon, 'maine-coon template present');
+    assert.equal(maineCoon.runtimeDefaults?.clientId, 'openai');
+    assert.equal(maineCoon.runtimeDefaults?.catAgentProtocol, undefined);
+  });
 });

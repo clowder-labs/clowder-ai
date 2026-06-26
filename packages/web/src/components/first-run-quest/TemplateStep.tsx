@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { CatAgentProtocol, NativeToolLevel } from '@cat-cafe/shared';
 import { apiFetch } from '@/utils/api-client';
+import type { ClientId } from '../hub-cat-editor.model';
 
 export interface TemplateCard {
   id: string;
@@ -12,6 +14,17 @@ export interface TemplateCard {
   roleDescription: string;
   personality: string;
   teamStrengths?: string;
+  /**
+   * F159 G2 follow-up: runtime身份字段（clientId / model / catAgentProtocol / nativeToolLevel），
+   * 由 /api/cat-templates 从 breeds[].defaultVariant 提取。HubCatEditor.handleTemplateSelect
+   * 会把这些 patch 进 form，让"点模板=可用猫"。accountRef 不在此——它是 user environment-specific。
+   */
+  runtimeDefaults?: {
+    clientId: ClientId;
+    defaultModel: string;
+    catAgentProtocol?: CatAgentProtocol;
+    nativeToolLevel?: NativeToolLevel;
+  };
 }
 
 interface TemplateStepProps {

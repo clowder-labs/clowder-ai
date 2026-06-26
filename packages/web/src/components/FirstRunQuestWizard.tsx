@@ -10,6 +10,46 @@ import { type TemplateCard, TemplateStep } from './first-run-quest/TemplateStep'
 
 type WizardStep = 'template' | 'client' | 'config' | 'creating' | 'done';
 
+/**
+ * F159 G2 follow-up: ConfigStep filters accounts/models by `clientId` (account family).
+ * For catagent-native templates the wire-protocol determines the *account family* the
+ * runtime adapter expects — anthropic-messages → 'anthropic'; openai-chat → 'openai'.
+ * Passing `selectedClient.provider` (the CLI binary the user has installed, e.g. 'anthropic'
+ * for Claude CLI) would let the user bind a Claude account to a `catagent + openai-chat`
+ * cat → at invoke time `OpenAIChatAdapter.clientFamily='openai'` fail-closes via
+ * `catagent-credentials.ts` family guard (created but uncallable cat). Derive the
+ * effective account family from the template's runtimeDefaults instead.
+ */
+function effectiveAccountFamily(template: TemplateCard | null, fallbackClientId: string): string {
+  const tplDefaults = template?.runtimeDefaults;
+  if (!tplDefaults) return fallbackClientId;
+  if (tplDefaults.clientId === 'catagent') {
+    return tplDefaults.catAgentProtocol === 'openai-chat' ? 'openai' : 'anthropic';
+  }
+  return tplDefaults.clientId;
+}
+
+/**
+ * F159 G2 follow-up: ConfigStep also passes `client` (CLI binary name like 'claude'/'codex')
+ * to connectivity-test, which uses it to pick the actual CLI probe at runtime
+ * (first-run-quest.ts:~396). If `client` and `clientId` come from different families,
+ * the probe runs the wrong CLI binary against the right account → testResult.ok fails →
+ * create button disabled → legitimate kitten path blocked. Sync `client` to the same
+ * effective family as `clientId`.
+ */
+function effectiveClientName(template: TemplateCard | null, fallbackClient: string): string {
+  const family = effectiveAccountFamily(template, '');
+  if (!family) return fallbackClient;
+  const familyToCli: Record<string, string> = {
+    anthropic: 'claude',
+    openai: 'codex',
+    google: 'gemini',
+    kimi: 'kimi',
+    opencode: 'opencode',
+  };
+  return familyToCli[family] ?? fallbackClient;
+}
+
 interface FirstRunQuestWizardProps {
   open: boolean;
   onClose: () => void;
@@ -85,6 +125,13 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           const catId = `${selectedTemplate.id}-${suffix}`;
           const catName = selectedTemplate.nickname ?? selectedTemplate.name;
 
+          // F159 G2 follow-up: template runtimeDefaults > user's selectedClient pick.
+          // The template is the source of truth for "what kind of cat this is" — selectedClient
+          // only fills in user environment (which actual CLI binary they have installed). For
+          // catagent native-path templates (kitten), runtimeDefaults carries clientId='catagent'
+          // + catAgentProtocol='openai-chat' + nativeToolLevel; without this override the wizard
+          // creates a普通 anthropic/openai 成员 instead of the catagent that was selected.
+          const tplDefaults = selectedTemplate.runtimeDefaults;
           const createRes = await apiFetch('/api/cats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -102,8 +149,12 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
               roleDescription: selectedTemplate.roleDescription,
               personality: selectedTemplate.personality,
               teamStrengths: selectedTemplate.teamStrengths,
-              clientId: selectedClient.provider,
+              clientId: tplDefaults?.clientId ?? selectedClient.provider,
+              ...(tplDefaults?.catAgentProtocol ? { catAgentProtocol: tplDefaults.catAgentProtocol } : {}),
+              ...(tplDefaults?.nativeToolLevel ? { nativeToolLevel: tplDefaults.nativeToolLevel } : {}),
               accountRef: config.accountRef,
+              // model 尊重 user 在 ConfigStep 的选择（用户基于实际 selectedClient.models 列表挑的）；
+              // template.runtimeDefaults.defaultModel 只是 suggestion，不强制 override。
               defaultModel: config.model,
             }),
           });
@@ -202,8 +253,8 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           {step === 'client' && <ClientStep onSelect={handleClientSelect} />}
           {step === 'config' && selectedClient && (
             <ConfigStep
-              client={selectedClient.client}
-              clientId={selectedClient.provider}
+              client={effectiveClientName(selectedTemplate, selectedClient.client)}
+              clientId={effectiveAccountFamily(selectedTemplate, selectedClient.provider)}
               onComplete={handleConfigComplete}
             />
           )}

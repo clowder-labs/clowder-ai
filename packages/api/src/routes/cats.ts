@@ -559,7 +559,11 @@ interface CatsRoutesOptions {
 }
 
 export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opts) => {
-  // GET /api/cat-templates - 获取角色模板（纯灵魂层，不含 client/model 绑定）
+  // GET /api/cat-templates - 获取角色模板（灵魂层 + 可选 runtimeDefaults）
+  // F159 G2 follow-up: 单纯"灵魂层"模板（F171 首次配置遗留）让 catagent 类猫选完
+  // 模板后 form 留默认 clientId=anthropic 创建出来根本不是 catagent。把
+  // breeds[].defaultVariant 的运行时身份字段作为可选 runtimeDefaults 一并返回，
+  // 让前端 handleTemplateSelect 把它们 patch 进 form，实现 "点模板=可用猫"。
   app.get('/api/cat-templates', async () => {
     try {
       const projectRoot = resolveProjectRoot();
@@ -575,26 +579,66 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           personality: string;
           teamStrengths?: string;
         }[];
+        breeds?: {
+          id: string;
+          defaultVariantId: string;
+          variants?: {
+            id: string;
+            clientId?: string;
+            defaultModel?: string;
+            catAgentProtocol?: string;
+            nativeToolLevel?: string;
+          }[];
+        }[];
         clientDefaults?: Record<string, { defaultModel: string; models: string[] }>;
       };
+
+      // Build breed.id → runtimeDefaults map from default variant (sole source of "body" defaults).
+      // accountRef intentionally not carried — it's environment-specific (per-user account binding).
+      const runtimeDefaultsByBreedId = new Map<
+        string,
+        { clientId: string; defaultModel: string; catAgentProtocol?: string; nativeToolLevel?: string }
+      >();
+      for (const breed of raw.breeds ?? []) {
+        const variant = breed.variants?.find((v) => v.id === breed.defaultVariantId);
+        if (!variant?.clientId || !variant.defaultModel) continue;
+        runtimeDefaultsByBreedId.set(breed.id, {
+          clientId: variant.clientId,
+          defaultModel: variant.defaultModel,
+          ...(variant.catAgentProtocol ? { catAgentProtocol: variant.catAgentProtocol } : {}),
+          ...(variant.nativeToolLevel ? { nativeToolLevel: variant.nativeToolLevel } : {}),
+        });
+      }
+
       if (raw.roleTemplates && raw.roleTemplates.length > 0) {
-        return { templates: raw.roleTemplates, clientDefaults: raw.clientDefaults ?? {} };
+        return {
+          templates: raw.roleTemplates.map((t) => ({
+            ...t,
+            ...(runtimeDefaultsByBreedId.has(t.id) ? { runtimeDefaults: runtimeDefaultsByBreedId.get(t.id) } : {}),
+          })),
+          clientDefaults: raw.clientDefaults ?? {},
+        };
       }
       // Fallback: extract from breeds (legacy)
       const templateConfig = loadCatConfig(templatePath);
       const allCats = Object.values(toAllCatConfigs(templateConfig));
       const templateCats = allCats.filter((c) => c.isDefaultVariant);
       return {
-        templates: templateCats.map((cat) => ({
-          id: cat.breedId ?? cat.id,
-          name: cat.breedDisplayName ?? cat.displayName ?? cat.name,
-          nickname: cat.nickname,
-          avatar: cat.avatar,
-          color: cat.color,
-          roleDescription: cat.roleDescription,
-          personality: cat.personality,
-          teamStrengths: cat.teamStrengths,
-        })),
+        templates: templateCats.map((cat) => {
+          const breedId = cat.breedId ?? cat.id;
+          const runtimeDefaults = runtimeDefaultsByBreedId.get(breedId);
+          return {
+            id: breedId,
+            name: cat.breedDisplayName ?? cat.displayName ?? cat.name,
+            nickname: cat.nickname,
+            avatar: cat.avatar,
+            color: cat.color,
+            roleDescription: cat.roleDescription,
+            personality: cat.personality,
+            teamStrengths: cat.teamStrengths,
+            ...(runtimeDefaults ? { runtimeDefaults } : {}),
+          };
+        }),
         clientDefaults: {},
       };
     } catch (err) {

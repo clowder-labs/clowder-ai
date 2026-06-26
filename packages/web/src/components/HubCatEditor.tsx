@@ -337,6 +337,20 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
       teamStrengths: t.teamStrengths ?? '',
       catId,
       mentionPatterns: joinTags(deduped),
+      // F159 G2 follow-up: apply runtime身份 defaults if the template carries them.
+      // Without this, picking 幼仔 leaves clientId='anthropic' + 空 catAgentProtocol → 创建出来不是 catagent。
+      ...(t.runtimeDefaults
+        ? {
+            clientId: t.runtimeDefaults.clientId,
+            defaultModel: t.runtimeDefaults.defaultModel,
+            ...(t.runtimeDefaults.catAgentProtocol
+              ? { catAgentProtocol: t.runtimeDefaults.catAgentProtocol }
+              : {}),
+            ...(t.runtimeDefaults.nativeToolLevel
+              ? { nativeToolLevel: t.runtimeDefaults.nativeToolLevel }
+              : {}),
+          }
+        : {}),
     });
   };
 

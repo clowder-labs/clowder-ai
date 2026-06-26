@@ -78,6 +78,19 @@
       "roleDescription": "开源多模型编码 agent，自带多专家编排 + LSP + 主题生态",
       "personality": "沉稳可靠，什么 provider 都能接，什么任务都能扛",
       "teamStrengths": "多专家内部编排、LSP 集成、开源生态、provider-agnostic"
+    },
+    {
+      "id": "kitten",
+      "name": "幼猫",
+      "nickname": "幼仔",
+      "avatar": "/avatars/catagent.png",
+      "color": {
+        "primary": "#9B7EBD",
+        "secondary": "#E8DFF5"
+      },
+      "roleDescription": "灵巧的轻装猫——短任务、快回合、不绕弯",
+      "personality": "直爽好奇守边界，任务越具体越高效；不确定先查真相源不硬猜",
+      "teamStrengths": "状态查询、日志定位、命令输出解读、文本提取、简短问答、简单脚本片段、lint & test smoke、多轮工具循环"
     }
   ],
   "clientDefaults": {
@@ -179,6 +192,13 @@
       "lead": false,
       "available": true,
       "evaluation": "claude-fable-5 新布偶猫，Opus x2 猫粮，能力画像待校准"
+    },
+    "catagent": {
+      "family": "kitten",
+      "roles": ["executor", "scout"],
+      "lead": true,
+      "available": true,
+      "evaluation": "灵巧轻装猫，跑 catagent+openai-chat 原生路径；短任务/日志定位/命令输出/工具循环最高效，不擅长长链推理"
     }
   },
   "reviewPolicy": {
@@ -909,6 +929,57 @@
             "temperature": 0.3
           },
           "accountRef": "claude"
+        }
+      ]
+    },
+    {
+      "id": "kitten",
+      "catId": "catagent",
+      "name": "幼猫",
+      "displayName": "幼猫",
+      "nickname": "幼仔",
+      "avatar": "/avatars/catagent.png",
+      "color": {
+        "primary": "#9B7EBD",
+        "secondary": "#E8DFF5"
+      },
+      "mentionPatterns": ["@catagent", "@littlecat", "@幼仔", "@幼", "@kitten"],
+      "roleDescription": "灵巧的轻装猫——短任务、快回合、不绕弯",
+      "teamStrengths": "状态查询 / 日志定位 / 命令输出解读 / 文本提取 / 简短问答 / 简单脚本片段 / lint & test smoke / 多轮工具循环",
+      "caution": null,
+      "defaultVariantId": "catagent-default",
+      "features": {
+        "sessionChain": true
+      },
+      "variants": [
+        {
+          "id": "catagent-default",
+          "clientId": "catagent",
+          "catAgentProtocol": "openai-chat",
+          "defaultModel": "gpt-5.5",
+          "mcpSupport": true,
+          "cli": {
+            "command": "catagent",
+            "outputFormat": "json"
+          },
+          "nativeToolLevel": "L1",
+          "personality": "直爽 + 好奇 + 守边界 + 谦虚。任务越具体越高效；不确定时先查真相源不硬猜；做不了直接退回，不假装懂",
+          "strengths": ["status-query", "log-grep", "command-output", "text-extraction", "short-answer", "tool-loop"],
+          "contextBudget": {
+            "maxPromptTokens": 120000,
+            "maxContextTokens": 100000,
+            "maxMessages": 120,
+            "maxContentLengthPerMsg": 50000
+          },
+          "voiceConfig": {
+            "voice": "zm_yunjian",
+            "langCode": "zh",
+            "speed": 1,
+            "refAudio": "honkai-starrail/帕姆/chapter0_7_pompom_104.wav",
+            "refText": "既然选择了上车，就得遵守这里的规矩。特殊的并不只你一个，这点你可给我记好了。",
+            "instruct": "用一个好奇直爽的小动物语气说话，简短利落",
+            "temperature": 0.3
+          }
         }
       ]
     }
