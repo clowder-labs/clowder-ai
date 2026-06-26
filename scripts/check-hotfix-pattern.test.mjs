@@ -76,6 +76,21 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores copied detector bare-colon JSON output in commit evidence', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody:
+            'Verification: check-hotfix-pattern: {"hotfix":false,"matches":[{"text":"quick fix"}]}; gate passed.',
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('ignores copied detector fenced JSON output in commit evidence', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',

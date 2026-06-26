@@ -24,7 +24,7 @@ const HOTFIX_PATTERNS = [
 const DETECTOR_REFERENCE_REGEX = /\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern)\b/i;
 const DETECTOR_REFERENCE_GLOBAL_REGEX = /\bhot[-\s]?fix\s+detector\b|\bcheck-hotfix-pattern\b/gi;
 const DETECTOR_OUTPUT_PREFIX_REGEX =
-  /(?:\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern)\b\s*(?::\s*)?(?:(?:`[^`\r\n]*`|[^`\r\n]*\bcheck-hotfix-pattern\b[^`\r\n]*?)\s*)?|`[^`\r\n]*\bcheck-hotfix-pattern\b[^`\r\n]*`\s*)(?:\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*)/gi;
+  /(?:\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern)\b\s*(?:(?:`[^`\r\n]*`|[^`\r\n]*\bcheck-hotfix-pattern\b[^`\r\n]*?)\s*)?|`[^`\r\n]*\bcheck-hotfix-pattern\b[^`\r\n]*`\s*)(?:(?::\s*)?\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*|:\s*)/gi;
 
 export function detectHotfixSignals(pr) {
   const matches = [];
