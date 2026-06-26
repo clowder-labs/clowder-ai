@@ -276,7 +276,11 @@ async function loadPrInput(args) {
     return JSON.parse(await readFile(args.inputJsonPath, 'utf8'));
   }
   if (!args.prNumber) {
-    throw new Error('Missing PR number. Set PR_NUMBER, pass a PR number, or use --input-json.');
+    try {
+      return await loadLocalGitInput();
+    } catch (error) {
+      throw new Error(`Missing PR input and local git fallback failed: ${cleanError(error)}`);
+    }
   }
 
   const [titleResult, repoResult] = await Promise.all([
@@ -308,6 +312,47 @@ async function loadPrInput(args) {
     commits: parseJsonLines(commitsJsonLines),
     files: parseJsonLines(filesJsonLines),
   };
+}
+
+async function loadLocalGitInput() {
+  const [branchResult, commitsResult, filesResult] = await Promise.all([
+    execFileAsync('git', ['branch', '--show-current']),
+    execFileAsync('git', ['log', '--format=%B%x1e', 'origin/main..HEAD']),
+    execFileAsync('git', ['diff', '--numstat', 'origin/main...HEAD']),
+  ]);
+
+  return {
+    title: branchResult.stdout.trim(),
+    commits: parseGitCommitMessages(commitsResult.stdout),
+    files: parseGitNumstat(filesResult.stdout),
+  };
+}
+
+function parseGitCommitMessages(text) {
+  return text
+    .split('\x1e')
+    .map((message) => message.trim())
+    .filter(Boolean)
+    .map((message) => ({ message }));
+}
+
+function parseGitNumstat(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [additionsText, deletionsText, ...filenameParts] = line.split('\t');
+      const additions = Number(additionsText);
+      const deletions = Number(deletionsText);
+      const hasLineStats = Number.isFinite(additions) && Number.isFinite(deletions);
+      return {
+        filename: filenameParts.join('\t'),
+        additions: hasLineStats ? additions : null,
+        deletions: hasLineStats ? deletions : null,
+        changes: hasLineStats ? additions + deletions : null,
+      };
+    });
 }
 
 function parseJsonLines(text) {

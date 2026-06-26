@@ -129,12 +129,42 @@ describe('check-hotfix-pattern', () => {
     assert.match(parsed.labelSkippedReason, /changed lines 51 exceeds 50/);
   });
 
-  test('CLI fails closed with valid JSON when no PR input is available', async () => {
+  test('CLI falls back to local git evidence when no PR input is available', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hotfix-detector-git-'));
+    await execFileAsync('git', ['init'], { cwd: dir });
+    await execFileAsync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: dir });
+    await execFileAsync('git', ['config', 'user.name', 'Test User'], { cwd: dir });
+    await writeFile(join(dir, 'README.md'), 'base\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: dir });
+    await execFileAsync('git', ['commit', '-m', 'chore: base'], { cwd: dir });
+    await execFileAsync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: dir });
+    await execFileAsync('git', ['checkout', '-b', 'feature/neutral-work'], { cwd: dir });
+    await writeFile(join(dir, 'README.md'), 'base\nneutral\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: dir });
+    await execFileAsync('git', ['commit', '-m', 'docs: neutral update'], { cwd: dir });
+
+    const { stdout } = await execFileAsync('node', [SCRIPT_PATH.pathname], {
+      cwd: dir,
+      env: { ...process.env, PR_NUMBER: '' },
+    });
+
+    assert.deepEqual(JSON.parse(stdout), {
+      hotfix: false,
+      matchedTerms: [],
+      matches: [],
+    });
+  });
+
+  test('CLI fails closed with valid JSON outside PR and git contexts', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hotfix-detector-no-git-'));
     let output = '';
     await assert.rejects(
       async () => {
         try {
-          await execFileAsync('node', [SCRIPT_PATH.pathname], { env: { ...process.env, PR_NUMBER: '' } });
+          await execFileAsync('node', [SCRIPT_PATH.pathname], {
+            cwd: dir,
+            env: { ...process.env, PR_NUMBER: '' },
+          });
         } catch (error) {
           output = error.stdout;
           throw error;
@@ -146,6 +176,6 @@ describe('check-hotfix-pattern', () => {
     const parsed = JSON.parse(output);
     assert.equal(parsed.hotfix, true);
     assert.equal(parsed.failClosed, true);
-    assert.match(parsed.detectionError, /Missing PR number/);
+    assert.match(parsed.detectionError, /local git fallback failed/);
   });
 });
