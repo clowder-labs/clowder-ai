@@ -44,6 +44,23 @@ describe('check-hotfix-pattern', () => {
     ]);
   });
 
+  test('detects existing hotfix labels as hotfix work', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: neutral update',
+      labels: ['hotfix'],
+      commits: [{ message: 'docs: neutral update' }],
+    });
+
+    assert.equal(result.hotfix, true);
+    assert.deepEqual(result.matches, [
+      {
+        source: 'label',
+        term: 'hotfix',
+        text: 'hotfix',
+      },
+    ]);
+  });
+
   test('ignores copied detector JSON output in commit evidence', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',
@@ -138,6 +155,32 @@ describe('check-hotfix-pattern', () => {
     await execFileAsync('git', ['add', 'README.md'], { cwd: dir });
     await execFileAsync('git', ['commit', '-m', 'chore: base'], { cwd: dir });
     await execFileAsync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: dir });
+    await execFileAsync('git', ['checkout', '-b', 'feature/neutral-work'], { cwd: dir });
+    await writeFile(join(dir, 'README.md'), 'base\nneutral\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: dir });
+    await execFileAsync('git', ['commit', '-m', 'docs: neutral update'], { cwd: dir });
+
+    const { stdout } = await execFileAsync('node', [SCRIPT_PATH.pathname], {
+      cwd: dir,
+      env: { ...process.env, PR_NUMBER: '' },
+    });
+
+    assert.deepEqual(JSON.parse(stdout), {
+      hotfix: false,
+      matchedTerms: [],
+      matches: [],
+    });
+  });
+
+  test('CLI local git fallback uses main when origin/main is unavailable', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hotfix-detector-git-main-'));
+    await execFileAsync('git', ['init'], { cwd: dir });
+    await execFileAsync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: dir });
+    await execFileAsync('git', ['config', 'user.name', 'Test User'], { cwd: dir });
+    await writeFile(join(dir, 'README.md'), 'base\n');
+    await execFileAsync('git', ['add', 'README.md'], { cwd: dir });
+    await execFileAsync('git', ['commit', '-m', 'chore: base'], { cwd: dir });
+    await execFileAsync('git', ['branch', '-M', 'main'], { cwd: dir });
     await execFileAsync('git', ['checkout', '-b', 'feature/neutral-work'], { cwd: dir });
     await writeFile(join(dir, 'README.md'), 'base\nneutral\n');
     await execFileAsync('git', ['add', 'README.md'], { cwd: dir });

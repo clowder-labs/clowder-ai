@@ -49,6 +49,14 @@ function collectCandidates(pr) {
     candidates.push({ source: 'title', text: pr.title.trim() });
   }
 
+  const labels = Array.isArray(pr?.labels) ? pr.labels : [];
+  for (const label of labels) {
+    const text = typeof label === 'string' ? label : label?.name;
+    if (typeof text === 'string' && text.trim()) {
+      candidates.push({ source: 'label', text: text.trim() });
+    }
+  }
+
   const commits = Array.isArray(pr?.commits) ? pr.commits : [];
   for (const commit of commits) {
     for (const part of [
@@ -283,10 +291,19 @@ async function loadPrInput(args) {
     }
   }
 
-  const [titleResult, repoResult] = await Promise.all([
-    execFileAsync('gh', ['pr', 'view', String(args.prNumber), '--json', 'title', '--jq', '.title']),
+  const [prResult, repoResult] = await Promise.all([
+    execFileAsync('gh', [
+      'pr',
+      'view',
+      String(args.prNumber),
+      '--json',
+      'title,labels',
+      '--jq',
+      '{title: .title, labels: [.labels[].name]}',
+    ]),
     execFileAsync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']),
   ]);
+  const prView = JSON.parse(prResult.stdout);
   const repoFullName = repoResult.stdout.trim();
   if (!repoFullName) throw new Error('Unable to resolve repository nameWithOwner.');
 
@@ -308,17 +325,19 @@ async function loadPrInput(args) {
   ]);
 
   return {
-    title: titleResult.stdout.trim(),
+    title: typeof prView.title === 'string' ? prView.title.trim() : '',
+    labels: Array.isArray(prView.labels) ? prView.labels : [],
     commits: parseJsonLines(commitsJsonLines),
     files: parseJsonLines(filesJsonLines),
   };
 }
 
 async function loadLocalGitInput() {
+  const baseRef = await resolveLocalBaseRef();
   const [branchResult, commitsResult, filesResult] = await Promise.all([
     execFileAsync('git', ['branch', '--show-current']),
-    execFileAsync('git', ['log', '--format=%B%x1e', 'origin/main..HEAD']),
-    execFileAsync('git', ['diff', '--numstat', 'origin/main...HEAD']),
+    execFileAsync('git', ['log', '--format=%B%x1e', `${baseRef}..HEAD`]),
+    execFileAsync('git', ['diff', '--numstat', `${baseRef}...HEAD`]),
   ]);
 
   return {
@@ -326,6 +345,18 @@ async function loadLocalGitInput() {
     commits: parseGitCommitMessages(commitsResult.stdout),
     files: parseGitNumstat(filesResult.stdout),
   };
+}
+
+async function resolveLocalBaseRef() {
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      await execFileAsync('git', ['rev-parse', '--verify', ref]);
+      return ref;
+    } catch {
+      // Try the next conventional base ref before fail-closing.
+    }
+  }
+  throw new Error('Unable to resolve local comparison base: origin/main or main');
 }
 
 function parseGitCommitMessages(text) {
