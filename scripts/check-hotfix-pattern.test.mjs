@@ -242,6 +242,28 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('preserves fix commit signals that mention the detector in detector script PRs', () => {
+    const result = detectHotfixSignals({
+      title: 'chore: tune detector',
+      commits: [
+        {
+          messageHeadline: 'fix(check-hotfix-pattern): fail closed',
+          messageBody: 'No runtime behavior change.',
+        },
+      ],
+      files: [{ filename: 'scripts/check-hotfix-pattern.mjs', changes: 12 }],
+    });
+
+    assert.equal(result.hotfix, true);
+    assert.deepEqual(result.matches, [
+      {
+        source: 'commit',
+        term: 'fix',
+        text: 'fix(check-hotfix-pattern): fail closed',
+      },
+    ]);
+  });
+
   test('ignores detector maintenance prose in detector test-only PRs', () => {
     const result = detectHotfixSignals({
       title: 'test: cover detector variants',

@@ -34,6 +34,7 @@ const DETECTOR_OUTPUT_PREFIX_REGEX = new RegExp(
   String.raw`(?:\b${DETECTOR_REFERENCE_TOKEN}\b\s*(?:(?:\`[^\`\r\n]*\`|[^\`\r\n]*\b${CHECK_HOTFIX_PATTERN_TOKEN}\b[^\`\r\n]*?)\s*)?|\`[^\`\r\n]*\b${CHECK_HOTFIX_PATTERN_TOKEN}\b[^\`\r\n]*\`\s*)(?:(?::\s*)?\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*|:\s*)`,
   'gi',
 );
+const CONVENTIONAL_HOTFIX_SIGNAL_REGEX = /^(?:fix|bugfix|hotfix|temp)(?:\([^)]+\))?!?(?=$|[\s:])/i;
 
 export function detectHotfixSignals(pr) {
   const matches = [];
@@ -101,13 +102,21 @@ function collectCommitPartCandidates(candidates, part, { detectorScriptPr } = {}
   for (const line of splitLinesWithOffsets(part)) {
     const text = line.text.trim();
     if (!text) continue;
-    if (detectorScriptPr && DETECTOR_REFERENCE_REGEX.test(text)) continue;
 
     const lineForMatch = removeRangesFromSlice(part, line.start, line.end, outputRanges);
+    const textForMatch = stripDetectorLineTokens(lineForMatch).trim();
+    if (
+      detectorScriptPr &&
+      DETECTOR_REFERENCE_REGEX.test(text) &&
+      !CONVENTIONAL_HOTFIX_SIGNAL_REGEX.test(textForMatch)
+    ) {
+      continue;
+    }
+
     candidates.push({
       source: 'commit',
       text,
-      textForMatch: stripDetectorLineTokens(lineForMatch).trim(),
+      textForMatch,
     });
   }
 }
