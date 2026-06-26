@@ -252,6 +252,7 @@ describe('FirstRunQuestWizard', () => {
   // in first-run still creates a 普通 anthropic/openai 成员 → /v1/messages 403.
   it('catagent template runtimeDefaults override selectedClient in POST payload', async () => {
     let catsPayload: Record<string, unknown> | null = null;
+    let connectivityPayload: Record<string, unknown> | null = null;
 
     mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes('/api/cat-templates')) {
@@ -275,20 +276,20 @@ describe('FirstRunQuestWizard', () => {
           ],
         });
       }
-      // user picks an installed CLI client. We mock both anthropic and openai available;
-      // the test exercises picking codex/openai (matches template runtimeDefaults family).
-      // Picking anthropic CLI here would be a degenerate case — ConfigStep would filter to
-      // openai accounts (effective family from template) regardless of selectedClient.provider.
+      // user picks an installed CLI client — for this test we want the *degenerate* case:
+      // user has only Claude CLI installed but picked kitten/openai-chat template. The
+      // FirstRunQuestWizard must override BOTH clientId (account family) AND client (CLI
+      // probe binary) so connectivity-test runs the right CLI against the right account.
       if (url.includes('/api/first-run/available-clients')) {
         return jsonResponse({
           clients: [
             {
-              client: 'codex',
-              provider: 'openai',
-              label: 'Codex',
-              cli: 'codex',
+              client: 'claude',
+              provider: 'anthropic',
+              label: 'Claude',
+              cli: 'claude',
               installed: true,
-              hasApiKey: true,
+              hasApiKey: false,
             },
           ],
         });
@@ -313,6 +314,7 @@ describe('FirstRunQuestWizard', () => {
         });
       }
       if (url.includes('/api/first-run/connectivity-test')) {
+        connectivityPayload = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
         return jsonResponse({ ok: true, message: '连接成功' });
       }
       if (url === '/api/cats' && init?.method === 'POST') {
@@ -343,8 +345,9 @@ describe('FirstRunQuestWizard', () => {
     });
     await flushEffects();
 
-    // Step 2: select client (user picks Codex/OpenAI — matches template's openai-chat family).
-    const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Codex'));
+    // Step 2: select client. User picks Claude (the only CLI installed) — but the wizard
+    // must remap to codex/openai because the template is kitten/openai-chat.
+    const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     expect(clientButton).toBeTruthy();
     await act(async () => {
       clientButton!.click();
@@ -375,8 +378,16 @@ describe('FirstRunQuestWizard', () => {
     expect(catsPayload!.clientId).toBe('catagent');
     expect(catsPayload!.catAgentProtocol).toBe('openai-chat');
     expect(catsPayload!.nativeToolLevel).toBe('L1');
-    // Family consistency: accountRef is from openai-family ConfigStep, not anthropic.
+    // Family consistency: accountRef from openai-family ConfigStep filter.
     // OpenAIChatAdapter.clientFamily='openai' will match account.clientFamily='openai' at invoke time.
     expect(catsPayload!.accountRef).toBe('codex');
+    // connectivity-test must use the codex CLI probe (template's effective family),
+    // NOT the claude probe that user picked in ClientStep. Without this, probe runs
+    // wrong CLI binary against right account → testResult.ok fails → create blocked.
+    expect(connectivityPayload).not.toBeNull();
+    expect(connectivityPayload!.client).toBe('codex');
+    // clientId comes from selectedProfile.provider (account-binding), which is 'codex'
+    // for the OAuth builtin; what matters is it's openai-family (not 'claude'/'anthropic').
+    expect(connectivityPayload!.clientId).toBe('codex');
   });
 });

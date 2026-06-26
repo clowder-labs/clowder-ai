@@ -29,6 +29,27 @@ function effectiveAccountFamily(template: TemplateCard | null, fallbackClientId:
   return tplDefaults.clientId;
 }
 
+/**
+ * F159 G2 follow-up: ConfigStep also passes `client` (CLI binary name like 'claude'/'codex')
+ * to connectivity-test, which uses it to pick the actual CLI probe at runtime
+ * (first-run-quest.ts:~396). If `client` and `clientId` come from different families,
+ * the probe runs the wrong CLI binary against the right account → testResult.ok fails →
+ * create button disabled → legitimate kitten path blocked. Sync `client` to the same
+ * effective family as `clientId`.
+ */
+function effectiveClientName(template: TemplateCard | null, fallbackClient: string): string {
+  const family = effectiveAccountFamily(template, '');
+  if (!family) return fallbackClient;
+  const familyToCli: Record<string, string> = {
+    anthropic: 'claude',
+    openai: 'codex',
+    google: 'gemini',
+    kimi: 'kimi',
+    opencode: 'opencode',
+  };
+  return familyToCli[family] ?? fallbackClient;
+}
+
 interface FirstRunQuestWizardProps {
   open: boolean;
   onClose: () => void;
@@ -232,7 +253,7 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           {step === 'client' && <ClientStep onSelect={handleClientSelect} />}
           {step === 'config' && selectedClient && (
             <ConfigStep
-              client={selectedClient.client}
+              client={effectiveClientName(selectedTemplate, selectedClient.client)}
               clientId={effectiveAccountFamily(selectedTemplate, selectedClient.provider)}
               onComplete={handleConfigComplete}
             />
