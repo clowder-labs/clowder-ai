@@ -275,17 +275,20 @@ describe('FirstRunQuestWizard', () => {
           ],
         });
       }
-      // user still picks an installed CLI client (e.g. anthropic) — template runtimeDefaults must override.
+      // user picks an installed CLI client. We mock both anthropic and openai available;
+      // the test exercises picking codex/openai (matches template runtimeDefaults family).
+      // Picking anthropic CLI here would be a degenerate case — ConfigStep would filter to
+      // openai accounts (effective family from template) regardless of selectedClient.provider.
       if (url.includes('/api/first-run/available-clients')) {
         return jsonResponse({
           clients: [
             {
-              client: 'claude',
-              provider: 'anthropic',
-              label: 'Claude',
-              cli: 'claude',
+              client: 'codex',
+              provider: 'openai',
+              label: 'Codex',
+              cli: 'codex',
               installed: true,
-              hasApiKey: false,
+              hasApiKey: true,
             },
           ],
         });
@@ -294,12 +297,14 @@ describe('FirstRunQuestWizard', () => {
         return jsonResponse({
           providers: [
             {
-              id: 'claude',
-              displayName: 'Claude (OAuth)',
-              name: 'Claude (OAuth)',
+              id: 'codex',
+              provider: 'codex',
+              displayName: 'OpenAI (Codex)',
+              name: 'OpenAI (Codex)',
               authType: 'oauth',
               mode: 'subscription',
-              models: ['claude-opus-4-6'],
+              clientId: 'openai',
+              models: ['gpt-5.5'],
               hasApiKey: false,
               createdAt: '2026-01-01',
               updatedAt: '2026-01-01',
@@ -338,8 +343,8 @@ describe('FirstRunQuestWizard', () => {
     });
     await flushEffects();
 
-    // Step 2: select client (user picks Claude, but template should override)
-    const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
+    // Step 2: select client (user picks Codex/OpenAI — matches template's openai-chat family).
+    const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Codex'));
     expect(clientButton).toBeTruthy();
     await act(async () => {
       clientButton!.click();
@@ -365,10 +370,13 @@ describe('FirstRunQuestWizard', () => {
       await flushEffects();
     }
 
-    // Assert: template runtimeDefaults overrode user's anthropic pick.
+    // Assert: template runtimeDefaults override.
     expect(catsPayload).not.toBeNull();
     expect(catsPayload!.clientId).toBe('catagent');
     expect(catsPayload!.catAgentProtocol).toBe('openai-chat');
     expect(catsPayload!.nativeToolLevel).toBe('L1');
+    // Family consistency: accountRef is from openai-family ConfigStep, not anthropic.
+    // OpenAIChatAdapter.clientFamily='openai' will match account.clientFamily='openai' at invoke time.
+    expect(catsPayload!.accountRef).toBe('codex');
   });
 });

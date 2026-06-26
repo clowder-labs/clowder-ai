@@ -10,6 +10,25 @@ import { type TemplateCard, TemplateStep } from './first-run-quest/TemplateStep'
 
 type WizardStep = 'template' | 'client' | 'config' | 'creating' | 'done';
 
+/**
+ * F159 G2 follow-up: ConfigStep filters accounts/models by `clientId` (account family).
+ * For catagent-native templates the wire-protocol determines the *account family* the
+ * runtime adapter expects — anthropic-messages → 'anthropic'; openai-chat → 'openai'.
+ * Passing `selectedClient.provider` (the CLI binary the user has installed, e.g. 'anthropic'
+ * for Claude CLI) would let the user bind a Claude account to a `catagent + openai-chat`
+ * cat → at invoke time `OpenAIChatAdapter.clientFamily='openai'` fail-closes via
+ * `catagent-credentials.ts` family guard (created but uncallable cat). Derive the
+ * effective account family from the template's runtimeDefaults instead.
+ */
+function effectiveAccountFamily(template: TemplateCard | null, fallbackClientId: string): string {
+  const tplDefaults = template?.runtimeDefaults;
+  if (!tplDefaults) return fallbackClientId;
+  if (tplDefaults.clientId === 'catagent') {
+    return tplDefaults.catAgentProtocol === 'openai-chat' ? 'openai' : 'anthropic';
+  }
+  return tplDefaults.clientId;
+}
+
 interface FirstRunQuestWizardProps {
   open: boolean;
   onClose: () => void;
@@ -214,7 +233,7 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           {step === 'config' && selectedClient && (
             <ConfigStep
               client={selectedClient.client}
-              clientId={selectedClient.provider}
+              clientId={effectiveAccountFamily(selectedTemplate, selectedClient.provider)}
               onComplete={handleConfigComplete}
             />
           )}
