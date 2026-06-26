@@ -106,6 +106,21 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores copied detector JSON output after unrecognized transition wording', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody:
+            'Verification: check-hotfix-pattern said {"hotfix":true,"matches":[{"text":"quick fix"}]}; gate passed.',
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('ignores copied detector fenced JSON output in commit evidence', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',
@@ -121,6 +136,56 @@ describe('check-hotfix-pattern', () => {
           ].join('\n'),
         },
       ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
+  test('ignores copied detector fenced JSON output without transition wording', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody: [
+            'Verification: check-hotfix-pattern result was:',
+            '```json',
+            '{"hotfix":true,"matches":[{"text":"quick fix"}]}',
+            '```',
+            'No runtime change.',
+          ].join('\n'),
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
+  test('ignores literal sentinel-wrapped detector output in commit evidence', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody:
+            'Verification: <<<HOTFIX-DETECTOR-V1-BEGIN>>>{"hotfix":true,"matches":[{"text":"quick fix"}]}<<<HOTFIX-DETECTOR-V1-END>>> gate passed.',
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
+  test('ignores detector maintenance prose in detector script PRs', () => {
+    const result = detectHotfixSignals({
+      title: 'chore: tune detector',
+      commits: [
+        {
+          messageHeadline: 'chore: tune detector',
+          messageBody: 'Adjusted check-hotfix-pattern to recognize quick fix variants correctly.',
+        },
+      ],
+      files: [{ filename: 'scripts/check-hotfix-pattern.mjs', changes: 12 }],
     });
 
     assert.deepEqual(result, { hotfix: false, matches: [] });

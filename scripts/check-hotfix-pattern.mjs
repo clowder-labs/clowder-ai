@@ -21,8 +21,12 @@ const HOTFIX_PATTERNS = [
   { term: 'fix', regex: /^(?:fix|bugfix)(?:\([^)]+\))?!?(?=$|[\s:])/i },
 ];
 
+const DETECTOR_SCRIPT_PATH = 'scripts/check-hotfix-pattern.mjs';
+const DETECTOR_OUTPUT_BEGIN_MARKER = '<<<HOTFIX-DETECTOR-V1-BEGIN>>>';
+const DETECTOR_OUTPUT_END_MARKER = '<<<HOTFIX-DETECTOR-V1-END>>>';
 const DETECTOR_REFERENCE_REGEX = /\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern(?:\.mjs)?)\b/i;
 const DETECTOR_REFERENCE_GLOBAL_REGEX = /\bhot[-\s]?fix\s+detector\b|\bcheck-hotfix-pattern(?:\.mjs)?\b/gi;
+const DETECTOR_REFERENCE_SCAN_REGEX = /\bhot[-\s]?fix\s+detector\b|\bcheck-hotfix-pattern(?:\.mjs)?\b/gi;
 const DETECTOR_OUTPUT_PREFIX_REGEX =
   /(?:\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern(?:\.mjs)?)\b\s*(?:(?:`[^`\r\n]*`|[^`\r\n]*\bcheck-hotfix-pattern(?:\.mjs)?\b[^`\r\n]*?)\s*)?|`[^`\r\n]*\bcheck-hotfix-pattern(?:\.mjs)?\b[^`\r\n]*`\s*)(?:(?::\s*)?\b(?:returned|reported|outputs?|printed|emitted)\b\s*:?\s*|=>\s*|:\s*)/gi;
 
@@ -45,6 +49,7 @@ export function detectHotfixSignals(pr) {
 
 function collectCandidates(pr) {
   const candidates = [];
+  const detectorScriptPr = isDetectorScriptPr(pr);
   if (typeof pr?.title === 'string' && pr.title.trim()) {
     candidates.push({ source: 'title', text: pr.title.trim() });
   }
@@ -67,18 +72,19 @@ function collectCandidates(pr) {
       commit?.body,
     ]) {
       if (typeof part !== 'string') continue;
-      collectCommitPartCandidates(candidates, part);
+      collectCommitPartCandidates(candidates, part, { detectorScriptPr });
     }
   }
 
   return candidates;
 }
 
-function collectCommitPartCandidates(candidates, part) {
+function collectCommitPartCandidates(candidates, part, { detectorScriptPr } = {}) {
   const outputRanges = findDetectorOutputRanges(part);
   for (const line of splitLinesWithOffsets(part)) {
     const text = line.text.trim();
     if (!text) continue;
+    if (detectorScriptPr && DETECTOR_REFERENCE_REGEX.test(text)) continue;
 
     const lineForMatch = removeRangesFromSlice(part, line.start, line.end, outputRanges);
     candidates.push({
@@ -87,6 +93,10 @@ function collectCommitPartCandidates(candidates, part) {
       textForMatch: stripDetectorLineTokens(lineForMatch).trim(),
     });
   }
+}
+
+function isDetectorScriptPr(pr) {
+  return Array.isArray(pr?.files) && pr.files.some((file) => file?.filename === DETECTOR_SCRIPT_PATH);
 }
 
 function stripDetectorSelfReferenceTokens(text) {
@@ -100,7 +110,7 @@ function stripDetectorLineTokens(text) {
 }
 
 function findDetectorOutputRanges(text) {
-  const ranges = [];
+  const ranges = [...findSentinelDetectorOutputRanges(text), ...findDetectorReferencedJsonOutputRanges(text)];
   DETECTOR_OUTPUT_PREFIX_REGEX.lastIndex = 0;
 
   for (;;) {
@@ -119,6 +129,77 @@ function findDetectorOutputRanges(text) {
   }
 
   return mergeRanges(ranges);
+}
+
+function findSentinelDetectorOutputRanges(text) {
+  const ranges = [];
+  let searchStart = 0;
+
+  for (;;) {
+    const start = text.indexOf(DETECTOR_OUTPUT_BEGIN_MARKER, searchStart);
+    if (start === -1) break;
+
+    const outputStart = start + DETECTOR_OUTPUT_BEGIN_MARKER.length;
+    const end = text.indexOf(DETECTOR_OUTPUT_END_MARKER, outputStart);
+    if (end === -1) {
+      searchStart = outputStart;
+      continue;
+    }
+
+    ranges.push([start, end + DETECTOR_OUTPUT_END_MARKER.length]);
+    searchStart = end + DETECTOR_OUTPUT_END_MARKER.length;
+  }
+
+  return ranges;
+}
+
+function findDetectorReferencedJsonOutputRanges(text) {
+  const ranges = [];
+  DETECTOR_REFERENCE_SCAN_REGEX.lastIndex = 0;
+
+  for (;;) {
+    const match = DETECTOR_REFERENCE_SCAN_REGEX.exec(text);
+    if (!match) break;
+
+    const searchStart = match.index + match[0].length;
+    const searchEnd = findDetectorOutputSearchEnd(text, searchStart);
+    const outputRange = findNextJsonLikeOutputRange(text, searchStart, searchEnd);
+    if (outputRange) ranges.push(outputRange);
+  }
+
+  return ranges;
+}
+
+function findDetectorOutputSearchEnd(text, searchStart) {
+  const blankLineMatch = /\r?\n\s*\r?\n/.exec(text.slice(searchStart));
+  return blankLineMatch ? searchStart + blankLineMatch.index : text.length;
+}
+
+function findNextJsonLikeOutputRange(text, searchStart, searchEnd) {
+  const fenceStart = findWithin(text, '```', searchStart, searchEnd);
+  const objectStart = findWithin(text, '{', searchStart, searchEnd);
+
+  if (fenceStart !== -1 && (objectStart === -1 || fenceStart <= objectStart)) {
+    const fenceEnd = findFencedCodeBlockEnd(text, fenceStart);
+    return fenceEnd === -1 ? null : [fenceStart, fenceEnd];
+  }
+
+  if (objectStart === -1) return null;
+  const objectEnd = findBalancedObjectEnd(text, objectStart);
+  return objectEnd === -1 ? null : [objectStart, objectEnd + 1];
+}
+
+function findWithin(text, needle, searchStart, searchEnd) {
+  const index = text.indexOf(needle, searchStart);
+  return index !== -1 && index < searchEnd ? index : -1;
+}
+
+function findFencedCodeBlockEnd(text, fenceStart) {
+  const contentStart = findFencedCodeContentStart(text, fenceStart);
+  if (contentStart === -1) return -1;
+
+  const closingFenceStart = text.indexOf('```', contentStart);
+  return closingFenceStart === -1 ? -1 : closingFenceStart + 3;
 }
 
 function findDetectorOutputEnd(text, outputStart) {
