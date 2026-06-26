@@ -304,6 +304,10 @@ function parseArgs(argv) {
     }
   }
 
+  if (!args.prNumber && !args.inputJsonPath && args.applyLabelPrNumber) {
+    args.prNumber = args.applyLabelPrNumber;
+  }
+
   return args;
 }
 

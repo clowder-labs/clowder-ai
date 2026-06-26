@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -179,6 +179,64 @@ describe('check-hotfix-pattern', () => {
     assert.equal(parsed.labelApplied, undefined);
     assert.equal(parsed.labelError, undefined);
     assert.match(parsed.labelSkippedReason, /changed lines 51 exceeds 50/);
+  });
+
+  test('CLI uses --apply-label value as PR input when PR_NUMBER is unset', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hotfix-detector-gh-'));
+    const fakeGhPath = join(dir, 'gh');
+    const ghLogPath = join(dir, 'gh-calls.jsonl');
+    await writeFile(
+      fakeGhPath,
+      `#!/usr/bin/env node
+import { appendFileSync } from 'node:fs';
+
+const callsPath = ${JSON.stringify(ghLogPath)};
+const args = process.argv.slice(2);
+appendFileSync(callsPath, JSON.stringify(args) + '\\n');
+
+if (args[0] === 'pr' && args[1] === 'view' && args[2] === '123') {
+  console.log(JSON.stringify({ title: 'fix: pr hotfix', labels: [] }));
+  process.exit(0);
+}
+if (args[0] === 'repo' && args[1] === 'view') {
+  console.log('clowder-labs/clowder-ai');
+  process.exit(0);
+}
+if (args[0] === 'api' && args[2] === 'repos/clowder-labs/clowder-ai/pulls/123/commits') {
+  console.log(JSON.stringify({ message: 'fix: pr hotfix' }));
+  process.exit(0);
+}
+if (args[0] === 'api' && args[2] === 'repos/clowder-labs/clowder-ai/pulls/123/files') {
+  console.log(JSON.stringify({ filename: 'scripts/check-hotfix-pattern.mjs', changes: 12 }));
+  process.exit(0);
+}
+if (args[0] === 'pr' && args[1] === 'edit' && args[2] === '123') {
+  process.exit(0);
+}
+
+console.error('unexpected gh args: ' + JSON.stringify(args));
+process.exit(42);
+`,
+    );
+    await chmod(fakeGhPath, 0o755);
+
+    const { stdout } = await execFileAsync('node', [SCRIPT_PATH.pathname, '--apply-label', '123'], {
+      cwd: dir,
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, PR_NUMBER: '' },
+    });
+
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.hotfix, true);
+    assert.equal(parsed.labelApplied, true);
+
+    const ghCalls = (await readFile(ghLogPath, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    assert.ok(
+      ghCalls.some((args) => args[0] === 'pr' && args[1] === 'view' && args[2] === '123'),
+      '--apply-label value should be reused as the PR input number',
+    );
   });
 
   test('CLI falls back to local git evidence when no PR input is available', async () => {
