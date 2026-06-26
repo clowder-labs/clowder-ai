@@ -155,15 +155,6 @@
       "expiresOn": "2026-06-30"
     },
     {
-      "id": "signal-fetcher-launchd",
-      "match": "signal-fetcher-launchd",
-      "category": "private_fixture",
-      "reason": "launchd-specific signal fetcher coverage depends on private macOS fixtures and stays internal.",
-      "owner": "@zts212653",
-      "introducedBy": "78f3bc57c",
-      "expiresOn": "2026-06-30"
-    },
-    {
       "id": "reflection-capsule-m3",
       "match": "reflection-capsule-m3",
       "category": "source_only",

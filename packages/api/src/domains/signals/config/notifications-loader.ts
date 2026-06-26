@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse, stringify } from 'yaml';
@@ -97,6 +97,10 @@ async function writeDefaultNotificationsFile(paths: SignalPaths): Promise<void> 
   await writeFile(getNotificationsFilePath(paths), toYaml(DEFAULT_SIGNAL_NOTIFICATIONS), 'utf-8');
 }
 
+function writeDefaultNotificationsFileSync(paths: SignalPaths): void {
+  writeFileSync(getNotificationsFilePath(paths), toYaml(DEFAULT_SIGNAL_NOTIFICATIONS), 'utf-8');
+}
+
 function parseAndValidateNotifications(yamlText: string): SignalNotificationConfig {
   const parsed = parse(yamlText) as unknown;
   const result = SignalNotificationConfigSchema.safeParse(parsed);
@@ -117,6 +121,18 @@ export async function ensureSignalNotificationsFile(paths: SignalPaths = resolve
   }
 }
 
+export function ensureSignalNotificationsFileSync(paths: SignalPaths = resolveSignalPaths()): void {
+  mkdirSync(paths.rootDir, { recursive: true });
+  mkdirSync(paths.configDir, { recursive: true });
+  mkdirSync(paths.libraryDir, { recursive: true });
+  mkdirSync(paths.inboxDir, { recursive: true });
+  mkdirSync(paths.logsDir, { recursive: true });
+
+  if (!existsSync(getNotificationsFilePath(paths))) {
+    writeDefaultNotificationsFileSync(paths);
+  }
+}
+
 export async function loadSignalNotifications(
   paths: SignalPaths = resolveSignalPaths(),
 ): Promise<SignalNotificationConfig> {
@@ -127,6 +143,20 @@ export async function loadSignalNotifications(
 
   if (yamlText.trim().length === 0) {
     await writeDefaultNotificationsFile(paths);
+    return DEFAULT_SIGNAL_NOTIFICATIONS;
+  }
+
+  return parseAndValidateNotifications(yamlText);
+}
+
+export function loadSignalNotificationsSync(paths: SignalPaths = resolveSignalPaths()): SignalNotificationConfig {
+  ensureSignalNotificationsFileSync(paths);
+
+  const notificationsFile = getNotificationsFilePath(paths);
+  const yamlText = readFileSync(notificationsFile, 'utf-8');
+
+  if (yamlText.trim().length === 0) {
+    writeDefaultNotificationsFileSync(paths);
     return DEFAULT_SIGNAL_NOTIFICATIONS;
   }
 

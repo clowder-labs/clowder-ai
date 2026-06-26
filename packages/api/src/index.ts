@@ -2140,12 +2140,20 @@ async function main(): Promise<void> {
   const limbPairingStore = new LimbPairingStore();
   registerLimbNodeRoutes(app, { limbRegistry, pairingStore: limbPairingStore });
 
-  // F202-2B: Hoisted for late-binding GitHub schedule rehydration (closure set inside F202 block)
+  // F202-2B: Hoisted for late-binding plugin schedule rehydration (closure set inside F202 block)
   let rehydrateGitHubSchedules: ((githubDeps: Record<string, unknown>) => Promise<void>) | undefined;
   let getGitHubPluginEnv: () => Record<string, string | undefined> = () => ({});
+  let getSignalsPluginEnv: () => Record<string, string | undefined> = () => ({});
   const getGitHubEnvValue = (key: string): string | undefined => {
     const pluginEnv = getGitHubPluginEnv();
     return Object.hasOwn(pluginEnv, key) ? pluginEnv[key] : process.env[key];
+  };
+  const getSignalsGitHubApiToken = (): string | undefined => {
+    const pluginEnv = getSignalsPluginEnv();
+    if (Object.hasOwn(pluginEnv, 'SIGNALS_GITHUB_API_TOKEN')) {
+      return pluginEnv.SIGNALS_GITHUB_API_TOKEN;
+    }
+    return getGitHubEnvValue('GITHUB_MCP_PAT');
   };
   const getGitHubToken = (): string | undefined => {
     return resolveGhCliToken({ pluginEnv: getGitHubPluginEnv() });
@@ -2225,6 +2233,10 @@ async function main(): Promise<void> {
       const githubManifest = pluginRegistry.getManifest('github');
       return githubManifest ? resolvePluginEnv([githubManifest]) : {};
     };
+    getSignalsPluginEnv = () => {
+      const signalsManifest = pluginRegistry.getManifest('signals');
+      return signalsManifest ? resolvePluginEnv([signalsManifest]) : {};
+    };
 
     const limbAdapterRegistry = new Map<string, (yamlPath: string) => Promise<ILimbNode>>();
 
@@ -2232,6 +2244,8 @@ async function main(): Promise<void> {
     const scheduleFactoryRegistry = new ScheduleFactoryRegistry();
     const { registerGitHubScheduleFactories } = await import('./domains/plugin/github-schedule-factories.js');
     registerGitHubScheduleFactories(scheduleFactoryRegistry);
+    const { registerSignalsScheduleFactories } = await import('./domains/plugin/signals-schedule-factories.js');
+    registerSignalsScheduleFactories(scheduleFactoryRegistry);
 
     // F202-2B: Mutable deps ref — starts with just log, populated with full GitHub deps later
     const scheduleFactoryDeps: Record<string, unknown> = { log: app.log };
@@ -2285,6 +2299,9 @@ async function main(): Promise<void> {
     rehydrateGitHubSchedules = async (githubDeps: Record<string, unknown>) => {
       // Populate the mutable deps ref (also updates pluginActivator's reference)
       Object.assign(scheduleFactoryDeps, githubDeps);
+      Object.assign(scheduleFactoryDeps, {
+        getSignalGitHubApiToken: getSignalsGitHubApiToken,
+      });
 
       // Migration: auto-enable GitHub schedule resources on first startup after Phase B migration
       // Uses marker file to prevent re-enable after explicit disable (P2-1 fix)
@@ -2373,6 +2390,29 @@ async function main(): Promise<void> {
           app.log.info(
             '[api] F202-2B migration: enabled pending GitHub repo-scan schedule after deps became available',
           );
+        }
+      }
+
+      // Migration: auto-enable Signals auto-fetch on first startup after F021 scheduler repair.
+      // Marker semantics mirror GitHub: after explicit disable removes the capability row, the
+      // marker prevents startup from resurrecting the plugin-owned schedule.
+      const signalsManifest = pluginRegistry.getManifest('signals');
+      if (signalsManifest) {
+        const existingCaps = await readCapabilitiesConfig(root);
+        const { shouldRunSignalsScheduleMigration, markSignalsScheduleMigrationDone, buildSignalsMigrationEntries } =
+          await import('./domains/plugin/signals-schedule-factories.js');
+        if (shouldRunSignalsScheduleMigration(root, existingCaps)) {
+          const entries = buildSignalsMigrationEntries(signalsManifest);
+          if (entries.length > 0) {
+            const updatedCaps: import('@cat-cafe/shared').CapabilitiesConfig = {
+              ...(existingCaps ?? { version: 1 as const, capabilities: [] }),
+              version: 1 as const,
+              capabilities: [...(existingCaps?.capabilities ?? []), ...entries],
+            };
+            await writeCapabilitiesConfig(root, updatedCaps);
+            markSignalsScheduleMigrationDone(root);
+            app.log.info(`[api] F021: enabled ${entries.length} Signals schedule resource(s)`);
+          }
         }
       }
 
@@ -3260,7 +3300,7 @@ async function main(): Promise<void> {
     registry: commandRegistry,
   });
   await app.register(signalsRoutes, {
-    getGitHubApiToken: () => getGitHubEnvValue('GITHUB_MCP_PAT'),
+    getGitHubApiToken: getSignalsGitHubApiToken,
   });
   await app.register(signalStudyRoutes, { threadStore });
   await app.register(signalCollectionRoutes);

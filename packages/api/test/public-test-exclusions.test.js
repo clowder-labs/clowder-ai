@@ -28,7 +28,6 @@ const LEGACY_EXCLUSIONS = [
   'integration/wiring\\.test',
   'antigravity-cdp-client\\.test',
   'shared-state-wiring\\.test',
-  'signal-fetcher-launchd',
   'reflection-capsule-m3',
   'workspace-project-context\\.test',
   'projects-setup\\.test',
