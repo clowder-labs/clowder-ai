@@ -85,6 +85,13 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           const catId = `${selectedTemplate.id}-${suffix}`;
           const catName = selectedTemplate.nickname ?? selectedTemplate.name;
 
+          // F159 G2 follow-up: template runtimeDefaults > user's selectedClient pick.
+          // The template is the source of truth for "what kind of cat this is" — selectedClient
+          // only fills in user environment (which actual CLI binary they have installed). For
+          // catagent native-path templates (kitten), runtimeDefaults carries clientId='catagent'
+          // + catAgentProtocol='openai-chat' + nativeToolLevel; without this override the wizard
+          // creates a普通 anthropic/openai 成员 instead of the catagent that was selected.
+          const tplDefaults = selectedTemplate.runtimeDefaults;
           const createRes = await apiFetch('/api/cats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -102,8 +109,12 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
               roleDescription: selectedTemplate.roleDescription,
               personality: selectedTemplate.personality,
               teamStrengths: selectedTemplate.teamStrengths,
-              clientId: selectedClient.provider,
+              clientId: tplDefaults?.clientId ?? selectedClient.provider,
+              ...(tplDefaults?.catAgentProtocol ? { catAgentProtocol: tplDefaults.catAgentProtocol } : {}),
+              ...(tplDefaults?.nativeToolLevel ? { nativeToolLevel: tplDefaults.nativeToolLevel } : {}),
               accountRef: config.accountRef,
+              // model 尊重 user 在 ConfigStep 的选择（用户基于实际 selectedClient.models 列表挑的）；
+              // template.runtimeDefaults.defaultModel 只是 suggestion，不强制 override。
               defaultModel: config.model,
             }),
           });

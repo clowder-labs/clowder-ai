@@ -245,4 +245,130 @@ describe('FirstRunQuestWizard', () => {
     expect(catsPayload!.clientId).toBe('anthropic');
     expect(catsPayload!.client).toBeUndefined();
   });
+
+  // F159 G2 follow-up: kitten/catagent template must POST with clientId=catagent
+  // + catAgentProtocol=openai-chat + nativeToolLevel=L1 from template.runtimeDefaults,
+  // overriding whichever client the user picked in step 2. Without this, picking 幼仔
+  // in first-run still creates a 普通 anthropic/openai 成员 → /v1/messages 403.
+  it('catagent template runtimeDefaults override selectedClient in POST payload', async () => {
+    let catsPayload: Record<string, unknown> | null = null;
+
+    mockApiFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes('/api/cat-templates')) {
+        return jsonResponse({
+          templates: [
+            {
+              id: 'kitten',
+              name: '幼猫',
+              nickname: '幼仔',
+              avatar: '/avatars/catagent.png',
+              color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
+              roleDescription: '灵巧的轻装猫',
+              personality: '直爽好奇',
+              runtimeDefaults: {
+                clientId: 'catagent',
+                defaultModel: 'gpt-5.5',
+                catAgentProtocol: 'openai-chat',
+                nativeToolLevel: 'L1',
+              },
+            },
+          ],
+        });
+      }
+      // user still picks an installed CLI client (e.g. anthropic) — template runtimeDefaults must override.
+      if (url.includes('/api/first-run/available-clients')) {
+        return jsonResponse({
+          clients: [
+            {
+              client: 'claude',
+              provider: 'anthropic',
+              label: 'Claude',
+              cli: 'claude',
+              installed: true,
+              hasApiKey: false,
+            },
+          ],
+        });
+      }
+      if (url.includes('/api/accounts')) {
+        return jsonResponse({
+          providers: [
+            {
+              id: 'claude',
+              displayName: 'Claude (OAuth)',
+              name: 'Claude (OAuth)',
+              authType: 'oauth',
+              mode: 'subscription',
+              models: ['claude-opus-4-6'],
+              hasApiKey: false,
+              createdAt: '2026-01-01',
+              updatedAt: '2026-01-01',
+            },
+          ],
+        });
+      }
+      if (url.includes('/api/first-run/connectivity-test')) {
+        return jsonResponse({ ok: true, message: '连接成功' });
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        catsPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse({ cat: { id: 'kitten-abcd', displayName: '幼猫' } });
+      }
+      if (url === '/api/threads' && init?.method === 'POST') {
+        return jsonResponse({ id: 'thread-test-kitten' });
+      }
+      if (url === '/api/threads') {
+        return jsonResponse({ threads: [] });
+      }
+      return jsonResponse({});
+    });
+
+    await act(async () => {
+      root.render(<WizardHost />);
+    });
+    await flushEffects();
+
+    // Step 1: select 幼仔 template
+    const templateButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('幼猫'),
+    );
+    expect(templateButton).toBeTruthy();
+    await act(async () => {
+      templateButton!.click();
+    });
+    await flushEffects();
+
+    // Step 2: select client (user picks Claude, but template should override)
+    const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
+    expect(clientButton).toBeTruthy();
+    await act(async () => {
+      clientButton!.click();
+    });
+    await flushEffects();
+
+    // Step 3: connectivity test + create
+    const testButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('测试连接'));
+    if (testButton) {
+      await act(async () => {
+        testButton.click();
+      });
+      await flushEffects();
+    }
+
+    const createButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('创建猫猫'),
+    );
+    if (createButton && !createButton.disabled) {
+      await act(async () => {
+        createButton.click();
+      });
+      await flushEffects();
+    }
+
+    // Assert: template runtimeDefaults overrode user's anthropic pick.
+    expect(catsPayload).not.toBeNull();
+    expect(catsPayload!.clientId).toBe('catagent');
+    expect(catsPayload!.catAgentProtocol).toBe('openai-chat');
+    expect(catsPayload!.nativeToolLevel).toBe('L1');
+  });
 });
