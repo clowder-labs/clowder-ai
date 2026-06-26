@@ -1,0 +1,22 @@
+id: signals
+name: Signals Auto-Fetch
+version: 1.0.0
+description: "Automatic RSS/webpage signal fetching, deduplication, and daily digest delivery. Sources configured in ~/.cat-cafe/signals/config/sources.yaml; schedule driven by notifications.yaml daily_digest + timezone."
+icon: signal
+
+docsUrl: "https://github.com/zts212653/clowder-ai/blob/main/docs/features/F021-signal-study-mode.md"
+setupSteps:
+  - "Sources are configured in ~/.cat-cafe/signals/config/sources.yaml (43 default sources covering Anthropic, OpenAI, research blogs, etc.)"
+  - "Daily digest time + timezone is set in ~/.cat-cafe/signals/config/notifications.yaml (default: 09:45 local morning)"
+  - "Optional: configure GITHUB_API_TOKEN for GitHub-backed signal sources (e.g., release feeds)"
+
+config:
+  - envName: GITHUB_API_TOKEN
+    label: "GitHub API Token (for GitHub-backed signal sources)"
+    sensitive: true
+    required: false
+
+resources:
+  - type: schedule
+    name: auto-fetch
+    factoryId: signals.auto-fetch
