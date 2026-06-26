@@ -21,7 +21,7 @@ const HOTFIX_PATTERNS = [
   { term: 'fix', regex: /^(?:fix|bugfix)(?:\([^)]+\))?!?(?=$|[\s:])/i },
 ];
 
-const DETECTOR_SCRIPT_PATH = 'scripts/check-hotfix-pattern.mjs';
+const DETECTOR_FILE_PATHS = new Set(['scripts/check-hotfix-pattern.mjs', 'scripts/check-hotfix-pattern.test.mjs']);
 const DETECTOR_OUTPUT_BEGIN_MARKER = '<<<HOTFIX-DETECTOR-V1-BEGIN>>>';
 const DETECTOR_OUTPUT_END_MARKER = '<<<HOTFIX-DETECTOR-V1-END>>>';
 const DETECTOR_REFERENCE_REGEX = /\b(?:hot[-\s]?fix\s+detector|check-hotfix-pattern(?:\.mjs)?)\b/i;
@@ -96,7 +96,7 @@ function collectCommitPartCandidates(candidates, part, { detectorScriptPr } = {}
 }
 
 function isDetectorScriptPr(pr) {
-  return Array.isArray(pr?.files) && pr.files.some((file) => file?.filename === DETECTOR_SCRIPT_PATH);
+  return Array.isArray(pr?.files) && pr.files.some((file) => DETECTOR_FILE_PATHS.has(file?.filename));
 }
 
 function stripDetectorSelfReferenceTokens(text) {

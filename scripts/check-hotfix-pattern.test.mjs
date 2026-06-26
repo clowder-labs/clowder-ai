@@ -191,6 +191,21 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores detector maintenance prose in detector test-only PRs', () => {
+    const result = detectHotfixSignals({
+      title: 'test: cover detector variants',
+      commits: [
+        {
+          messageHeadline: 'test: cover detector variants',
+          messageBody: 'Adjusted check-hotfix-pattern to recognize quick fix variants correctly.',
+        },
+      ],
+      files: [{ filename: 'scripts/check-hotfix-pattern.test.mjs', changes: 12 }],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('preserves real hotfix metadata outside copied detector output', () => {
     const result = detectHotfixSignals({
       title: 'chore: release metadata',
