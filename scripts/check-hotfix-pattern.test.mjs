@@ -91,6 +91,21 @@ describe('check-hotfix-pattern', () => {
     assert.deepEqual(result, { hotfix: false, matches: [] });
   });
 
+  test('ignores copied detector command JSON output in commit evidence', () => {
+    const result = detectHotfixSignals({
+      title: 'docs: sync status wording',
+      commits: [
+        {
+          messageHeadline: 'docs: sync status wording',
+          messageBody:
+            'Verification: node scripts/check-hotfix-pattern.mjs returned {"hotfix":true,"matches":[{"text":"quick fix"}]}; gate passed.',
+        },
+      ],
+    });
+
+    assert.deepEqual(result, { hotfix: false, matches: [] });
+  });
+
   test('ignores copied detector fenced JSON output in commit evidence', () => {
     const result = detectHotfixSignals({
       title: 'docs: sync status wording',
