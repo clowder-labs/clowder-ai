@@ -11,6 +11,7 @@ const HOTFIX_PATTERNS = [
   { term: 'quick fix', regex: /\bquick\s+fix\b/i },
   { term: 'minimal fix', regex: /\bminimal\s+fix\b/i },
   { term: 'band-aid', regex: /\bband[-\s]?aid\b/i },
+  { term: 'temp', regex: /^temp(?:\([^)]+\))?!?(?=$|[\s:])/i },
   {
     term: 'temporary',
     regex:
@@ -285,17 +286,27 @@ async function loadPrInput(args) {
   const repoFullName = repoResult.stdout.trim();
   if (!repoFullName) throw new Error('Unable to resolve repository nameWithOwner.');
 
-  const { stdout: commitsJsonLines } = await execFileAsync('gh', [
-    'api',
-    '--paginate',
-    `repos/${repoFullName}/pulls/${args.prNumber}/commits`,
-    '--jq',
-    '.[] | {message: .commit.message}',
+  const [{ stdout: commitsJsonLines }, { stdout: filesJsonLines }] = await Promise.all([
+    execFileAsync('gh', [
+      'api',
+      '--paginate',
+      `repos/${repoFullName}/pulls/${args.prNumber}/commits`,
+      '--jq',
+      '.[] | {message: .commit.message}',
+    ]),
+    execFileAsync('gh', [
+      'api',
+      '--paginate',
+      `repos/${repoFullName}/pulls/${args.prNumber}/files`,
+      '--jq',
+      '.[] | {filename, additions, deletions, changes}',
+    ]),
   ]);
 
   return {
     title: titleResult.stdout.trim(),
     commits: parseJsonLines(commitsJsonLines),
+    files: parseJsonLines(filesJsonLines),
   };
 }
 
@@ -315,6 +326,34 @@ async function applyHotfixLabel(prNumber) {
   } catch (error) {
     return cleanError(error);
   }
+}
+
+function getAutoLabelEligibility(pr) {
+  if (!Array.isArray(pr?.files)) {
+    return { eligible: false, reason: 'missing changed-file stats' };
+  }
+  if (pr.files.length !== 1) {
+    return { eligible: false, reason: `changed file count ${pr.files.length} is not 1` };
+  }
+
+  const changedLines = getChangedLineCount(pr.files[0]);
+  if (!Number.isFinite(changedLines)) {
+    return { eligible: false, reason: 'missing changed-line count' };
+  }
+  if (changedLines > 50) {
+    return { eligible: false, reason: `changed lines ${changedLines} exceeds 50` };
+  }
+  return { eligible: true };
+}
+
+function getChangedLineCount(file) {
+  const changes = Number(file?.changes);
+  if (Number.isFinite(changes)) return changes;
+
+  const additions = Number(file?.additions);
+  const deletions = Number(file?.deletions);
+  if (Number.isFinite(additions) && Number.isFinite(deletions)) return additions + deletions;
+  return Number.NaN;
 }
 
 function buildOutput(result, extras = {}) {
@@ -340,9 +379,14 @@ async function main() {
     const result = detectHotfixSignals(pr);
     const extras = {};
     if (result.hotfix && args.applyLabelPrNumber) {
-      const labelError = await applyHotfixLabel(args.applyLabelPrNumber);
-      if (labelError) extras.labelError = labelError;
-      else extras.labelApplied = true;
+      const labelEligibility = getAutoLabelEligibility(pr);
+      if (!labelEligibility.eligible) {
+        extras.labelSkippedReason = labelEligibility.reason;
+      } else {
+        const labelError = await applyHotfixLabel(args.applyLabelPrNumber);
+        if (labelError) extras.labelError = labelError;
+        else extras.labelApplied = true;
+      }
     }
     console.log(JSON.stringify(buildOutput(result, extras)));
   } catch (error) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -24,6 +24,22 @@ describe('check-hotfix-pattern', () => {
         source: 'title',
         term: 'fix',
         text: 'fix(cli): preserve MCP tool contracts',
+      },
+    ]);
+  });
+
+  test('detects standalone temp titles as hotfix work', () => {
+    const result = detectHotfixSignals({
+      title: 'temp: bypass failing check',
+      commits: [],
+    });
+
+    assert.equal(result.hotfix, true);
+    assert.deepEqual(result.matches, [
+      {
+        source: 'title',
+        term: 'temp',
+        text: 'temp: bypass failing check',
       },
     ]);
   });
@@ -83,6 +99,34 @@ describe('check-hotfix-pattern', () => {
       matchedTerms: [],
       matches: [],
     });
+  });
+
+  test('CLI skips hotfix label when changed-file stats exceed auto-label guard', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hotfix-detector-'));
+    const inputPath = join(dir, 'pr.json');
+    const fakeGhPath = join(dir, 'gh');
+    await writeFile(
+      inputPath,
+      JSON.stringify({
+        title: 'fix: broad change',
+        commits: [{ message: 'fix: broad change' }],
+        files: [{ filename: 'scripts/large-change.mjs', changes: 51 }],
+      }),
+    );
+    await writeFile(fakeGhPath, '#!/bin/sh\necho "gh should not be called" >&2\nexit 42\n');
+    await chmod(fakeGhPath, 0o755);
+
+    const { stdout } = await execFileAsync(
+      'node',
+      [SCRIPT_PATH.pathname, '--input-json', inputPath, '--apply-label', '123'],
+      { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` } },
+    );
+
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.hotfix, true);
+    assert.equal(parsed.labelApplied, undefined);
+    assert.equal(parsed.labelError, undefined);
+    assert.match(parsed.labelSkippedReason, /changed lines 51 exceeds 50/);
   });
 
   test('CLI fails closed with valid JSON when no PR input is available', async () => {
