@@ -12,6 +12,7 @@ import { describe, test } from 'node:test';
 import {
   finalRoutingSlot,
   findInlineMentionsInSlot,
+  hasEventDrivenExternalWaitExit,
   validateRoutingSyntax,
 } from '../dist/domains/cats/services/agents/routing/final-routing-slot.js';
 
@@ -155,6 +156,21 @@ describe('F167 Phase H AC-H3: validateRoutingSyntax trigger conditions', () => {
   test('2b event-driven external wait exit suppresses inline mention syntax warning', () => {
     const result = validateRoutingSyntax({
       text: '不再 @codex。\nExternal Wait: event-driven (pr:35)',
+      lineStartMentions: [],
+      toolNames: [],
+      structuredTargetCats: [],
+      rosterHandles: roster,
+    });
+    assert.equal(result.kind, 'ok');
+  });
+
+  test('signed 2b event-driven external wait exit suppresses inline mention syntax warning', () => {
+    const text = '不再 @codex。\nExternal Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]';
+
+    assert.equal(hasEventDrivenExternalWaitExit(text), true);
+
+    const result = validateRoutingSyntax({
+      text,
       lineStartMentions: [],
       toolNames: [],
       structuredTargetCats: [],

@@ -199,3 +199,42 @@ Additional verification after the cloud fix:
 - `pnpm check`: passed
 - `scripts/check-fallback-layers.mjs`: unavailable in this tree
 - `pnpm check:architecture-ownership`: unavailable in this tree
+
+## Receive-Review Update 3
+
+Cloud review on current head `b41b72a3` found one P2:
+
+- Signed outputs like
+  `External Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]`
+  made `finalRoutingSlot()` pick the trailing signature paragraph, so
+  `hasEventDrivenExternalWaitExit()` returned `false` and the new legal 2b exit
+  could still trip remedial/verdict/void-hold guards.
+
+Fix:
+- moved trailing cat-signature stripping into `final-routing-slot.ts`
+- made `hasEventDrivenExternalWaitExit()` strip signatures before selecting the
+  final slot
+- made `verdict-detect.ts` reuse the same shared signature stripper instead of
+  keeping a separate local copy
+
+Red→Green:
+- `signed 2b event-driven external wait exit suppresses inline mention syntax
+  warning` failed because `hasEventDrivenExternalWaitExit()` returned `false`,
+  now passes.
+
+Failure-mode sweep:
+- Invariant: final-slot guard helpers must treat trailing identity signatures as
+  metadata, not content.
+- Scanned touched sibling surfaces: event-driven exit detection, Phase H syntax
+  validation, verdict detection, void-hold detection.
+- Result: event-driven exit and verdict detection now share the same signature
+  stripping helper.
+
+Additional verification after the signed-exit fix:
+- `pnpm --dir packages/api run build`: passed
+- Expanded guard suite:
+  `final-routing-slot.test.js`, `routing-guard-remedial.test.js`,
+  `route-serial-routing-guard-remedial.test.js`, `verdict-detect.test.js`,
+  `void-hold-detect.test.js`: 123/123 passed
+- `git diff --check`: passed
+- `pnpm check`: passed

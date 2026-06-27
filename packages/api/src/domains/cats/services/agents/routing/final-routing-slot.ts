@@ -39,6 +39,28 @@ const URL_RE = /https?:\/\/[^\s)\]]+/g;
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
   /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
+const CAT_SIGNATURE_LINE_RE = /^\s*\[(?:[^[\]\n]+\/[^[\]\n]+|[^[\]\n]+🐾)\]\s*$/u;
+
+/**
+ * Strip trailing cat-signature paragraphs so final-slot checks land on the last
+ * content paragraph. Body bracket tokens like `[Phase B]` are preserved because
+ * they do not match the slashed-or-paw signature shape.
+ */
+export function stripTrailingCatSignatures(text: string): string {
+  if (!text) return text;
+  const lines = text.split(/\r?\n/);
+  let lastContentIdx = lines.length - 1;
+  while (lastContentIdx >= 0) {
+    const line = lines[lastContentIdx] ?? '';
+    if (line.trim() === '' || CAT_SIGNATURE_LINE_RE.test(line)) {
+      lastContentIdx--;
+      continue;
+    }
+    break;
+  }
+  if (lastContentIdx < 0) return '';
+  return lines.slice(0, lastContentIdx + 1).join('\n');
+}
 
 /**
  * Extract final routing slot = structurally-stripped last non-empty paragraph.
@@ -86,7 +108,7 @@ function slotHasEventDrivenExternalWaitExit(slot: string): boolean {
  */
 export function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
   if (!text) return false;
-  return slotHasEventDrivenExternalWaitExit(finalRoutingSlot(text));
+  return slotHasEventDrivenExternalWaitExit(finalRoutingSlot(stripTrailingCatSignatures(text)));
 }
 
 /**
@@ -160,7 +182,7 @@ export function validateRoutingSyntax(input: ValidationInput): ValidationResult 
   if (input.structuredTargetCats.length > 0) return { kind: 'ok' };
 
   const slot = finalRoutingSlot(input.text);
-  if (slotHasEventDrivenExternalWaitExit(slot)) return { kind: 'ok' };
+  if (hasEventDrivenExternalWaitExit(input.text)) return { kind: 'ok' };
 
   const inlineMentions = findInlineMentionsInSlot(slot, input.rosterHandles);
   if (inlineMentions.length === 0) return { kind: 'ok' };
