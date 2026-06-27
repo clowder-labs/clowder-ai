@@ -38,6 +38,25 @@ afterEach(() => {
   syncBuiltinESMExports();
 });
 
+describe('parseGitHubRepoFromRemoteUrl', () => {
+  it('parses GitHub origin push URL forms used for gh --repo pinning', async () => {
+    const { parseGitHubRepoFromRemoteUrl } = await import(
+      `../../dist/infrastructure/harness-eval/publish-verdict/git-worktree-publisher.js?t=${Date.now()}-parse`
+    );
+
+    assert.equal(
+      parseGitHubRepoFromRemoteUrl('https://github.com/clowder-labs/clowder-ai.git'),
+      'clowder-labs/clowder-ai',
+    );
+    assert.equal(parseGitHubRepoFromRemoteUrl('git@github.com:clowder-labs/clowder-ai.git'), 'clowder-labs/clowder-ai');
+    assert.equal(
+      parseGitHubRepoFromRemoteUrl('ssh://git@github.com/clowder-labs/clowder-ai.git'),
+      'clowder-labs/clowder-ai',
+    );
+    assert.equal(parseGitHubRepoFromRemoteUrl('/tmp/local-bare-origin.git'), null);
+  });
+});
+
 describe('createGitWorktreePublisher', () => {
   it('cleans up a partially-created local branch when worktree add fails before stage', async (t) => {
     const { repoRoot, remoteRoot } = createRepoWithOrigin();
