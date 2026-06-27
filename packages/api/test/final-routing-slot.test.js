@@ -178,6 +178,22 @@ describe('F167 Phase H AC-H3: validateRoutingSyntax trigger conditions', () => {
     });
     assert.equal(result.kind, 'ok');
   });
+
+  test('URL callback id in 2b event-driven external wait exit suppresses inline mention syntax warning', () => {
+    const text =
+      '不再 @codex；等 GitHub 回调。\nExternal Wait: event-driven (https://github.com/clowder-labs/clowder-ai/pull/35)';
+
+    assert.equal(hasEventDrivenExternalWaitExit(text), true);
+
+    const result = validateRoutingSyntax({
+      text,
+      lineStartMentions: [],
+      toolNames: [],
+      structuredTargetCats: [],
+      rosterHandles: roster,
+    });
+    assert.equal(result.kind, 'ok');
+  });
 });
 
 describe('F167 Phase H AC-H6: structural exemptions', () => {

@@ -62,6 +62,26 @@ export function stripTrailingCatSignatures(text: string): string {
   return lines.slice(0, lastContentIdx + 1).join('\n');
 }
 
+function selectFinalRoutingSlot(text: string, options: { stripUrls: boolean }): string {
+  if (!text) return '';
+
+  const noFence = text.replace(FENCED_CODE_RE, '');
+
+  const noQuote = noFence
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*>/.test(line))
+    .join('\n');
+
+  const slotSource = options.stripUrls ? noQuote.replace(URL_RE, '') : noQuote;
+
+  const paragraphs = slotSource
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1]! : '';
+}
+
 /**
  * Extract final routing slot = structurally-stripped last non-empty paragraph.
  *
@@ -77,23 +97,11 @@ export function stripTrailingCatSignatures(text: string): string {
  * later (via optional param), this function's signature can be extended.
  */
 export function finalRoutingSlot(text: string): string {
-  if (!text) return '';
+  return selectFinalRoutingSlot(text, { stripUrls: true });
+}
 
-  const noFence = text.replace(FENCED_CODE_RE, '');
-
-  const noQuote = noFence
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*>/.test(line))
-    .join('\n');
-
-  const noUrl = noQuote.replace(URL_RE, '');
-
-  const paragraphs = noUrl
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1]! : '';
+function finalRoutingSlotPreservingUrls(text: string): string {
+  return selectFinalRoutingSlot(text, { stripUrls: false });
 }
 
 function slotHasEventDrivenExternalWaitExit(slot: string): boolean {
@@ -108,7 +116,7 @@ function slotHasEventDrivenExternalWaitExit(slot: string): boolean {
  */
 export function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
   if (!text) return false;
-  return slotHasEventDrivenExternalWaitExit(finalRoutingSlot(stripTrailingCatSignatures(text)));
+  return slotHasEventDrivenExternalWaitExit(finalRoutingSlotPreservingUrls(stripTrailingCatSignatures(text)));
 }
 
 /**
