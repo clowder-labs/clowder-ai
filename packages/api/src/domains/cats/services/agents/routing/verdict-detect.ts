@@ -13,7 +13,7 @@
  * shared-rules §10 已落地，本模块是不依赖猫配合的兜底信号。
  */
 
-import { finalRoutingSlot } from './final-routing-slot.js';
+import { finalRoutingSlot, hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
 
 /**
  * Cat signature line pattern: must have a slash OR a paw 🐾.
@@ -211,5 +211,6 @@ export function shouldWarnVerdictWithoutPass(input: VerdictWarningInput): boolea
   if (hasHoldBallCall(input.toolNames)) return false;
   if (input.structuredTargetCats.length > 0) return false;
   if (input.hasCoCreatorLineStartMention) return false;
+  if (hasEventDrivenExternalWaitExit(input.text)) return false;
   return true;
 }

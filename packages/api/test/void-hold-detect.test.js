@@ -132,6 +132,15 @@ describe('F167 Phase I AC-I1: shouldWarnVoidHold', () => {
     );
   });
 
+  test('does not warn when structural event-driven external wait exit exists', () => {
+    const result = evaluateVoidHold({
+      ...base,
+      text: '不需要 hold_ball；这是 2b 事件驱动等待。\nExternal Wait: event-driven (pr:35)',
+    });
+    assert.equal(result.shouldEmit, false);
+    assert.equal(result.matchedPattern, 'en_hold_ball_underscore');
+  });
+
   test('still warns when hold text present but exits are all empty', () => {
     assert.equal(
       shouldWarnVoidHold({ ...base, text: '我持球等一下', lineStartMentions: [], structuredTargetCats: [] }),

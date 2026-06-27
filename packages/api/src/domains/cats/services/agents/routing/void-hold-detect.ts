@@ -12,6 +12,8 @@
  * keyword). `shouldWarnVoidHold` is preserved as a backward-compatible shim.
  */
 
+import { hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
+
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const URL_RE = /https?:\/\/[^\s)\]]+/g;
 
@@ -107,6 +109,7 @@ export function evaluateVoidHold(input: VoidHoldInput): VoidHoldEvaluation {
   if (input.lineStartMentions.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.structuredTargetCats.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.hasCoCreatorLineStartMention) return { shouldEmit: false, matchedPattern: matched };
+  if (hasEventDrivenExternalWaitExit(input.text)) return { shouldEmit: false, matchedPattern: matched };
   return { shouldEmit: true, matchedPattern: matched };
 }
 

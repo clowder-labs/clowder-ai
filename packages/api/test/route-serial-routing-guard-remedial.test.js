@@ -380,6 +380,41 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
+  test('event-driven external-wait remedial counts as route-only and keeps first-pass text visible', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [firstPass, 'External Wait: event-driven (pr:35)']);
+
+    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-event-driven-remedial');
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'event-driven route-only remedial should count as a valid routing exit',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-syntax-hint'),
+      undefined,
+      'event-driven remedial exit should suppress inline-mention syntax hints for the preserved first-pass text',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'void-hold-hint'),
+      undefined,
+      'event-driven remedial exit should not be treated as a void hold',
+    );
+
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, firstPass);
+    assert.deepEqual(codexMessages[0].mentions, []);
+    assert.notEqual(codexMessages[0].mentionsUser, true);
+    assert.deepEqual(
+      yielded.filter((m) => m.type === 'text').map((m) => m.content),
+      [firstPass],
+      'live stream must surface the first-pass text, not the bare event-driven exit patch',
+    );
+  });
+
   test('tool-only no-text initial output still gets the remedial guard instead of silent completion', async () => {
     const service = createSequenceService('codex', [
       [

@@ -107,7 +107,7 @@ import {
 import { accumulateTextAggregate } from '../text-aggregation.js';
 import { formatA2AHandoffContent } from './a2a-handoff-label.js';
 import { extractContextEvalSignals } from './context-eval.js';
-import { validateRoutingSyntax } from './final-routing-slot.js';
+import { hasEventDrivenExternalWaitExit, validateRoutingSyntax } from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { buildRemedialPrompt, hasValidRoutingExit, shouldRemediateRouting } from './guards/routing-guard-remedial.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
@@ -181,7 +181,16 @@ function normalizeRouteOnlyRemedialText(text: string): string | null {
     .map((line) => stripMarkdownRoutePrefix(line))
     .filter((line) => line.length > 0);
   if (lines.length !== 1) return null;
-  return ROUTE_ONLY_REMEDIAL_TEXT_RE.test(lines[0]) ? lines[0] : null;
+  const line = lines[0]!;
+  if (ROUTE_ONLY_REMEDIAL_TEXT_RE.test(line)) return line;
+  return hasEventDrivenExternalWaitExit(line) ? line : null;
+}
+
+function buildRoutingAnalysisContent(storedContent: string, routingContent: string): string {
+  if (!routingContent.trim()) return storedContent;
+  if (!storedContent.trim()) return routingContent;
+  if (routingContent.trim() === storedContent.trim()) return storedContent;
+  return `${storedContent}\n\n${routingContent}`;
 }
 
 function collectStructuredTargetCatsFromInput(input: unknown): string[] {
@@ -1483,6 +1492,7 @@ export async function* routeSerial(
         allRichBlocks: RichBlock[];
         a2aMentions: CatId[];
         hasCoCreatorLineStartMention: boolean;
+        routingContent: string;
         streamEvents: AgentMessage[];
       }> => {
         routingGuardAttempted = true;
@@ -1717,6 +1727,7 @@ export async function* routeSerial(
           allRichBlocks: remedialAllRichBlocks,
           a2aMentions: remedialA2aMentions,
           hasCoCreatorLineStartMention: remedialHasCoCreatorLineStartMention,
+          routingContent: remedialRoutingContent,
           // Exit-only remedials validate the original text instead of replacing it; surface it after validation.
           streamEvents: preservesOriginalVisibleContent
             ? [...visibleRemedialStreamEvents, ...originalVisibleStreamEventsForRemedialTurn]
@@ -1749,7 +1760,7 @@ export async function* routeSerial(
         noTextBlocksOverride = result.allRichBlocks;
         if (
           !hasValidRoutingExit({
-            text: result.storedContent,
+            text: result.routingContent,
             lineStartMentions: getRoutingExitLineStartMentions(result.a2aMentions),
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
@@ -1767,6 +1778,7 @@ export async function* routeSerial(
         // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
         const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
         let storedContent = cleanText;
+        let routingAnalysisContent = storedContent;
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...streamRichBlocks];
 
         // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
@@ -1812,6 +1824,7 @@ export async function* routeSerial(
           for (const event of result.streamEvents) yield event;
           await flushDeferredVoice();
           storedContent = result.storedContent;
+          routingAnalysisContent = buildRoutingAnalysisContent(storedContent, result.routingContent);
           allRichBlocks = result.allRichBlocks;
           a2aMentions = result.a2aMentions;
           routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
@@ -1819,7 +1832,7 @@ export async function* routeSerial(
 
           if (
             !hasValidRoutingExit({
-              text: storedContent,
+              text: routingAnalysisContent,
               lineStartMentions: routingExitLineStartMentions,
               toolNames: collectedToolNames,
               structuredTargetCats: [...structuredTargetCats],
@@ -1855,7 +1868,7 @@ export async function* routeSerial(
           }
         }
         const phaseHResult = validateRoutingSyntax({
-          text: storedContent,
+          text: routingAnalysisContent,
           lineStartMentions: routingExitLineStartMentions,
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
@@ -2009,7 +2022,7 @@ export async function* routeSerial(
           // frustrationAutoIssueEligible=false but still need verdict-pass handoff guards.
           options.verdictPassWarningEnabled !== false &&
           shouldWarnVerdictWithoutPass({
-            text: storedContent,
+            text: routingAnalysisContent,
             lineStartMentions: routingExitLineStartMentions,
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
@@ -2034,7 +2047,7 @@ export async function* routeSerial(
             });
             const verdictFireAttr: Record<string, string> = {
               ...c2BaseAttr,
-              [TRIGGER]: detectMatchedVerdictKeyword(storedContent) ?? 'unknown',
+              [TRIGGER]: detectMatchedVerdictKeyword(routingAnalysisContent) ?? 'unknown',
             };
             c2VerdictHintEmitted.add(1, verdictFireAttr);
             c2VerdictWithoutPassCount.add(1, verdictFireAttr);
@@ -2071,7 +2084,7 @@ export async function* routeSerial(
         // hold-claim message, so drilldown lands on the original content, not on the hint.
         let pendingC2VoidHoldSampleTrigger: string | null = null;
         const voidHoldEval = evaluateVoidHold({
-          text: storedContent,
+          text: routingAnalysisContent,
           toolNames: collectedToolNames,
           lineStartMentions: routingExitLineStartMentions,
           structuredTargetCats: [...structuredTargetCats],

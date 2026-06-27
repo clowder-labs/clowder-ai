@@ -144,3 +144,58 @@ Additional verification after the fix:
 - `pnpm --dir packages/api run build`: passed
 - `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import $(pwd)/packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/final-routing-slot.test.js`: 23 tests passed
 - `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import $(pwd)/packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/routing-guard-remedial.test.js packages/api/test/route-serial-routing-guard-remedial.test.js packages/api/test/verdict-detect.test.js`: 68 tests passed
+
+## Receive-Review Update 2
+
+Cloud review on current head `e44e81c2` found one current P2, plus an older
+still-applicable same-family P2:
+
+1. `External Wait: event-driven (...)` remedials were still not recognized by
+   `normalizeRouteOnlyRemedialText`, so route-serial treated the bare wait line
+   as replacement content and discarded useful first-pass text.
+2. Valid 2b event-driven waits could still trip `void-hold-hint` when the text
+   mentioned `hold_ball`, because void-hold suppression only knew `@`, structured
+   targets, co-creator, or actual hold tool calls.
+
+Fix:
+- `normalizeRouteOnlyRemedialText()` now treats the shared structural
+  event-driven external wait template as route-only content.
+- `runRoutingGuardRemedial()` returns separate `routingContent`; route-serial
+  persists the original visible text but validates follow-up guards against
+  `storedContent + routingContent`.
+- `void-hold-detect.ts` and `verdict-detect.ts` now reuse
+  `hasEventDrivenExternalWaitExit()` so direct 2b waits suppress the same
+  false-positive class without adding semantic intent classification.
+
+Red→Green:
+- `event-driven external-wait remedial counts as route-only and keeps first-pass
+  text visible` failed by persisting `External Wait: event-driven (pr:35)`, now
+  persists the original first-pass text and emits no guard/syntax/void-hold hint.
+- `does not warn when structural event-driven external wait exit exists` failed
+  in `void-hold-detect`, now suppresses while preserving the matched hold pattern.
+- `verdict + structural event-driven external wait exit → false` failed in
+  `verdict-detect`, now suppresses as a legitimate external wait exit.
+
+Failure-mode sweep:
+- Invariant: the structural 2b external-wait exit must be recognized consistently
+  by every mechanical post-output guard, not only the remedial gate.
+- Scanned touched sibling guard surfaces: remedial route-only normalization,
+  Phase H syntax validation, verdict-without-pass detection, void-hold detection,
+  and route-serial post-remedial validation.
+- Result: all current touched surfaces now consume the shared final-slot helper.
+
+Additional verification after the cloud fix:
+- `pnpm --dir packages/api run build`: passed
+- Focused red→green suite:
+  `route-serial-routing-guard-remedial.test.js`,
+  `void-hold-detect.test.js`,
+  `verdict-detect.test.js`: 85/85 passed
+- Expanded guard suite:
+  `final-routing-slot.test.js`, `routing-guard-remedial.test.js`,
+  `route-serial-routing-guard-remedial.test.js`, `verdict-detect.test.js`,
+  `void-hold-detect.test.js`: 122/122 passed
+- `git diff --check`: passed
+- `pnpm check:hotfix-pattern`: 24/24 passed
+- `pnpm check`: passed
+- `scripts/check-fallback-layers.mjs`: unavailable in this tree
+- `pnpm check:architecture-ownership`: unavailable in this tree
