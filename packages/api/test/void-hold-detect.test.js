@@ -136,8 +136,18 @@ describe('F167 Phase I AC-I1: shouldWarnVoidHold', () => {
     const result = evaluateVoidHold({
       ...base,
       text: '不需要 hold_ball；这是 2b 事件驱动等待。\nExternal Wait: event-driven (pr:35)',
+      hasEventDrivenExternalWaitCoverage: true,
     });
     assert.equal(result.shouldEmit, false);
+    assert.equal(result.matchedPattern, 'en_hold_ball_underscore');
+  });
+
+  test('warns when structural event-driven external wait exit lacks verified callback coverage', () => {
+    const result = evaluateVoidHold({
+      ...base,
+      text: '不需要 hold_ball；这是 2b 事件驱动等待。\nExternal Wait: event-driven (pr:35)',
+    });
+    assert.equal(result.shouldEmit, true);
     assert.equal(result.matchedPattern, 'en_hold_ball_underscore');
   });
 

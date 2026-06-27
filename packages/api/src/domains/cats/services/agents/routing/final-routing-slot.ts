@@ -24,6 +24,8 @@ export interface ValidationInput {
   readonly structuredTargetCats: readonly string[];
   /** Roster handle whitelist (from cat-config). Non-roster @ mentions are ignored. */
   readonly rosterHandles: readonly string[];
+  /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
+  readonly hasEventDrivenExternalWaitCoverage?: boolean;
 }
 
 export type ValidationResult =
@@ -179,7 +181,7 @@ export function findInlineMentionsInSlot(slot: string, rosterHandles: readonly s
  *   - legitimate line-start @mention present
  *   - hold_ball tool call present
  *   - structured MCP routing (targetCats / multi_mention targets) present
- *   - structural 2b external wait slot present
+ *   - structural 2b external wait slot present with verified callback coverage
  *   - no inline @handle inside final routing slot
  *
  * Returns `invalid_route_syntax` when NONE of the above AND slot has inline @handle.
@@ -190,7 +192,7 @@ export function validateRoutingSyntax(input: ValidationInput): ValidationResult 
   if (input.structuredTargetCats.length > 0) return { kind: 'ok' };
 
   const slot = finalRoutingSlot(input.text);
-  if (hasEventDrivenExternalWaitExit(input.text)) return { kind: 'ok' };
+  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return { kind: 'ok' };
 
   const inlineMentions = findInlineMentionsInSlot(slot, input.rosterHandles);
   if (inlineMentions.length === 0) return { kind: 'ok' };

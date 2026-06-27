@@ -140,7 +140,7 @@ async function loadRealRoster() {
 
 async function runRoute(service, threadId, extraServices = {}, mockOptions = {}) {
   return withCatRegistryLock(async () => {
-    const { thinkingMode = 'play', ...depsOptions } = mockOptions;
+    const { thinkingMode = 'play', routeOptions = {}, ...depsOptions } = mockOptions;
     const original = catRegistry.getAllConfigs();
     await loadRealRoster();
     const appended = [];
@@ -150,6 +150,7 @@ async function runRoute(service, threadId, extraServices = {}, mockOptions = {})
       const yielded = [];
       for await (const msg of routeSerial(deps, ['codex'], 'guard test', 'user1', threadId, {
         thinkingMode,
+        ...routeOptions,
       })) {
         yielded.push(msg);
       }
@@ -380,11 +381,18 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
-  test('event-driven external-wait remedial counts as route-only and keeps first-pass text visible', async () => {
+  test('event-driven external-wait remedial with verified callback coverage counts as route-only and keeps first-pass text visible', async () => {
     const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
     const service = createSequenceService('codex', [firstPass, 'External Wait: event-driven (pr:35)']);
 
-    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-event-driven-remedial');
+    const { appended, calls, yielded } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-remedial',
+      {},
+      {
+        routeOptions: { eventDrivenExternalWaitCoverage: true },
+      },
+    );
 
     assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
     assert.equal(
@@ -415,14 +423,19 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
-  test('signed event-driven external-wait remedial counts as route-only and keeps first-pass text visible', async () => {
+  test('signed event-driven external-wait remedial with verified callback coverage counts as route-only and keeps first-pass text visible', async () => {
     const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
     const service = createSequenceService('codex', [
       firstPass,
       'External Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]',
     ]);
 
-    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-event-driven-remedial-signed');
+    const { appended, calls, yielded } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-remedial-signed',
+      {},
+      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+    );
 
     assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
     assert.equal(
@@ -443,6 +456,20 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       yielded.filter((m) => m.type === 'text').map((m) => m.content),
       [firstPass],
       'live stream must surface the first-pass text, not the signed event-driven exit patch',
+    );
+  });
+
+  test('event-driven external-wait remedial without verified callback coverage is rejected as missing route', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [firstPass, 'External Wait: event-driven (pr:35)']);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-remedial-no-coverage');
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.notEqual(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'text-only event-driven wait must not count as a valid routing exit',
     );
   });
 
@@ -730,13 +757,20 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.deepEqual(spokenChunks, ['我先持球继续。'], 'voice TTS should match the preserved live text');
   });
 
-  test('2b event-driven external wait final slot counts as a routing exit without remedial invoke', async () => {
+  test('2b event-driven external wait final slot with verified callback coverage counts as a routing exit without remedial invoke', async () => {
     const service = createSequenceService('codex', [
       'cloud / CI 已有结构化回调覆盖，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',
       '@co-creator',
     ]);
 
-    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-wait');
+    const { appended, calls } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-wait',
+      {},
+      {
+        routeOptions: { eventDrivenExternalWaitCoverage: true },
+      },
+    );
 
     assert.equal(calls.length, 1, 'explicit 2b event-driven external wait should not trigger remedial invoke');
     assert.equal(
@@ -747,6 +781,22 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
     assert.equal(codexMessages.length, 1);
     assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
+  test('2b event-driven external wait final slot without verified callback coverage still gets remedial invoke', async () => {
+    const service = createSequenceService('codex', [
+      'cloud / CI 也许会回调，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-wait-no-coverage');
+
+    assert.equal(calls.length, 2, 'text-only event-driven external wait should still trigger remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting the text-only event wait',
+    );
   });
 
   test('guard-disabled cat still runs once and keeps legacy non-blocking hint behavior', async () => {

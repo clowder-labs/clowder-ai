@@ -1267,6 +1267,8 @@ export class QueueProcessor {
           // #949 P1-1: Connector-sourced queue entries have no ball-pass expectation.
           // A2A/agent entries still get the verdict-pass handoff guard.
           verdictPassWarningEnabled: entry.source !== 'connector',
+          // Connector entries are produced by structured external callback/tracking tasks.
+          eventDrivenExternalWaitCoverage: entry.source === 'connector',
         },
       )) {
         if (controller.signal.aborted) {

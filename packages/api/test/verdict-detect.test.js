@@ -293,8 +293,21 @@ describe('F167 C2 AC-C7: shouldWarnVerdictWithoutPass', () => {
         lineStartMentions: [],
         toolNames: [],
         structuredTargetCats: [],
+        hasEventDrivenExternalWaitCoverage: true,
       }),
       false,
+    );
+  });
+
+  test('verdict + structural event-driven external wait exit without verified callback coverage → true', () => {
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: 'LGTM locally; maybe cloud will callback.\nExternal Wait: event-driven (pr:35)',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+      }),
+      true,
     );
   });
 

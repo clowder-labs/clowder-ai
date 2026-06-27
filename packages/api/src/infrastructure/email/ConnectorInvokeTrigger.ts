@@ -386,6 +386,8 @@ export class ConnectorInvokeTrigger {
         frustrationAutoIssueEligible: false,
         // #949 P2: Connector-sourced flows have no ball-pass expectation — suppress verdict warning
         verdictPassWarningEnabled: false,
+        // Connector-triggered routes come from the structured external callback/tracking pipeline.
+        eventDrivenExternalWaitCoverage: true,
       })) {
         // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
         if (!intentModeBroadcast) {

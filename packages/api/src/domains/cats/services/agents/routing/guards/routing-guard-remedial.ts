@@ -35,20 +35,22 @@ export interface RoutingExitInput {
   readonly structuredTargetCats: readonly string[];
   /** Line-start @co-creator / @co-creator escalation to co-creator. */
   readonly hasCoCreatorLineStartMention?: boolean;
+  /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
+  readonly hasEventDrivenExternalWaitCoverage?: boolean;
 }
 
 /**
  * True iff the turn has a legitimate routing exit (传球 / 持球 / 升级).
  * Mirrors the suppression set of evaluateVoidHold + F177-G hook
  * (line-start @, hold_ball, multi_mention, targetCats, co-creator, structural
- * 2b external wait slot).
+ * 2b external wait slot with verified callback coverage).
  */
 export function hasValidRoutingExit(input: RoutingExitInput): boolean {
   if (input.lineStartMentions.length > 0) return true;
   if (input.structuredTargetCats.length > 0) return true;
   if (input.hasCoCreatorLineStartMention) return true;
   if (hasRoutingToolCall(input.toolNames)) return true;
-  if (hasEventDrivenExternalWaitExit(input.text)) return true;
+  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return true;
   return false;
 }
 

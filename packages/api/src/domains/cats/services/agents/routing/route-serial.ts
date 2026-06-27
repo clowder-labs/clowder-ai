@@ -178,7 +178,7 @@ function stripMarkdownRoutePrefix(line: string): string {
   return line.replace(/^(?:[-*+]\s+|>\s*|\d+[.)]\s+)/, '').trim();
 }
 
-function normalizeRouteOnlyRemedialText(text: string): string | null {
+function normalizeRouteOnlyRemedialText(text: string, hasEventDrivenExternalWaitCoverage: boolean): string | null {
   const lines = stripTrailingCatSignatures(text)
     .trim()
     .split(/\r?\n/)
@@ -187,7 +187,7 @@ function normalizeRouteOnlyRemedialText(text: string): string | null {
   if (lines.length !== 1) return null;
   const line = lines[0]!;
   if (ROUTE_ONLY_REMEDIAL_TEXT_RE.test(line)) return line;
-  return hasEventDrivenExternalWaitExit(line) ? line : null;
+  return hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(line) ? line : null;
 }
 
 function buildRoutingAnalysisContent(storedContent: string, routingContent: string): string {
@@ -396,6 +396,7 @@ export async function* routeSerial(
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
+  const hasEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
   const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -1672,7 +1673,9 @@ export async function* routeSerial(
         const remedialSanitized = sanitizeInjectedContent(textContent);
         const remedialExtracted = extractRichFromText(remedialSanitized);
         const remedialCleanText = remedialExtracted.cleanText;
-        const remedialRouteOnlyContent = remedialCleanText ? normalizeRouteOnlyRemedialText(remedialCleanText) : null;
+        const remedialRouteOnlyContent = remedialCleanText
+          ? normalizeRouteOnlyRemedialText(remedialCleanText, hasEventDrivenExternalWaitCoverage)
+          : null;
         const remedialIsRouteOnly = remedialRouteOnlyContent !== null;
         // Route-only remedial text (`@cat` / `@co-creator`) is an exit patch, not a replacement artifact.
         // Use it for routing validation, but keep first-pass visible content so F5/history hydration
@@ -1752,6 +1755,7 @@ export async function* routeSerial(
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(''),
+          hasEventDrivenExternalWaitCoverage,
         })
       ) {
         const result = await runRoutingGuardRemedial(
@@ -1769,6 +1773,7 @@ export async function* routeSerial(
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: result.hasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           await appendRoutingGuardFailureNotice();
@@ -1822,6 +1827,7 @@ export async function* routeSerial(
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           const result = await runRoutingGuardRemedial(storedContent, allRichBlocks, [...collectedToolEvents]);
@@ -1841,6 +1847,7 @@ export async function* routeSerial(
               toolNames: collectedToolNames,
               structuredTargetCats: [...structuredTargetCats],
               hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+              hasEventDrivenExternalWaitCoverage,
             })
           ) {
             await appendRoutingGuardFailureNotice();
@@ -1877,6 +1884,7 @@ export async function* routeSerial(
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
           rosterHandles: phaseHRosterHandles,
+          hasEventDrivenExternalWaitCoverage,
         });
         const phaseHHit = phaseHResult.kind === 'invalid_route_syntax';
         if (phaseHHit && phaseHResult.kind === 'invalid_route_syntax') {
@@ -2031,6 +2039,7 @@ export async function* routeSerial(
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           try {
@@ -2093,6 +2102,7 @@ export async function* routeSerial(
           lineStartMentions: routingExitLineStartMentions,
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+          hasEventDrivenExternalWaitCoverage,
         });
         if (voidHoldEval.shouldEmit) {
           try {
