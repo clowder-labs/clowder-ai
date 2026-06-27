@@ -115,3 +115,32 @@ Please do a non-author review of `fix/route-guard-2b-event-driven`. If clean,
 approve and include the focused validation you ran. If there are P1/P2 findings,
 route back to `@codex` for receive-review.
 
+## Receive-Review Update
+
+Reviewer found one P2 on current head `a9e177d8`: `External Wait: event-driven`
+was accepted by `routing-guard-remedial`, but Phase H `validateRoutingSyntax`
+still treated an inline mention in the same final slot as `invalid_route_syntax`.
+
+Fix:
+- moved the structural event-driven external-wait predicate into
+  `final-routing-slot.ts`
+- made `routing-guard-remedial.ts` reuse that shared helper
+- taught `validateRoutingSyntax()` to treat the same final-slot event-driven
+  exit as a legitimate syntax suppressor
+
+Red→Green:
+- `2b event-driven external wait exit suppresses inline mention syntax warning`
+  failed with `invalid_route_syntax`, now passes with `ok`.
+
+Failure-mode sweep:
+- Pattern: newly added legitimate route exit must be recognized consistently by
+  every mechanical routing guard in this PR.
+- Scanned touched routing guard surfaces: remedial exit predicate, route-serial
+  guard invocation sites, Phase H final-slot syntax validator, verdict adjacent
+  tests.
+- Result: shared helper now prevents remedial/Phase-H drift for this exit.
+
+Additional verification after the fix:
+- `pnpm --dir packages/api run build`: passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import $(pwd)/packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/final-routing-slot.test.js`: 23 tests passed
+- `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --import $(pwd)/packages/api/test/helpers/setup-cat-registry.js --test --test-timeout=60000 packages/api/test/routing-guard-remedial.test.js packages/api/test/route-serial-routing-guard-remedial.test.js packages/api/test/verdict-detect.test.js`: 68 tests passed

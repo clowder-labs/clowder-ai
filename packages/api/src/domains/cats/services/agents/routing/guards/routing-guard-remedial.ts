@@ -12,25 +12,16 @@
  * KD-8 safe：只看"有无机械出口信号"，零意图分类器。
  */
 
-import { finalRoutingSlot } from '../final-routing-slot.js';
+import { hasEventDrivenExternalWaitExit } from '../final-routing-slot.js';
 
 /** Routing-tool substrings that count as a legitimate exit (持球/群发传球). */
 const ROUTING_TOOL_SUBSTRINGS = ['hold_ball', 'multi_mention'] as const;
-const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
-  /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
 
 function hasRoutingToolCall(toolNames: readonly string[]): boolean {
   return toolNames.some((name) => {
     const lower = name.toLowerCase();
     return ROUTING_TOOL_SUBSTRINGS.some((sub) => lower.includes(sub));
   });
-}
-
-function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
-  if (!text) return false;
-  const slot = finalRoutingSlot(text);
-  if (!slot) return false;
-  return slot.split(/\r?\n/).some((line) => EVENT_DRIVEN_EXTERNAL_WAIT_RE.test(line.trim()));
 }
 
 export interface RoutingExitInput {

@@ -37,6 +37,8 @@ export type ValidationResult =
 const MARKDOWN_LINE_PREFIX_RE = /^(?:(?:>\s*)|(?:[-*+]\s+)|(?:\d+[.)]\s+))+/;
 const URL_RE = /https?:\/\/[^\s)\]]+/g;
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
+const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
+  /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
 
 /**
  * Extract final routing slot = structurally-stripped last non-empty paragraph.
@@ -70,6 +72,21 @@ export function finalRoutingSlot(text: string): string {
     .filter((p) => p.length > 0);
 
   return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1]! : '';
+}
+
+function slotHasEventDrivenExternalWaitExit(slot: string): boolean {
+  if (!slot) return false;
+  return slot.split(/\r?\n/).some((line) => EVENT_DRIVEN_EXTERNAL_WAIT_RE.test(line.trim()));
+}
+
+/**
+ * True iff the final routing slot contains the documented structural 2b external-wait exit.
+ *
+ * This is deliberately a slot-template check, not a natural-language intent classifier.
+ */
+export function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
+  if (!text) return false;
+  return slotHasEventDrivenExternalWaitExit(finalRoutingSlot(text));
 }
 
 /**
@@ -132,6 +149,7 @@ export function findInlineMentionsInSlot(slot: string, rosterHandles: readonly s
  *   - legitimate line-start @mention present
  *   - hold_ball tool call present
  *   - structured MCP routing (targetCats / multi_mention targets) present
+ *   - structural 2b external wait slot present
  *   - no inline @handle inside final routing slot
  *
  * Returns `invalid_route_syntax` when NONE of the above AND slot has inline @handle.
@@ -142,6 +160,8 @@ export function validateRoutingSyntax(input: ValidationInput): ValidationResult 
   if (input.structuredTargetCats.length > 0) return { kind: 'ok' };
 
   const slot = finalRoutingSlot(input.text);
+  if (slotHasEventDrivenExternalWaitExit(slot)) return { kind: 'ok' };
+
   const inlineMentions = findInlineMentionsInSlot(slot, input.rosterHandles);
   if (inlineMentions.length === 0) return { kind: 'ok' };
 
