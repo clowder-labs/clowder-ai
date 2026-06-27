@@ -415,6 +415,37 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
+  test('signed event-driven external-wait remedial counts as route-only and keeps first-pass text visible', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [
+      firstPass,
+      'External Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]',
+    ]);
+
+    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-event-driven-remedial-signed');
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'signed event-driven route-only remedial should count as a valid routing exit',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-syntax-hint'),
+      undefined,
+      'signed event-driven remedial exit should suppress inline-mention syntax hints for the preserved text',
+    );
+
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, firstPass);
+    assert.deepEqual(
+      yielded.filter((m) => m.type === 'text').map((m) => m.content),
+      [firstPass],
+      'live stream must surface the first-pass text, not the signed event-driven exit patch',
+    );
+  });
+
   test('tool-only no-text initial output still gets the remedial guard instead of silent completion', async () => {
     const service = createSequenceService('codex', [
       [

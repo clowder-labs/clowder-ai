@@ -107,7 +107,11 @@ import {
 import { accumulateTextAggregate } from '../text-aggregation.js';
 import { formatA2AHandoffContent } from './a2a-handoff-label.js';
 import { extractContextEvalSignals } from './context-eval.js';
-import { hasEventDrivenExternalWaitExit, validateRoutingSyntax } from './final-routing-slot.js';
+import {
+  hasEventDrivenExternalWaitExit,
+  stripTrailingCatSignatures,
+  validateRoutingSyntax,
+} from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { buildRemedialPrompt, hasValidRoutingExit, shouldRemediateRouting } from './guards/routing-guard-remedial.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
@@ -175,7 +179,7 @@ function stripMarkdownRoutePrefix(line: string): string {
 }
 
 function normalizeRouteOnlyRemedialText(text: string): string | null {
-  const lines = text
+  const lines = stripTrailingCatSignatures(text)
     .trim()
     .split(/\r?\n/)
     .map((line) => stripMarkdownRoutePrefix(line))

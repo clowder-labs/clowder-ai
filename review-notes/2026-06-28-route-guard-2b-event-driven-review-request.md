@@ -238,3 +238,44 @@ Additional verification after the signed-exit fix:
   `void-hold-detect.test.js`: 123/123 passed
 - `git diff --check`: passed
 - `pnpm check`: passed
+
+## Receive-Review Update 4
+
+Cloud review on current head `602e3c11` found one P2:
+
+- Signed remedial patches like
+  `External Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]`
+  still had two non-empty lines when `normalizeRouteOnlyRemedialText()` ran, so
+  the remedial turn was treated as replacement content and overwrote the first
+  pass instead of acting as a route-only exit patch.
+
+Fix:
+- `route-serial.ts` now strips trailing cat signatures before route-only
+  remedial normalization
+- this applies to both line-start `@...` remedials and structural
+  `External Wait: event-driven (...)` remedials
+
+Red→Green:
+- `signed event-driven external-wait remedial counts as route-only and keeps
+  first-pass text visible` failed because the visible/persisted content became
+  the signed remedial patch, now passes and preserves the first-pass text.
+
+Failure-mode sweep:
+- Invariant: trailing identity signatures are metadata anywhere route-only
+  outlet text is structurally classified.
+- Scanned sibling surfaces in this PR: final-slot validation, event-driven exit
+  detection, verdict/void-hold suppression, and route-only remedial
+  normalization.
+- Result: final-slot and route-serial route-only paths both reuse the shared
+  trailing signature stripper.
+
+Additional verification after the signed-remedial fix:
+- `pnpm --dir packages/api run build`: passed
+- Red test: route-serial remedial suite failed 20/21 with the signed patch
+  replacing first-pass text
+- Green test: route-serial remedial suite passed 21/21
+- Expanded guard suite:
+  `final-routing-slot.test.js`, `routing-guard-remedial.test.js`,
+  `route-serial-routing-guard-remedial.test.js`, `verdict-detect.test.js`,
+  `void-hold-detect.test.js`: 124/124 passed
+- `git diff --check`: passed
