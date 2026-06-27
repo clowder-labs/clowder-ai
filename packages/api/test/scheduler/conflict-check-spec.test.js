@@ -166,6 +166,11 @@ describe('ConflictCheckTaskSpec', () => {
     assert.equal(triggerCalls[0][1], 'opus'); // catId
     assert.equal(triggerCalls[0][6].priority, 'urgent');
     assert.equal(triggerCalls[0][6].reason, 'github_pr_conflict');
+    assert.notEqual(
+      triggerCalls[0][6].eventDrivenExternalWaitCoverage,
+      true,
+      'conflict wake must not claim follow-up callback coverage',
+    );
   });
 
   it('execute does not trigger when router skips', async () => {

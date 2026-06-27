@@ -102,7 +102,6 @@ export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions):
             priority: 'urgent',
             reason: 'github_pr_conflict',
             sourceCategory: 'conflict',
-            eventDrivenExternalWaitCoverage: true,
           };
           void opts.invokeTrigger
             .trigger(

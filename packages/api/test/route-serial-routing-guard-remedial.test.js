@@ -783,6 +783,76 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.match(codexMessages[0].content, /External Wait: event-driven/);
   });
 
+  test('2b event-driven external wait honors tracking registered earlier in the same turn', async () => {
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'tool_use',
+          toolName: 'cat_cafe_register_pr_tracking',
+          toolInput: { repoFullName: 'clowder-labs/clowder-ai', prNumber: 35 },
+        },
+        {
+          type: 'tool_result',
+          toolName: 'cat_cafe_register_pr_tracking',
+          content: '{"status":"ok","threadId":"thread-routing-guard-event-driven-register"}',
+        },
+        {
+          type: 'text',
+          content:
+            '已注册 PR tracking，后续 review/CI 会结构化回调。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#35)',
+        },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-register');
+
+    assert.equal(calls.length, 1, 'same-turn tracking registration should prevent a remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'confirmed tracking registration should count as verified callback coverage for 2b',
+    );
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
+  test('2b event-driven external wait honors issue tracking registered earlier in the same turn', async () => {
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'tool_use',
+          toolName: 'cat_cafe_register_issue_tracking',
+          toolInput: { repoFullName: 'clowder-labs/clowder-ai', issueNumber: 35 },
+        },
+        {
+          type: 'tool_result',
+          toolName: 'cat_cafe_register_issue_tracking',
+          content: '{"status":"ok","threadId":"thread-routing-guard-event-driven-issue-register"}',
+        },
+        {
+          type: 'text',
+          content:
+            '已注册 issue tracking，后续评论会结构化回调。\n\nExternal Wait: event-driven (issue:clowder-labs/clowder-ai#35)',
+        },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-issue-register');
+
+    assert.equal(calls.length, 1, 'same-turn issue tracking registration should prevent a remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'confirmed issue tracking registration should count as verified callback coverage for 2b',
+    );
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
   test('2b event-driven external wait final slot without verified callback coverage still gets remedial invoke', async () => {
     const service = createSequenceService('codex', [
       'cloud / CI 也许会回调，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',

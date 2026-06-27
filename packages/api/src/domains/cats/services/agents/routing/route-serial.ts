@@ -237,6 +237,11 @@ function isCrossPostMessageToolName(toolName: string | undefined): boolean {
   return toolName === 'mcp:cat-cafe/cross_post_message' || toolName === 'cat_cafe_cross_post_message';
 }
 
+function isTrackingRegistrationToolName(toolName: string | undefined): boolean {
+  const normalized = normalizeMcpToolName(toolName);
+  return normalized === 'register_pr_tracking' || normalized === 'register_issue_tracking';
+}
+
 function isCallbackContentRoutingToolName(toolName: string | undefined): boolean {
   return isPostMessageToolName(toolName) || isCrossPostMessageToolName(toolName);
 }
@@ -396,7 +401,7 @@ export async function* routeSerial(
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
-  const hasEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
+  let hasEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
   const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -1229,6 +1234,9 @@ export async function* routeSerial(
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
             if (completedToolName) {
+              if (callbackResult.confirmed && isTrackingRegistrationToolName(completedToolName)) {
+                hasEventDrivenExternalWaitCoverage = true;
+              }
               settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
             }
             // F188 Phase F AC-F10 (砚砚 六审 P1-B: also scope by catId for serial route consistency).
@@ -1654,6 +1662,9 @@ export async function* routeSerial(
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
               if (completedToolName) {
+                if (callbackResult.confirmed && isTrackingRegistrationToolName(completedToolName)) {
+                  hasEventDrivenExternalWaitCoverage = true;
+                }
                 settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
               }
             }
