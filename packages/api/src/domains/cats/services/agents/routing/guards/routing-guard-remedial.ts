@@ -12,8 +12,12 @@
  * KD-8 safe：只看"有无机械出口信号"，零意图分类器。
  */
 
+import { finalRoutingSlot } from '../final-routing-slot.js';
+
 /** Routing-tool substrings that count as a legitimate exit (持球/群发传球). */
 const ROUTING_TOOL_SUBSTRINGS = ['hold_ball', 'multi_mention'] as const;
+const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
+  /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
 
 function hasRoutingToolCall(toolNames: readonly string[]): boolean {
   return toolNames.some((name) => {
@@ -22,7 +26,16 @@ function hasRoutingToolCall(toolNames: readonly string[]): boolean {
   });
 }
 
+function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
+  if (!text) return false;
+  const slot = finalRoutingSlot(text);
+  if (!slot) return false;
+  return slot.split(/\r?\n/).some((line) => EVENT_DRIVEN_EXTERNAL_WAIT_RE.test(line.trim()));
+}
+
 export interface RoutingExitInput {
+  /** Stored output text. Only the final routing slot is inspected for structural external-wait exits. */
+  readonly text?: string;
   /** Line-start @cat mentions parsed this turn (parseA2AMentions). */
   readonly lineStartMentions: readonly string[];
   /** Tool names invoked this turn (scan for hold_ball / multi_mention). */
@@ -36,13 +49,15 @@ export interface RoutingExitInput {
 /**
  * True iff the turn has a legitimate routing exit (传球 / 持球 / 升级).
  * Mirrors the suppression set of evaluateVoidHold + F177-G hook
- * (line-start @, hold_ball, multi_mention, targetCats, co-creator).
+ * (line-start @, hold_ball, multi_mention, targetCats, co-creator, structural
+ * 2b external wait slot).
  */
 export function hasValidRoutingExit(input: RoutingExitInput): boolean {
   if (input.lineStartMentions.length > 0) return true;
   if (input.structuredTargetCats.length > 0) return true;
   if (input.hasCoCreatorLineStartMention) return true;
   if (hasRoutingToolCall(input.toolNames)) return true;
+  if (hasEventDrivenExternalWaitExit(input.text)) return true;
   return false;
 }
 
@@ -74,6 +89,7 @@ export const REMEDIAL_PROMPT =
   '请只补一个出口，不要重做刚才的工作：\n' +
   '- 传球：另起一行，行首独立写 @句柄（如 @opus48）\n' +
   '- 持球等外部条件：调用 cat_cafe_hold_ball\n' +
+  '- 事件驱动外部等待（已有结构化回调 + EYES>0）：另起一行写 External Wait: event-driven (<id>)\n' +
   '- 升级co-creator：另起一行行首写 @co-creator';
 
 export function buildRemedialPrompt(): string {

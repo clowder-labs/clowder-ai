@@ -1732,6 +1732,7 @@ export async function* routeSerial(
         shouldRemediateRouting({
           needsGuard: needsServerRoutingGuard,
           attempted: routingGuardAttempted,
+          text: '',
           lineStartMentions: getRoutingExitLineStartMentions(),
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
@@ -1748,6 +1749,7 @@ export async function* routeSerial(
         noTextBlocksOverride = result.allRichBlocks;
         if (
           !hasValidRoutingExit({
+            text: result.storedContent,
             lineStartMentions: getRoutingExitLineStartMentions(result.a2aMentions),
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
@@ -1799,6 +1801,7 @@ export async function* routeSerial(
           shouldRemediateRouting({
             needsGuard: needsServerRoutingGuard,
             attempted: routingGuardAttempted,
+            text: storedContent,
             lineStartMentions: routingExitLineStartMentions,
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
@@ -1816,6 +1819,7 @@ export async function* routeSerial(
 
           if (
             !hasValidRoutingExit({
+              text: storedContent,
               lineStartMentions: routingExitLineStartMentions,
               toolNames: collectedToolNames,
               structuredTargetCats: [...structuredTargetCats],

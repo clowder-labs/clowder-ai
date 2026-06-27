@@ -664,6 +664,25 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.deepEqual(spokenChunks, ['我先持球继续。'], 'voice TTS should match the preserved live text');
   });
 
+  test('2b event-driven external wait final slot counts as a routing exit without remedial invoke', async () => {
+    const service = createSequenceService('codex', [
+      'cloud / CI 已有结构化回调覆盖，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-wait');
+
+    assert.equal(calls.length, 1, 'explicit 2b event-driven external wait should not trigger remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'event-driven external wait should not emit routing guard failure',
+    );
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
   test('guard-disabled cat still runs once and keeps legacy non-blocking hint behavior', async () => {
     const service = createSequenceService('codex', ['I will keep going from here.'], { needsGuard: false });
 
