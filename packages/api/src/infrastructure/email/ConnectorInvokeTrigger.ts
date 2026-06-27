@@ -56,6 +56,12 @@ export interface ConnectorTriggerPolicy {
   /** F140 Phase C: hint which Skill to auto-load (not a hard constraint — cat can override) */
   readonly suggestedSkill?: string;
   /**
+   * True only when this connector wake comes from a structured external callback/tracking
+   * path that can wake the cat again for the waited condition. Plain bound-chat connector
+   * messages do not imply 2b event-driven wait coverage.
+   */
+  readonly eventDrivenExternalWaitCoverage?: boolean;
+  /**
    * Optional queue coalescing key for connector bursts that supersede earlier queued work.
    * Later hits reuse the first queued entry: messageIds are merged, but the original content/body stays in place.
    * Once that entry is already processing, follow-up feedback gets a fresh queued wake-up.
@@ -113,6 +119,7 @@ export class ConnectorInvokeTrigger {
   ): Promise<TriggerOutcome> {
     const { invocationTracker } = this.opts;
     const priority = policy?.priority ?? 'normal';
+    const eventDrivenExternalWaitCoverage = policy?.eventDrivenExternalWaitCoverage === true;
 
     // F185 AC-1: thread-level queue/processingSlots gate
     if (this.opts.queueProcessor?.isThreadBusy(threadId)) {
@@ -127,6 +134,7 @@ export class ConnectorInvokeTrigger {
         policy?.sourceCategory,
         policy?.suggestedSkill,
         policy?.coalesceKey,
+        eventDrivenExternalWaitCoverage,
       );
     }
 
@@ -144,6 +152,7 @@ export class ConnectorInvokeTrigger {
         policy?.sourceCategory,
         policy?.suggestedSkill,
         policy?.coalesceKey,
+        eventDrivenExternalWaitCoverage,
       );
     }
 
@@ -159,6 +168,7 @@ export class ConnectorInvokeTrigger {
       policy?.suggestedSkill,
       sender,
       controller,
+      eventDrivenExternalWaitCoverage,
     ).catch((err) => {
       this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
     });
@@ -176,6 +186,7 @@ export class ConnectorInvokeTrigger {
     sourceCategory?: string,
     suggestedSkill?: string,
     coalesceKey?: string,
+    eventDrivenExternalWaitCoverage = false,
   ): Promise<'full' | 'enqueued'> {
     const { invocationQueue, socketManager, log } = this.opts;
 
@@ -206,6 +217,7 @@ export class ConnectorInvokeTrigger {
         : {}),
       ...(sender ? { senderMeta: sender } : {}),
       ...(suggestedSkill ? { suggestedSkill } : {}),
+      eventDrivenExternalWaitCoverage,
     });
 
     if (result.outcome === 'full') {
@@ -262,6 +274,7 @@ export class ConnectorInvokeTrigger {
     suggestedSkill?: string,
     sender?: { id: string; name?: string },
     preAcquiredController?: AbortController,
+    eventDrivenExternalWaitCoverage = false,
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];
@@ -386,8 +399,8 @@ export class ConnectorInvokeTrigger {
         frustrationAutoIssueEligible: false,
         // #949 P2: Connector-sourced flows have no ball-pass expectation — suppress verdict warning
         verdictPassWarningEnabled: false,
-        // Connector-triggered routes come from the structured external callback/tracking pipeline.
-        eventDrivenExternalWaitCoverage: true,
+        // Only policy-backed connector wakes prove a future callback/tracking path.
+        eventDrivenExternalWaitCoverage,
       })) {
         // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
         if (!intentModeBroadcast) {

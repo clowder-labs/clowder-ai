@@ -491,6 +491,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
               reason: 'github_review_feedback',
               sourceCategory: 'review',
               suggestedSkill,
+              eventDrivenExternalWaitCoverage: true,
               coalesceKey: `${subjectKey}:review-feedback:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger

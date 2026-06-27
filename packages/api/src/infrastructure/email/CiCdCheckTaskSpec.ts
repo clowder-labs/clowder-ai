@@ -93,6 +93,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
             priority: 'urgent',
             reason: 'github_ci_failure',
             sourceCategory: 'ci',
+            eventDrivenExternalWaitCoverage: true,
           };
           void opts.invokeTrigger
             .trigger(
@@ -126,6 +127,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
           reason: 'github_ci_pass',
           sourceCategory: 'ci',
           suggestedSkill: 'merge-gate',
+          eventDrivenExternalWaitCoverage: true,
         };
         void opts.invokeTrigger
           .trigger(

@@ -468,6 +468,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
               priority: 'normal',
               reason: 'github_issue_comment',
               sourceCategory: 'issue',
+              eventDrivenExternalWaitCoverage: true,
               coalesceKey: `${subjectKey}:issue-comment:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger
