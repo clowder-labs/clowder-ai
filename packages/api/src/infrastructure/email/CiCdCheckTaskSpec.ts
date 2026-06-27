@@ -87,13 +87,17 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         const routeResult = await opts.cicdRouter.route(pollResult);
         if (routeResult.kind !== 'notified' || !opts.invokeTrigger) return;
 
+        const intent = signal.task.automationState?.intent ?? 'review';
+
         // CI fail → always wake (urgent, must fix) — independent of intent.
+        // Event-driven wait coverage is stricter: only merge intent guarantees
+        // the follow-up CI-pass transition will invoke this cat again.
         if (routeResult.bucket === 'fail') {
           const policy: ConnectorTriggerPolicy = {
             priority: 'urgent',
             reason: 'github_ci_failure',
             sourceCategory: 'ci',
-            eventDrivenExternalWaitCoverage: true,
+            eventDrivenExternalWaitCoverage: intent === 'merge',
           };
           void opts.invokeTrigger
             .trigger(
@@ -114,7 +118,6 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         // 'review' (default): the cat is waiting on review feedback → CI-pass is noise. CiCdRouter has
         //   already posted the "CI 通过" thread message (visible whenever the cat looks), so stay silent.
         // 'merge': the cat is waiting on CI-green to merge → CI-pass is the action signal → merge-gate.
-        const intent = signal.task.automationState?.intent ?? 'review';
         if (intent !== 'merge') {
           opts.log.info(
             `[cicd-check] CI pass for ${routeResult.catId} — silent (intent=${intent}; thread message only)`,
