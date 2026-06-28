@@ -1500,6 +1500,8 @@ export class AgentRouter {
       /** #949 P2: Whether verdict-without-pass warning fires at route end.
        *  true/undefined = warn (default). false = suppress for connector-sourced flows only. */
       verdictPassWarningEnabled?: boolean;
+      /** Whether event-driven external waits are backed by verified callback/tracking coverage. */
+      eventDrivenExternalWaitCoverage?: boolean;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -1618,6 +1620,9 @@ export class AgentRouter {
       // #949 P2: connector-sourced verdict-pass warning suppression
       ...(options?.verdictPassWarningEnabled !== undefined
         ? { verdictPassWarningEnabled: options.verdictPassWarningEnabled }
+        : {}),
+      ...(options?.eventDrivenExternalWaitCoverage !== undefined
+        ? { eventDrivenExternalWaitCoverage: options.eventDrivenExternalWaitCoverage }
         : {}),
     };
 

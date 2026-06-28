@@ -132,9 +132,10 @@ describe('CiCdCheckTaskSpec', () => {
     assert.equal(policy.priority, 'normal');
     assert.equal(policy.reason, 'github_ci_pass');
     assert.equal(policy.suggestedSkill, 'merge-gate');
+    assert.equal(policy.eventDrivenExternalWaitCoverage, true);
   });
 
-  it('execute triggers invokeTrigger for CI fail with urgent priority (unchanged)', async () => {
+  it('execute triggers CI fail for default review intent without event-driven wait coverage', async () => {
     const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
     const triggered = [];
     const tasks = [mockTask({ repoFullName: 'a/b', prNumber: 1, userId: 'u1' })];
@@ -165,6 +166,47 @@ describe('CiCdCheckTaskSpec', () => {
     const policy = triggered[0][6];
     assert.equal(policy.priority, 'urgent');
     assert.equal(policy.reason, 'github_ci_failure');
+    assert.notEqual(
+      policy.eventDrivenExternalWaitCoverage,
+      true,
+      'review-intent CI failure must not claim pass-wakeup coverage',
+    );
+  });
+
+  it('execute marks CI fail as event-driven covered only when intent=merge', async () => {
+    const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
+    const triggered = [];
+    const tasks = [
+      mockTask({ repoFullName: 'a/b', prNumber: 1, userId: 'u1' }, { automationState: { intent: 'merge' } }),
+    ];
+    const spec = createCiCdCheckTaskSpec({
+      taskStore: mockTaskStore(tasks),
+      cicdRouter: {
+        route: async () => ({
+          kind: 'notified',
+          bucket: 'fail',
+          threadId: 't1',
+          catId: 'opus',
+          messageId: 'm1',
+          content: 'CI failed',
+        }),
+      },
+      fetchPrStatus: async () => ({ checks: [], headSha: 'sha1', prNumber: 1, repoFullName: 'a/b' }),
+      invokeTrigger: {
+        trigger: (...args) => {
+          triggered.push(args);
+          return Promise.resolve();
+        },
+      },
+      log: { info: () => {}, error: () => {}, warn: () => {} },
+    });
+    const gateResult = await spec.admission.gate({ taskId: 'cicd-check', lastRunAt: null, tickCount: 1 });
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:a/b#1', {});
+    assert.equal(triggered.length, 1);
+    const policy = triggered[0][6];
+    assert.equal(policy.priority, 'urgent');
+    assert.equal(policy.reason, 'github_ci_failure');
+    assert.equal(policy.eventDrivenExternalWaitCoverage, true);
   });
 
   it('gate filters out ci.enabled=false', async () => {

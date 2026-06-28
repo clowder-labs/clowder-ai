@@ -107,7 +107,11 @@ import {
 import { accumulateTextAggregate } from '../text-aggregation.js';
 import { formatA2AHandoffContent } from './a2a-handoff-label.js';
 import { extractContextEvalSignals } from './context-eval.js';
-import { validateRoutingSyntax } from './final-routing-slot.js';
+import {
+  hasEventDrivenExternalWaitExit,
+  stripTrailingCatSignatures,
+  validateRoutingSyntax,
+} from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { buildRemedialPrompt, hasValidRoutingExit, shouldRemediateRouting } from './guards/routing-guard-remedial.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
@@ -174,14 +178,23 @@ function stripMarkdownRoutePrefix(line: string): string {
   return line.replace(/^(?:[-*+]\s+|>\s*|\d+[.)]\s+)/, '').trim();
 }
 
-function normalizeRouteOnlyRemedialText(text: string): string | null {
-  const lines = text
+function normalizeRouteOnlyRemedialText(text: string, hasEventDrivenExternalWaitCoverage: boolean): string | null {
+  const lines = stripTrailingCatSignatures(text)
     .trim()
     .split(/\r?\n/)
     .map((line) => stripMarkdownRoutePrefix(line))
     .filter((line) => line.length > 0);
   if (lines.length !== 1) return null;
-  return ROUTE_ONLY_REMEDIAL_TEXT_RE.test(lines[0]) ? lines[0] : null;
+  const line = lines[0]!;
+  if (ROUTE_ONLY_REMEDIAL_TEXT_RE.test(line)) return line;
+  return hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(line) ? line : null;
+}
+
+function buildRoutingAnalysisContent(storedContent: string, routingContent: string): string {
+  if (!routingContent.trim()) return storedContent;
+  if (!storedContent.trim()) return routingContent;
+  if (routingContent.trim() === storedContent.trim()) return storedContent;
+  return `${storedContent}\n\n${routingContent}`;
 }
 
 function collectStructuredTargetCatsFromInput(input: unknown): string[] {
@@ -222,6 +235,13 @@ function isCrossPostMessageToolName(toolName: string | undefined): boolean {
   if (!toolName) return false;
   if (toolName.endsWith('cat_cafe_cross_post_message')) return true;
   return toolName === 'mcp:cat-cafe/cross_post_message' || toolName === 'cat_cafe_cross_post_message';
+}
+
+function isSameTurnEventDrivenCoverageToolName(toolName: string | undefined): boolean {
+  const normalized = normalizeMcpToolName(toolName);
+  // PR tracking registration only proves the watcher was registered. The actual
+  // 2b condition requires a later review/CI callback with pickup coverage.
+  return normalized === 'register_issue_tracking';
 }
 
 function isCallbackContentRoutingToolName(toolName: string | undefined): boolean {
@@ -383,6 +403,7 @@ export async function* routeSerial(
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
+  const initialEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
   const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -511,6 +532,9 @@ export async function* routeSerial(
 
       // Only pass images/uploads for the first cat (user's original target)
       const isOriginalTarget = index < targetCats.length;
+      // Event-driven wait coverage proves a wake path for the current invocation target,
+      // not for later A2A worklist entries.
+      let hasEventDrivenExternalWaitCoverage = initialEventDrivenExternalWaitCoverage && isOriginalTarget;
       const targetContentBlocks = isOriginalTarget ? routeContentBlocksForCat(catId, contentBlocks) : undefined;
       const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
 
@@ -1215,6 +1239,9 @@ export async function* routeSerial(
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
             if (completedToolName) {
+              if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
+                hasEventDrivenExternalWaitCoverage = true;
+              }
               settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
             }
             // F188 Phase F AC-F10 (砚砚 六审 P1-B: also scope by catId for serial route consistency).
@@ -1483,6 +1510,7 @@ export async function* routeSerial(
         allRichBlocks: RichBlock[];
         a2aMentions: CatId[];
         hasCoCreatorLineStartMention: boolean;
+        routingContent: string;
         streamEvents: AgentMessage[];
       }> => {
         routingGuardAttempted = true;
@@ -1639,6 +1667,9 @@ export async function* routeSerial(
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
               if (completedToolName) {
+                if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
+                  hasEventDrivenExternalWaitCoverage = true;
+                }
                 settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
               }
             }
@@ -1658,7 +1689,9 @@ export async function* routeSerial(
         const remedialSanitized = sanitizeInjectedContent(textContent);
         const remedialExtracted = extractRichFromText(remedialSanitized);
         const remedialCleanText = remedialExtracted.cleanText;
-        const remedialRouteOnlyContent = remedialCleanText ? normalizeRouteOnlyRemedialText(remedialCleanText) : null;
+        const remedialRouteOnlyContent = remedialCleanText
+          ? normalizeRouteOnlyRemedialText(remedialCleanText, hasEventDrivenExternalWaitCoverage)
+          : null;
         const remedialIsRouteOnly = remedialRouteOnlyContent !== null;
         // Route-only remedial text (`@cat` / `@co-creator`) is an exit patch, not a replacement artifact.
         // Use it for routing validation, but keep first-pass visible content so F5/history hydration
@@ -1717,6 +1750,7 @@ export async function* routeSerial(
           allRichBlocks: remedialAllRichBlocks,
           a2aMentions: remedialA2aMentions,
           hasCoCreatorLineStartMention: remedialHasCoCreatorLineStartMention,
+          routingContent: remedialRoutingContent,
           // Exit-only remedials validate the original text instead of replacing it; surface it after validation.
           streamEvents: preservesOriginalVisibleContent
             ? [...visibleRemedialStreamEvents, ...originalVisibleStreamEventsForRemedialTurn]
@@ -1732,10 +1766,12 @@ export async function* routeSerial(
         shouldRemediateRouting({
           needsGuard: needsServerRoutingGuard,
           attempted: routingGuardAttempted,
+          text: '',
           lineStartMentions: getRoutingExitLineStartMentions(),
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(''),
+          hasEventDrivenExternalWaitCoverage,
         })
       ) {
         const result = await runRoutingGuardRemedial(
@@ -1748,10 +1784,12 @@ export async function* routeSerial(
         noTextBlocksOverride = result.allRichBlocks;
         if (
           !hasValidRoutingExit({
+            text: result.routingContent,
             lineStartMentions: getRoutingExitLineStartMentions(result.a2aMentions),
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: result.hasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           await appendRoutingGuardFailureNotice();
@@ -1765,6 +1803,7 @@ export async function* routeSerial(
         // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
         const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
         let storedContent = cleanText;
+        let routingAnalysisContent = storedContent;
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...streamRichBlocks];
 
         // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
@@ -1799,16 +1838,19 @@ export async function* routeSerial(
           shouldRemediateRouting({
             needsGuard: needsServerRoutingGuard,
             attempted: routingGuardAttempted,
+            text: storedContent,
             lineStartMentions: routingExitLineStartMentions,
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           const result = await runRoutingGuardRemedial(storedContent, allRichBlocks, [...collectedToolEvents]);
           for (const event of result.streamEvents) yield event;
           await flushDeferredVoice();
           storedContent = result.storedContent;
+          routingAnalysisContent = buildRoutingAnalysisContent(storedContent, result.routingContent);
           allRichBlocks = result.allRichBlocks;
           a2aMentions = result.a2aMentions;
           routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
@@ -1816,10 +1858,12 @@ export async function* routeSerial(
 
           if (
             !hasValidRoutingExit({
+              text: routingAnalysisContent,
               lineStartMentions: routingExitLineStartMentions,
               toolNames: collectedToolNames,
               structuredTargetCats: [...structuredTargetCats],
               hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+              hasEventDrivenExternalWaitCoverage,
             })
           ) {
             await appendRoutingGuardFailureNotice();
@@ -1851,11 +1895,12 @@ export async function* routeSerial(
           }
         }
         const phaseHResult = validateRoutingSyntax({
-          text: storedContent,
+          text: routingAnalysisContent,
           lineStartMentions: routingExitLineStartMentions,
           toolNames: collectedToolNames,
           structuredTargetCats: [...structuredTargetCats],
           rosterHandles: phaseHRosterHandles,
+          hasEventDrivenExternalWaitCoverage,
         });
         const phaseHHit = phaseHResult.kind === 'invalid_route_syntax';
         if (phaseHHit && phaseHResult.kind === 'invalid_route_syntax') {
@@ -2005,11 +2050,12 @@ export async function* routeSerial(
           // frustrationAutoIssueEligible=false but still need verdict-pass handoff guards.
           options.verdictPassWarningEnabled !== false &&
           shouldWarnVerdictWithoutPass({
-            text: storedContent,
+            text: routingAnalysisContent,
             lineStartMentions: routingExitLineStartMentions,
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+            hasEventDrivenExternalWaitCoverage,
           })
         ) {
           try {
@@ -2030,7 +2076,7 @@ export async function* routeSerial(
             });
             const verdictFireAttr: Record<string, string> = {
               ...c2BaseAttr,
-              [TRIGGER]: detectMatchedVerdictKeyword(storedContent) ?? 'unknown',
+              [TRIGGER]: detectMatchedVerdictKeyword(routingAnalysisContent) ?? 'unknown',
             };
             c2VerdictHintEmitted.add(1, verdictFireAttr);
             c2VerdictWithoutPassCount.add(1, verdictFireAttr);
@@ -2067,11 +2113,12 @@ export async function* routeSerial(
         // hold-claim message, so drilldown lands on the original content, not on the hint.
         let pendingC2VoidHoldSampleTrigger: string | null = null;
         const voidHoldEval = evaluateVoidHold({
-          text: storedContent,
+          text: routingAnalysisContent,
           toolNames: collectedToolNames,
           lineStartMentions: routingExitLineStartMentions,
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
+          hasEventDrivenExternalWaitCoverage,
         });
         if (voidHoldEval.shouldEmit) {
           try {

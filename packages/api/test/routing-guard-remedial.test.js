@@ -75,6 +75,31 @@ describe('F177 Phase H — shouldRemediateRouting', () => {
       true,
     );
   });
+
+  test('2b External Wait event-driven 槽位 + verified callback coverage → 不触发 remedial', () => {
+    assert.equal(
+      shouldRemediateRouting({
+        ...base,
+        text: 'cloud / CI 已有结构化回调覆盖。\n\nExternal Wait: event-driven (pr:clowder-ai#32)',
+        hasEventDrivenExternalWaitCoverage: true,
+        needsGuard: true,
+        attempted: false,
+      }),
+      false,
+    );
+  });
+
+  test('2b External Wait event-driven 槽位 without verified callback coverage → still triggers remedial', () => {
+    assert.equal(
+      shouldRemediateRouting({
+        ...base,
+        text: 'cloud / CI 可能会回调。\n\nExternal Wait: event-driven (pr:clowder-ai#32)',
+        needsGuard: true,
+        attempted: false,
+      }),
+      true,
+    );
+  });
 });
 
 describe('F177 Phase H — hasValidRoutingExit', () => {
@@ -88,13 +113,35 @@ describe('F177 Phase H — hasValidRoutingExit', () => {
     assert.equal(hasValidRoutingExit({ ...base, structuredTargetCats: ['x'] }), true);
     assert.equal(hasValidRoutingExit({ ...base, hasCoCreatorLineStartMention: true }), true);
   });
+
+  test('External Wait: event-driven(<id>) counts as a valid 2b external-wait exit with verified coverage', () => {
+    assert.equal(
+      hasValidRoutingExit({
+        ...base,
+        text: '结论：已有结构化回调 + EYES>0，不续 hold_ball。\n\nExternal Wait: event-driven (github-pr-32)',
+        hasEventDrivenExternalWaitCoverage: true,
+      }),
+      true,
+    );
+  });
+
+  test('External Wait: event-driven(<id>) alone is not a valid routing exit', () => {
+    assert.equal(
+      hasValidRoutingExit({
+        ...base,
+        text: '结论：没有确认 EYES。\n\nExternal Wait: event-driven (github-pr-32)',
+      }),
+      false,
+    );
+  });
 });
 
 describe('F177 Phase H — buildRemedialPrompt', () => {
-  test('含路由指引（行首 @ / hold_ball / @co-creator）且明确不重做工作', () => {
+  test('含路由指引（行首 @ / hold_ball / event-driven / @co-creator）且明确不重做工作', () => {
     const p = buildRemedialPrompt();
     assert.match(p, /行首/);
     assert.match(p, /hold_ball/);
+    assert.match(p, /event-driven/);
     assert.match(p, /@co-creator/);
     assert.match(p, /不要重做/);
   });

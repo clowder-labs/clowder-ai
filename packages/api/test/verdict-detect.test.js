@@ -286,6 +286,31 @@ describe('F167 C2 AC-C7: shouldWarnVerdictWithoutPass', () => {
     );
   });
 
+  test('verdict + structural event-driven external wait exit → false', () => {
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: 'LGTM locally; waiting on cloud.\nExternal Wait: event-driven (pr:35)',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+        hasEventDrivenExternalWaitCoverage: true,
+      }),
+      false,
+    );
+  });
+
+  test('verdict + structural event-driven external wait exit without verified callback coverage → true', () => {
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: 'LGTM locally; maybe cloud will callback.\nExternal Wait: event-driven (pr:35)',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+      }),
+      true,
+    );
+  });
+
   test('verdict + co-creator line-start mention (hasCoCreatorLineStartMention=true) → false (砚砚 GPT-5.5 fix)', () => {
     // 2026-04-25 false-positive root cause: parseA2AMentions only parses cat handles,
     // never returns co-creator handles like 'you'. route-serial passes that empty

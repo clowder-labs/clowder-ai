@@ -26,6 +26,7 @@ export interface IssueCommentSignal {
   repoFullName: string;
   issueNumber: number;
   newComments: IssueComment[];
+  eventDrivenExternalWaitCoverage?: boolean;
   commitCursor: () => Promise<void>;
 }
 
@@ -279,6 +280,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                       repoFullName,
                       issueNumber,
                       newComments: pendingDelivery,
+                      eventDrivenExternalWaitCoverage: false,
                       commitCursor: async () => {
                         await advanceDeliveryCursor(task.id, issueKey, maxDeliveryId);
                         // Cloud R15 P1: only mark done when collection is COMPLETE.
@@ -346,6 +348,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                   newComments: pendingDelivery,
                   // In dual-cursor mode, commitCursor only advances the delivery cursor.
                   // The collection cursor was already advanced above in the collection pass.
+                  eventDrivenExternalWaitCoverage: true,
                   commitCursor: () => advanceDeliveryCursor(task.id, issueKey, maxDeliveryId),
                 },
                 subjectKey: task.subjectKey!,
@@ -381,6 +384,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                       repoFullName,
                       issueNumber,
                       newComments,
+                      eventDrivenExternalWaitCoverage: false,
                       commitCursor: async () => {
                         await advanceCursor(task.id, issueKey, maxCommentId, 'memoryFirst');
                         await opts.taskStore.update(task.id, { status: 'done' });
@@ -409,6 +413,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                   repoFullName,
                   issueNumber,
                   newComments,
+                  eventDrivenExternalWaitCoverage: true,
                   commitCursor: () => advanceCursor(task.id, issueKey, maxCommentId, 'memoryFirst'),
                 },
                 subjectKey: task.subjectKey!,
@@ -468,6 +473,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
               priority: 'normal',
               reason: 'github_issue_comment',
               sourceCategory: 'issue',
+              eventDrivenExternalWaitCoverage: signal.eventDrivenExternalWaitCoverage === true,
               coalesceKey: `${subjectKey}:issue-comment:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger
