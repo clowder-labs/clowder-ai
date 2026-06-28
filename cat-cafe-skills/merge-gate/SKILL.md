@@ -200,7 +200,7 @@ fi
 > (zts212653) ——PR 创建、`gh pr view {N}`、`gh pr comment {N}`、`gh pr merge {N}`
 > 全部会找错仓。**本节所有命令必须保持 `--repo clowder-labs/clowder-ai`**，并且新加命令时同步带上。
 > 历史事故：PR #1030 (2026-06-26) 误提到 zts，10 分钟后 close + 重建 PR #30。
-> 砚砚 cloud P1 PR #37：仅 pin `gh pr create` 不够，后续 PR-number 命令同样需要。
+> PR #37 cloud review P1：仅 pin `gh pr create` 不够，后续 PR-number 命令同样需要。
 
 ```bash
 # 1. Push feature branch
