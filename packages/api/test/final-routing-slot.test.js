@@ -161,6 +161,7 @@ describe('F167 Phase H AC-H3: validateRoutingSyntax trigger conditions', () => {
       structuredTargetCats: [],
       rosterHandles: roster,
       hasEventDrivenExternalWaitCoverage: true,
+      eventDrivenExternalWaitCoverageKeys: ['pr:35'],
     });
     assert.equal(result.kind, 'ok');
   });
@@ -177,6 +178,7 @@ describe('F167 Phase H AC-H3: validateRoutingSyntax trigger conditions', () => {
       structuredTargetCats: [],
       rosterHandles: roster,
       hasEventDrivenExternalWaitCoverage: true,
+      eventDrivenExternalWaitCoverageKeys: ['pr:35'],
     });
     assert.equal(result.kind, 'ok');
   });
@@ -194,6 +196,7 @@ describe('F167 Phase H AC-H3: validateRoutingSyntax trigger conditions', () => {
       structuredTargetCats: [],
       rosterHandles: roster,
       hasEventDrivenExternalWaitCoverage: true,
+      eventDrivenExternalWaitCoverageKeys: ['pr:clowder-labs/clowder-ai#35'],
     });
     assert.equal(result.kind, 'ok');
   });

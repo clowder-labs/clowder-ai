@@ -1502,6 +1502,8 @@ export class AgentRouter {
       verdictPassWarningEnabled?: boolean;
       /** Whether event-driven external waits are backed by verified callback/tracking coverage. */
       eventDrivenExternalWaitCoverage?: boolean;
+      /** Canonical external ids covered by that callback/tracking path. */
+      eventDrivenExternalWaitCoverageKeys?: readonly string[];
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -1623,6 +1625,9 @@ export class AgentRouter {
         : {}),
       ...(options?.eventDrivenExternalWaitCoverage !== undefined
         ? { eventDrivenExternalWaitCoverage: options.eventDrivenExternalWaitCoverage }
+        : {}),
+      ...(options?.eventDrivenExternalWaitCoverageKeys !== undefined
+        ? { eventDrivenExternalWaitCoverageKeys: options.eventDrivenExternalWaitCoverageKeys }
         : {}),
     };
 

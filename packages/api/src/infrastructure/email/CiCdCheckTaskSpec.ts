@@ -80,7 +80,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(signal: CiCdCheckSignal, _subjectKey: string, _ctx: ExecuteContext) {
+      async execute(signal: CiCdCheckSignal, subjectKey: string, _ctx: ExecuteContext) {
         const pollResult = await fetchPrStatus(signal.repoFullName, signal.prNumber);
         if (!pollResult) return;
 
@@ -93,11 +93,13 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         // Event-driven wait coverage is stricter: only merge intent guarantees
         // the follow-up CI-pass transition will invoke this cat again.
         if (routeResult.bucket === 'fail') {
+          const eventDrivenExternalWaitCoverage = intent === 'merge';
           const policy: ConnectorTriggerPolicy = {
             priority: 'urgent',
             reason: 'github_ci_failure',
             sourceCategory: 'ci',
-            eventDrivenExternalWaitCoverage: intent === 'merge',
+            eventDrivenExternalWaitCoverage,
+            eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverage ? [subjectKey] : [],
           };
           void opts.invokeTrigger
             .trigger(
@@ -131,6 +133,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
           sourceCategory: 'ci',
           suggestedSkill: 'merge-gate',
           eventDrivenExternalWaitCoverage: true,
+          eventDrivenExternalWaitCoverageKeys: [subjectKey],
         };
         void opts.invokeTrigger
           .trigger(

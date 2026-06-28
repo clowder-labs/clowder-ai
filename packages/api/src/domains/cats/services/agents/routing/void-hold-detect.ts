@@ -12,7 +12,7 @@
  * keyword). `shouldWarnVoidHold` is preserved as a backward-compatible shim.
  */
 
-import { hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
+import { hasCoveredEventDrivenExternalWaitExit } from './final-routing-slot.js';
 
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const URL_RE = /https?:\/\/[^\s)\]]+/g;
@@ -85,6 +85,8 @@ export interface VoidHoldInput {
   readonly hasCoCreatorLineStartMention?: boolean;
   /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
   readonly hasEventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external wait ids covered by the verified callback/tracking path. */
+  readonly eventDrivenExternalWaitCoverageKeys?: readonly string[];
 }
 
 export interface VoidHoldEvaluation {
@@ -112,7 +114,10 @@ export function evaluateVoidHold(input: VoidHoldInput): VoidHoldEvaluation {
   if (input.lineStartMentions.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.structuredTargetCats.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.hasCoCreatorLineStartMention) return { shouldEmit: false, matchedPattern: matched };
-  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) {
+  if (
+    input.hasEventDrivenExternalWaitCoverage &&
+    hasCoveredEventDrivenExternalWaitExit(input.text, input.eventDrivenExternalWaitCoverageKeys)
+  ) {
     return { shouldEmit: false, matchedPattern: matched };
   }
   return { shouldEmit: true, matchedPattern: matched };

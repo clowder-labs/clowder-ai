@@ -1269,6 +1269,7 @@ export class QueueProcessor {
           verdictPassWarningEnabled: entry.source !== 'connector',
           // Only policy-backed connector wakes prove a future callback/tracking path.
           eventDrivenExternalWaitCoverage: entry.eventDrivenExternalWaitCoverage === true,
+          eventDrivenExternalWaitCoverageKeys: entry.eventDrivenExternalWaitCoverageKeys ?? [],
         },
       )) {
         if (controller.signal.aborted) {

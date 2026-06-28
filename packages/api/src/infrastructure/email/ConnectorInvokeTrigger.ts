@@ -61,6 +61,8 @@ export interface ConnectorTriggerPolicy {
    * messages do not imply 2b event-driven wait coverage.
    */
   readonly eventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external ids covered by that callback/tracking path. */
+  readonly eventDrivenExternalWaitCoverageKeys?: readonly string[];
   /**
    * Optional queue coalescing key for connector bursts that supersede earlier queued work.
    * Later hits reuse the first queued entry: messageIds are merged, but the original content/body stays in place.
@@ -120,6 +122,7 @@ export class ConnectorInvokeTrigger {
     const { invocationTracker } = this.opts;
     const priority = policy?.priority ?? 'normal';
     const eventDrivenExternalWaitCoverage = policy?.eventDrivenExternalWaitCoverage === true;
+    const eventDrivenExternalWaitCoverageKeys = policy?.eventDrivenExternalWaitCoverageKeys ?? [];
 
     // F185 AC-1: thread-level queue/processingSlots gate
     if (this.opts.queueProcessor?.isThreadBusy(threadId)) {
@@ -135,6 +138,7 @@ export class ConnectorInvokeTrigger {
         policy?.suggestedSkill,
         policy?.coalesceKey,
         eventDrivenExternalWaitCoverage,
+        eventDrivenExternalWaitCoverageKeys,
       );
     }
 
@@ -153,6 +157,7 @@ export class ConnectorInvokeTrigger {
         policy?.suggestedSkill,
         policy?.coalesceKey,
         eventDrivenExternalWaitCoverage,
+        eventDrivenExternalWaitCoverageKeys,
       );
     }
 
@@ -169,6 +174,7 @@ export class ConnectorInvokeTrigger {
       sender,
       controller,
       eventDrivenExternalWaitCoverage,
+      eventDrivenExternalWaitCoverageKeys,
     ).catch((err) => {
       this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
     });
@@ -187,6 +193,7 @@ export class ConnectorInvokeTrigger {
     suggestedSkill?: string,
     coalesceKey?: string,
     eventDrivenExternalWaitCoverage = false,
+    eventDrivenExternalWaitCoverageKeys: readonly string[] = [],
   ): Promise<'full' | 'enqueued'> {
     const { invocationQueue, socketManager, log } = this.opts;
 
@@ -218,6 +225,7 @@ export class ConnectorInvokeTrigger {
       ...(sender ? { senderMeta: sender } : {}),
       ...(suggestedSkill ? { suggestedSkill } : {}),
       eventDrivenExternalWaitCoverage,
+      eventDrivenExternalWaitCoverageKeys: [...eventDrivenExternalWaitCoverageKeys],
     });
 
     if (result.outcome === 'full') {
@@ -275,6 +283,7 @@ export class ConnectorInvokeTrigger {
     sender?: { id: string; name?: string },
     preAcquiredController?: AbortController,
     eventDrivenExternalWaitCoverage = false,
+    eventDrivenExternalWaitCoverageKeys: readonly string[] = [],
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];
@@ -401,6 +410,7 @@ export class ConnectorInvokeTrigger {
         verdictPassWarningEnabled: false,
         // Only policy-backed connector wakes prove a future callback/tracking path.
         eventDrivenExternalWaitCoverage,
+        eventDrivenExternalWaitCoverageKeys,
       })) {
         // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
         if (!intentModeBroadcast) {

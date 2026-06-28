@@ -133,6 +133,7 @@ describe('CiCdCheckTaskSpec', () => {
     assert.equal(policy.reason, 'github_ci_pass');
     assert.equal(policy.suggestedSkill, 'merge-gate');
     assert.equal(policy.eventDrivenExternalWaitCoverage, true);
+    assert.deepEqual(policy.eventDrivenExternalWaitCoverageKeys, ['pr:a/b#1']);
   });
 
   it('execute triggers CI fail for default review intent without event-driven wait coverage', async () => {
@@ -207,6 +208,7 @@ describe('CiCdCheckTaskSpec', () => {
     assert.equal(policy.priority, 'urgent');
     assert.equal(policy.reason, 'github_ci_failure');
     assert.equal(policy.eventDrivenExternalWaitCoverage, true);
+    assert.deepEqual(policy.eventDrivenExternalWaitCoverageKeys, ['pr:a/b#1']);
   });
 
   it('gate filters out ci.enabled=false', async () => {

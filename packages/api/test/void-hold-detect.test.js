@@ -137,6 +137,7 @@ describe('F167 Phase I AC-I1: shouldWarnVoidHold', () => {
       ...base,
       text: '不需要 hold_ball；这是 2b 事件驱动等待。\nExternal Wait: event-driven (pr:35)',
       hasEventDrivenExternalWaitCoverage: true,
+      eventDrivenExternalWaitCoverageKeys: ['pr:35'],
     });
     assert.equal(result.shouldEmit, false);
     assert.equal(result.matchedPattern, 'en_hold_ball_underscore');
