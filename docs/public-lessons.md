@@ -1778,19 +1778,19 @@ created: 2026-02-26
 - 坑：本仓 `clowder-labs/clowder-ai` 在 GitHub 后台是 `zts212653/clowder-ai` 的 fork。`gh pr create` 不带 `--repo` 时，gh CLI **默认把 PR 提到 parent (zts212653)**——这是 gh CLI 公开行为，不是 bug。2026-06-26 实证：PR #1030 误提到 zts，10 分钟后 close + 重建 PR #30 到 clowder-labs。co-creator："又"——同型陷阱以前讨论过 fork workflow (thread_mpz55rv7dahgk4ce) 但没沉淀成硬规则。
 - 根因：三层叠加。(1) **机制层**：GitHub fork relationship 是 gh CLI 后台事实，本地配置不能改变。(2) **认知层**：本地 remote 名字曾叫 `upstream`，看名字像"正确目标"——但 zts212653 是 fork 父，不是上游。(3) **SOP 层**：`cat-cafe-skills/merge-gate/SKILL.md` 旧版命令裸 `gh pr create` 没 `--repo`，照抄即踩。
 - 触发条件：(a) Fresh clone / 新机器 / CI sandbox / teleport 后 `gh-resolved` git config 未写入；(b) cat 照旧 SOP 抄裸命令；(c) cat 看到 remote `upstream` 误判语义；(d) `gh auth` 重登录 / gh CLI 升级清掉 `gh-resolved` 让旧 clone 退化成 fresh clone 行为。
-- 修复：PR #1030 close + 重建 PR #30；本地 `git remote rename upstream zts-mirror`（rename 自动迁移 7 个 tracking 分支 + 14 个 worktree 同步）；SOP 显式 `--repo`；写 `.envrc` 兜底 `GH_REPO`；SessionStart hook 加 fork warning。
+- 修复：PR #1030 close + 重建 PR #30；本地 `git remote rename upstream zts-mirror`（rename 自动迁移 7 个 tracking 分支 + 14 个 worktree 同步）；SOP 显式 `--repo`；提供 `.envrc.example` 模板（用户主动 cp 启用，避免 runtime config 通过 commit 渗透——cloud R3 P1）；SessionStart hook 加 fork warning。
 - 防护：四层硬约束 + 一层认知。
   1. **L1 SOP（核心）**：`cat-cafe-skills/merge-gate/SKILL.md` **全部** `gh pr *` / `gh api repos/...` 命令显式 `--repo clowder-labs/clowder-ai`——不只 `gh pr create`，也包括后续 `gh pr view`/`comment`/`merge`/`checks`/`edit`/`gh api repos/.../comments` 等所有用 PR number 寻址的命令（砚砚 cloud P1 PR #37：仅 pin create 不够，fresh clone 上后续命令仍会按 PR number 解析到 fork parent）。SOP 顶部加"Fork base trap 总规则"块作为人类可读约束。猫照 SOP 抄 = 自动安全
   2. **L2 命名（认知）**：本地 remote `upstream` → `zts-mirror`（rename 消除名字诱导；`pushurl=DISABLED` + `pushdefault=origin` 保留）
-  3. **L3 环境（兜底）**：`.envrc` 设 `export GH_REPO=clowder-labs/clowder-ai`，cat 手敲命令绕开 SOP 时兜底（家里未默认装 direnv，但文件作为 source-of-truth + 单次手动 `source .envrc` 可用）
+  3. **L3 环境（兜底）**：仓内只 commit `.envrc.example` 模板（含 `export GH_REPO=clowder-labs/clowder-ai`），用户主动 `cp .envrc.example .envrc && direnv allow` 或 `source .envrc.example` 启用。`.envrc` 加入 `.gitignore` —— **运行时 shell 配置不通过 commit 渗透**（AGENTS.md / CLAUDE.md Config Immutability 铁律 + cloud R3 P1）。L3 是给"绕开 SOP、直接手敲 gh 命令"的猫兜底用
   4. **L4 自检（提醒）**：`.claude/hooks/user-level/session-start-recall.sh` 检测当前仓 origin URL 含 `clowder-labs/clowder-ai` 时，开工自检显示 fork warning + GH_REPO 状态
   5. **(认知)**：明白 GitHub fork relationship 是不可改的后台事实，本地任何配置都只能在 invocation 上强制覆盖默认值——不能"修复"fork 状态本身
 - 来源锚点：
   - `cat-cafe-skills/merge-gate/SKILL.md#L128`（修复后 SOP）
   - PR #30（重建到 clowder-labs）/ PR #1030 (zts212653，已 CLOSED) — 2026-06-26 事故
   - thread_mpz55rv7dahgk4ce（2026 早期讨论 fork workflow 但未沉淀硬规则）
-  - `.envrc` / `.claude/hooks/user-level/session-start-recall.sh`（防护实现）
+  - `.envrc.example` / `.gitignore` / `.claude/hooks/user-level/session-start-recall.sh`（防护实现）
 - 原理：fork relationship 是 GitHub 后台的**固定结构事实**——`fork=true, parent=zts212653/clowder-ai` 写在 GitHub API。本地任何 git config (`gh-resolved`、`pushdefault`、`pushurl=DISABLED`) 都是 **per-clone 的覆盖层**，覆盖层会因为 fresh clone / re-auth 失效。**只有"每次 invocation 显式 `--repo`"才是不依赖任何 per-clone state 的硬约束**。命名陷阱 (`upstream`) 是认知层的"错觉地基"——rename 消除地基，而不是治理症状。
 - 已知 TD（后续治理）：`packages/api/src/infrastructure/harness-eval/publish-verdict/git-worktree-publisher.ts:138` F192 verdict publisher 同型——`gh pr create` 不带 `--repo`，fresh deploy 上踩坑。窄场景（API server fresh deploy 时），独立 issue 跟进。
 
-- 关联：cat-cafe-skills/merge-gate/SKILL.md / .envrc / .claude/hooks/user-level/session-start-recall.sh / PR #30 / PR #1030 / thread_mpz55rv7dahgk4ce
+- 关联：cat-cafe-skills/merge-gate/SKILL.md / .envrc.example / .gitignore / .claude/hooks/user-level/session-start-recall.sh / PR #30 / PR #1030 / PR #37 / thread_mpz55rv7dahgk4ce

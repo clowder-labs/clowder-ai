@@ -35,6 +35,7 @@ packages/web/public/vendor/
 .env
 .env.local
 .env.*.local
+.envrc                 # LL-080 Config Immutability: only .envrc.example is committed
 
 # Local overlay files (#603 .local convention, F225 prompt templates)
 *.local.md

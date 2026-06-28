@@ -1,0 +1,30 @@
+# ============================================================
+# Cat Cafe / Clowder AI — Shell environment 模板（手敲命令时兜底）
+# ============================================================
+#
+# 这个文件是**模板**（.envrc.example），不直接生效。
+# 用户主动 `cp .envrc.example .envrc` 后才会被 direnv 自动 source。
+#
+# 设计选择（AGENTS.md / CLAUDE.md Config Immutability 铁律）：
+#   runtime shell 配置不通过 commit 渗透。team-level 提供模板，individual 自己启用。
+#   这样审查/回滚 GH_REPO 改动归个人 git 操作，不进 PR review 影子层。
+#
+# 这个文件的作用：补 §SOP 之外的"手敲命令"场景。
+# 详见 LL-080（PR Fork Base Trap）+ cat-cafe-skills/merge-gate/SKILL.md。
+#
+# 启用步骤（按你的环境二选一）：
+#   1. direnv（推荐）：
+#      brew install direnv
+#      # shell rc 加：eval "$(direnv hook zsh)"
+#      cp .envrc.example .envrc
+#      direnv allow                  # 进入本仓自动 export
+#   2. 手动：每次 cat agent 启动前 `source .envrc.example`（单次 shell 生效）
+#
+# 注：cat-cafe-skills 里的 SOP 命令已经显式 `--repo clowder-labs/clowder-ai`，
+# 不依赖 GH_REPO；这里是给"绕开 SOP、直接敲 gh 命令"的猫兜底用。
+# ============================================================
+
+# Fork base trap 兜底：本仓在 GitHub 是 zts212653/clowder-ai 的 fork，
+# 不显式 --repo / GH_REPO 时，gh CLI 会默认把 PR / issue 提到 parent。
+# 历史事故：PR #1030 (2026-06-26) 误提到 zts，10 分钟后 close + 重建 PR #30。
+export GH_REPO="clowder-labs/clowder-ai"

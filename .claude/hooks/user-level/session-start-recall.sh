@@ -101,7 +101,7 @@ if [ "$REPO_SLUG" = "clowder-labs/clowder-ai" ]; then
   if [ "${GH_REPO}" = "clowder-labs/clowder-ai" ]; then
     GH_REPO_STATUS="GH_REPO 兜底已生效"
   elif [ -z "${GH_REPO}" ]; then
-    GH_REPO_STATUS="GH_REPO 未设——建议 \`source .envrc\` 或装 direnv（参考 .envrc）"
+    GH_REPO_STATUS="GH_REPO 未设——\`cp .envrc.example .envrc && direnv allow\` 或 \`source .envrc.example\` 启用"
   else
     GH_REPO_STATUS="⚠️ GH_REPO=${GH_REPO} (不是 clowder-labs/clowder-ai，可能误导 gh CLI)"
   fi
