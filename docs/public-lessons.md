@@ -1782,7 +1782,7 @@ created: 2026-02-26
 - 防护：四层硬约束 + 一层认知。
   1. **L1 SOP（核心）**：`cat-cafe-skills/merge-gate/SKILL.md` **全部** `gh pr *` / `gh api repos/...` 命令显式 `--repo clowder-labs/clowder-ai`——不只 `gh pr create`，也包括后续 `gh pr view`/`comment`/`merge`/`checks`/`edit`/`gh api repos/.../comments` 等所有用 PR number 寻址的命令（砚砚 cloud P1 PR #37：仅 pin create 不够，fresh clone 上后续命令仍会按 PR number 解析到 fork parent）。SOP 顶部加"Fork base trap 总规则"块作为人类可读约束。猫照 SOP 抄 = 自动安全
   2. **L2 命名（认知）**：本地 remote `upstream` → `zts-mirror`（rename 消除名字诱导；`pushurl=DISABLED` + `pushdefault=origin` 保留）
-  3. **L3 环境（兜底）**：仓内只 commit `.envrc.example` 模板（含 `export GH_REPO=clowder-labs/clowder-ai`），用户主动 `cp .envrc.example .envrc && direnv allow` 或 `source .envrc.example` 启用。`.envrc` 加入 `.gitignore` —— **运行时 shell 配置不通过 commit 渗透**（AGENTS.md / CLAUDE.md Config Immutability 铁律 + cloud R3 P1）。L3 是给"绕开 SOP、直接手敲 gh 命令"的猫兜底用
+  3. **L3 环境（兜底）**：仓内只 commit `.envrc.example` 模板（含 `export GH_REPO=clowder-labs/clowder-ai`），用户三选一启用 — (a) `cp .envrc.example .envrc && direnv allow`（**强推荐**，进出 repo 自动 export/unset，无 cross-repo 污染）；(b) per-command `GH_REPO=clowder-labs/clowder-ai gh ...`（无 direnv 时推荐，单次生效不污染 session）；(c) `source .envrc.example`（仅限短任务，必须配套 `unset GH_REPO` 清理 — cloud R4 P2：source 会把 GH_REPO 持久 export 到整个 shell session，cd 到其他 repo 仍强制路由到 clowder-labs/clowder-ai，是这条 rail 防的同类错路由）。`.envrc` 加入 `.gitignore` —— **运行时 shell 配置不通过 commit 渗透**（AGENTS.md / CLAUDE.md Config Immutability 铁律 + cloud R3 P1）。L3 是给"绕开 SOP、直接手敲 gh 命令"的猫兜底用
   4. **L4 自检（提醒）**：`.claude/hooks/user-level/session-start-recall.sh` 检测当前仓 origin URL 含 `clowder-labs/clowder-ai` 时，开工自检显示 fork warning + GH_REPO 状态
   5. **(认知)**：明白 GitHub fork relationship 是不可改的后台事实，本地任何配置都只能在 invocation 上强制覆盖默认值——不能"修复"fork 状态本身
 - 来源锚点：
