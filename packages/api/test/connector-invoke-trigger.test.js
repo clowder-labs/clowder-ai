@@ -297,12 +297,14 @@ describe('ConnectorInvokeTrigger', () => {
         reason: 'github_review_feedback',
         sourceCategory: 'review',
         eventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['pr:owner/repo#1'],
       },
     );
     await waitForTrigger();
 
     assert.strictEqual(routerMock.calls.length, 1);
     assert.strictEqual(routerMock.calls[0].options?.eventDrivenExternalWaitCoverage, true);
+    assert.deepStrictEqual(routerMock.calls[0].options?.eventDrivenExternalWaitCoverageKeys, ['pr:owner/repo#1']);
   });
 
   it('broadcasts agent messages to WebSocket room', async () => {
@@ -1158,6 +1160,7 @@ describe('ConnectorInvokeTrigger', () => {
           reason: 'github_review_feedback',
           sourceCategory: 'review',
           eventDrivenExternalWaitCoverage: true,
+          eventDrivenExternalWaitCoverageKeys: ['pr:owner/repo#1'],
         },
       );
       await waitForTrigger();
@@ -1165,6 +1168,7 @@ describe('ConnectorInvokeTrigger', () => {
       const entries = queue.list('thread-1', 'user-1');
       assert.strictEqual(entries.length, 1);
       assert.strictEqual(entries[0].eventDrivenExternalWaitCoverage, true);
+      assert.deepStrictEqual(entries[0].eventDrivenExternalWaitCoverageKeys, ['pr:owner/repo#1']);
     });
 
     it('urgent connector with owner mismatch still enqueues without cancel (F175)', async () => {

@@ -294,6 +294,7 @@ describe('F167 C2 AC-C7: shouldWarnVerdictWithoutPass', () => {
         toolNames: [],
         structuredTargetCats: [],
         hasEventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['pr:35'],
       }),
       false,
     );

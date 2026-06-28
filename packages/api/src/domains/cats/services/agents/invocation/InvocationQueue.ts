@@ -48,6 +48,8 @@ export interface QueueEntry {
   suggestedSkill?: string;
   /** True only for connector wakes backed by verified external callback/tracking coverage. */
   eventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external ids covered by the verified callback/tracking path. */
+  eventDrivenExternalWaitCoverageKeys?: string[];
   callerTraceContext?: CallerTraceContext;
   /** Explicit A2A trigger message for stream reply threading. */
   a2aTriggerMessageId?: string;
@@ -188,6 +190,14 @@ export class InvocationQueue {
           if (input.eventDrivenExternalWaitCoverage) {
             existing.eventDrivenExternalWaitCoverage = true;
           }
+          if (input.eventDrivenExternalWaitCoverageKeys?.length) {
+            existing.eventDrivenExternalWaitCoverageKeys = [
+              ...new Set([
+                ...(existing.eventDrivenExternalWaitCoverageKeys ?? []),
+                ...input.eventDrivenExternalWaitCoverageKeys,
+              ]),
+            ];
+          }
         }
         const position = q.findIndex((entry) => entry.id === existing.id);
         return {
@@ -228,6 +238,9 @@ export class InvocationQueue {
       continuationKey: input.continuationKey,
       suggestedSkill: input.suggestedSkill,
       eventDrivenExternalWaitCoverage: input.eventDrivenExternalWaitCoverage,
+      eventDrivenExternalWaitCoverageKeys: input.eventDrivenExternalWaitCoverageKeys
+        ? [...input.eventDrivenExternalWaitCoverageKeys]
+        : undefined,
       callerTraceContext: input.callerTraceContext,
       a2aTriggerMessageId: input.a2aTriggerMessageId,
       position: undefined,

@@ -486,7 +486,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const suggestedSkill = hasChangesRequested ? 'receive-review' : hasApproved ? 'merge-gate' : undefined;
             const coalesceTargetCatId = routeResult.catId || task.ownerCatId || 'unassigned';
             const intent = task.automationState?.intent ?? 'review';
-            const eventDrivenExternalWaitCoverage = hasApproved ? intent === 'merge' : true;
+            const eventDrivenExternalWaitCoverage = hasApproved && intent === 'merge';
+            const eventDrivenExternalWaitCoverageKeys = eventDrivenExternalWaitCoverage ? [subjectKey] : [];
 
             const policy: ConnectorTriggerPolicy = {
               priority: hasChangesRequested ? 'urgent' : 'normal',
@@ -494,6 +495,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
               sourceCategory: 'review',
               suggestedSkill,
               eventDrivenExternalWaitCoverage,
+              eventDrivenExternalWaitCoverageKeys,
               coalesceKey: `${subjectKey}:review-feedback:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger

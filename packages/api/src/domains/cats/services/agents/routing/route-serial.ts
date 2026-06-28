@@ -108,7 +108,8 @@ import { accumulateTextAggregate } from '../text-aggregation.js';
 import { formatA2AHandoffContent } from './a2a-handoff-label.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import {
-  hasEventDrivenExternalWaitExit,
+  eventDrivenExternalWaitCoverageKey,
+  hasCoveredEventDrivenExternalWaitExit,
   stripTrailingCatSignatures,
   validateRoutingSyntax,
 } from './final-routing-slot.js';
@@ -178,7 +179,11 @@ function stripMarkdownRoutePrefix(line: string): string {
   return line.replace(/^(?:[-*+]\s+|>\s*|\d+[.)]\s+)/, '').trim();
 }
 
-function normalizeRouteOnlyRemedialText(text: string, hasEventDrivenExternalWaitCoverage: boolean): string | null {
+function normalizeRouteOnlyRemedialText(
+  text: string,
+  hasEventDrivenExternalWaitCoverage: boolean,
+  eventDrivenExternalWaitCoverageKeys: readonly string[],
+): string | null {
   const lines = stripTrailingCatSignatures(text)
     .trim()
     .split(/\r?\n/)
@@ -187,7 +192,10 @@ function normalizeRouteOnlyRemedialText(text: string, hasEventDrivenExternalWait
   if (lines.length !== 1) return null;
   const line = lines[0]!;
   if (ROUTE_ONLY_REMEDIAL_TEXT_RE.test(line)) return line;
-  return hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(line) ? line : null;
+  return hasEventDrivenExternalWaitCoverage &&
+    hasCoveredEventDrivenExternalWaitExit(line, eventDrivenExternalWaitCoverageKeys)
+    ? line
+    : null;
 }
 
 function buildRoutingAnalysisContent(storedContent: string, routingContent: string): string {
@@ -242,6 +250,35 @@ function isSameTurnEventDrivenCoverageToolName(toolName: string | undefined): bo
   // PR tracking registration only proves the watcher was registered. The actual
   // 2b condition requires a later review/CI callback with pickup coverage.
   return normalized === 'register_issue_tracking';
+}
+
+function parseToolInputObject(input: unknown): Record<string, unknown> | null {
+  if (!input) return null;
+  if (typeof input === 'object') return input as Record<string, unknown>;
+  if (typeof input !== 'string') return null;
+  try {
+    const parsed = JSON.parse(input);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringOrNumber(input: unknown): string | null {
+  if (typeof input === 'string' && input.trim()) return input.trim();
+  if (typeof input === 'number' && Number.isFinite(input)) return String(input);
+  return null;
+}
+
+function eventDrivenCoverageKeysForToolUse(toolName: string | undefined, toolInput: unknown): string[] {
+  if (!isSameTurnEventDrivenCoverageToolName(toolName)) return [];
+  const parsed = parseToolInputObject(toolInput);
+  const repoFullName = stringOrNumber(parsed?.repoFullName);
+  const issueNumber = stringOrNumber(parsed?.issueNumber);
+  const key = eventDrivenExternalWaitCoverageKey(
+    repoFullName && issueNumber ? `issue:${repoFullName}#${issueNumber}` : undefined,
+  );
+  return key ? [key] : [];
 }
 
 function isCallbackContentRoutingToolName(toolName: string | undefined): boolean {
@@ -339,24 +376,28 @@ function toolNamesMatch(a: string, b: string): boolean {
   return a === b || (isPostMessageToolName(a) && isPostMessageToolName(b));
 }
 
+type PendingToolResult = {
+  toolName: string;
+  eventDrivenExternalWaitCoverageKeys: string[];
+};
+
 function consumePendingToolResult(
-  pendingToolResults: string[],
+  pendingToolResults: PendingToolResult[],
   msg: AgentMessage,
   hasConfirmingContent: boolean,
   hasCallbackPostEvidence: boolean,
-): string | undefined {
+): PendingToolResult | undefined {
   const resultToolName = inferToolResultName(msg);
   if (resultToolName) {
-    const pendingIndex = pendingToolResults.findIndex((name) => toolNamesMatch(name, resultToolName));
+    const pendingIndex = pendingToolResults.findIndex((entry) => toolNamesMatch(entry.toolName, resultToolName));
     if (pendingIndex === -1) return undefined;
-    pendingToolResults.splice(pendingIndex, 1);
-    return resultToolName;
+    return pendingToolResults.splice(pendingIndex, 1)[0];
   }
 
   const firstPending = pendingToolResults[0];
   if (!firstPending) return undefined;
 
-  if (!isPostMessageToolName(firstPending)) {
+  if (!isPostMessageToolName(firstPending.toolName)) {
     return pendingToolResults.shift();
   }
 
@@ -404,6 +445,11 @@ export async function* routeSerial(
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
   const initialEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
+  const initialEventDrivenExternalWaitCoverageKeys = initialEventDrivenExternalWaitCoverage
+    ? (options.eventDrivenExternalWaitCoverageKeys ?? [])
+        .map((key) => eventDrivenExternalWaitCoverageKey(key))
+        .filter((key): key is string => key !== null)
+    : [];
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
   const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -534,7 +580,18 @@ export async function* routeSerial(
       const isOriginalTarget = index < targetCats.length;
       // Event-driven wait coverage proves a wake path for the current invocation target,
       // not for later A2A worklist entries.
-      let hasEventDrivenExternalWaitCoverage = initialEventDrivenExternalWaitCoverage && isOriginalTarget;
+      const eventDrivenExternalWaitCoverageKeys = new Set<string>(
+        isOriginalTarget ? initialEventDrivenExternalWaitCoverageKeys : [],
+      );
+      let hasEventDrivenExternalWaitCoverage = eventDrivenExternalWaitCoverageKeys.size > 0;
+      const eventDrivenExternalWaitCoverageKeyList = (): string[] => [...eventDrivenExternalWaitCoverageKeys];
+      const addEventDrivenExternalWaitCoverageKeys = (keys: readonly string[]) => {
+        for (const key of keys) {
+          const normalized = eventDrivenExternalWaitCoverageKey(key);
+          if (normalized) eventDrivenExternalWaitCoverageKeys.add(normalized);
+        }
+        hasEventDrivenExternalWaitCoverage = eventDrivenExternalWaitCoverageKeys.size > 0;
+      };
       const targetContentBlocks = isOriginalTarget ? routeContentBlocksForCat(catId, contentBlocks) : undefined;
       const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
 
@@ -923,7 +980,7 @@ export async function* routeSerial(
       let callbackPostConfirmed = false;
       let callbackPostMessageId: string | undefined;
       let awaitingCallbackResult = false;
-      const pendingToolResults: string[] = [];
+      const pendingToolResults: PendingToolResult[] = [];
       const pendingCallbackRoutingExits: CallbackContentRoutingExit[] = [];
       const confirmedCallbackRoutingMentions = new Set<CatId>();
       let confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
@@ -1210,7 +1267,13 @@ export async function* routeSerial(
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
-            pendingToolResults.push(effectiveMsg.toolName);
+            pendingToolResults.push({
+              toolName: effectiveMsg.toolName,
+              eventDrivenExternalWaitCoverageKeys: eventDrivenCoverageKeysForToolUse(
+                effectiveMsg.toolName,
+                effectiveMsg.toolInput,
+              ),
+            });
             const callbackExit = collectCallbackContentRoutingExit(
               effectiveMsg.toolName,
               effectiveMsg.toolInput,
@@ -1222,7 +1285,7 @@ export async function* routeSerial(
           // #573: Confirm callback persistence via tool_result success
           if (effectiveMsg.type === 'tool_result') {
             const callbackResult = parseCallbackPostResult(effectiveMsg.content);
-            const completedToolName = consumePendingToolResult(
+            const completedTool = consumePendingToolResult(
               pendingToolResults,
               effectiveMsg,
               callbackResult.confirmed,
@@ -1230,25 +1293,25 @@ export async function* routeSerial(
             );
             if (
               awaitingCallbackResult &&
-              completedToolName &&
-              isPostMessageToolName(completedToolName) &&
+              completedTool &&
+              isPostMessageToolName(completedTool.toolName) &&
               callbackResult.confirmed
             ) {
               callbackPostConfirmed = true;
               awaitingCallbackResult = false;
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
-            if (completedToolName) {
-              if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
-                hasEventDrivenExternalWaitCoverage = true;
+            if (completedTool) {
+              if (callbackResult.confirmed && completedTool.eventDrivenExternalWaitCoverageKeys.length > 0) {
+                addEventDrivenExternalWaitCoverageKeys(completedTool.eventDrivenExternalWaitCoverageKeys);
               }
-              settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+              settleCallbackRoutingExit(completedTool.toolName, callbackResult.confirmed);
             }
             // F188 Phase F AC-F10 (砚砚 六审 P1-B: also scope by catId for serial route consistency).
             // 砚砚 cloud-3 P1: also pass toolUseId for exact match when available;
             // otherwise FIFO toolName+catId match handles same-name parallel calls.
-            if (deps.toolEventLog && completedToolName) {
-              const normalizedName = normalizeMcpToolName(completedToolName);
+            if (deps.toolEventLog && completedTool) {
+              const normalizedName = normalizeMcpToolName(completedTool.toolName);
               const resultSummary = deriveResultSummary(normalizedName, effectiveMsg.content);
               if (Object.keys(resultSummary).length > 0) {
                 const resultMsg = effectiveMsg as { catId?: string; toolUseId?: string };
@@ -1639,7 +1702,13 @@ export async function* routeSerial(
             }
             if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
               collectedToolNames.push(effectiveMsg.toolName);
-              pendingToolResults.push(effectiveMsg.toolName);
+              pendingToolResults.push({
+                toolName: effectiveMsg.toolName,
+                eventDrivenExternalWaitCoverageKeys: eventDrivenCoverageKeysForToolUse(
+                  effectiveMsg.toolName,
+                  effectiveMsg.toolInput,
+                ),
+              });
               const callbackExit = collectCallbackContentRoutingExit(
                 effectiveMsg.toolName,
                 effectiveMsg.toolInput,
@@ -1650,7 +1719,7 @@ export async function* routeSerial(
             }
             if (effectiveMsg.type === 'tool_result') {
               const callbackResult = parseCallbackPostResult(effectiveMsg.content);
-              const completedToolName = consumePendingToolResult(
+              const completedTool = consumePendingToolResult(
                 pendingToolResults,
                 effectiveMsg,
                 callbackResult.confirmed,
@@ -1658,19 +1727,19 @@ export async function* routeSerial(
               );
               if (
                 awaitingCallbackResult &&
-                completedToolName &&
-                isPostMessageToolName(completedToolName) &&
+                completedTool &&
+                isPostMessageToolName(completedTool.toolName) &&
                 callbackResult.confirmed
               ) {
                 callbackPostConfirmed = true;
                 awaitingCallbackResult = false;
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
-              if (completedToolName) {
-                if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
-                  hasEventDrivenExternalWaitCoverage = true;
+              if (completedTool) {
+                if (callbackResult.confirmed && completedTool.eventDrivenExternalWaitCoverageKeys.length > 0) {
+                  addEventDrivenExternalWaitCoverageKeys(completedTool.eventDrivenExternalWaitCoverageKeys);
                 }
-                settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+                settleCallbackRoutingExit(completedTool.toolName, callbackResult.confirmed);
               }
             }
 
@@ -1690,7 +1759,11 @@ export async function* routeSerial(
         const remedialExtracted = extractRichFromText(remedialSanitized);
         const remedialCleanText = remedialExtracted.cleanText;
         const remedialRouteOnlyContent = remedialCleanText
-          ? normalizeRouteOnlyRemedialText(remedialCleanText, hasEventDrivenExternalWaitCoverage)
+          ? normalizeRouteOnlyRemedialText(
+              remedialCleanText,
+              hasEventDrivenExternalWaitCoverage,
+              eventDrivenExternalWaitCoverageKeyList(),
+            )
           : null;
         const remedialIsRouteOnly = remedialRouteOnlyContent !== null;
         // Route-only remedial text (`@cat` / `@co-creator`) is an exit patch, not a replacement artifact.
@@ -1772,6 +1845,7 @@ export async function* routeSerial(
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(''),
           hasEventDrivenExternalWaitCoverage,
+          eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
         })
       ) {
         const result = await runRoutingGuardRemedial(
@@ -1790,6 +1864,7 @@ export async function* routeSerial(
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: result.hasCoCreatorLineStartMention,
             hasEventDrivenExternalWaitCoverage,
+            eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
           })
         ) {
           await appendRoutingGuardFailureNotice();
@@ -1844,6 +1919,7 @@ export async function* routeSerial(
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
             hasEventDrivenExternalWaitCoverage,
+            eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
           })
         ) {
           const result = await runRoutingGuardRemedial(storedContent, allRichBlocks, [...collectedToolEvents]);
@@ -1864,6 +1940,7 @@ export async function* routeSerial(
               structuredTargetCats: [...structuredTargetCats],
               hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
               hasEventDrivenExternalWaitCoverage,
+              eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
             })
           ) {
             await appendRoutingGuardFailureNotice();
@@ -1901,6 +1978,7 @@ export async function* routeSerial(
           structuredTargetCats: [...structuredTargetCats],
           rosterHandles: phaseHRosterHandles,
           hasEventDrivenExternalWaitCoverage,
+          eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
         });
         const phaseHHit = phaseHResult.kind === 'invalid_route_syntax';
         if (phaseHHit && phaseHResult.kind === 'invalid_route_syntax') {
@@ -2056,6 +2134,7 @@ export async function* routeSerial(
             structuredTargetCats: [...structuredTargetCats],
             hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
             hasEventDrivenExternalWaitCoverage,
+            eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
           })
         ) {
           try {
@@ -2119,6 +2198,7 @@ export async function* routeSerial(
           structuredTargetCats: [...structuredTargetCats],
           hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
           hasEventDrivenExternalWaitCoverage,
+          eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverageKeyList(),
         });
         if (voidHoldEval.shouldEmit) {
           try {

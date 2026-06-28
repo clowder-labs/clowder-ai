@@ -334,7 +334,7 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       codexService,
       'thread-routing-guard-event-driven-coverage-per-cat',
       { opus: opusService },
-      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+      { routeOptions: { eventDrivenExternalWaitCoverage: true, eventDrivenExternalWaitCoverageKeys: ['pr:35'] } },
     );
 
     assert.equal(opusService.calls.length, 2, 'A2A target must not inherit connector callback coverage');
@@ -409,7 +409,7 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       'thread-routing-guard-event-driven-remedial',
       {},
       {
-        routeOptions: { eventDrivenExternalWaitCoverage: true },
+        routeOptions: { eventDrivenExternalWaitCoverage: true, eventDrivenExternalWaitCoverageKeys: ['pr:35'] },
       },
     );
 
@@ -453,7 +453,7 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       service,
       'thread-routing-guard-event-driven-remedial-signed',
       {},
-      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+      { routeOptions: { eventDrivenExternalWaitCoverage: true, eventDrivenExternalWaitCoverageKeys: ['pr:35'] } },
     );
 
     assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
@@ -787,7 +787,10 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       'thread-routing-guard-event-driven-wait',
       {},
       {
-        routeOptions: { eventDrivenExternalWaitCoverage: true },
+        routeOptions: {
+          eventDrivenExternalWaitCoverage: true,
+          eventDrivenExternalWaitCoverageKeys: ['pr:clowder-labs/clowder-ai#32'],
+        },
       },
     );
 
@@ -867,6 +870,38 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
     assert.equal(codexMessages.length, 1);
     assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
+  test('2b event-driven external wait rejects same-turn issue tracking coverage for PR ids', async () => {
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'tool_use',
+          toolName: 'cat_cafe_register_issue_tracking',
+          toolInput: { repoFullName: 'clowder-labs/clowder-ai', issueNumber: 35 },
+        },
+        {
+          type: 'tool_result',
+          toolName: 'cat_cafe_register_issue_tracking',
+          content: '{"status":"ok","threadId":"thread-routing-guard-event-driven-issue-mismatch"}',
+        },
+        {
+          type: 'text',
+          content:
+            '已注册 issue tracking，后续评论会结构化回调。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#35)',
+        },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-issue-mismatch');
+
+    assert.equal(calls.length, 2, 'issue tracking coverage must not validate a PR event-driven wait id');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting the mismatched event wait',
+    );
   });
 
   test('2b event-driven external wait final slot without verified callback coverage still gets remedial invoke', async () => {

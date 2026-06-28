@@ -26,6 +26,8 @@ export interface ValidationInput {
   readonly rosterHandles: readonly string[];
   /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
   readonly hasEventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external wait ids covered by the verified callback/tracking path. */
+  readonly eventDrivenExternalWaitCoverageKeys?: readonly string[];
 }
 
 export type ValidationResult =
@@ -41,6 +43,8 @@ const URL_RE = /https?:\/\/[^\s)\]]+/g;
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
   /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
+const EVENT_DRIVEN_EXTERNAL_WAIT_ID_RE =
+  /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\(([^)\r\n]+)\)\s*$/i;
 const CAT_SIGNATURE_LINE_RE = /^\s*\[(?:[^[\]\n]+\/[^[\]\n]+|[^[\]\n]+🐾)\]\s*$/u;
 
 /**
@@ -121,6 +125,54 @@ export function hasEventDrivenExternalWaitExit(text: string | undefined): boolea
   return slotHasEventDrivenExternalWaitExit(finalRoutingSlotPreservingUrls(stripTrailingCatSignatures(text)));
 }
 
+function normalizeEventDrivenExternalWaitKey(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.hostname.toLowerCase() === 'github.com') {
+      const [owner, repo, kind, number] = url.pathname.split('/').filter(Boolean);
+      if (owner && repo && number && /^\d+$/.test(number)) {
+        if (kind === 'pull') return `pr:${owner.toLowerCase()}/${repo.toLowerCase()}#${number}`;
+        if (kind === 'issues') return `issue:${owner.toLowerCase()}/${repo.toLowerCase()}#${number}`;
+      }
+    }
+  } catch {
+    // Non-URL ids are valid structural ids; normalize below.
+  }
+
+  return value.toLowerCase();
+}
+
+export function eventDrivenExternalWaitCoverageKey(raw: string | undefined): string | null {
+  return normalizeEventDrivenExternalWaitKey(raw);
+}
+
+export function extractEventDrivenExternalWaitKeys(text: string | undefined): string[] {
+  if (!text) return [];
+  const slot = finalRoutingSlotPreservingUrls(stripTrailingCatSignatures(text));
+  const keys: string[] = [];
+  for (const line of slot.split(/\r?\n/)) {
+    const match = line.trim().match(EVENT_DRIVEN_EXTERNAL_WAIT_ID_RE);
+    const key = normalizeEventDrivenExternalWaitKey(match?.[1]);
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+export function hasCoveredEventDrivenExternalWaitExit(
+  text: string | undefined,
+  coverageKeys: readonly string[] | undefined,
+): boolean {
+  if (!text || !coverageKeys || coverageKeys.length === 0) return false;
+  const covered = new Set(
+    coverageKeys.map((key) => normalizeEventDrivenExternalWaitKey(key)).filter((key): key is string => key !== null),
+  );
+  if (covered.size === 0) return false;
+  return extractEventDrivenExternalWaitKeys(text).some((key) => covered.has(key));
+}
+
 /**
  * Find inline @handle mentions in slot (= not at line-start position).
  *
@@ -192,7 +244,12 @@ export function validateRoutingSyntax(input: ValidationInput): ValidationResult 
   if (input.structuredTargetCats.length > 0) return { kind: 'ok' };
 
   const slot = finalRoutingSlot(input.text);
-  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return { kind: 'ok' };
+  if (
+    input.hasEventDrivenExternalWaitCoverage &&
+    hasCoveredEventDrivenExternalWaitExit(input.text, input.eventDrivenExternalWaitCoverageKeys)
+  ) {
+    return { kind: 'ok' };
+  }
 
   const inlineMentions = findInlineMentionsInSlot(slot, input.rosterHandles);
   if (inlineMentions.length === 0) return { kind: 'ok' };

@@ -12,7 +12,7 @@
  * KD-8 safe：只看"有无机械出口信号"，零意图分类器。
  */
 
-import { hasEventDrivenExternalWaitExit } from '../final-routing-slot.js';
+import { hasCoveredEventDrivenExternalWaitExit } from '../final-routing-slot.js';
 
 /** Routing-tool substrings that count as a legitimate exit (持球/群发传球). */
 const ROUTING_TOOL_SUBSTRINGS = ['hold_ball', 'multi_mention'] as const;
@@ -37,6 +37,8 @@ export interface RoutingExitInput {
   readonly hasCoCreatorLineStartMention?: boolean;
   /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
   readonly hasEventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external wait ids covered by the verified callback/tracking path. */
+  readonly eventDrivenExternalWaitCoverageKeys?: readonly string[];
 }
 
 /**
@@ -50,7 +52,12 @@ export function hasValidRoutingExit(input: RoutingExitInput): boolean {
   if (input.structuredTargetCats.length > 0) return true;
   if (input.hasCoCreatorLineStartMention) return true;
   if (hasRoutingToolCall(input.toolNames)) return true;
-  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return true;
+  if (
+    input.hasEventDrivenExternalWaitCoverage &&
+    hasCoveredEventDrivenExternalWaitExit(input.text, input.eventDrivenExternalWaitCoverageKeys)
+  ) {
+    return true;
+  }
   return false;
 }
 
