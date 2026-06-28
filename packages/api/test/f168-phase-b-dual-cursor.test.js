@@ -983,6 +983,49 @@ describe('IssueCommentTaskSpec: with eventLog — dual-cursor', () => {
     );
   });
 
+  it('closed issue final delivery does not grant event-driven wait coverage after task is done (Cloud PR35 P2)', async () => {
+    assert.ok(createIssueCommentTaskSpec);
+    const taskStore = makeTaskStore();
+    taskStore.addTask(makeTask({ id: 'task-closed-final-coverage', subjectKey: 'issue:owner/repo#42' }));
+    const eventLog = makeEventLog();
+    const policies = [];
+    const comments = [
+      {
+        id: 7001,
+        author: 'external',
+        body: 'final user comment',
+        authorAssociation: 'NONE',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const { spec } = makeBaseSpec({
+      taskStore,
+      comments,
+      extra: {
+        eventLog,
+        fetchIssueState: async () => 'closed',
+        invokeTrigger: {
+          trigger: async (_threadId, _catId, _userId, _message, _messageId, _contentBlocks, policy) => {
+            policies.push(policy);
+            return 'dispatched';
+          },
+        },
+      },
+    });
+
+    const gate = await runGate(spec);
+    await runExecute(spec, gate);
+
+    const taskAfter = taskStore.tasks.get('task-closed-final-coverage');
+    assert.strictEqual(taskAfter?.status, 'done', 'closed issue final delivery should complete tracking task');
+    assert.strictEqual(policies.length, 1, 'final issue comment should still wake the owner once');
+    assert.strictEqual(
+      policies[0]?.eventDrivenExternalWaitCoverage,
+      false,
+      'closed final delivery has no active issue poller left, so it must not validate later 2b event-driven waits',
+    );
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // Cloud R8 P1-1: duplicate comment (appended:false) must NOT call projector
   // Applying stale events out of temporal order corrupts awaiting_external state.
