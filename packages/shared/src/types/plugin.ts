@@ -44,6 +44,28 @@ export interface PluginAgentProviderResource {
   /** Plugin-requested sandbox tier. Host policy decides the actual grant in later slices. */
   sandboxRequest?: AgentProviderSandboxRequest;
   healthCheck?: AgentProviderHealthCheckRequest;
+  /**
+   * F241 Phase C 2c — Manifest-declared identity claims.
+   *
+   * These are CLAIMS the plugin makes about how it would like to be routed.
+   * They do NOT bypass admission and they do NOT auto-promote routeability —
+   * the host-owned `routeableBinding` is still the only routing truth source
+   * (per F241 doc § Phase B 2b "Routeable identity ownership"). The operator's
+   * `approve-routeable` call may use these claims as form defaults / pre-fill,
+   * but ultimately writes its own catId/mentionPatterns into `routeableBinding`.
+   *
+   * All three feed `computeAgentProviderDescriptorHash` so any claim change
+   * forces re-approval (operator must re-confirm the new identity claim).
+   */
+
+  /** Suggested provider id (often used as the default catId by operator UX). Reserved namespace rules still apply. */
+  providerId?: string;
+
+  /** Human-readable label for Hub UI rendering. Defaults to `name` when absent. */
+  displayName?: string;
+
+  /** Suggested `@alias` patterns. Each entry MUST start with `@`. */
+  mentionPatterns?: string[];
 }
 
 /** Plugin resource declaration */

@@ -371,6 +371,159 @@ describe('parsePluginManifest security', () => {
     assert.throws(() => parsePluginManifest(yamlPath), /agentProvider transport/);
   });
 
+  it('parses optional F241 2c identity-claim fields (providerId / displayName / mentionPatterns)', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    providerId: clowder-code',
+        '    displayName: Clowder Code',
+        '    mentionPatterns:',
+        '      - "@clowder"',
+        '      - "@clowder-code"',
+      ].join('\n'),
+    );
+    const manifest = parsePluginManifest(yamlPath);
+    const ap = manifest.resources[0].agentProvider;
+    assert.equal(ap.providerId, 'clowder-code');
+    assert.equal(ap.displayName, 'Clowder Code');
+    assert.deepEqual(ap.mentionPatterns, ['@clowder', '@clowder-code']);
+  });
+
+  it('omits F241 2c identity-claim fields when not declared (backward-compat with 2b manifests)', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+      ].join('\n'),
+    );
+    const manifest = parsePluginManifest(yamlPath);
+    const ap = manifest.resources[0].agentProvider;
+    assert.equal(ap.providerId, undefined);
+    assert.equal(ap.displayName, undefined);
+    assert.equal(ap.mentionPatterns, undefined);
+  });
+
+  it('rejects agentProvider mentionPattern that does not start with @', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    mentionPatterns:',
+        '      - clowder',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /must start with '@'/);
+  });
+
+  it('rejects agentProvider mentionPattern that contains whitespace', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    mentionPatterns:',
+        '      - "@with space"',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /must not contain whitespace/);
+  });
+
+  it('rejects agentProvider providerId with path separators (reserved namespace shape)', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    providerId: namespaced/id',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /must not contain path separators/);
+  });
+
+  it('rejects agentProvider with duplicate mentionPatterns', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    mentionPatterns:',
+        '      - "@dup"',
+        '      - "@dup"',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /duplicate entries are not allowed/);
+  });
+
   it('rejects agentProvider with negative timeoutMs', () => {
     tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
     const yamlPath = writeTmpManifest(

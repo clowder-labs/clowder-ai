@@ -44,13 +44,24 @@ export interface AgentProviderDescriptorHashInputs {
  *   - All keys appear in a fixed order via the explicit object literal below.
  *   - Optional fields are normalized to `null` (never omitted) so absence vs.
  *     presence is distinguishable from "field missing on read".
- *   - Array fields with set-semantics (e.g. `mcpWhitelistRequest`) are sorted.
- *     Positional arrays (`startupArgs`, `resumeArgs`) preserve insertion order.
+ *   - Array fields with set-semantics (e.g. `mcpWhitelistRequest`,
+ *     `mentionPatterns`) are sorted. Positional arrays (`startupArgs`,
+ *     `resumeArgs`) preserve insertion order.
+ *
+ * Versioning: `v` is bumped whenever the canonical input shape changes. A
+ * descriptor stored under `v: N-1` MUST NOT collide with the same descriptor
+ * under `v: N` so that older approvals are invalidated by the activator
+ * when the runtime is upgraded.
+ *
+ * Version history:
+ *   - v: 1 (2b shipped) — original 2b inputs.
+ *   - v: 2 (2c manifest identity claims) — adds `providerId / displayName /
+ *     mentionPatterns` so any claim change forces re-approval.
  */
 export function computeAgentProviderDescriptorHash(inputs: AgentProviderDescriptorHashInputs): string {
   const r = inputs.resource;
   const canonical = {
-    v: 1 as const,
+    v: 2 as const,
     pluginId: inputs.pluginId,
     capId: inputs.capId,
     transport: r.transport,
@@ -63,6 +74,12 @@ export function computeAgentProviderDescriptorHash(inputs: AgentProviderDescript
     mcpWhitelistRequest: r.mcpWhitelistRequest ? [...r.mcpWhitelistRequest].slice().sort() : null,
     sandboxRequest: r.sandboxRequest ?? null,
     healthCheck: r.healthCheck ?? null,
+    // F241 Phase C 2c — Manifest identity claims feed the hash so any claim
+    // change forces re-approval (operator must re-confirm the new identity
+    // claim). Per F241 doc § Phase B 2b "Routeable identity ownership".
+    providerId: r.providerId ?? null,
+    displayName: r.displayName ?? null,
+    mentionPatterns: r.mentionPatterns ? [...r.mentionPatterns].slice().sort() : null,
     pluginFingerprint: inputs.pluginFingerprint ?? null,
   };
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
