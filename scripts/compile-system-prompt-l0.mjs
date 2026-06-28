@@ -50,11 +50,68 @@ let _loadCompiledGovernanceL0 = null;
 // 渲染（buildStaticIdentity L568-571 同源），非 L0 硬编码 @co-creator——
 // 否则删 user message 后 co-creator 多 handle / 自定义 name 丢失。
 let _coCreatorConfig = null;
+
+function resolveConfigProjectRoot() {
+  const templatePath = process.env.CAT_TEMPLATE_PATH ?? resolve(REPO_ROOT, 'cat-template.json');
+  return dirname(resolve(templatePath));
+}
+
+function readCapabilitiesConfigSync(projectRoot) {
+  try {
+    const raw = readFileSync(resolve(projectRoot, '.cat-cafe/capabilities.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.capabilities)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function projectRouteableAgentProviderConfigs(allConfigs, catConfigLoader) {
+  const projectRoot = resolveConfigProjectRoot();
+  const capabilitiesConfig = readCapabilitiesConfigSync(projectRoot);
+  if (!capabilitiesConfig) return {};
+
+  const { listApprovedRouteableRows, projectRouteableAgentProviders } = await import(
+    '../packages/api/dist/domains/plugin/agent-provider-projection.js'
+  );
+  const { buildAgentProviderAdmissionSnapshot } = await import(
+    '../packages/api/dist/domains/plugin/agent-provider-admission-snapshot.js'
+  );
+
+  const rows = listApprovedRouteableRows(capabilitiesConfig);
+  if (rows.length === 0) return {};
+
+  const templateBaselineIds = catConfigLoader.getTemplateBuiltinCatIds(projectRoot);
+  const projection = projectRouteableAgentProviders({
+    rows,
+    buildSnapshot: (pluginId, capId) =>
+      buildAgentProviderAdmissionSnapshot({
+        capabilitiesConfig,
+        activeCatConfigs: allConfigs,
+        templateBaselineIds,
+        hasProviderTransportConfig: (id) => {
+          const pt = catConfigLoader.getProviderTransportConfig(id, projectRoot);
+          return pt !== undefined && pt !== null;
+        },
+        candidatePluginId: pluginId,
+        candidateCapId: capId,
+      }),
+    now: () => Date.now(),
+    // L0 bootstrap mirrors routeable cats already materialized by API sync.
+    // TTL refresh/degrade requires live providerTransportRegistry and belongs
+    // to syncAgentRegistry; the read-only compiler must not independently
+    // de-route a cat that the API in-memory catRegistry can still route.
+    enforceHealthTtl: false,
+  });
+
+  return projection.configs;
+}
+
 async function bootstrapCatRegistry() {
   if (_bootstrapped) return;
-  const { loadCatConfig, toAllCatConfigs, isCatAvailable, getCoCreatorConfig } = await import(
-    '../packages/api/dist/config/cat-config-loader.js'
-  );
+  const catConfigLoader = await import('../packages/api/dist/config/cat-config-loader.js');
+  const { loadCatConfig, toAllCatConfigs, isCatAvailable, getCoCreatorConfig } = catConfigLoader;
   const { getCatModel } = await import('../packages/api/dist/config/cat-models.js');
   const { loadCompiledGovernanceL0 } = await import(
     '../packages/api/dist/domains/cats/services/context/governance-l0.js'
@@ -69,6 +126,10 @@ async function bootstrapCatRegistry() {
     if (!catRegistry.has(id)) {
       catRegistry.register(id, config);
     }
+  }
+  const projectedConfigs = await projectRouteableAgentProviderConfigs(allConfigs, catConfigLoader);
+  for (const [id, config] of Object.entries(projectedConfigs)) {
+    catRegistry.registerOrReplace(id, config);
   }
   _bootstrapped = true;
 }

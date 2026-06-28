@@ -60,6 +60,8 @@ export interface AgentProviderProjectionInputs {
   readonly buildSnapshot: (pluginId: string, capId: string) => RoutingAdmissionSnapshot;
   /** Current epoch ms — injected for testability. */
   readonly now: () => number;
+  /** API sync enforces TTL refresh/degrade; read-only mirrors such as L0 bootstrap must not independently de-route. */
+  readonly enforceHealthTtl?: boolean;
   /** Optional logger for skip reasons. */
   readonly onSkip?: (pluginId: string, capId: string, reason: string) => void;
 }
@@ -105,7 +107,7 @@ export function projectRouteableAgentProviders(inputs: AgentProviderProjectionIn
       inputs.onSkip?.(row.pluginId, row.capId, 'health-descriptor-mismatch');
       continue;
     }
-    if (now > descriptor.health.checkedAt + descriptor.health.ttlMs) {
+    if (inputs.enforceHealthTtl !== false && now > descriptor.health.checkedAt + descriptor.health.ttlMs) {
       skipped.push({ pluginId: row.pluginId, capId: row.capId, reason: 'health-ttl-expired' });
       inputs.onSkip?.(row.pluginId, row.capId, 'health-ttl-expired');
       continue;
