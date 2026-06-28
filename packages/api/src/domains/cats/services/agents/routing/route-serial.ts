@@ -403,7 +403,7 @@ export async function* routeSerial(
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
-  let hasEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
+  const initialEventDrivenExternalWaitCoverage = options.eventDrivenExternalWaitCoverage === true;
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
   const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -532,6 +532,9 @@ export async function* routeSerial(
 
       // Only pass images/uploads for the first cat (user's original target)
       const isOriginalTarget = index < targetCats.length;
+      // Event-driven wait coverage proves a wake path for the current invocation target,
+      // not for later A2A worklist entries.
+      let hasEventDrivenExternalWaitCoverage = initialEventDrivenExternalWaitCoverage && isOriginalTarget;
       const targetContentBlocks = isOriginalTarget ? routeContentBlocksForCat(catId, contentBlocks) : undefined;
       const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
 

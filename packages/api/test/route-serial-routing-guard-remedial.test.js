@@ -326,6 +326,25 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.deepEqual(codexMessages[0].mentions, ['opus']);
   });
 
+  test('event-driven wait coverage does not leak from first cat to A2A worklist targets', async () => {
+    const codexService = createSequenceService('codex', ['@opus']);
+    const opusService = createSequenceService('opus', ['External Wait: event-driven (pr:35)', '@co-creator']);
+
+    const { appended } = await runRoute(
+      codexService,
+      'thread-routing-guard-event-driven-coverage-per-cat',
+      { opus: opusService },
+      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+    );
+
+    assert.equal(opusService.calls.length, 2, 'A2A target must not inherit connector callback coverage');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting leaked coverage',
+    );
+  });
+
   test('debug A2A prompt sees validated first-pass content routed by remedial exit', async () => {
     const codexService = createSequenceService('codex', ['First-pass debug context.', '@opus']);
     const opusService = createSequenceService('opus', ['ack from opus'], { needsGuard: false });
