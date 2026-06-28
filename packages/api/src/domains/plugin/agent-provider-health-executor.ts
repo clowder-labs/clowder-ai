@@ -25,6 +25,8 @@
  * structured `passed` + bound `descriptorHash` it returns.
  */
 
+import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import type {
   AgentProviderHealthCheckRequest,
   AgentProviderHealthResult,
@@ -129,4 +131,145 @@ function healthCheckTypeToTransport(type: AgentProviderHealthCheckRequest['type'
     default:
       return null;
   }
+}
+
+/**
+ * F241 Phase C — Real `cliProbe` executor (bounded spawn + exit-code check).
+ *
+ * Per F241 doc § 2b "Health executor ships as transport-availability probe;
+ * real `acpInitialize` (runtime initialize handshake) and `cliProbe` (bounded
+ * spawn + exit-code check) probes are tracked as Slice 2c follow-on hardening
+ * — the executor is a drop-in DI swap (`AgentProviderHealthExecutor` interface
+ * in `agent-provider-health-executor.ts`), no further redesign needed."
+ *
+ * Semantics:
+ *   1. Gate (cheap): run the transport-availability check first. If the host
+ *      transport for the declared `healthCheck.type` is not registered, fail
+ *      fast WITHOUT spawning — same observable failure as the 2b stub.
+ *   2. For `cliProbe`-declared resources: spawn `resource.command --version`
+ *      with stdin closed, in `os.tmpdir()`, with a `PATH`-only minimal env.
+ *      Bounded by `probeTimeoutMs` (default 10s). Exit code 0 ⇒ passed.
+ *      Non-zero ⇒ `cli-probe-nonzero-exit:N`. Spawn error ⇒
+ *      `cli-probe-spawn-error:<msg>`. Timeout ⇒ `cli-probe-timeout:Nms` +
+ *      `child.kill('SIGTERM')` so a lingering probe doesn't leak.
+ *   3. For `acpInitialize`-declared resources: fall through to transport-
+ *      availability result — the ACP carrier (F161 PR #899) owns the real
+ *      initialize handshake once it lands; spawning a CLI here would be wrong.
+ *
+ * Why `--version`: standard CLI convention, fast-exit, no side effects, no
+ * stdin requirement, no callback config / MCP injection needed. Compatible
+ * with clowder-code (verified) and any well-formed CLI runtime. If a future
+ * runtime needs a different probe argv, extend `healthCheck` schema with an
+ * optional `probeArgs` field (tracked as a separate 2c follow-on; the
+ * reference runtime is covered by `--version` today).
+ *
+ * Why a factory: lets production wiring inject deterministic spawn + a tight
+ * timeout in tests, while keeping the default production semantics simple.
+ */
+export interface RealCliProbeDeps {
+  /** Test seam — replaces `node:child_process.spawn` for unit tests. */
+  readonly spawnFn?: typeof nodeSpawn;
+  /** Override the probe timeout. Default 10s — generous for `--version`
+   *  on cold-cache filesystems, tight enough that a hung binary doesn't
+   *  block the approval RPC for minutes. */
+  readonly probeTimeoutMs?: number;
+}
+
+const DEFAULT_CLI_PROBE_TIMEOUT_MS = 10_000;
+
+export function createRealCliProbeHealthExecutor(deps?: RealCliProbeDeps): AgentProviderHealthExecutor {
+  const spawnFn = deps?.spawnFn ?? nodeSpawn;
+  const probeTimeoutMs = deps?.probeTimeoutMs ?? DEFAULT_CLI_PROBE_TIMEOUT_MS;
+
+  return async (context) => {
+    const now = context.now ?? Date.now;
+    // Step 1: transport availability gate (same as the 2b stub semantics).
+    const gateResult = await transportAvailabilityHealthExecutor(context);
+    if (!gateResult.passed) return gateResult;
+
+    // Step 2: only `cliProbe` declarations get a real spawn. `acpInitialize`
+    // and any future type fall through to the transport-availability result.
+    if (context.resource.healthCheck?.type !== 'cliProbe') return gateResult;
+
+    // Step 3: bounded spawn + exit-code check.
+    return new Promise<AgentProviderHealthResult>((resolve) => {
+      const spawnOptions: SpawnOptions = {
+        cwd: tmpdir(),
+        // Minimal env: PATH only. We do NOT inherit cat-cafe callback / MCP
+        // credentials into a health probe — the probe must not be able to do
+        // anything meaningful with the runtime env. PATH is required so a
+        // bare command like `clowder-code` (npm-linked) still resolves.
+        env: { PATH: process.env.PATH ?? '' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      };
+      let child: ChildProcess;
+      try {
+        child = spawnFn(context.resource.command, ['--version'], spawnOptions);
+      } catch (err) {
+        resolve({
+          passed: false,
+          checkedAt: now(),
+          ttlMs: DEFAULT_HEALTH_TTL_MS,
+          descriptorHash: context.descriptorHash,
+          failureReason: `cli-probe-spawn-error:${err instanceof Error ? err.message : String(err)}`,
+        });
+        return;
+      }
+
+      let settled = false;
+      const finalize = (result: AgentProviderHealthResult): void => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        if (!result.passed) {
+          // Best-effort cleanup so a hung probe doesn't outlive its own result.
+          try {
+            child.kill('SIGTERM');
+          } catch {
+            /* already dead */
+          }
+        }
+        resolve(result);
+      };
+
+      const timer = setTimeout(() => {
+        finalize({
+          passed: false,
+          checkedAt: now(),
+          ttlMs: DEFAULT_HEALTH_TTL_MS,
+          descriptorHash: context.descriptorHash,
+          failureReason: `cli-probe-timeout:${probeTimeoutMs}ms`,
+        });
+      }, probeTimeoutMs);
+
+      child.on('error', (err) => {
+        finalize({
+          passed: false,
+          checkedAt: now(),
+          ttlMs: DEFAULT_HEALTH_TTL_MS,
+          descriptorHash: context.descriptorHash,
+          failureReason: `cli-probe-spawn-error:${err.message}`,
+        });
+      });
+
+      child.on('exit', (code) => {
+        if (code === 0) {
+          finalize({
+            passed: true,
+            checkedAt: now(),
+            ttlMs: DEFAULT_HEALTH_TTL_MS,
+            descriptorHash: context.descriptorHash,
+          });
+        } else {
+          finalize({
+            passed: false,
+            checkedAt: now(),
+            ttlMs: DEFAULT_HEALTH_TTL_MS,
+            descriptorHash: context.descriptorHash,
+            failureReason: `cli-probe-nonzero-exit:${code}`,
+          });
+        }
+      });
+    });
+  };
 }

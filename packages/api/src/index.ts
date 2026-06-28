@@ -1192,7 +1192,11 @@ async function main(): Promise<void> {
       './domains/plugin/agent-provider-admission-snapshot.js'
     );
     const { refreshExpiredHealthInPlace } = await import('./domains/plugin/agent-provider-health-refresh.js');
-    const { transportAvailabilityHealthExecutor } = await import('./domains/plugin/agent-provider-health-executor.js');
+    const { createRealCliProbeHealthExecutor } = await import('./domains/plugin/agent-provider-health-executor.js');
+    // F241 Phase C — Real cliProbe (drop-in DI swap from the 2b transport-
+    // availability stub per F241 doc L340). The factory caches the spawnFn
+    // reference so the sync loop reuses the same instance for every refresh.
+    const realCliProbeExecutor = createRealCliProbeHealthExecutor();
     const { readCapabilitiesConfig: readCaps, writeCapabilitiesConfig: writeCaps } = await import(
       './config/capabilities/capability-orchestrator.js'
     );
@@ -1225,7 +1229,7 @@ async function main(): Promise<void> {
           capabilities: capabilitiesConfig,
           rows,
           now: () => Date.now(),
-          healthExecutor: transportAvailabilityHealthExecutor,
+          healthExecutor: realCliProbeExecutor,
           getHealthExecutorContext: () => ({
             providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
           }),
@@ -2462,6 +2466,13 @@ async function main(): Promise<void> {
     const { buildAgentProviderAdmissionSnapshot } = await import(
       './domains/plugin/agent-provider-admission-snapshot.js'
     );
+    // F241 Phase C — same real cliProbe executor for the approval orchestration
+    // path so operator-driven approve-routeable goes through the same probe
+    // semantics as background TTL refresh (no split-brain between sync paths).
+    const { createRealCliProbeHealthExecutor: createRealCliProbeForApproval } = await import(
+      './domains/plugin/agent-provider-health-executor.js'
+    );
+    const approvalCliProbeExecutor = createRealCliProbeForApproval();
     const agentProviderApprovalService = new AgentProviderApprovalService({
       readCapabilities: () => readCapabilitiesConfig(resolveActiveProjectRoot()),
       writeCapabilities: async (config) => {
@@ -2490,6 +2501,7 @@ async function main(): Promise<void> {
           candidateCapId: capId,
         });
       },
+      healthExecutor: approvalCliProbeExecutor,
       getHealthExecutorContext: () => ({
         providerTransportRegistry: { has: (id) => providerTransportRegistry.has(id) },
       }),
