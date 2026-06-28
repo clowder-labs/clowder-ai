@@ -198,7 +198,14 @@ fi
 git push origin {branch}
 
 # 2. 开 PR（读 refs/pr-template.md 获取 body 模板，用 HEREDOC 填写）
-gh pr create --title "feat(xxx): ..." --body "$(cat <<'EOF'
+#
+# ⚠️ Fork base trap（LL-080）：本仓 clowder-labs/clowder-ai 在 GitHub 后台是
+#    zts212653/clowder-ai 的 fork。`gh pr create` 不带 --repo 时，gh CLI 在
+#    fresh clone / 未写 `gh-resolved` 的 worktree 上会**默认把 PR 提到 parent
+#    (zts212653)**——必须显式 --repo clowder-labs/clowder-ai --base main。
+#    历史事故：PR #1030 (2026-06-26) 误提到 zts，10 分钟后 close + 重建 PR #30。
+gh pr create --repo clowder-labs/clowder-ai --base main \
+  --title "feat(xxx): ..." --body "$(cat <<'EOF'
 ... 按 refs/pr-template.md 模板填写 ...
 EOF
 )"

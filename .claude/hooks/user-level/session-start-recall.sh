@@ -89,6 +89,25 @@ ${ROOT_CLUTTER}
 "
 fi
 
+# 7. Fork base trap 检测（LL-080）
+# 只在 clowder-labs/clowder-ai 这种 GitHub fork 仓里显示，跨项目时静默
+ORIGIN_URL=$(git config --get remote.origin.url 2>/dev/null)
+if [[ "$ORIGIN_URL" == *"clowder-labs/clowder-ai"* ]]; then
+  # 检测 GH_REPO 兜底是否生效
+  if [ "$GH_REPO" = "clowder-labs/clowder-ai" ]; then
+    GH_REPO_STATUS="GH_REPO 兜底已生效"
+  elif [ -z "$GH_REPO" ]; then
+    GH_REPO_STATUS="GH_REPO 未设——建议 \`source .envrc\` 或装 direnv（参考 .envrc）"
+  else
+    GH_REPO_STATUS="⚠️ GH_REPO=$GH_REPO（不是 clowder-labs/clowder-ai，可能误导 gh CLI）"
+  fi
+  WARNINGS="${WARNINGS}
+⚠️ 本仓在 GitHub 是 zts212653/clowder-ai 的 fork（LL-080）
+→ \`gh pr create\` 必须显式 \`--repo clowder-labs/clowder-ai --base main\`，否则默认提到 parent (zts212653)
+→ ${GH_REPO_STATUS}
+"
+fi
+
 # 输出提醒（只在有警告时才输出）
 if [ -n "$WARNINGS" ]; then
   echo "🐾 开工自检：${WARNINGS}"
