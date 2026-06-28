@@ -524,6 +524,61 @@ describe('parsePluginManifest security', () => {
     assert.throws(() => parsePluginManifest(yamlPath), /duplicate entries are not allowed/);
   });
 
+  // P2 review (@codex on PR #39): runtime mention matching is case-insensitive,
+  // so `@clowder` and `@Clowder` are runtime-equivalent. Parser must reject them
+  // at the schema gate or operators get a non-obvious admission collision later.
+  it('rejects agentProvider mentionPatterns that differ only by case (case-insensitive duplicate)', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    mentionPatterns:',
+        '      - "@clowder"',
+        '      - "@Clowder"',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /case-insensitive match/);
+  });
+
+  // P2 review (@codex on PR #39): the `@name` contract requires at least one
+  // character after the `@` prefix. A bare `@` would otherwise pass startsWith
+  // + non-empty checks but be meaningless to the routing layer.
+  it('rejects agentProvider mentionPattern that is just "@"', () => {
+    tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
+    const yamlPath = writeTmpManifest(
+      tmpDir,
+      'clowder-code',
+      [
+        'id: clowder-code',
+        'name: Clowder Code',
+        'version: 1.0.0',
+        'resources:',
+        '  - type: agentProvider',
+        '    name: clowder-code',
+        '    transport: cli-jsonl',
+        '    command: clowder-code',
+        '    startupArgs: ["--json"]',
+        '    sessionPolicy: stateless',
+        '    outputProfile: clowder-code-turn-result-v1',
+        '    mentionPatterns:',
+        '      - "@"',
+      ].join('\n'),
+    );
+    assert.throws(() => parsePluginManifest(yamlPath), /at least one character after '@'/);
+  });
+
   it('rejects agentProvider with negative timeoutMs', () => {
     tmpDir = mkdtempSync(join(os.tmpdir(), 'plugin-test-'));
     const yamlPath = writeTmpManifest(

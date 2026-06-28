@@ -181,6 +181,12 @@ function parseAgentProviderMentionPatterns(value: unknown, yamlPath: string): st
     );
   }
   const patterns: string[] = [];
+  // P2 review (@codex on PR #39): runtime mention matching is case-insensitive
+  // (CatConfig side normalizes lowercased), so duplicates must be detected on
+  // the lowercased form — otherwise `@clowder` and `@Clowder` slip through the
+  // parser but collide downstream. Sibling check below: reject bare `@` (must
+  // have at least one name character after the prefix per the `@name` contract).
+  const seenLowercased = new Set<string>();
   for (const entry of value) {
     if (typeof entry !== 'string' || entry.trim().length === 0) {
       throw new Error(`Invalid agentProvider mentionPattern in ${yamlPath}: each entry must be a non-empty string`);
@@ -189,13 +195,22 @@ function parseAgentProviderMentionPatterns(value: unknown, yamlPath: string): st
     if (!trimmed.startsWith('@')) {
       throw new Error(`Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must start with '@'`);
     }
+    if (trimmed.length < 2) {
+      throw new Error(
+        `Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must have at least one character after '@'`,
+      );
+    }
     if (/\s/.test(trimmed)) {
       throw new Error(`Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must not contain whitespace`);
     }
+    const lowered = trimmed.toLowerCase();
+    if (seenLowercased.has(lowered)) {
+      throw new Error(
+        `Invalid agentProvider mentionPatterns in ${yamlPath}: duplicate entries are not allowed (case-insensitive match on '${trimmed}')`,
+      );
+    }
+    seenLowercased.add(lowered);
     patterns.push(trimmed);
-  }
-  if (new Set(patterns).size !== patterns.length) {
-    throw new Error(`Invalid agentProvider mentionPatterns in ${yamlPath}: duplicate entries are not allowed`);
   }
   return patterns;
 }
