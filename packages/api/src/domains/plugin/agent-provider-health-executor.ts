@@ -25,13 +25,14 @@
  * structured `passed` + bound `descriptorHash` it returns.
  */
 
-import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { type ChildProcess, spawn as nodeSpawn, type SpawnOptions } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import type {
   AgentProviderHealthCheckRequest,
   AgentProviderHealthResult,
   PluginAgentProviderResource,
 } from '@cat-cafe/shared';
+import { resolveCliCommand } from '../../utils/cli-resolve.js';
 import type { ProviderTransportRegistry } from '../cats/services/agents/providers/transport/ProviderTransportRegistry.js';
 
 /** Inputs to a single health check run. */
@@ -169,6 +170,10 @@ function healthCheckTypeToTransport(type: AgentProviderHealthCheckRequest['type'
 export interface RealCliProbeDeps {
   /** Test seam — replaces `node:child_process.spawn` for unit tests. */
   readonly spawnFn?: typeof nodeSpawn;
+  /** Test seam — replaces `resolveCliCommand` for unit tests so they don't
+   *  depend on real `which` / filesystem state. Production keeps the
+   *  default resolver so probe + invocation stay in lock-step. */
+  readonly resolveFn?: typeof resolveCliCommand;
   /** Override the probe timeout. Default 10s — generous for `--version`
    *  on cold-cache filesystems, tight enough that a hung binary doesn't
    *  block the approval RPC for minutes. */
@@ -177,8 +182,89 @@ export interface RealCliProbeDeps {
 
 const DEFAULT_CLI_PROBE_TIMEOUT_MS = 10_000;
 
+/** Build a passed health result with the standard TTL + descriptor binding. */
+function buildPassed(now: () => number, descriptorHash: string): AgentProviderHealthResult {
+  return { passed: true, checkedAt: now(), ttlMs: DEFAULT_HEALTH_TTL_MS, descriptorHash };
+}
+
+/** Build a failed health result with a structured `failureReason`. */
+function buildFailed(now: () => number, descriptorHash: string, failureReason: string): AgentProviderHealthResult {
+  return { passed: false, checkedAt: now(), ttlMs: DEFAULT_HEALTH_TTL_MS, descriptorHash, failureReason };
+}
+
+/**
+ * Bounded spawn of `--version` against the (already-resolved) binary path.
+ * Pure-ish: takes settled-closure inputs, returns a Promise. Extracted from
+ * `createRealCliProbeHealthExecutor` to keep the executor body under the
+ * Biome cognitive-complexity budget (P2 review feedback) and to make the
+ * spawn lifecycle easier to read in isolation.
+ */
+function spawnVersionProbe(args: {
+  spawnFn: typeof nodeSpawn;
+  resolvedCommand: string;
+  probeTimeoutMs: number;
+  now: () => number;
+  descriptorHash: string;
+}): Promise<AgentProviderHealthResult> {
+  const { spawnFn, resolvedCommand, probeTimeoutMs, now, descriptorHash } = args;
+  return new Promise((resolvePromise) => {
+    const spawnOptions: SpawnOptions = {
+      cwd: tmpdir(),
+      // Minimal env: PATH only. The health probe must NOT inherit cat-cafe
+      // callback / MCP credentials — it is a liveness check, not a real
+      // invocation. PATH is required so a bare command like `clowder-code`
+      // (npm-linked) still resolves on a system where the user's $PATH
+      // sees it but the resolver fallback also covers GUI / nvm cases.
+      env: { PATH: process.env.PATH ?? '' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    };
+
+    let child: ChildProcess;
+    try {
+      child = spawnFn(resolvedCommand, ['--version'], spawnOptions);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      resolvePromise(buildFailed(now, descriptorHash, `cli-probe-spawn-error:${message}`));
+      return;
+    }
+
+    let settled = false;
+    const settle = (result: AgentProviderHealthResult): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (!result.passed) {
+        // Best-effort cleanup so a hung probe doesn't outlive its own result.
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already dead */
+        }
+      }
+      resolvePromise(result);
+    };
+
+    const timer = setTimeout(() => {
+      settle(buildFailed(now, descriptorHash, `cli-probe-timeout:${probeTimeoutMs}ms`));
+    }, probeTimeoutMs);
+
+    child.on('error', (err) => {
+      settle(buildFailed(now, descriptorHash, `cli-probe-spawn-error:${err.message}`));
+    });
+
+    child.on('exit', (code) => {
+      if (code === 0) {
+        settle(buildPassed(now, descriptorHash));
+      } else {
+        settle(buildFailed(now, descriptorHash, `cli-probe-nonzero-exit:${code}`));
+      }
+    });
+  });
+}
+
 export function createRealCliProbeHealthExecutor(deps?: RealCliProbeDeps): AgentProviderHealthExecutor {
   const spawnFn = deps?.spawnFn ?? nodeSpawn;
+  const resolveFn = deps?.resolveFn ?? resolveCliCommand;
   const probeTimeoutMs = deps?.probeTimeoutMs ?? DEFAULT_CLI_PROBE_TIMEOUT_MS;
 
   return async (context) => {
@@ -191,85 +277,25 @@ export function createRealCliProbeHealthExecutor(deps?: RealCliProbeDeps): Agent
     // and any future type fall through to the transport-availability result.
     if (context.resource.healthCheck?.type !== 'cliProbe') return gateResult;
 
-    // Step 3: bounded spawn + exit-code check.
-    return new Promise<AgentProviderHealthResult>((resolve) => {
-      const spawnOptions: SpawnOptions = {
-        cwd: tmpdir(),
-        // Minimal env: PATH only. We do NOT inherit cat-cafe callback / MCP
-        // credentials into a health probe — the probe must not be able to do
-        // anything meaningful with the runtime env. PATH is required so a
-        // bare command like `clowder-code` (npm-linked) still resolves.
-        env: { PATH: process.env.PATH ?? '' },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      };
-      let child: ChildProcess;
-      try {
-        child = spawnFn(context.resource.command, ['--version'], spawnOptions);
-      } catch (err) {
-        resolve({
-          passed: false,
-          checkedAt: now(),
-          ttlMs: DEFAULT_HEALTH_TTL_MS,
-          descriptorHash: context.descriptorHash,
-          failureReason: `cli-probe-spawn-error:${err instanceof Error ? err.message : String(err)}`,
-        });
-        return;
-      }
+    // Step 3: resolve the command using the SAME resolver the real cli-jsonl
+    // invocation uses (CliJsonlAgentService → resolveCliCommand). Probing the
+    // raw `context.resource.command` directly would create a split-brain when
+    // the binary lives in a non-$PATH location like `~/.local/bin` or an nvm
+    // version dir (cli-resolve fallback paths). With this in place, an
+    // approve-time probe and a real invocation share command resolution
+    // semantics, so they pass / fail consistently. (P2 review @codex on PR #38.)
+    const resolvedCommand = resolveFn(context.resource.command);
+    if (!resolvedCommand) {
+      return buildFailed(now, context.descriptorHash, `cli-probe-cli-not-found:${context.resource.command}`);
+    }
 
-      let settled = false;
-      const finalize = (result: AgentProviderHealthResult): void => {
-        if (settled) return;
-        settled = true;
-        if (timer) clearTimeout(timer);
-        if (!result.passed) {
-          // Best-effort cleanup so a hung probe doesn't outlive its own result.
-          try {
-            child.kill('SIGTERM');
-          } catch {
-            /* already dead */
-          }
-        }
-        resolve(result);
-      };
-
-      const timer = setTimeout(() => {
-        finalize({
-          passed: false,
-          checkedAt: now(),
-          ttlMs: DEFAULT_HEALTH_TTL_MS,
-          descriptorHash: context.descriptorHash,
-          failureReason: `cli-probe-timeout:${probeTimeoutMs}ms`,
-        });
-      }, probeTimeoutMs);
-
-      child.on('error', (err) => {
-        finalize({
-          passed: false,
-          checkedAt: now(),
-          ttlMs: DEFAULT_HEALTH_TTL_MS,
-          descriptorHash: context.descriptorHash,
-          failureReason: `cli-probe-spawn-error:${err.message}`,
-        });
-      });
-
-      child.on('exit', (code) => {
-        if (code === 0) {
-          finalize({
-            passed: true,
-            checkedAt: now(),
-            ttlMs: DEFAULT_HEALTH_TTL_MS,
-            descriptorHash: context.descriptorHash,
-          });
-        } else {
-          finalize({
-            passed: false,
-            checkedAt: now(),
-            ttlMs: DEFAULT_HEALTH_TTL_MS,
-            descriptorHash: context.descriptorHash,
-            failureReason: `cli-probe-nonzero-exit:${code}`,
-          });
-        }
-      });
+    // Step 4: bounded spawn + exit-code check (extracted helper).
+    return spawnVersionProbe({
+      spawnFn,
+      resolvedCommand,
+      probeTimeoutMs,
+      now,
+      descriptorHash: context.descriptorHash,
     });
   };
 }
