@@ -64,7 +64,7 @@ triggers:
 进入 Step 7 之前，author 必须核对：
 
 ```bash
-CURRENT_HEAD="$(gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid')"
+CURRENT_HEAD="$(gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json headRefOid --jq '.headRefOid')"
 echo "$CURRENT_HEAD"
 ```
 
@@ -193,17 +193,20 @@ fi
 
 ### 合入方式（唯一正确做法）
 
+> **⚠️ Fork base trap 总规则（LL-080，覆盖本节所有命令）**：
+> 本仓 `clowder-labs/clowder-ai` 在 GitHub 后台是 `zts212653/clowder-ai` 的 fork。
+> **所有** `gh pr *` 和 `gh api repos/...` 命令在 fresh clone / 未写 `gh-resolved` 的
+> worktree 上若不显式带 `--repo clowder-labs/clowder-ai`，gh CLI 会默认解析到 parent
+> (zts212653) ——PR 创建、`gh pr view {N}`、`gh pr comment {N}`、`gh pr merge {N}`
+> 全部会找错仓。**本节所有命令必须保持 `--repo clowder-labs/clowder-ai`**，并且新加命令时同步带上。
+> 历史事故：PR #1030 (2026-06-26) 误提到 zts，10 分钟后 close + 重建 PR #30。
+> 砚砚 cloud P1 PR #37：仅 pin `gh pr create` 不够，后续 PR-number 命令同样需要。
+
 ```bash
 # 1. Push feature branch
 git push origin {branch}
 
 # 2. 开 PR（读 refs/pr-template.md 获取 body 模板，用 HEREDOC 填写）
-#
-# ⚠️ Fork base trap（LL-080）：本仓 clowder-labs/clowder-ai 在 GitHub 后台是
-#    zts212653/clowder-ai 的 fork。`gh pr create` 不带 --repo 时，gh CLI 在
-#    fresh clone / 未写 `gh-resolved` 的 worktree 上会**默认把 PR 提到 parent
-#    (zts212653)**——必须显式 --repo clowder-labs/clowder-ai --base main。
-#    历史事故：PR #1030 (2026-06-26) 误提到 zts，10 分钟后 close + 重建 PR #30。
 gh pr create --repo clowder-labs/clowder-ai --base main \
   --title "feat(xxx): ..." --body "$(cat <<'EOF'
 ... 按 refs/pr-template.md 模板填写 ...
@@ -226,7 +229,7 @@ EOF
 #   ⚠️ 时机契约（fingerprint 去重边界）：在 CI **还没绿之前**翻成 merge 才保证被唤醒。
 #     CiCdRouter 按 headSha:bucket 去重——若同一 head 的 CI-pass 已在 review intent 下投递过，
 #     之后再翻 merge **不会补发唤醒**。所以：若翻 intent 时 CI **已经绿了**，别等回调，直接
-#     `gh pr checks {PR}` 自查、继续 merge 流程（无新 head 时 CI 不会重跑、不会再有 pass 事件）。
+#     `gh pr checks {PR} --repo clowder-labs/clowder-ai` 自查、继续 merge 流程（无新 head 时 CI 不会重跑、不会再有 pass 事件）。
 #
 # 收到冲突通知时（F140 Phase B）：
 # - 暂停当前工作，处理冲突优先（冲突是 merge blocker）
@@ -235,7 +238,7 @@ EOF
 # - 复杂冲突 → 通知operator，等指示后再继续
 
 # 4. PR body 防呆检查（禁止任何 @句柄出现在 body）
-PR_BODY="$(gh pr view {PR_NUMBER} --json body --jq '.body')" || \
+PR_BODY="$(gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json body --jq '.body')" || \
   { echo "❌ 无法读取 PR body，停止流程"; exit 1; }
 printf '%s\n' "$PR_BODY" | rg -q '@[A-Za-z0-9_-]+ review' && \
   { echo "❌ 不合规：remote review 触发句柄只能写在 comment，不能写在 body"; exit 1; }
@@ -248,19 +251,19 @@ printf '%s\n' "$PR_BODY" | rg -q '@(codex|chatgpt-codex-connector|gpt52|opus|son
 # 详见 refs/pr-template.md「云端 Review 触发 Comment 模板」
 
 # 5.1 去重防呆
-LAST_TRIGGER=”$(gh pr view {PR_NUMBER} --json comments | jq -r '
+LAST_TRIGGER=”$(gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json comments | jq -r '
   [.comments[] | select(.body | test(“^@codex\\s+review\\s*$”; “m”))] | last | .url // empty
 ')”
 # 有已触发 → 检查是否需要重发（新 commit / create-environment 回复 / 无 👀）
 
-gh pr comment {PR_NUMBER} --body '@codex review'
+gh pr comment {PR_NUMBER} --repo clowder-labs/clowder-ai --body '@codex review'
 
 # 6. 等remote review（事件驱动，不轮询）
 #
 # 6.1 👀 接单检测（触发后 5 分钟查一次）
-TRIGGER_COMMENT_ID=”$(gh api repos/{OWNER}/{REPO}/issues/{PR_NUMBER}/comments \
+TRIGGER_COMMENT_ID=”$(gh api repos/clowder-labs/clowder-ai/issues/{PR_NUMBER}/comments \
   --jq '[.[] | select(.body | test(“^@codex\\s+review”; “m”))] | last | .id')”
-EYES=”$(gh api repos/{OWNER}/{REPO}/issues/comments/${TRIGGER_COMMENT_ID}/reactions \
+EYES=”$(gh api repos/clowder-labs/clowder-ai/issues/comments/${TRIGGER_COMMENT_ID}/reactions \
   --jq '[.[] | select(.content == “eyes”)] | length')”
 #   - EYES > 0 → 云端已接单 → 停止监控，PR tracking 会自动通知结果。
 #     ⚠️ KD-27：此时必须释放 hold_ball，禁止续约轮询。PR tracking 回调是唯一通知渠道。
@@ -326,11 +329,11 @@ fi
 IS_HOTFIX="$(echo "$HOTFIX_JSON" | jq -r '.hotfix // false')"
 LABEL_ERROR="$(echo "$HOTFIX_JSON" | jq -r '.labelError // empty')"
 if [ -n "$LABEL_ERROR" ]; then
-  echo "⚠️ Hotfix label 添加失败: $LABEL_ERROR — 请手动: gh pr edit {PR_NUMBER} --add-label hotfix"
+  echo "⚠️ Hotfix label 添加失败: $LABEL_ERROR — 请手动: gh pr edit {PR_NUMBER} --repo clowder-labs/clowder-ai --add-label hotfix"
 fi
 if [ "$IS_HOTFIX" = "true" ]; then
-  PR_AUTHOR="$(gh pr view {PR_NUMBER} --json author --jq '.author.login')"
-  REVIEWERS="$(gh pr view {PR_NUMBER} --json reviews --jq '[.reviews[] | select(.state == "APPROVED") | .author.login] | unique | join(",")')"
+  PR_AUTHOR="$(gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json author --jq '.author.login')"
+  REVIEWERS="$(gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json reviews --jq '[.reviews[] | select(.state == "APPROVED") | .author.login] | unique | join(",")')"
   if [ -z "$REVIEWERS" ] || echo "$REVIEWERS" | grep -q "^${PR_AUTHOR}$"; then
     echo "❌ Hotfix PR 必须有跨猫 review 放行（禁止 self-merge）"
     echo "   Author: $PR_AUTHOR | Approved by: ${REVIEWERS:-none}"
@@ -357,7 +360,7 @@ node scripts/check-feature-truth.mjs
 # → 详见下方「Feature Doc Truth 核对（Step 7.5）」§ 7.5a（含人工核对项）
 
 # 7. Squash merge（GitHub 处理，禁止本地 squash！）
-gh pr merge {PR_NUMBER} --squash --delete-branch
+gh pr merge {PR_NUMBER} --repo clowder-labs/clowder-ai --squash --delete-branch
 
 # 7.5b Post-merge: 记录已合入状态（每次 merge 必做！）🔴
 #   Phase ✅ / AC 打勾 / Timeline 记 merged / Status 推进 → commit → 复跑 check-feature-truth
@@ -467,7 +470,7 @@ ReviewRouter 现在会在投递通知时**主动拉取** review body + inline co
 merge 前仍需执行以下检查作为兜底：
 
 ```bash
-gh api --paginate repos/{OWNER}/{REPO}/pulls/{PR_NUMBER}/comments \
+gh api --paginate repos/clowder-labs/clowder-ai/pulls/{PR_NUMBER}/comments \
   --jq '.[] | select(.body | test("\\bP[012]\\b"; "i")) | {body: .body[:200], path: .path}'
 ```
 
@@ -590,7 +593,7 @@ cd "$MAIN_WT" && git pull origin main   # 取回刚 squash 的 commit，doc-sync
 **动作**：**只发 `@codex review` 一行**重新触发（同 SHA 不需要新 commit）。
 
 ```bash
-gh pr comment {PR_NUMBER} --body '@codex review'
+gh pr comment {PR_NUMBER} --repo clowder-labs/clowder-ai --body '@codex review'
 ```
 
 > 教训演进：2026-04-18 曾以为是"后台 bug / 没接单"，2026-04-20 PR #1300 确认根因是**详细格式触发 code-write 解析**。极简格式是唯一可靠触发方式（PR #1258 + PR #1300 两次实战验证）。
@@ -626,7 +629,7 @@ gh pr comment {PR_NUMBER} --body '@codex review'
 
 **⚠️ 共享 API 池陷阱（F238 教训）**：同一 provider 的不同 model（Codex/GPT-5.4/GPT-5.5）共享 API 额度。降级必须跨 provider family（OpenAI → Anthropic），不能在同 provider 内换个体。
 
-操作：`gh pr comment {PR} --body "..."` 用标准触发模板 @ 降级 reviewer（句柄查 `cat-config.json`）。
+操作：`gh pr comment {PR} --repo clowder-labs/clowder-ai --body "..."` 用标准触发模板 @ 降级 reviewer（句柄查 `cat-config.json`）。
 
 ## 和其他 skill 的区别
 

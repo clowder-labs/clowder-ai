@@ -1780,7 +1780,7 @@ created: 2026-02-26
 - 触发条件：(a) Fresh clone / 新机器 / CI sandbox / teleport 后 `gh-resolved` git config 未写入；(b) cat 照旧 SOP 抄裸命令；(c) cat 看到 remote `upstream` 误判语义；(d) `gh auth` 重登录 / gh CLI 升级清掉 `gh-resolved` 让旧 clone 退化成 fresh clone 行为。
 - 修复：PR #1030 close + 重建 PR #30；本地 `git remote rename upstream zts-mirror`（rename 自动迁移 7 个 tracking 分支 + 14 个 worktree 同步）；SOP 显式 `--repo`；写 `.envrc` 兜底 `GH_REPO`；SessionStart hook 加 fork warning。
 - 防护：四层硬约束 + 一层认知。
-  1. **L1 SOP（核心）**：`cat-cafe-skills/merge-gate/SKILL.md` 命令显式 `gh pr create --repo clowder-labs/clowder-ai --base main` + 旁注 fork trap 出处。猫照 SOP 抄 = 自动安全
+  1. **L1 SOP（核心）**：`cat-cafe-skills/merge-gate/SKILL.md` **全部** `gh pr *` / `gh api repos/...` 命令显式 `--repo clowder-labs/clowder-ai`——不只 `gh pr create`，也包括后续 `gh pr view`/`comment`/`merge`/`checks`/`edit`/`gh api repos/.../comments` 等所有用 PR number 寻址的命令（砚砚 cloud P1 PR #37：仅 pin create 不够，fresh clone 上后续命令仍会按 PR number 解析到 fork parent）。SOP 顶部加"Fork base trap 总规则"块作为人类可读约束。猫照 SOP 抄 = 自动安全
   2. **L2 命名（认知）**：本地 remote `upstream` → `zts-mirror`（rename 消除名字诱导；`pushurl=DISABLED` + `pushdefault=origin` 保留）
   3. **L3 环境（兜底）**：`.envrc` 设 `export GH_REPO=clowder-labs/clowder-ai`，cat 手敲命令绕开 SOP 时兜底（家里未默认装 direnv，但文件作为 source-of-truth + 单次手动 `source .envrc` 可用）
   4. **L4 自检（提醒）**：`.claude/hooks/user-level/session-start-recall.sh` 检测当前仓 origin URL 含 `clowder-labs/clowder-ai` 时，开工自检显示 fork warning + GH_REPO 状态

@@ -90,16 +90,20 @@ ${ROOT_CLUTTER}
 fi
 
 # 7. Fork base trap 检测（LL-080）
-# 只在 clowder-labs/clowder-ai 这种 GitHub fork 仓里显示，跨项目时静默
+# user-level hook：跨项目共享，必须**精确**匹配仓 slug，不能 substring。
+# 砚砚 P2 (PR #37): substring `*clowder-labs/clowder-ai*` 会误伤 `clowder-labs/clowder-ai-docs` 等前缀仓。
+# 修法：normalize origin URL → owner/repo 形式（支持 https/ssh + 可选 .git 后缀），再 == 精确比较。
 ORIGIN_URL=$(git config --get remote.origin.url 2>/dev/null)
-if [[ "$ORIGIN_URL" == *"clowder-labs/clowder-ai"* ]]; then
+REPO_SLUG=$(echo "$ORIGIN_URL" | sed -E 's#^.+[/:]([^/:]+/[^/:]+)$#\1#; s#\.git$##')
+if [ "$REPO_SLUG" = "clowder-labs/clowder-ai" ]; then
   # 检测 GH_REPO 兜底是否生效
-  if [ "$GH_REPO" = "clowder-labs/clowder-ai" ]; then
+  # 砚砚 P3 (PR #37): `$GH_REPO` 紧贴全角中文括号在 bash locale 下解析坏，错误值被吞成 ��。用 ${GH_REPO} 显式包裹。
+  if [ "${GH_REPO}" = "clowder-labs/clowder-ai" ]; then
     GH_REPO_STATUS="GH_REPO 兜底已生效"
-  elif [ -z "$GH_REPO" ]; then
+  elif [ -z "${GH_REPO}" ]; then
     GH_REPO_STATUS="GH_REPO 未设——建议 \`source .envrc\` 或装 direnv（参考 .envrc）"
   else
-    GH_REPO_STATUS="⚠️ GH_REPO=$GH_REPO（不是 clowder-labs/clowder-ai，可能误导 gh CLI）"
+    GH_REPO_STATUS="⚠️ GH_REPO=${GH_REPO} (不是 clowder-labs/clowder-ai，可能误导 gh CLI)"
   fi
   WARNINGS="${WARNINGS}
 ⚠️ 本仓在 GitHub 是 zts212653/clowder-ai 的 fork（LL-080）
