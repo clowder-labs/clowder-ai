@@ -9,6 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -236,6 +237,75 @@ test('F231: profileDir falls back to script-path-based when cwd has no private/p
     resolve(root, 'private/profile'),
     'profileDir must fall back to script-path-based when cwd has no private/profile/',
   );
+});
+
+test('F241 Phase C: compileL0 bootstrap registers plugin-projected cats from capabilities.json', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'l0-f241-project-'));
+  const sourceTemplate = resolve(import.meta.dirname, '../../../cat-template.json');
+  const templatePath = join(projectRoot, 'cat-template.json');
+  mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+  writeFileSync(templatePath, readFileSync(sourceTemplate, 'utf8'));
+
+  const descriptorHash = 'hash-for-l0-projection-test';
+  writeFileSync(
+    join(projectRoot, '.cat-cafe', 'capabilities.json'),
+    JSON.stringify(
+      {
+        version: 2,
+        capabilities: [
+          {
+            id: 'plugin:clowder-code:clowder-code',
+            type: 'agentProvider',
+            enabled: true,
+            source: 'cat-cafe',
+            pluginId: 'clowder-code',
+            agentProvider: {
+              name: 'clowder-code',
+              transport: 'cli-jsonl',
+              command: 'clowder-code',
+              startupArgs: ['--json', '--non-interactive'],
+              resumeArgs: ['resume', '{sessionId}', '--json'],
+              sessionPolicy: 'resume',
+              outputProfile: 'clowder-code-turn-result-v1',
+              healthCheck: { type: 'cliProbe' },
+              state: 'healthy',
+              routeable: true,
+              routeableApproved: true,
+              descriptorHash,
+              health: {
+                passed: true,
+                // Deliberately expired. L0 bootstrap mirrors runtime-visible
+                // routeable cats; TTL refresh/degrade is owned by API sync.
+                checkedAt: 1,
+                ttlMs: 1,
+                descriptorHash,
+              },
+              routeableBinding: {
+                catId: 'clowder-cat',
+                mentionPatterns: ['clowder'],
+              },
+            },
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+
+  const scriptPath = resolve(import.meta.dirname, '../../../scripts/compile-system-prompt-l0.mjs');
+  const out = execFileSync(process.execPath, [scriptPath, '--cat', 'clowder-cat'], {
+    cwd: resolve(import.meta.dirname, '../../..'),
+    env: {
+      ...process.env,
+      CAT_TEMPLATE_PATH: templatePath,
+    },
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+
+  assert.match(out, /clowder-code/);
+  assert.match(out, /Plugin-projected agentProvider/);
 });
 
 // --- L0 template content guard ---
