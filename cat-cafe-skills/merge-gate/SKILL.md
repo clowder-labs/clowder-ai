@@ -540,7 +540,7 @@ cd "$MAIN_WT" && git pull origin main   # 取回刚 squash 的 commit，doc-sync
 | Reviewer 放行？ | 搜索明确信号词 |
 | P1/P2 清零？ | 检查 review 记录 |
 | BACKLOG 更新？ | `grep '\[x\]' docs/ROADMAP.md` |
-| 云端通过？ | `gh pr checks {PR}` |
+| 云端通过？ | `gh pr checks {PR} --repo clowder-labs/clowder-ai` |
 | Evidence validation 通过？(Step 6.9) | E1-E5 五项全绿（head 一致 + review 不 stale + provenance 闭合 + verdict passed + gate passed） |
 | Feature doc 说真话？(pre-merge) | doc 标 ✅/打勾 AC 有代码支撑 + `node scripts/check-feature-truth.mjs` 绿 |
 | 已合入状态记录？(post-merge) | feature doc Phase ✅ + AC 打勾 + Timeline 有 merged 记录 + Status 推进 |
@@ -557,8 +557,8 @@ cd "$MAIN_WT" && git pull origin main   # 取回刚 squash 的 commit，doc-sync
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**remote review |
 | cloud P1/P2 修完后又 @ 本地旧 reviewer 续签 | `headChangeCause=cloud-finding` → re-trigger cloud review + 等 PR tracking；本地 peer 不是 Stage ④ 常驻 gate |
 | `pnpm gate` rebase / fixup 后沿用旧 review 直接 merge | 先对齐 `headRefOid`；**只要 HEAD 变了，先按 Review Provenance Matrix 判定 nextGateOwner** |
-| 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
-| 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
+| 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --repo clowder-labs/clowder-ai --squash`（GitHub 处理） |
+| 本地 merge 后 `gh pr close --repo clowder-labs/clowder-ai` | `gh pr close` = 放弃，`gh pr merge` = 合入（都按 Fork base trap 总规则带 `--repo`） |
 | 不等remote review 直接合入 | 必须等 0 P1/P2 |
 | 把截图/录屏/.pen 直接 commit 到仓库根目录 | Step 0.5 Root Artifact Guard 先拦截；先归档再开 PR |
 | 跳过 evidence validation 直接 merge | Step 6.9 五项 E1-E5 全过才能进 Step 7；不组装 evidence = 不知道 review 是否 stale |
