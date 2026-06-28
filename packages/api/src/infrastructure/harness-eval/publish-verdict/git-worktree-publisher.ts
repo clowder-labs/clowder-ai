@@ -7,6 +7,37 @@ import type { GitPublisher, PublishOnIsolatedWorktreeOpts } from './publish-verd
 
 const exec = promisify(execFile);
 
+export function parseGitHubRepoFromRemoteUrl(remoteUrl: string): string | null {
+  const trimmed = remoteUrl.trim();
+  if (!trimmed) return null;
+
+  const scpLike = /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/.exec(trimmed);
+  if (scpLike) return `${scpLike[1]}/${scpLike[2]}`;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname !== 'github.com') return null;
+    const [owner, repoWithSuffix] = url.pathname.replace(/^\/+/, '').split('/');
+    if (!owner || !repoWithSuffix) return null;
+    return `${owner}/${repoWithSuffix.replace(/\.git$/, '')}`;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveOriginGitHubRepo(repoRoot: string): Promise<string | null> {
+  try {
+    const result = await exec('git', ['-C', repoRoot, 'remote', 'get-url', '--push', 'origin'], { timeout: 10_000 });
+    return parseGitHubRepoFromRemoteUrl(result.stdout);
+  } catch {
+    return null;
+  }
+}
+
+function withGhRepo(args: string[], repo: string | null): string[] {
+  return repo ? [...args, '--repo', repo] : args;
+}
+
 /**
  * F192 Phase H — Real GitPublisher impl using `git worktree add` + `gh pr create`.
  *
@@ -42,10 +73,12 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
       let pushSucceeded = false;
       let prUrl: string | null = null;
       let branchExistedBefore = false;
+      let ghRepo: string | null = null;
 
       try {
         // 1. Fetch latest origin/main to ensure isolated worktree is current
         await exec('git', ['-C', deps.repoRoot, 'fetch', 'origin', 'main'], { timeout: 60_000 });
+        ghRepo = await resolveOriginGitHubRepo(deps.repoRoot);
 
         // Probe upfront so partial-failure cleanup never deletes a pre-existing branch.
         try {
@@ -95,9 +128,9 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         const commitSha = shaResult.stdout.trim();
 
         // 7. Open auto-PR via gh.
-        // 砚砚 R4 P1 cloud: `--repo .` is NOT valid gh syntax (fails with
-        // 'expected the "[HOST/]OWNER/REPO" format'). Rely on cwd inside the
-        // worktree — gh auto-detects owner/repo from the git remote.
+        // Derive `--repo` from origin's push URL. In multi-remote worktrees gh can
+        // auto-detect an upstream/fork remote while the branch was pushed to origin,
+        // which makes PR creation look for a head branch in the wrong repository.
         //
         // PR-3 (砚砚 R2): pass each label via separate `--label` flag (gh CLI accepts
         // repeated --label X; not comma-separated). `computePublishPolicy` decides
@@ -120,7 +153,7 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         };
         for (const label of labels ?? []) {
           const meta = standardLabelMeta[label];
-          const args = ['label', 'create', label, '--force'];
+          const args = withGhRepo(['label', 'create', label, '--force'], ghRepo);
           if (meta) {
             args.push('--color', meta.color, '--description', meta.description);
           }
@@ -135,19 +168,22 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         const labelFlags = (labels ?? []).flatMap((label) => ['--label', label]);
         const prResult = await exec(
           'gh',
-          [
-            'pr',
-            'create',
-            '--base',
-            'main',
-            '--head',
-            opts.branchName,
-            '--title',
-            prTitle,
-            '--body',
-            prBody,
-            ...labelFlags,
-          ],
+          withGhRepo(
+            [
+              'pr',
+              'create',
+              '--base',
+              'main',
+              '--head',
+              opts.branchName,
+              '--title',
+              prTitle,
+              '--body',
+              prBody,
+              ...labelFlags,
+            ],
+            ghRepo,
+          ),
           { cwd: worktreePath, timeout: 60_000 },
         );
         prUrl =
@@ -225,7 +261,10 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
             try {
               const probe = await exec(
                 'gh',
-                ['pr', 'list', '--head', opts.branchName, '--state', 'open', '--json', 'state', '--limit', '1'],
+                withGhRepo(
+                  ['pr', 'list', '--head', opts.branchName, '--state', 'open', '--json', 'state', '--limit', '1'],
+                  ghRepo,
+                ),
                 { cwd: deps.repoRoot, timeout: 30_000 },
               );
               const parsed = JSON.parse(probe.stdout) as Array<{ state?: string }>;
