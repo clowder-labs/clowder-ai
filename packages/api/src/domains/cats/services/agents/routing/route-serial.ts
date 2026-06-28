@@ -237,9 +237,11 @@ function isCrossPostMessageToolName(toolName: string | undefined): boolean {
   return toolName === 'mcp:cat-cafe/cross_post_message' || toolName === 'cat_cafe_cross_post_message';
 }
 
-function isTrackingRegistrationToolName(toolName: string | undefined): boolean {
+function isSameTurnEventDrivenCoverageToolName(toolName: string | undefined): boolean {
   const normalized = normalizeMcpToolName(toolName);
-  return normalized === 'register_pr_tracking' || normalized === 'register_issue_tracking';
+  // PR tracking registration only proves the watcher was registered. The actual
+  // 2b condition requires a later review/CI callback with pickup coverage.
+  return normalized === 'register_issue_tracking';
 }
 
 function isCallbackContentRoutingToolName(toolName: string | undefined): boolean {
@@ -1234,7 +1236,7 @@ export async function* routeSerial(
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
             if (completedToolName) {
-              if (callbackResult.confirmed && isTrackingRegistrationToolName(completedToolName)) {
+              if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
                 hasEventDrivenExternalWaitCoverage = true;
               }
               settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
@@ -1662,7 +1664,7 @@ export async function* routeSerial(
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
               if (completedToolName) {
-                if (callbackResult.confirmed && isTrackingRegistrationToolName(completedToolName)) {
+                if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
                   hasEventDrivenExternalWaitCoverage = true;
                 }
                 settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);

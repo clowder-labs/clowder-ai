@@ -783,7 +783,7 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.match(codexMessages[0].content, /External Wait: event-driven/);
   });
 
-  test('2b event-driven external wait honors tracking registered earlier in the same turn', async () => {
+  test('2b event-driven external wait rejects PR tracking registration without pickup proof', async () => {
     const service = createSequenceService('codex', [
       [
         {
@@ -807,15 +807,12 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
 
     const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-register');
 
-    assert.equal(calls.length, 1, 'same-turn tracking registration should prevent a remedial invoke');
+    assert.equal(calls.length, 2, 'same-turn PR tracking registration alone should not prevent a remedial invoke');
     assert.equal(
       appended.find((m) => m.source?.connector === 'routing-guard-failure'),
       undefined,
-      'confirmed tracking registration should count as verified callback coverage for 2b',
+      'valid follow-up remedial exit should avoid failure after rejecting PR tracking registration alone',
     );
-    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
-    assert.equal(codexMessages.length, 1);
-    assert.match(codexMessages[0].content, /External Wait: event-driven/);
   });
 
   test('2b event-driven external wait honors issue tracking registered earlier in the same turn', async () => {
