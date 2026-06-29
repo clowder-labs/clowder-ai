@@ -198,6 +198,17 @@ function projectHostOwnedAgentProviderFields(
   if (ap.health?.passed === false && ap.health.failureReason) {
     out.agentProviderHealthFailureReason = ap.health.failureReason;
   }
+  // F241 Phase C (PR #42 round-1 review @codex P2): surface persisted sync
+  // failure separately from health probe failure. Sync failures fire AFTER
+  // approval + health both pass, during the Step 6 AgentRegistry projection
+  // (post-approval sync hook). Without this, the Hub renders
+  // `approved=true / healthy / routeable=false` with no inline explanation.
+  if (ap.lastSyncError) {
+    out.agentProviderLastSyncError = {
+      message: ap.lastSyncError.message,
+      occurredAt: ap.lastSyncError.occurredAt,
+    };
+  }
   return out;
 }
 

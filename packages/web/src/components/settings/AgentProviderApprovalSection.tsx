@@ -223,6 +223,21 @@ function ApprovalRow({ resource, row, pluginId, onPatch, onApprove }: ApprovalRo
             探针失败: {resource.agentProviderHealthFailureReason}
           </span>
         )}
+        {/* F241 PR #42 round-1 review @codex P2: surface persisted sync failure
+            separately from health probe failure so operators see WHY a row is
+            `approved=true / healthy / routeable=false` after a Step 6 sync hook
+            throws. Distinct chip + label keeps the two failure sources
+            operator-distinguishable; the title attribute shows the occurredAt
+            timestamp on hover so operators can correlate with logs. */}
+        {resource.agentProviderLastSyncError && (
+          <span
+            className="rounded-[13px] bg-conn-red-bg px-2.5 py-0.5 text-label font-medium text-conn-red-text"
+            title={new Date(resource.agentProviderLastSyncError.occurredAt).toLocaleString()}
+            data-testid={`sync-error-${resource.capId}`}
+          >
+            同步失败: {resource.agentProviderLastSyncError.message}
+          </span>
+        )}
       </div>
 
       {isRouteable && liveBinding && (

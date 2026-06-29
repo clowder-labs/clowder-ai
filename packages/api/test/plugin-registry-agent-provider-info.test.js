@@ -51,7 +51,7 @@ function makeManifest({ withClaims = true } = {}) {
   };
 }
 
-function makeCapabilities({ routeable, approved, binding, descriptorHash, failureReason } = {}) {
+function makeCapabilities({ routeable, approved, binding, descriptorHash, failureReason, lastSyncError } = {}) {
   return {
     version: 1,
     capabilities: [
@@ -84,6 +84,7 @@ function makeCapabilities({ routeable, approved, binding, descriptorHash, failur
                 },
               }
             : {}),
+          ...(lastSyncError ? { lastSyncError } : {}),
         },
       },
     ],
@@ -172,6 +173,37 @@ describe('PluginRegistry.getPluginInfo — F241 agentProvider projection', () =>
       {},
     );
     assert.equal(info.resources[0].agentProviderHealthFailureReason, undefined);
+  });
+
+  // PR #42 round-1 review @codex P2: persisted post-approval sync failures
+  // must surface to the Hub so operators can diagnose a row that is
+  // approved + healthy but stuck non-routeable.
+  it('surfaces lastSyncError (message + occurredAt) so post-approval sync failure is diagnosable', () => {
+    const reg = makeRegistry();
+    const info = reg.getPluginInfo(
+      makeManifest(),
+      makeCapabilities({
+        routeable: false,
+        approved: true,
+        binding: { catId: 'clowder-cat' },
+        lastSyncError: { message: 'agent registry sync failed: ENOENT', occurredAt: 1_700_000_000_999 },
+      }),
+      {},
+    );
+    assert.deepEqual(info.resources[0].agentProviderLastSyncError, {
+      message: 'agent registry sync failed: ENOENT',
+      occurredAt: 1_700_000_000_999,
+    });
+  });
+
+  it('omits lastSyncError on the happy path (no UI noise after sync succeeds)', () => {
+    const reg = makeRegistry();
+    const info = reg.getPluginInfo(
+      makeManifest(),
+      makeCapabilities({ routeable: true, approved: true, binding: { catId: 'clowder-cat' } }),
+      {},
+    );
+    assert.equal(info.resources[0].agentProviderLastSyncError, undefined);
   });
 
   it('does NOT add F241 fields to non-agentProvider resources', () => {

@@ -149,6 +149,20 @@ export interface PluginResourceStatus {
 
   /** Operator-visible probe failure (e.g. `cli-probe-cli-not-found:foo`, `cli-probe-timeout:10000ms`). */
   agentProviderHealthFailureReason?: string;
+
+  /**
+   * Operator-visible AgentRegistry sync failure surfaced from the persisted
+   * `lastSyncError`. Distinct from `agentProviderHealthFailureReason` —
+   * sync failures fire AFTER approval / health both pass, during the Step 6
+   * AgentRegistry projection (post-approval sync hook in
+   * `agent-provider-approval-service.ts`). Without this field a sync failure
+   * leaves the row as `approved=true / healthy / routeable=false` with no
+   * UI explanation of WHY it isn't routeable. (PR #42 round-1 review @codex.)
+   */
+  agentProviderLastSyncError?: {
+    message: string;
+    occurredAt: number;
+  };
 }
 
 /** Full plugin info returned by API (manifest + derived state) */
