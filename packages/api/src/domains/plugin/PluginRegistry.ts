@@ -142,12 +142,17 @@ export class PluginRegistry {
         (c) =>
           c.pluginId === manifest.id && c.type === r.type && normalizeCapId(c.id) === resourceCapId(manifest.id, r),
       );
-      return {
+      const base: PluginResourceStatus = {
         type: r.type,
         path: r.path,
         name: r.name,
         enabled: capEntry?.enabled ?? false,
         ...(capEntry?.agentProvider?.state ? { agentProviderState: capEntry.agentProvider.state } : {}),
+      };
+      if (r.type !== 'agentProvider') return base;
+      return {
+        ...base,
+        ...buildAgentProviderResourceProjection(manifest.id, r, capEntry?.agentProvider),
       };
     });
 
@@ -168,6 +173,59 @@ export class PluginRegistry {
       hasHealthCheck: !!manifest.healthCheck?.limbCommand,
     };
   }
+}
+
+type AgentProviderCapDescriptor = NonNullable<CapabilitiesConfig['capabilities'][number]['agentProvider']>;
+type AgentProviderResource = NonNullable<PluginManifest['resources'][number]['agentProvider']>;
+
+/** Project host-owned routeable + binding state from the persisted capability row. */
+function projectHostOwnedAgentProviderFields(
+  ap: AgentProviderCapDescriptor | undefined,
+): Partial<PluginResourceStatus> {
+  if (!ap) return {};
+  const out: Partial<PluginResourceStatus> = {};
+  if (typeof ap.routeable === 'boolean') out.agentProviderRouteable = ap.routeable;
+  if (typeof ap.routeableApproved === 'boolean') out.agentProviderRouteableApproved = ap.routeableApproved;
+  if (ap.routeableBinding) {
+    const b = ap.routeableBinding;
+    out.agentProviderBinding = {
+      catId: b.catId,
+      ...(b.profileId ? { profileId: b.profileId } : {}),
+      ...(b.mentionPatterns ? { mentionPatterns: [...b.mentionPatterns] } : {}),
+    };
+  }
+  if (ap.descriptorHash) out.agentProviderDescriptorHash = ap.descriptorHash;
+  if (ap.health?.passed === false && ap.health.failureReason) {
+    out.agentProviderHealthFailureReason = ap.health.failureReason;
+  }
+  return out;
+}
+
+/** Project manifest-declared identity claims (PR #39) — Hub UI uses these as form defaults. */
+function projectAgentProviderClaims(c: AgentProviderResource | undefined): Partial<PluginResourceStatus> {
+  if (!c) return {};
+  const claims = {
+    ...(c.providerId ? { providerId: c.providerId } : {}),
+    ...(c.displayName ? { displayName: c.displayName } : {}),
+    ...(c.mentionPatterns ? { mentionPatterns: [...c.mentionPatterns] } : {}),
+  };
+  return Object.keys(claims).length > 0 ? { agentProviderClaims: claims } : {};
+}
+
+/**
+ * F241 Phase C — Compose the agentProvider extension fields for `PluginResourceStatus`.
+ * Pure: never touches `base`, just returns the additional fields to merge.
+ */
+function buildAgentProviderResourceProjection(
+  pluginId: string,
+  resource: PluginManifest['resources'][number],
+  ap: AgentProviderCapDescriptor | undefined,
+): Partial<PluginResourceStatus> {
+  return {
+    capId: resourceCapId(pluginId, resource),
+    ...projectHostOwnedAgentProviderFields(ap),
+    ...projectAgentProviderClaims(resource.agentProvider),
+  };
 }
 
 export function resourceCapId(pluginId: string, resource: { type: string; path?: string; name?: string }): string {

@@ -112,6 +112,43 @@ export interface PluginResourceStatus {
   enabled: boolean;
   agentProviderState?: AgentProviderLifecycleState;
   error?: string;
+  /**
+   * F241 Phase C — Operator-visible state for `agentProvider` resources.
+   *
+   * Surfaces the host-owned routeable view + manifest-declared claims to the
+   * Hub UI so an operator can render the approve-routeable form, see whether
+   * a binding is already live, and prefill the form from claim defaults.
+   * All fields are optional and only populated for `type === 'agentProvider'`.
+   */
+
+  /** Canonical capability id (e.g. `plugin:clowder-code:clowder-code`) — required for approve-routeable POST URL. */
+  capId?: string;
+
+  /** Effective truth — "you can `@` this cat now". Always false until the routeable gate fully passes. */
+  agentProviderRouteable?: boolean;
+
+  /** Operator intent — flips true on explicit approve, resets to false on descriptor delta. */
+  agentProviderRouteableApproved?: boolean;
+
+  /** Live binding the operator set at approve-time. Undefined when not yet approved. */
+  agentProviderBinding?: {
+    catId: string;
+    profileId?: string;
+    mentionPatterns?: string[];
+  };
+
+  /** Manifest-declared identity claims (PR #39). Hub UI uses these as form defaults. */
+  agentProviderClaims?: {
+    providerId?: string;
+    displayName?: string;
+    mentionPatterns?: string[];
+  };
+
+  /** Stable hash bound to the descriptor; surfaced so the operator can see when re-approval is needed after a manifest delta. */
+  agentProviderDescriptorHash?: string;
+
+  /** Operator-visible probe failure (e.g. `cli-probe-cli-not-found:foo`, `cli-probe-timeout:10000ms`). */
+  agentProviderHealthFailureReason?: string;
 }
 
 /** Full plugin info returned by API (manifest + derived state) */
