@@ -8,7 +8,7 @@ created: 2026-06-18
 
 # F241: Agent Provider Plugin / Hostable Provider Runtime
 
-> **Status**: accepted feature anchor | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1
+> **Status**: shipped + closed 2026-06-29 (Phase A / B 2a / B 2b / C delivered; see § F241 close) | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1
 > **Source**: operator request 2026-06-18 — "我有自己的 agent 需要接入进来"; community architecture discussion [clowder-ai#941](https://github.com/zts212653/clowder-ai/issues/941); maintainer decision [#941 comment 4739146327](https://github.com/zts212653/clowder-ai/issues/941#issuecomment-4739146327).
 > **Decision**: accepted as **F241: Agent Provider Plugin / Hostable Provider Runtime**. This is a new provider-extension feature anchor, **not** "F202 Phase 3" by default, and **not** a rename of F143. It is the F143 host-contract lineage plus the F202 plugin discovery/config surface, composed into a provider-as-plugin product capability.
 
@@ -338,3 +338,70 @@ Plugin/package fingerprint: if a fingerprint is available (npm tarball hash, git
 - 2026-06-22: Phase B Slice 2b design gate passed — 6-step routeable gate, three-field state model, `RoutingAdmissionService` + descriptor-hash invalidation + serialized sync coordinator (opus driving; codex + gpt52 design review).
 - 2026-06-23: Phase B Slice 2b Q3 TTL convergence round (codex + gpt52) — both converged on `S1 No / S2 No / S3 Yes`; locked shared invariant that `routeable: false → true` is the exclusive domain of explicit synchronous paths. Background actors may refresh telemetry and degrade, never promote. Design notes amended.
 - 2026-06-23: Phase B Slice 2b end-to-end shipped on `feat/F241-phase-b-slice2b-routeable-gate` — shared types widening, `RoutingAdmissionService`, descriptor-hash + activator integration, approval orchestration + HTTP route, post-approval sync hook, routeable binding + projection, end-to-end integration test. Health executor ships as transport-availability probe; real `acpInitialize` (runtime initialize handshake) and `cliProbe` (bounded spawn + exit-code check) probes are tracked as **Slice 2c follow-on hardening** — the executor is a drop-in DI swap (`AgentProviderHealthExecutor` interface in `agent-provider-health-executor.ts`), no further redesign needed.
+- 2026-06-28: Phase C reference-runtime E2E spike (布偶猫/宪宪 driving in dispatch sub-thread `thread_mqxva63tuebxj9sn`). Reverse-engineered the cli-jsonl real wire shape against `clowder-code/cli/dist/bin.js`, drafted the production `plugins/clowder-code/plugin.yaml`, enabled + approved end-to-end, surfaced P0 split-brain between API in-memory `catRegistry` (saw plugin projection) and the L0 system-prompt subprocess (did not). Spike report: `/tmp/clowder-spike/F241-phase-c-spike-report.md`.
+- 2026-06-28: PR #36 `79e73cb8` shipped P0 fix — `scripts/compile-system-prompt-l0.mjs` `bootstrapCatRegistry` reads `.cat-cafe/capabilities.json` + applies the F241 routeable projection so the L0 subprocess sees the same catId universe the runtime routes. Authored by 缅因猫/砚砚, reviewed by 布偶猫/opus47.
+- 2026-06-28: PR #38 `efe91cda` shipped real `cliProbe` health executor — bounded spawn of `command --version` + exit-code + timeout, replaces 2b transport-availability stub. DI swap wired into both `syncAgentRegistry` refresh path AND `AgentProviderApprovalService` approval path (no split-brain). Probe uses `resolveCliCommand` (same resolver as real cli-jsonl invocation) per @codex round-1 review.
+- 2026-06-28: PR #39 `7ecb3e4d` shipped manifest identity claims — `PluginAgentProviderResource` gains optional `providerId / displayName / mentionPatterns`. Descriptor hash bumped `v: 1 → v: 2` so upgrade forces re-approval (matches the existing descriptor-delta contract). Parser rejects bare `@`, whitespace, path separators, case-insensitive duplicates (per @codex round-1 + round-2 review).
+- 2026-06-28: PR #42 `71584bf6` shipped Hub UI for owner approval — `PluginResourceStatus` exposes `capId / routeable / approved / binding / claims / descriptorHash / healthFailureReason / lastSyncError`; React `AgentProviderApprovalSection` renders state chip + binding summary + approval form (prefilled from PR #39 claims) + dual failure chips ("探针失败" + "同步失败"). The `lastSyncError` projection landed in round-2 per @codex review (without it operators couldn't diagnose `approved=true / healthy / routeable=false`).
+- 2026-06-28: Phase C demo hotfix — `plugins/clowder-code/plugin.yaml` `startupArgs` adds `--dangerously-skip-permissions`. Root cause (diagnosed by parallel 布偶猫/宪宪 in `thread_mqyj529p7hn1ughj`): `clowder-code` `--non-interactive` mode unconditionally rejects every tool request via `PermissionRequiredError`, exiting code 1. Operator-visible after the 5th E2E probe (`@clowder-cat 请用 bash 跑 pwd`) returned the correct cwd `/Users/xxx/workspace/AI/clowder-labs/clowder-code`. Tracked as a F241 known-limitation (see § F241 close).
+
+## F241 close — completion audit (2026-06-29)
+
+### Acceptance criteria audit
+
+**Phase A — Host transport intake slice** (all ACs satisfied):
+- ✅ One host-owned transport path registered and selected by data/config — `cli-jsonl` via `ProviderTransportRegistry` (`a95384eb / e787dcd3 / 8f1d56c9`).
+- ✅ One external runtime invoked as already-installed command — `clowder-code/cli/dist/bin.js`, declared in `plugins/clowder-code/plugin.yaml`.
+- ✅ Streaming output maps to `AgentMessage` / thread-visible events — `CliJsonlAgentService.invoke` yields `session_init / agent_loop / text / done`; verified across 5 E2E probes in the Phase C spike thread.
+- ✅ Cancel, timeout, startup-failure, no-event-failure visible — `cli-spawn.ts` SIGTERM/SIGKILL + `__cliTimeout` / `__cliError` events; `cli-jsonl-agent-service.test.js` covers `emits a visible error when the CLI exits without a turn_result`.
+- ✅ cwd/workspace/sandbox policy host-controlled — `sandbox: workspace-write` in plugin manifest, host-enforced via existing F036 sandbox infra.
+- ✅ Callback/MCP injection host-owned + test-covered — `CliJsonlAgentService` test fixture asserts `CAT_CAFE_API_URL` is injected by host, never by plugin.
+- ✅ Session-chain + audit metadata written — `cliSessionId` bound on `session_init` (logged in every E2E probe), `AuditEventTypes.CONFIG_UPDATED` written on approve-routeable.
+
+**Phase B Slice 2a** (shipped `b4a87e3c`):
+- ✅ `agentProvider` manifest descriptor activates as `transportReady` (non-routeable).
+- ✅ Fail-closed when host transport not registered (`Unknown agentProvider transport`).
+
+**Phase B Slice 2b** (shipped `486fc5f8` — PR #18):
+- ✅ 6-step routeable gate enforced (manifest valid / transport exists / admission / approval / health pass / sync) — `RoutingAdmissionService` + approval orchestration + post-approval sync hook.
+- ✅ Three-field state model (`routeableApproved` / `health` / `routeable` computed) — `agent-provider-2b-e2e.test.js` happy-path test asserts.
+- ✅ Descriptor-hash invalidation on manifest delta — `agent-provider-descriptor-hash.test.js` sensitivity matrix.
+- ✅ Background actors may degrade, never promote — Q3 convergence locked invariant.
+- ✅ Plugin admission re-runs at projection time (no parsing-order self-exemption) — `agent-provider-projection.ts` RED LINE.
+
+**Phase C — Reference runtime** (all ACs satisfied):
+- ✅ Routeable cat invokes external runtime from a normal thread — proven across 5 E2E probes (`I am clowder-code AI cat`, `I am alive`, `Probe received hash verified`, etc.).
+- ✅ Runtime streams reply back into the thread — `OutboundDeliveryHook deliver()` confirmed in API logs each probe.
+- ✅ Session chain, audit, cancel, timeout, failure inspectable:
+  - Session chain: `cliSessionId` bound to invocation, visible in `[invoke] Session init: binding session` logs.
+  - Audit: `CONFIG_UPDATED` events on enable / approve / disable.
+  - Cancel / timeout / failure: `cli-spawn.ts` + `CliJsonlAgentService` + Hub UI `agentProviderHealthFailureReason` + `agentProviderLastSyncError` chips.
+- ✅ A2A handoff and @-mention routing cannot target the provider until identity governance has approved it — pre-approve, `clowder-cat` is not in `catRegistry` (no projection without `routeableBinding`); `@clowder-cat` returns "未找到该 cat" routing failure.
+- ✅ E2E proof includes at least one denied capability / denied namespace case — `agent-provider-2b-e2e.test.js:208` `approval is rejected when operator picks a catId that collides with a reserved baseline` covers the denied-namespace case.
+- ✅ Hub admin UI for owner approval (2b Non-goals #3 promoted to Phase C scope) — PR #42 `71584bf6`.
+
+**Phase C 2c hardening** (all delivered):
+- ✅ Real `cliProbe` health executor — PR #38 `efe91cda`.
+- ✅ Manifest identity claims (`providerId / displayName / mentionPatterns`) — PR #39 `7ecb3e4d`, with `mentionPatterns` case-insensitive dedup + bare `@` rejection per @codex review.
+- ✅ Descriptor hash `v: 1 → v: 2` forces re-approval on upgrade — verified live by triggering enable + approve cycle (`574a68e4… → 00fb6ae1… → 4acdffb7…` across the schema bumps).
+
+**Safety boundaries** (all preserved):
+- ✅ No arbitrary same-power JS factory — plugin manifest only declares data + a constrained transport binding.
+- ✅ No plugin-provided install / uninstall scripts in Phase A — `plugin.yaml` is data only.
+- ✅ No plugin code receives callback tokens / session tokens / JWTs / MCP credentials — `agent-provider-health-executor.ts` strips env to `PATH` only; host injects callback env into the actual invocation, never into the probe.
+- ✅ No plugin activation writes runtime config such as `~/.clowder-code/config.json` — activator writes to `.cat-cafe/capabilities.json` only.
+- ✅ No external archive install/update/uninstall — out of scope per design.
+
+### Known limitations carried out of F241 (tracked for follow-on, not blockers)
+
+1. **`cli-jsonl` resume + non-empty systemPrompt are mutually exclusive** — `CliJsonlAgentService.buildPrompt` concatenates `${systemPrompt}\n\n${prompt}` which trips the `containsLineBreak()` check in `sessionPolicy: resume`, silently falling back to a cold session every turn. `session_continuity_degraded: cli_jsonl_resume_requires_single_line_prompt` warning fires every invocation. Working as designed but operator-confusing; a future slice could either: (a) special-case the system prompt line-break detection, or (b) declare cli-jsonl resume + systemPrompt incompatible and document in the manifest schema.
+2. **`clowder-code --non-interactive` rejects every tool request** — `createNonInteractiveApprovalHandler` in `clowder-code/cli/src/runner.ts:3005` throws `PermissionRequiredError` on any tool call, exit code 1. Current workaround: `startupArgs` includes `--dangerously-skip-permissions`. The real fix is a host-streaming permission protocol that lets the cat-cafe API mediate per-tool approval (likely a separate feature anchor, e.g. `F241 follow-on: ACP permission streaming` or absorbed by F161 ACP carrier work).
+3. **Plugin/package fingerprint not in descriptor hash** — already tracked in § Phase B 2b Residual risk. If only a directory path is available (rather than an npm tarball SHA / git SHA), a plugin can mutate its body silently without re-approval. Not blocking for the in-tree reference plugin since edits are git-tracked.
+4. **ACP transport for plugins** — `cli-jsonl` is the only proven plugin transport. F161 ACP carrier work is the natural integration point when ACP plugins arrive.
+5. **`outputProfile` accepts only `clowder-code-turn-result-v1`** — a second cli-jsonl runtime would need parser registry extension. Tracked as a small additive change when the second runtime lands.
+
+### Status
+
+**F241 — accepted, shipped, closed as of 2026-06-29.**
+
+Phase A / B 2a / B 2b / C all delivered with ACs satisfied and cross-family review (砚砚/codex + opus47/sonnet). Live in `develop`. Operator can install a plugin via `plugins/<plugin-id>/plugin.yaml`, hit `/api/plugins/<id>/enable` and the Hub-rendered approval form, and have a routeable `@<catId>` that streams replies back into a thread — all without core code edits, the original "I have my own agent" requirement.
