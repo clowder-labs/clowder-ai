@@ -4,6 +4,7 @@ import type { PluginInfo } from '@cat-cafe/shared';
 import { useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { ExternalLinkIcon, StepBadge } from '../HubConfigIcons';
+import { AgentProviderApprovalSection } from './AgentProviderApprovalSection';
 import { ConfigFieldRenderer } from './primitives/ConfigFieldRenderer';
 
 function isSafeUrl(url: string): boolean {
@@ -193,6 +194,11 @@ export function PluginConfigPanel({ plugin, onUpdated }: Props) {
             </span>
           ))}
         </div>
+      )}
+
+      {/* F241 Phase C — Hub UI for owner approval of agentProvider routeable rows. */}
+      {plugin.resources.some((r) => r.type === 'agentProvider') && (
+        <AgentProviderApprovalSection plugin={plugin} onUpdated={onUpdated} />
       )}
 
       {result && (
