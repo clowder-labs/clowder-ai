@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-29-eval-a2a-low-volume-clean-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-29-F167-eval.yaml",
+      "sha256": "b6ad3f14912d0838af23861709e984ba05355ef9bfa85c0f93e2c3a7e1aafa9d"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-29-F167-attribution.yaml",
+      "sha256": "1dafb6c2ea0df15117a190ecf027f68df27da009dd0606169c04303487947b75"
+    }
+  ],
+  "generatedAt": "2026-06-29T03:01:39.026Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
