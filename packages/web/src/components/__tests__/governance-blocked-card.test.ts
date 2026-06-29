@@ -167,6 +167,117 @@ describe('GovernanceBlockedCard', () => {
     expect(container.textContent).not.toContain('C:\\workspace\\tmp');
   });
 
+  it('calls onSelfClear when server reports project healthy on mount (F070 stale-banner self-heal)', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        projects: [
+          { projectPath: '/test/proj', status: 'healthy' },
+          { projectPath: '/other/proj', status: 'stale' },
+        ],
+      }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-stale',
+          onSelfClear,
+        }),
+      );
+      // flush mount effect microtasks
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/health');
+    expect(onSelfClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onSelfClear when server reports project not healthy', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        projects: [{ projectPath: '/test/proj', status: 'never-synced' }],
+      }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+    // banner stays visible — bootstrap button still rendered
+    expect(container.querySelector('button')?.textContent).toContain('初始化治理并继续');
+  });
+
+  it('does not call onSelfClear when server omits the project', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ projects: [] }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSelfClear when health endpoint fails (network error)', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockRejectedValueOnce(new Error('network down'));
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+    expect(container.querySelector('button')?.textContent).toContain('初始化治理并继续');
+  });
+
+  it('skips self-heal probe when onSelfClear is not provided', async () => {
+    act(() => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+        }),
+      );
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
   it('resets to idle state when invocationId prop changes', async () => {
     mockApiFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })

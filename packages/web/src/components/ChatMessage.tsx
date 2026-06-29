@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import { useCallback, type CSSProperties } from 'react';
 import { type CatData, formatCatName } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
@@ -103,6 +103,13 @@ export function ChatMessage({
   const threads = useChatStore((s) => s.threads);
   const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
+  // F070 self-healing handler: drop a stale governance_blocked banner from the active
+  // thread when the card's mount-time health probe confirms governance is healthy.
+  const removeThreadMessage = useChatStore((s) => s.removeThreadMessage);
+  const handleGovernanceBannerSelfClear = useCallback(() => {
+    if (!currentThreadId) return;
+    removeThreadMessage(currentThreadId, message.id);
+  }, [currentThreadId, message.id, removeThreadMessage]);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -238,7 +245,17 @@ export function ChatMessage({
 
     if (message.variant === 'governance_blocked' && message.extra?.governanceBlocked) {
       const { projectPath, reasonKind, invocationId } = message.extra.governanceBlocked;
-      return <GovernanceBlockedCard projectPath={projectPath} reasonKind={reasonKind} invocationId={invocationId} />;
+      // F070 self-healing: banner is a transient store/IDB message — if governance has
+      // been initialized since (e.g. user confirmed elsewhere or earlier session), let
+      // the card clear itself on mount so a stale banner doesn't linger forever.
+      return (
+        <GovernanceBlockedCard
+          projectPath={projectPath}
+          reasonKind={reasonKind}
+          invocationId={invocationId}
+          onSelfClear={handleGovernanceBannerSelfClear}
+        />
+      );
     }
 
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.

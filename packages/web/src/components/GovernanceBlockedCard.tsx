@@ -6,6 +6,13 @@ interface GovernanceBlockedCardProps {
   projectPath: string;
   reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
   invocationId?: string;
+  /**
+   * F070 self-healing (#TODO-followup): called when this banner detects that governance
+   * is already healthy on the server. Parent should remove the underlying transient
+   * message so a stale banner from a past failed invocation doesn't linger after the
+   * user has already initialized governance (in another thread / from CLI / earlier session).
+   */
+  onSelfClear?: () => void;
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -16,7 +23,16 @@ const REASON_LABELS: Record<string, string> = {
 
 type CardState = 'idle' | 'confirming' | 'retrying' | 'done' | 'error';
 
-export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId }: GovernanceBlockedCardProps) {
+interface GovernanceHealthResponse {
+  projects?: Array<{ projectPath: string; status: string }>;
+}
+
+export function GovernanceBlockedCard({
+  projectPath,
+  reasonKind,
+  invocationId,
+  onSelfClear,
+}: GovernanceBlockedCardProps) {
   const [state, setState] = useState<CardState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -28,6 +44,31 @@ export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId }:
       setErrorMsg('');
     }
   }, [invocationId]);
+
+  // F070 self-healing: if the server already considers this project healthy, the banner
+  // is stale (left over in store/IDB from a past failed invocation) — ask the parent to
+  // remove it. We only fire while the user has not interacted (state === 'idle'); once
+  // they've started bootstrap, the in-flight state machine owns the lifecycle.
+  useEffect(() => {
+    if (!onSelfClear || state !== 'idle') return;
+    let canceled = false;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/governance/health');
+        if (canceled || !res.ok) return;
+        const data = (await res.json()) as GovernanceHealthResponse;
+        const entry = data.projects?.find((p) => p.projectPath === projectPath);
+        if (!canceled && entry?.status === 'healthy') {
+          onSelfClear();
+        }
+      } catch {
+        // network failure — leave banner visible; user can still bootstrap manually
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, [projectPath, onSelfClear, state]);
 
   const handleBootstrap = useCallback(async () => {
     setState('confirming');
