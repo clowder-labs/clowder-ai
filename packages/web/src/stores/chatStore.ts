@@ -2392,13 +2392,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  removeThreadMessage: (threadId, messageId) =>
+  removeThreadMessage: (threadId, messageId) => {
+    // F070 stale-banner fix (砚砚 R2 P1): writer must (a) mirror to threadStates so
+    // KD-2 (threadStates is the writer source) holds for the active thread too, and
+    // (b) persist the deletion to the offline snapshot — otherwise the message comes
+    // right back on the next IDB first-paint (the original governance_blocked stale-
+    // banner symptom).
+    let nextHasMore: boolean | undefined;
+    let nextSnapshot: ChatMessage[] | undefined;
     set((state) => {
       if (threadId === state.currentThreadId) {
         const nextMessages = state.messages.filter((m) => m.id !== messageId);
         if (nextMessages.length === state.messages.length) return state;
         revokeRemovedBlobUrls(state.messages, nextMessages);
-        return { messages: nextMessages };
+        nextHasMore = state.hasMore;
+        nextSnapshot = nextMessages;
+        return {
+          messages: nextMessages,
+          ...mirrorActiveFlat(state, { messages: nextMessages, hasMore: state.hasMore }),
+        };
       }
 
       const existing = state.threadStates[threadId];
@@ -2406,6 +2418,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const nextMessages = existing.messages.filter((m) => m.id !== messageId);
       if (nextMessages.length === existing.messages.length) return state;
       revokeRemovedBlobUrls(existing.messages, nextMessages);
+      nextHasMore = existing.hasMore;
+      nextSnapshot = nextMessages;
       return {
         threadStates: {
           ...state.threadStates,
@@ -2416,7 +2430,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         },
       };
-    }),
+    });
+    if (nextSnapshot !== undefined && nextHasMore !== undefined) {
+      void saveMessagesSnapshot(threadId, nextSnapshot, nextHasMore).catch(() => {});
+    }
+  },
 
   replaceThreadMessageId: (threadId, fromId, toId) =>
     set((state) => {

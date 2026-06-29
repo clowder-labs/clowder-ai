@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, type CSSProperties } from 'react';
+import { type CSSProperties, useCallback } from 'react';
 import { type CatData, formatCatName } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
@@ -71,6 +71,12 @@ function isConnectorSystemNotice(message: ChatMessageType): boolean {
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  /**
+   * Owning thread id for this message render. Required for thread-scoped store actions
+   * (e.g. clearing a stale F070 banner from a split-pane / background thread). Falls back
+   * to `currentThreadId` when omitted so legacy callers keep working.
+   */
+  threadId?: string;
   getCatById: (id: string) => CatData | undefined;
   onEditCat?: (catId: string) => void;
   /** F056 follow-up: click co-creator avatar to open editor (consistent with cat avatar behavior). */
@@ -90,6 +96,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({
   message,
+  threadId,
   getCatById,
   onEditCat,
   onEditCoCreator,
@@ -103,13 +110,17 @@ export function ChatMessage({
   const threads = useChatStore((s) => s.threads);
   const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
-  // F070 self-healing handler: drop a stale governance_blocked banner from the active
+  // F070 self-healing handler: drop a stale governance_blocked banner from its owning
   // thread when the card's mount-time health probe confirms governance is healthy.
+  // 砚砚 R2 P1: must target the *rendering* thread (split-pane / background thread may
+  // not equal currentThreadId). Fall back to currentThreadId only when threadId prop
+  // is absent (legacy callers).
   const removeThreadMessage = useChatStore((s) => s.removeThreadMessage);
+  const owningThreadId = threadId ?? currentThreadId;
   const handleGovernanceBannerSelfClear = useCallback(() => {
-    if (!currentThreadId) return;
-    removeThreadMessage(currentThreadId, message.id);
-  }, [currentThreadId, message.id, removeThreadMessage]);
+    if (!owningThreadId) return;
+    removeThreadMessage(owningThreadId, message.id);
+  }, [owningThreadId, message.id, removeThreadMessage]);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
