@@ -151,6 +151,70 @@ function parseAgentProviderSandboxRequest(
   return value as AgentProviderResource['sandboxRequest'];
 }
 
+function parseAgentProviderProviderId(value: unknown, yamlPath: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`Invalid agentProvider providerId in ${yamlPath}: must be a non-empty string`);
+  }
+  const trimmed = value.trim();
+  if (/[/\\]/.test(trimmed)) {
+    throw new Error(
+      `Invalid agentProvider providerId '${trimmed}' in ${yamlPath}: must not contain path separators (/ or \\)`,
+    );
+  }
+  return trimmed;
+}
+
+function parseAgentProviderDisplayName(value: unknown, yamlPath: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`Invalid agentProvider displayName in ${yamlPath}: must be a non-empty string`);
+  }
+  return value.trim();
+}
+
+function parseAgentProviderMentionPatterns(value: unknown, yamlPath: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(
+      `Invalid agentProvider mentionPatterns in ${yamlPath}: must be a non-empty array of '@name' strings`,
+    );
+  }
+  const patterns: string[] = [];
+  // P2 review (@codex on PR #39): runtime mention matching is case-insensitive
+  // (CatConfig side normalizes lowercased), so duplicates must be detected on
+  // the lowercased form — otherwise `@clowder` and `@Clowder` slip through the
+  // parser but collide downstream. Sibling check below: reject bare `@` (must
+  // have at least one name character after the prefix per the `@name` contract).
+  const seenLowercased = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry.trim().length === 0) {
+      throw new Error(`Invalid agentProvider mentionPattern in ${yamlPath}: each entry must be a non-empty string`);
+    }
+    const trimmed = entry.trim();
+    if (!trimmed.startsWith('@')) {
+      throw new Error(`Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must start with '@'`);
+    }
+    if (trimmed.length < 2) {
+      throw new Error(
+        `Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must have at least one character after '@'`,
+      );
+    }
+    if (/\s/.test(trimmed)) {
+      throw new Error(`Invalid agentProvider mentionPattern '${trimmed}' in ${yamlPath}: must not contain whitespace`);
+    }
+    const lowered = trimmed.toLowerCase();
+    if (seenLowercased.has(lowered)) {
+      throw new Error(
+        `Invalid agentProvider mentionPatterns in ${yamlPath}: duplicate entries are not allowed (case-insensitive match on '${trimmed}')`,
+      );
+    }
+    seenLowercased.add(lowered);
+    patterns.push(trimmed);
+  }
+  return patterns;
+}
+
 export function parseAgentProviderResource(
   raw: Record<string, unknown>,
   name: string | undefined,
@@ -171,6 +235,14 @@ export function parseAgentProviderResource(
   const mcpWhitelistRequest = parseAgentProviderMcpWhitelistRequest(raw.mcpWhitelist, yamlPath);
   const sandboxRequest = parseAgentProviderSandboxRequest(raw.sandbox, yamlPath);
   const healthCheck = parseAgentProviderHealthCheck(raw.healthCheck, yamlPath);
+  // F241 Phase C 2c — Optional manifest identity claims.
+  // Pure schema additions: they feed the descriptor hash (any change forces
+  // re-approval) and become available for Hub UI pre-fill, but do NOT bypass
+  // admission or auto-promote routeability — host-owned `routeableBinding`
+  // remains the only routing truth source.
+  const providerId = parseAgentProviderProviderId(raw.providerId, yamlPath);
+  const displayName = parseAgentProviderDisplayName(raw.displayName, yamlPath);
+  const mentionPatterns = parseAgentProviderMentionPatterns(raw.mentionPatterns, yamlPath);
 
   return {
     name,
@@ -182,5 +254,8 @@ export function parseAgentProviderResource(
     ...(mcpWhitelistRequest ? { mcpWhitelistRequest } : {}),
     ...(sandboxRequest ? { sandboxRequest } : {}),
     ...(healthCheck ? { healthCheck } : {}),
+    ...(providerId ? { providerId } : {}),
+    ...(displayName ? { displayName } : {}),
+    ...(mentionPatterns ? { mentionPatterns } : {}),
   };
 }

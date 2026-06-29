@@ -77,6 +77,11 @@ describe('computeAgentProviderDescriptorHash — sensitivity (every input matter
     ['sandboxRequest', { resource: { sandboxRequest: 'workspace-read' } }],
     ['healthCheck type', { resource: { healthCheck: { type: 'acpInitialize' } } }],
     ['pluginFingerprint added', { pluginFingerprint: 'sha256:abc' }],
+    // F241 Phase C 2c — manifest identity claims feed the hash so any claim
+    // change forces re-approval.
+    ['providerId added', { resource: { providerId: 'clowder-code' } }],
+    ['displayName added', { resource: { displayName: 'Clowder Code' } }],
+    ['mentionPatterns added', { resource: { mentionPatterns: ['@clowder'] } }],
   ];
 
   for (const [label, override] of mutations) {
@@ -91,5 +96,45 @@ describe('computeAgentProviderDescriptorHash — sensitivity (every input matter
     const withPolicy = computeAgentProviderDescriptorHash(makeInputs({ resource: { sessionPolicy: 'resume' } }));
     const noPolicy = computeAgentProviderDescriptorHash(makeInputs({ resource: { sessionPolicy: undefined } }));
     assert.notEqual(withPolicy, noPolicy);
+  });
+
+  it('mentionPatterns hash is order-insensitive (set semantics)', () => {
+    const ascending = computeAgentProviderDescriptorHash(
+      makeInputs({ resource: { mentionPatterns: ['@a', '@b', '@c'] } }),
+    );
+    const descending = computeAgentProviderDescriptorHash(
+      makeInputs({ resource: { mentionPatterns: ['@c', '@b', '@a'] } }),
+    );
+    assert.equal(ascending, descending, 'mentionPatterns is a set; insertion order must not change the hash');
+  });
+
+  it('v: 2 hash differs from a pre-2c v: 1 hash for the same inputs (version-bump invalidates old approvals)', async () => {
+    // Recompute the v: 1 canonical shape that 2b shipped — same inputs minus
+    // the new identity-claim fields, with v: 1 in the version slot. If the
+    // production hash equals this, the version bump didn't take effect and
+    // operators upgrading from 2b would have their old approvals silently
+    // inherited under the new shape (bypassing the re-approval invariant).
+    const inputs = makeInputs();
+    const v1Canonical = {
+      v: 1,
+      pluginId: inputs.pluginId,
+      capId: inputs.capId,
+      transport: inputs.resource.transport,
+      command: inputs.resource.command,
+      startupArgs: [...inputs.resource.startupArgs],
+      resumeArgs: inputs.resource.resumeArgs ? [...inputs.resource.resumeArgs] : null,
+      sessionPolicy: inputs.resource.sessionPolicy ?? null,
+      outputProfile: inputs.resource.outputProfile ?? null,
+      timeoutMs: inputs.resource.timeoutMs ?? null,
+      mcpWhitelistRequest: inputs.resource.mcpWhitelistRequest
+        ? [...inputs.resource.mcpWhitelistRequest].slice().sort()
+        : null,
+      sandboxRequest: inputs.resource.sandboxRequest ?? null,
+      healthCheck: inputs.resource.healthCheck ?? null,
+      pluginFingerprint: inputs.pluginFingerprint ?? null,
+    };
+    const { createHash } = await import('node:crypto');
+    const v1Hash = createHash('sha256').update(JSON.stringify(v1Canonical)).digest('hex');
+    assert.notEqual(baseline, v1Hash, 'v: 2 must produce a different hash than v: 1 for the same descriptor inputs');
   });
 });
