@@ -5,9 +5,7 @@ import type { ChatMessage } from '../chat-types';
 // threadStates AND writes the deletion to the offline snapshot so the message
 // doesn't reappear on the next IDB first-paint.
 
-const saveThreadMessagesMock = vi.hoisted(() =>
-  vi.fn(async (_threadId: string, _messages: ChatMessage[], _hasMore: boolean) => {}),
-);
+const saveThreadMessagesMock = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock('@/utils/offline-store', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/offline-store')>();
