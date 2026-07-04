@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-04-eval-a2a-ordinary-monitoring-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-04-F167-eval.yaml",
+      "sha256": "bad7fec04c43a91e3c8a00e31d891f01cde97be979cb1c0d238a4779114a0dea"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-04-F167-attribution.yaml",
+      "sha256": "f0b628950fc57105615bc7b879529dce6e6dd202fa58784cd30b5063e8e16d48"
+    }
+  ],
+  "generatedAt": "2026-07-04T03:01:21.890Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
