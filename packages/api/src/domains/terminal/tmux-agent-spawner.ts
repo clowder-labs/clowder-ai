@@ -16,10 +16,10 @@ import type { Interface as ReadlineInterface } from 'node:readline';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { createModuleLogger } from '../../infrastructure/logger.js';
-import { buildCliDiagnostics } from '../../utils/cli-diagnostics.js';
-import { maybeCollectStreamError } from '../../utils/cli-spawn.js';
-import { resolveCliTimeoutMs } from '../../utils/cli-timeout.js';
-import type { CliSpawnOptions } from '../../utils/cli-types.js';
+import { buildCliDiagnostics } from '../../utils/cli/cli-diagnostics.js';
+import { maybeCollectStreamError } from '../../utils/cli/cli-spawn.js';
+import { resolveCliTimeoutMs } from '../../utils/cli/cli-timeout.js';
+import type { CliSpawnOptions } from '../../utils/cli/cli-types.js';
 // parseNDJSON not used directly — we create readline inline for killability.
 import type { SpawnCliOverride } from '../cats/services/types.js';
 import type { AgentPaneRegistry } from './agent-pane-registry.js';

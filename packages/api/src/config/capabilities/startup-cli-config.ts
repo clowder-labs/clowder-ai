@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { findMonorepoRoot } from '../../utils/monorepo-root.js';
+import { findMonorepoRoot } from '../../utils/paths/monorepo-root.js';
 import {
   type CliConfigPaths,
   generateCliConfigs,

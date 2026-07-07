@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 const { resolveCmdShimScript, resolveWindowsShimSpawn, escapeCmdArg, extractBareName, parseShimFile, findSystemNode } =
-  await import('../dist/utils/cli-spawn-win.js');
+  await import('../dist/utils/cli/cli-spawn-win.js');
 
 test(
   'resolveCmdShimScript supports %dp0 shims and keeps scanning where results until one resolves',

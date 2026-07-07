@@ -16,8 +16,8 @@ import {
   STANDARD_MOUNT_POINT_IDS,
 } from '@cat-cafe/shared';
 import { updateSkillMountPaths, writeSkillsSyncState } from '../../skills/skill-sync-config.js';
-import { pathsEqual } from '../../utils/project-path.js';
-import { computeSourceManifestHash } from '../../utils/skill-source.js';
+import { pathsEqual } from '../../utils/paths/project-path.js';
+import { computeSourceManifestHash } from '../../utils/skills/skill-source.js';
 import { readCapabilitiesConfig, writeCapabilitiesConfig } from '../capabilities/capability-orchestrator.js';
 import { readMountRules } from '../mount/mount-rules-store.js';
 import type { Provider } from './governance-pack.js';

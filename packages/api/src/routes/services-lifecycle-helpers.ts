@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ServiceLifecycleRunner, ServiceLifecycleRunResult } from '../domains/services/service-lifecycle.js';
 import { isValidModelId } from '../domains/services/service-lifecycle.js';
 import { MODEL_ENV_VARS, PORT_ENV_VARS } from '../domains/services/service-manifest.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
 
 export const DEFAULT_LIFECYCLE_TIMEOUT_MS = 30 * 60 * 1000;

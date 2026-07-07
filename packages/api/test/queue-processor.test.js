@@ -1595,6 +1595,7 @@ describe('QueueProcessor', () => {
     const entry = enqueueEntry(deps.queue, {
       source: 'connector',
       eventDrivenExternalWaitCoverage: true,
+      eventDrivenExternalWaitCoverageKeys: ['pr:owner/repo#1'],
     });
     deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-connector-covered');
 
@@ -1606,6 +1607,7 @@ describe('QueueProcessor', () => {
     const opts = call.arguments[6];
     assert.ok(opts && typeof opts === 'object', 'expected opts object');
     assert.equal(opts.eventDrivenExternalWaitCoverage, true);
+    assert.deepEqual(opts.eventDrivenExternalWaitCoverageKeys, ['pr:owner/repo#1']);
   });
 
   it('degrades when messageStore.getById throws: still executes without contentBlocks', async () => {

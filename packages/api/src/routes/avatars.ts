@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { AVATAR_RAW_FILE_LIMIT_BYTES } from '@cat-cafe/shared';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 
 const ACCEPTED_IMAGE_MIME = ['image/png', 'image/jpeg', 'image/webp'] as const;
 type AcceptedMime = (typeof ACCEPTED_IMAGE_MIME)[number];

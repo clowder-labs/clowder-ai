@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
-const { resolveMemoryRepoPaths } = await import('../dist/utils/memory-root.js');
+const { resolveMemoryRepoPaths } = await import('../dist/utils/paths/memory-root.js');
 
 describe('resolveMemoryRepoPaths', () => {
   const tmpDirs = [];

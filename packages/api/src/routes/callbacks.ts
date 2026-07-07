@@ -54,7 +54,7 @@ import { buildThreadDeepLink } from '../infrastructure/connectors/connector-comm
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
 import {

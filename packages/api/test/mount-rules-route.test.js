@@ -16,7 +16,7 @@ import { mountRulesRoutes } from '../dist/routes/mount-rules.js';
 import { mountSkillSymlinks } from '../dist/skills/skill-manage.js';
 import { syncAll } from '../dist/skills/skill-sync-all.js';
 import { syncProject } from '../dist/skills/skill-sync-engine.js';
-import { resolveCatCafeSkillsSource } from '../dist/utils/skill-source.js';
+import { resolveCatCafeSkillsSource } from '../dist/utils/skills/skill-source.js';
 
 function resolveRepoRoot() {
   return execFileSync('git', ['rev-parse', '--show-toplevel'], {

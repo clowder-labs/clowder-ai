@@ -469,11 +469,13 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
         if (opts.invokeTrigger) {
           try {
             const coalesceTargetCatId = routeResult.catId || task.ownerCatId || 'unassigned';
+            const eventDrivenExternalWaitCoverage = signal.eventDrivenExternalWaitCoverage === true;
             const policy: ConnectorTriggerPolicy = {
               priority: 'normal',
               reason: 'github_issue_comment',
               sourceCategory: 'issue',
-              eventDrivenExternalWaitCoverage: signal.eventDrivenExternalWaitCoverage === true,
+              eventDrivenExternalWaitCoverage,
+              eventDrivenExternalWaitCoverageKeys: eventDrivenExternalWaitCoverage ? [subjectKey] : [],
               coalesceKey: `${subjectKey}:issue-comment:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger

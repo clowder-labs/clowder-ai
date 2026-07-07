@@ -20,10 +20,10 @@ import { readMountRules } from '../config/mount/mount-rules-store.js';
 import { checkGlobal, checkProject } from '../skills/drift-detector.js';
 import { syncDrift } from '../skills/drift-resolver.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
-import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
+import { pathsEqual, validateProjectPath } from '../utils/paths/project-path.js';
+import { resolveStartupProjectRoot } from '../utils/paths/startup-root.js';
 import { resolveSessionUserId, resolveUserId } from '../utils/request-identity.js';
-import { resolveCatCafeSkillsSource } from '../utils/skill-source.js';
-import { resolveStartupProjectRoot } from '../utils/startup-root.js';
+import { resolveCatCafeSkillsSource } from '../utils/skills/skill-source.js';
 
 const STARTUP_REPO_ROOT = resolveStartupProjectRoot();
 

@@ -7,7 +7,7 @@
  * - processNext（用户级）：co-creator手动触发处理自己的下一条
  */
 
-import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import { resolveCliTimeoutMs } from '../../../../../utils/cli/cli-timeout.js';
 import { emitQueueUpdated, enrichQueueEntries } from '../../../../../utils/queue-enrichment.js';
 import { hydrateReplyPreview, type IMessageStore } from '../../stores/ports/MessageStore.js';
 import { mergeTokenUsage, type TokenUsage } from '../../types.js';
@@ -1269,6 +1269,7 @@ export class QueueProcessor {
           verdictPassWarningEnabled: entry.source !== 'connector',
           // Only policy-backed connector wakes prove a future callback/tracking path.
           eventDrivenExternalWaitCoverage: entry.eventDrivenExternalWaitCoverage === true,
+          eventDrivenExternalWaitCoverageKeys: entry.eventDrivenExternalWaitCoverageKeys ?? [],
         },
       )) {
         if (controller.signal.aborted) {

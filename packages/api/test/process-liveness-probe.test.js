@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-const { ProcessLivenessProbe } = await import('../dist/utils/ProcessLivenessProbe.js');
+const { ProcessLivenessProbe } = await import('../dist/utils/process/ProcessLivenessProbe.js');
 
 async function waitForBusySilent(probe, { timeoutMs = 3_000, burnMs = 180, settleMs = 40 } = {}) {
   const deadline = Date.now() + timeoutMs;
@@ -196,7 +196,7 @@ test(
   },
 );
 
-const { parseCpuTime } = await import('../dist/utils/ProcessLivenessProbe.js');
+const { parseCpuTime } = await import('../dist/utils/process/ProcessLivenessProbe.js');
 
 test('parseCpuTime handles mm:ss.SS format', () => {
   assert.equal(parseCpuTime('1:30.50'), (1 * 60 + 30.5) * 1000);

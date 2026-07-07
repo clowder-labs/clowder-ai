@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { BootstrapProgress, ExpeditionBootstrapService } from '../domains/memory/ExpeditionBootstrapService.js';
 import type { IndexStateManager } from '../domains/memory/IndexStateManager.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 interface SocketManagerLike {

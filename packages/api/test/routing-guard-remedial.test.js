@@ -82,10 +82,25 @@ describe('F177 Phase H — shouldRemediateRouting', () => {
         ...base,
         text: 'cloud / CI 已有结构化回调覆盖。\n\nExternal Wait: event-driven (pr:clowder-ai#32)',
         hasEventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['pr:clowder-ai#32'],
         needsGuard: true,
         attempted: false,
       }),
       false,
+    );
+  });
+
+  test('2b External Wait id must match verified callback coverage', () => {
+    assert.equal(
+      shouldRemediateRouting({
+        ...base,
+        text: 'issue comment 已有结构化回调覆盖。\n\nExternal Wait: event-driven (pr:clowder-ai#32)',
+        hasEventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['issue:clowder-ai#32'],
+        needsGuard: true,
+        attempted: false,
+      }),
+      true,
     );
   });
 
@@ -120,8 +135,21 @@ describe('F177 Phase H — hasValidRoutingExit', () => {
         ...base,
         text: '结论：已有结构化回调 + EYES>0，不续 hold_ball。\n\nExternal Wait: event-driven (github-pr-32)',
         hasEventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['github-pr-32'],
       }),
       true,
+    );
+  });
+
+  test('External Wait: event-driven(<id>) rejects mismatched coverage id', () => {
+    assert.equal(
+      hasValidRoutingExit({
+        ...base,
+        text: '结论：只有 issue comment 回调。\n\nExternal Wait: event-driven (pr:owner/repo#42)',
+        hasEventDrivenExternalWaitCoverage: true,
+        eventDrivenExternalWaitCoverageKeys: ['issue:owner/repo#42'],
+      }),
+      false,
     );
   });
 

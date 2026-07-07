@@ -14,7 +14,7 @@ writeFileSync(join(stubBinDir, 'kimi-cli'), '#!/bin/sh\nexit 1\n', { mode: 0o755
 process.env.PATH = `${stubBinDir}:${process.env.PATH}`;
 
 const { KimiAgentService } = await import('../dist/domains/cats/services/agents/providers/KimiAgentService.js');
-const { invalidateCliCommand } = await import('../dist/utils/cli-resolve.js');
+const { invalidateCliCommand } = await import('../dist/utils/cli/cli-resolve.js');
 
 async function collect(iterable) {
   const items = [];

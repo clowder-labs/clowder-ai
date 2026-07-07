@@ -4,10 +4,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { SavedImageAsset } from '../utils/image-storage.js';
-import { ImageUploadError, saveImageBufferToUploadDir } from '../utils/image-storage.js';
+import type { SavedImageAsset } from '../utils/media/image-storage.js';
+import { ImageUploadError, saveImageBufferToUploadDir } from '../utils/media/image-storage.js';
 
-export { ImageUploadError } from '../utils/image-storage.js';
+export { ImageUploadError } from '../utils/media/image-storage.js';
 
 const MAX_FILES = 5;
 

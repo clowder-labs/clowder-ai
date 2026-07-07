@@ -17,7 +17,11 @@ import {
   updateSkillMountPaths,
   writeSkillsSyncState,
 } from '../../dist/skills/skill-sync-config.js';
-import { checkStaleness, computeSourceManifestHash, listSourceSkillNames } from '../../dist/utils/skill-source.js';
+import {
+  checkStaleness,
+  computeSourceManifestHash,
+  listSourceSkillNames,
+} from '../../dist/utils/skills/skill-source.js';
 
 let tempDir;
 

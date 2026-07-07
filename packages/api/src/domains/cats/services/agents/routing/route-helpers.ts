@@ -171,6 +171,8 @@ export interface RouteOptions {
    *  Must be true only when the caller has verified callback/tracking coverage for
    *  the external id; text alone does not create a wake-up. */
   eventDrivenExternalWaitCoverage?: boolean | undefined;
+  /** Canonical external ids covered by that callback/tracking path. */
+  eventDrivenExternalWaitCoverageKeys?: readonly string[] | undefined;
 }
 
 export interface IncrementalContextResult {

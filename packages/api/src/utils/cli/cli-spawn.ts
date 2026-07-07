@@ -9,9 +9,11 @@ import { dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Span } from '@opentelemetry/api';
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
-import { createModuleLogger } from '../infrastructure/logger.js';
-import { registerLivenessProbe, unregisterLivenessProbe } from '../infrastructure/telemetry/instruments.js';
-import { emitOtelLog } from '../infrastructure/telemetry/otel-logger.js';
+import { createModuleLogger } from '../../infrastructure/logger.js';
+import { registerLivenessProbe, unregisterLivenessProbe } from '../../infrastructure/telemetry/instruments.js';
+import { emitOtelLog } from '../../infrastructure/telemetry/otel-logger.js';
+import { isParseError, parseNDJSON } from '../parsing/ndjson-parser.js';
+import { ProcessLivenessProbe } from '../process/ProcessLivenessProbe.js';
 import {
   buildCliDiagnostics,
   buildCliExitDiagnostic,
@@ -23,8 +25,6 @@ import { invalidateCliCommand } from './cli-resolve.js';
 import { resolveWindowsSpawnPlan } from './cli-spawn-win.js';
 import { resolveCliTimeoutMs } from './cli-timeout.js';
 import type { ChildProcessLike, CliSpawnOptions, SpawnFn } from './cli-types.js';
-import { isParseError, parseNDJSON } from './ndjson-parser.js';
-import { ProcessLivenessProbe } from './ProcessLivenessProbe.js';
 import { sanitizeCliStderr } from './sanitize-cli-stderr.js';
 
 const log = createModuleLogger('cli-spawn');
@@ -897,7 +897,9 @@ export function isCliTimeout(value: unknown): value is {
 /**
  * Type guard for liveness warning events from ProcessLivenessProbe (F118 Phase C)
  */
-export function isLivenessWarning(value: unknown): value is import('./ProcessLivenessProbe.js').LivenessWarningEvent {
+export function isLivenessWarning(
+  value: unknown,
+): value is import('../process/ProcessLivenessProbe.js').LivenessWarningEvent {
   return (
     typeof value === 'object' &&
     value !== null &&

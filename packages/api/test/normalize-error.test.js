@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-const { normalizeErrorMessage } = await import('../dist/utils/normalize-error.js');
+const { normalizeErrorMessage } = await import('../dist/utils/parsing/normalize-error.js');
 
 test('Error instance → .message', () => {
   assert.equal(normalizeErrorMessage(new Error('boom')), 'boom');

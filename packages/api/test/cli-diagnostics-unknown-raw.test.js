@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { buildCliDiagnostics } = await import('../dist/utils/cli-diagnostics.js');
+const { buildCliDiagnostics } = await import('../dist/utils/cli/cli-diagnostics.js');
 
 const debugRef = { command: 'test-cli', exitCode: 1, exitSignal: undefined, durationMs: 100 };
 

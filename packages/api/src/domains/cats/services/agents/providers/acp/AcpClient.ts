@@ -16,8 +16,8 @@ import { dirname, isAbsolute } from 'node:path';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
-import { resolveCliCommandOrBare } from '../../../../../../utils/cli-resolve.js';
-import { resolveWindowsSpawnPlan } from '../../../../../../utils/cli-spawn-win.js';
+import { resolveCliCommandOrBare } from '../../../../../../utils/cli/cli-resolve.js';
+import { resolveWindowsSpawnPlan } from '../../../../../../utils/cli/cli-spawn-win.js';
 import type {
   AcpAgentRequest,
   AcpContentBlock,

@@ -15,13 +15,13 @@ import {
   resolveEffectiveSkillMountPaths,
   validateSkillName,
 } from '../config/governance/skill-sync.js';
-import { pathsEqual } from '../utils/project-path.js';
+import { pathsEqual } from '../utils/paths/project-path.js';
 import {
   buildSkillMountTargets,
   createSkillSymlink,
   isManagedDirectoryLevelSkillsSymlink,
-} from '../utils/skill-mount.js';
-import { computeSourceManifestHash, listSourceSkillNames } from '../utils/skill-source.js';
+} from '../utils/skills/skill-mount.js';
+import { computeSourceManifestHash, listSourceSkillNames } from '../utils/skills/skill-source.js';
 import { updateConfigAfterSync, writeSkillsSyncState } from './skill-sync-config.js';
 
 function symlinkTargetFor(linkPath: string, sourcePath: string): string {

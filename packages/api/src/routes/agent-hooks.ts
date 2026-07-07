@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { getAgentHookStatus, syncAgentHooks } from '../agent-hooks/index.js';
-import { findMonorepoRoot } from '../utils/monorepo-root.js';
+import { findMonorepoRoot } from '../utils/paths/monorepo-root.js';
 
 export interface AgentHooksRouteOptions {
   projectRoot?: string;

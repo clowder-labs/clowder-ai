@@ -19,7 +19,7 @@ import { promisify } from 'node:util';
 import type { FastifyInstance } from 'fastify';
 import * as pty from 'node-pty';
 import { z } from 'zod';
-import { resolveCliCommand } from '../utils/cli-resolve.js';
+import { resolveCliCommand } from '../utils/cli/cli-resolve.js';
 
 const execFileAsync = promisify(execFile);
 

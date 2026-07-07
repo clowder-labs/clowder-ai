@@ -1,8 +1,8 @@
 import { lstat, readlink, realpath, symlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { DEFAULT_MOUNT_RULES, type MountRules, STANDARD_MOUNT_POINT_IDS } from '@cat-cafe/shared';
-import { pathsEqual } from './project-path.js';
-import { resolveStartupProjectRoot } from './startup-root.js';
+import { pathsEqual } from '../paths/project-path.js';
+import { resolveStartupProjectRoot } from '../paths/startup-root.js';
 
 export type SkillMountPointKey = 'claude' | 'codex' | 'gemini' | 'kimi';
 

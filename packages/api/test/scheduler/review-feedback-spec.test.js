@@ -699,6 +699,11 @@ describe('ReviewFeedbackTaskSpec', () => {
     const policy = triggered[0][6];
     assert.equal(policy.priority, 'urgent');
     assert.equal(policy.suggestedSkill, 'receive-review');
+    assert.notEqual(
+      policy.eventDrivenExternalWaitCoverage,
+      true,
+      'CHANGES_REQUESTED wake must not claim future event-driven callback coverage before a re-trigger exists',
+    );
   });
 
   it('APPROVED triggers with suggestedSkill=merge-gate (Phase C)', async () => {
@@ -777,6 +782,7 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(policy.priority, 'normal');
     assert.equal(policy.suggestedSkill, 'merge-gate');
     assert.equal(policy.eventDrivenExternalWaitCoverage, true);
+    assert.deepEqual(policy.eventDrivenExternalWaitCoverageKeys, ['pr:owner/repo#42']);
   });
 
   it('COMMENTED-only triggers with no suggestedSkill (Phase C)', async () => {
@@ -808,6 +814,11 @@ describe('ReviewFeedbackTaskSpec', () => {
     const policy = triggered[0][6];
     assert.equal(policy.priority, 'normal');
     assert.equal(policy.suggestedSkill, undefined);
+    assert.notEqual(
+      policy.eventDrivenExternalWaitCoverage,
+      true,
+      'COMMENTED wake must not claim future event-driven callback coverage before a re-trigger exists',
+    );
   });
 
   // ── #406: restart cursor persistence ──

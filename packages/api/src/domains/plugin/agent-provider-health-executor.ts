@@ -32,7 +32,7 @@ import type {
   AgentProviderHealthResult,
   PluginAgentProviderResource,
 } from '@cat-cafe/shared';
-import { resolveCliCommand } from '../../utils/cli-resolve.js';
+import { resolveCliCommand } from '../../utils/cli/cli-resolve.js';
 import type { ProviderTransportRegistry } from '../cats/services/agents/providers/transport/ProviderTransportRegistry.js';
 
 /** Inputs to a single health check run. */

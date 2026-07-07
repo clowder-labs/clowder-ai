@@ -37,11 +37,11 @@ import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orch
 // Reading process.env.LOG_DIR here would diverge from logger after a runtime
 // `PATCH /api/config/env` LOG_DIR edit — env-summary would lie about effective path.
 import { LOG_DIR_PATH } from '../infrastructure/logger.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
 import { configCatOrderRoutes } from './config-cat-order.js';
 
 const patchSchema = z.object({

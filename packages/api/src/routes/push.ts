@@ -4,7 +4,7 @@ import { requireConnectorWriteOwner, resolveConnectorSessionUserId } from '../co
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { PushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { IPushSubscriptionStore } from '../domains/cats/services/stores/ports/PushSubscriptionStore.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
 import {
   describeEndpoint,
   type PushDeliverySnapshot,

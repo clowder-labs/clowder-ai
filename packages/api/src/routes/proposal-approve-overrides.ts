@@ -11,7 +11,7 @@
 
 import type { CatId, ProposalApproveOverrides, ReportingMode, ThreadProposal } from '@cat-cafe/shared';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 
 /** Parsed approve-body overrides (preferredCats arrives as plain strings from zod). */
 export interface ApproveOverridesInput {

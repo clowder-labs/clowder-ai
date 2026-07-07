@@ -18,11 +18,11 @@ import { validateSkillName } from '../config/governance/skill-sync.js';
 import { readMountRules } from '../config/mount/mount-rules-store.js';
 import { classifyMountPath, syncProject } from '../skills/skill-sync-engine.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
-import { resolvePluginSkillSourcesForProject } from '../utils/plugin-skill-source.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveSessionUserId } from '../utils/request-identity.js';
-import { buildSkillMountTargets, createSkillSymlink, resolveMainRepoPath } from '../utils/skill-mount.js';
-import { listSourceSkillNames } from '../utils/skill-source.js';
+import { resolvePluginSkillSourcesForProject } from '../utils/skills/plugin-skill-source.js';
+import { buildSkillMountTargets, createSkillSymlink, resolveMainRepoPath } from '../utils/skills/skill-mount.js';
+import { listSourceSkillNames } from '../utils/skills/skill-source.js';
 import { resolveSkillsSourceDir } from './skills.js';
 
 function requireSkillsWriteAccess(request: FastifyRequest, reply: FastifyReply): { error?: string } {

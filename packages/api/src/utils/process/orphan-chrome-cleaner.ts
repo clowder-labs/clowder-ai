@@ -52,6 +52,7 @@ function isChromeBinary(args: string): boolean {
     args.startsWith('/Applications/Chromium.app/') ||
     /^\/(?:usr|opt|snap)\S*\/(?:google-chrome|chromium|chrome)/.test(args) ||
     // LL-056 ext: user-local cached Chromium (rod / puppeteer / playwright auto-downloads)
+    /^\/\S*\/Chromium(?:\s|$)/.test(args) ||
     /^\/\S*\/Chromium\.app\/Contents\/MacOS\/Chromium(?:\s|$)/.test(args) ||
     // LL-056 ext (Linux): Playwright/Puppeteer/Rod cache Chromium in chrome-linux[64]/ subdir
     /^\/\S*\/chrome-linux(?:64)?\/(?:chrome|headless_shell)(?:\s|$)/.test(args) ||
@@ -59,7 +60,8 @@ function isChromeBinary(args: string): boolean {
     /^\/\S*\/chrome-headless-shell(?:\s|$)/.test(args) ||
     // LL-056 ext: cached macOS Chromium helper processes (Renderer/GPU/Network/Plugin).
     // Scoped to binary-path prefix so prompt text can't false-match.
-    /\/Chromium\.app\/Contents\/Frameworks\//.test(binaryPath)
+    /\/Chromium\.app\/Contents\/Frameworks\//.test(binaryPath) ||
+    /\/Chromium Framework\.framework\/.+\/Helpers\/Chromium Helper/.test(binaryPath)
   );
 }
 

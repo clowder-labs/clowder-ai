@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
-const { readJsonlTail } = await import('../dist/utils/jsonl-tail-reader.js');
+const { readJsonlTail } = await import('../dist/utils/parsing/jsonl-tail-reader.js');
 
 function makeJsonlFile(entries) {
   const dir = mkdtempSync(join(tmpdir(), 'jsonl-tail-'));

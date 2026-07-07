@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import { checkGovernancePreflight } from '../config/governance/governance-preflight.js';
-import { findMonorepoRoot } from '../utils/monorepo-root.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { findMonorepoRoot } from '../utils/paths/monorepo-root.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const execFileAsync = promisify(execFile);

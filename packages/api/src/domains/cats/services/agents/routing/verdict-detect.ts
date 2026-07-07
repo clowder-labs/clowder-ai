@@ -13,7 +13,11 @@
  * shared-rules §10 已落地，本模块是不依赖猫配合的兜底信号。
  */
 
-import { finalRoutingSlot, hasEventDrivenExternalWaitExit, stripTrailingCatSignatures } from './final-routing-slot.js';
+import {
+  finalRoutingSlot,
+  hasCoveredEventDrivenExternalWaitExit,
+  stripTrailingCatSignatures,
+} from './final-routing-slot.js';
 
 /**
  * Review verdict 关键词。保守集，避免常见日常用语误报：
@@ -142,6 +146,8 @@ export interface VerdictWarningInput {
   readonly hasCoCreatorLineStartMention?: boolean;
   /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
   readonly hasEventDrivenExternalWaitCoverage?: boolean;
+  /** Canonical external wait ids covered by the verified callback/tracking path. */
+  readonly eventDrivenExternalWaitCoverageKeys?: readonly string[];
 }
 
 /**
@@ -160,6 +166,11 @@ export function shouldWarnVerdictWithoutPass(input: VerdictWarningInput): boolea
   if (hasHoldBallCall(input.toolNames)) return false;
   if (input.structuredTargetCats.length > 0) return false;
   if (input.hasCoCreatorLineStartMention) return false;
-  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return false;
+  if (
+    input.hasEventDrivenExternalWaitCoverage &&
+    hasCoveredEventDrivenExternalWaitExit(input.text, input.eventDrivenExternalWaitCoverageKeys)
+  ) {
+    return false;
+  }
   return true;
 }

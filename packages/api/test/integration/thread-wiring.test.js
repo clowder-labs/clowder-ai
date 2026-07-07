@@ -25,7 +25,7 @@ const { MessageStore } = await import('../../dist/domains/cats/services/stores/p
 const { ThreadStore } = await import('../../dist/domains/cats/services/stores/ports/ThreadStore.js');
 const { threadsRoutes } = await import('../../dist/routes/threads.js');
 const { messagesRoutes } = await import('../../dist/routes/messages.js');
-const { findMonorepoRoot } = await import('../../dist/utils/monorepo-root.js');
+const { findMonorepoRoot } = await import('../../dist/utils/paths/monorepo-root.js');
 
 // --- Helpers ---
 

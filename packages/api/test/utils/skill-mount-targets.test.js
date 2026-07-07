@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { DEFAULT_MOUNT_RULES } from '@cat-cafe/shared';
-import { buildMountPointDirCandidates, buildSkillMountTargets } from '../../dist/utils/skill-mount.js';
+import { buildMountPointDirCandidates, buildSkillMountTargets } from '../../dist/utils/skills/skill-mount.js';
 
 const PROJECT = '/tmp/proj';
 const HOME = '/Users/test';

@@ -40,6 +40,8 @@ created: 2026-02-26
 
 这条 gate 落到 `docs/SOP.md` 「outbound sync 基线修复」段（this PR 不顺手改 SOP，由 Phase 2 第一个真拆 PR 一起落）。
 
+**2026-07-07 PR #40 CI unblock**：满足第三轮 unblock 条件 (b)。同 PR 已将 `packages/api/src/utils` 按 `cli/process/media/paths/network/parsing/skills` 真拆，删除对应 `.dir-exceptions.json` 条目；`packages/api/src/infrastructure/harness-eval` 已低于阈值，也删除过期例外。其余仍超阈值目录仅续期到 2026-07-31。
+
 ### 5 目录 concrete split map
 
 | 目录 | 文件数 | Owner | 子目录拆分方案 | Target |
