@@ -149,6 +149,48 @@ describe('chatStore.removeThreadMessage — F070 stale-banner fix', () => {
     expect(hasMore).toBe(true);
   });
 
+  it('background replacement: persists only the final replacement snapshot, not an intermediate deletion', async () => {
+    const staleBanner = makeMsg('gov-blocked-stale');
+    const freshBanner = makeMsg('gov-blocked-fresh');
+    const other = makeMsg('other-msg');
+    resetStore('thread-active', {
+      messages: [],
+      threadStates: {
+        'thread-background': {
+          messages: [staleBanner, other],
+          hasMore: true,
+          isLoading: false,
+          isLoadingHistory: false,
+          hasActiveInvocation: false,
+          hasDraft: false,
+          intentMode: null,
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: {},
+          activeInvocations: {},
+          queue: [],
+          executionDigest: null,
+        } as never,
+      },
+    });
+
+    useChatStore.getState().replaceThreadMessages('thread-background', [freshBanner, other], true, { persist: true });
+
+    const bg = useChatStore.getState().threadStates['thread-background'];
+    expect(bg?.messages.map((m) => m.id)).toEqual(['gov-blocked-fresh', 'other-msg']);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(saveThreadMessagesMock).toHaveBeenCalledTimes(1);
+    const call = saveThreadMessagesMock.mock.calls[0];
+    expect(call).toBeDefined();
+    const [tid, msgs, hasMore] = call as unknown as [string, ChatMessage[], boolean];
+    expect(tid).toBe('thread-background');
+    expect(msgs.map((m) => m.id)).toEqual(['gov-blocked-fresh', 'other-msg']);
+    expect(hasMore).toBe(true);
+    expect(saveThreadMessagesMock).not.toHaveBeenCalledWith('thread-background', [other], true);
+  });
+
   it('no-op when message id is absent: does NOT touch snapshot', async () => {
     const existing = makeMsg('keep-me');
     resetStore('thread-active', {

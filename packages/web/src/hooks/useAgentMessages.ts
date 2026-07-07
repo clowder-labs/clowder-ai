@@ -494,7 +494,12 @@ export interface BackgroundStoreLike {
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   patchThreadMessage: (threadId: string, messageId: string, patch: ChatMessagePatch) => void;
   /** F183 Phase B1.7 — thread-scoped reducer write entry. See chatStore.ts. */
-  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
+  replaceThreadMessages: (
+    threadId: string,
+    msgs: ChatMessage[],
+    hasMore?: boolean,
+    options?: { persist?: boolean },
+  ) => void;
   /** F183 Phase B1.7 — explicit unread bump for reducer paths that bypass
    *  addMessageToThread's auto-increment. Used by bg error reducer wire-up
    *  when creating a new system_status bubble for non-current thread. */
@@ -1062,15 +1067,12 @@ export function consumeBackgroundSystemInfo(
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
       const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-      const threadMessages = options.store.getThreadState(msg.threadId).messages;
-      const existing = threadMessages.find(
+      const threadState = options.store.getThreadState(msg.threadId);
+      const existingIndex = threadState.messages.findIndex(
         (m: { variant?: string; extra?: { governanceBlocked?: { projectPath?: string } } }) =>
           m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
       );
-      if (existing) {
-        options.store.removeThreadMessage(msg.threadId, existing.id);
-      }
-      options.store.addMessageToThread(msg.threadId, {
+      const nextBanner: ChatMessage = {
         id: `gov-blocked-${msg.timestamp}-${options.nextBgSeq()}`,
         type: 'system',
         variant: 'governance_blocked',
@@ -1083,7 +1085,15 @@ export function consumeBackgroundSystemInfo(
             invocationId: invId,
           },
         },
-      });
+      };
+      const nextMessages =
+        existingIndex >= 0
+          ? threadState.messages.map((m, idx) => (idx === existingIndex ? nextBanner : m))
+          : [...threadState.messages, nextBanner];
+      options.store.replaceThreadMessages(msg.threadId, nextMessages, threadState.hasMore, { persist: true });
+      if (existingIndex < 0) {
+        options.store.incrementUnread(msg.threadId);
+      }
       consumed = true;
     } else if (isInternalSystemInfoTelemetry(parsed)) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads

@@ -312,6 +312,10 @@ export interface GlobalBubbleDefaults {
   cliOutput: BubbleExpandState;
 }
 
+type ReplaceThreadMessagesOptions = {
+  persist?: boolean;
+};
+
 /**
  * Resolve whether a bubble type should be expanded.
  * Priority: thread override > global config > fallback (collapsed).
@@ -699,11 +703,17 @@ export interface ChatState {
    * `replaceMessages` but for arbitrary thread (current OR background).
    * Used by `handleBackgroundAgentMessage` to apply reducer's nextMessages
    * to the target thread's state. Unlike `hydrateThread` (server-authoritative
-   * hydration with IDB persist), this is for per-event reducer mutations:
+   * hydration with IDB persist), this defaults to per-event reducer mutations:
    * no IDB write, no hasMore-required (defaults to existing thread.hasMore),
-   * mirrors flat when threadId === currentThreadId.
+   * mirrors flat when threadId === currentThreadId. Durable system-bubble
+   * replacements can opt into one final snapshot write with `persist: true`.
    */
-  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
+  replaceThreadMessages: (
+    threadId: string,
+    msgs: ChatMessage[],
+    hasMore?: boolean,
+    options?: ReplaceThreadMessagesOptions,
+  ) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
   patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
@@ -1664,10 +1674,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   // F183 Phase B1.7 — see interface comment.
-  replaceThreadMessages: (threadId, msgs, hasMore) => {
+  replaceThreadMessages: (threadId, msgs, hasMore, options) => {
     // F183 Phase E AC-E2 (砚砚 R2 P1 fix): same strict-gate as replaceMessages
     forwardStoreInvariantViolationsStrict(msgs, threadId);
-    return set((state) => {
+    set((state) => {
       if (threadId === state.currentThreadId) {
         revokeRemovedBlobUrls(state.messages, msgs);
         const nextHasMore = hasMore ?? state.hasMore;
@@ -1687,6 +1697,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
     });
+    if (options?.persist) {
+      const snapshot = get().getThreadState(threadId);
+      void saveMessagesSnapshot(threadId, msgs, snapshot.hasMore).catch(() => {});
+    }
   },
 
   hydrateThread: (threadId, msgs, hasMore) => {
