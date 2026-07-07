@@ -197,8 +197,16 @@ describe('GovernanceBlockedCard', () => {
     expect(onSelfClear).toHaveBeenCalledTimes(1);
   });
 
-  it('does not self-clear legacy unscoped banners because provider readiness cannot be proven', async () => {
+  it('self-clears legacy unscoped banners only when all governance provider scopes are ready', async () => {
     const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ready: true,
+        needsBootstrap: false,
+        needsConfirmation: false,
+      }),
+    });
 
     await act(async () => {
       root.render(
@@ -213,7 +221,40 @@ describe('GovernanceBlockedCard', () => {
       await Promise.resolve();
     });
 
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(mockApiFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=anthropic',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=google',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=kimi',
+    ]);
+    expect(onSelfClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps legacy unscoped banners visible when any provider scope is still blocked', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => ({
+      ok: true,
+      json: async () => ({
+        ready: !url.includes('clientId=openai'),
+        needsBootstrap: url.includes('clientId=openai'),
+        needsConfirmation: false,
+      }),
+    }));
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-legacy',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(4);
     expect(onSelfClear).not.toHaveBeenCalled();
   });
 
@@ -277,6 +318,7 @@ describe('GovernanceBlockedCard', () => {
         React.createElement(GovernanceBlockedCard, {
           projectPath: '/test/proj',
           reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
           onSelfClear,
         }),
       );

@@ -29,6 +29,8 @@ interface GovernanceStatusResponse {
   ready?: boolean;
 }
 
+const LEGACY_GOVERNANCE_SELF_HEAL_CLIENT_IDS = ['anthropic', 'openai', 'google', 'kimi'] as const;
+
 export function GovernanceBlockedCard({
   projectPath,
   reasonKind,
@@ -55,16 +57,21 @@ export function GovernanceBlockedCard({
   useEffect(() => {
     if (!onSelfClear || state !== 'idle') return;
     const scopedClientId = clientId?.trim();
-    if (!scopedClientId) return;
+    const clientIdsToProbe = scopedClientId ? [scopedClientId] : LEGACY_GOVERNANCE_SELF_HEAL_CLIENT_IDS;
     let canceled = false;
     (async () => {
       try {
-        const params = new URLSearchParams({ projectPath });
-        params.set('clientId', scopedClientId);
-        const res = await apiFetch(`/api/governance/status?${params.toString()}`);
-        if (canceled || !res.ok) return;
-        const data = (await res.json()) as GovernanceStatusResponse;
-        if (!canceled && data.ready === true) {
+        const readyByScope = await Promise.all(
+          clientIdsToProbe.map(async (probeClientId) => {
+            const params = new URLSearchParams({ projectPath });
+            params.set('clientId', probeClientId);
+            const res = await apiFetch(`/api/governance/status?${params.toString()}`);
+            if (!res.ok) return false;
+            const data = (await res.json()) as GovernanceStatusResponse;
+            return data.ready === true;
+          }),
+        );
+        if (!canceled && readyByScope.every(Boolean)) {
           onSelfClear();
         }
       } catch {
