@@ -34,7 +34,7 @@ import type {
   ThreadRoutingPolicyV1,
 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
 

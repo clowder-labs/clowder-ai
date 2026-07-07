@@ -494,7 +494,12 @@ export interface BackgroundStoreLike {
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   patchThreadMessage: (threadId: string, messageId: string, patch: ChatMessagePatch) => void;
   /** F183 Phase B1.7 — thread-scoped reducer write entry. See chatStore.ts. */
-  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
+  replaceThreadMessages: (
+    threadId: string,
+    msgs: ChatMessage[],
+    hasMore?: boolean,
+    options?: { persist?: boolean },
+  ) => void;
   /** F183 Phase B1.7 — explicit unread bump for reducer paths that bypass
    *  addMessageToThread's auto-increment. Used by bg error reducer wire-up
    *  when creating a new system_status bubble for non-current thread. */
@@ -532,6 +537,28 @@ interface SystemInfoConsumeResult {
   consumed: boolean;
   content: string;
   variant: 'info' | 'a2a_followup';
+}
+
+function normalizeGovernanceBlockedClientId(clientId: string | undefined): string | undefined {
+  const normalized = clientId?.trim().toLowerCase();
+  return normalized ? normalized : undefined;
+}
+
+function isSameGovernanceBlockedScope(
+  message: ChatMessage,
+  projectPath: string,
+  clientId: string | undefined,
+): boolean {
+  if (message.variant !== 'governance_blocked') return false;
+  const governanceBlocked = message.extra?.governanceBlocked;
+  if (governanceBlocked?.projectPath !== projectPath) return false;
+
+  const existingClientId = normalizeGovernanceBlockedClientId(governanceBlocked.clientId);
+  const incomingClientId = normalizeGovernanceBlockedClientId(clientId);
+  // Older persisted banners did not carry provider scope. Treat either missing
+  // clientId as project-scoped so the next scoped banner can replace stale legacy UI.
+  if (!existingClientId || !incomingClientId) return true;
+  return existingClientId === incomingClientId;
 }
 
 function recoverBackgroundStreamingMessage(
@@ -1062,15 +1089,17 @@ export function consumeBackgroundSystemInfo(
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
       const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-      const threadMessages = options.store.getThreadState(msg.threadId).messages;
-      const existing = threadMessages.find(
-        (m: { variant?: string; extra?: { governanceBlocked?: { projectPath?: string } } }) =>
-          m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
+      const clientId =
+        typeof parsed.clientId === 'string'
+          ? parsed.clientId
+          : typeof parsed.provider === 'string'
+            ? parsed.provider
+            : undefined;
+      const threadState = options.store.getThreadState(msg.threadId);
+      const nextMessagesWithoutStaleBanner = threadState.messages.filter(
+        (m) => !isSameGovernanceBlockedScope(m, projectPath, clientId),
       );
-      if (existing) {
-        options.store.removeThreadMessage(msg.threadId, existing.id);
-      }
-      options.store.addMessageToThread(msg.threadId, {
+      const nextBanner: ChatMessage = {
         id: `gov-blocked-${msg.timestamp}-${options.nextBgSeq()}`,
         type: 'system',
         variant: 'governance_blocked',
@@ -1081,9 +1110,13 @@ export function consumeBackgroundSystemInfo(
             projectPath,
             reasonKind: reasonKind as 'needs_bootstrap' | 'needs_confirmation' | 'files_missing',
             invocationId: invId,
+            clientId,
           },
         },
-      });
+      };
+      const nextMessages = [...nextMessagesWithoutStaleBanner, nextBanner];
+      options.store.replaceThreadMessages(msg.threadId, nextMessages, threadState.hasMore, { persist: true });
+      options.store.incrementUnread(msg.threadId);
       consumed = true;
     } else if (isInternalSystemInfoTelemetry(parsed)) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
@@ -5142,15 +5175,13 @@ export function useAgentMessages() {
             const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
             const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
             const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-            const existingBlocked = useChatStore
-              .getState()
-              .messages.find(
-                (m) => m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
-              );
-            if (existingBlocked) {
-              removeMessage(existingBlocked.id);
-            }
-            addMessage({
+            const clientId =
+              typeof parsed.clientId === 'string'
+                ? parsed.clientId
+                : typeof parsed.provider === 'string'
+                  ? parsed.provider
+                  : undefined;
+            const nextBanner: ChatMessage = {
               id: `gov-blocked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: 'system',
               variant: 'governance_blocked',
@@ -5161,9 +5192,29 @@ export function useAgentMessages() {
                   projectPath,
                   reasonKind: reasonKind as 'needs_bootstrap' | 'needs_confirmation' | 'files_missing',
                   invocationId: invId,
+                  clientId,
                 },
               },
-            });
+            };
+            const storeSnapshot = useChatStore.getState();
+            const threadId = msg.threadId ?? storeSnapshot.currentThreadId;
+            if (threadId) {
+              const baseMessages =
+                threadId === storeSnapshot.currentThreadId
+                  ? storeSnapshot.messages
+                  : storeSnapshot.getThreadState(threadId).messages;
+              const nextMessages = [
+                ...baseMessages.filter((m) => !isSameGovernanceBlockedScope(m, projectPath, clientId)),
+                nextBanner,
+              ];
+              const nextHasMore =
+                threadId === storeSnapshot.currentThreadId
+                  ? storeSnapshot.hasMore
+                  : storeSnapshot.getThreadState(threadId).hasMore;
+              storeSnapshot.replaceThreadMessages(threadId, nextMessages, nextHasMore, { persist: true });
+            } else {
+              addMessage(nextBanner);
+            }
             consumed = true;
           } else if (isInternalSystemInfoTelemetry(parsed)) {
             // Internal telemetry — suppress to avoid raw JSON bubbles

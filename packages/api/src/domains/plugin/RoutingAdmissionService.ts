@@ -99,6 +99,20 @@ export type RoutingAdmissionResult =
     };
 
 /**
+ * Normalize every routeable identity surface to the same key used by mention
+ * routing: trim whitespace, strip one leading `@`, then compare
+ * case-insensitively. Provider ids and cat ids normally have no `@`, so they
+ * naturally keep their bare lower-case key.
+ */
+export function normalizeRouteableIdentityClaim(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const withoutMentionPrefix = trimmed.startsWith('@') ? trimmed.slice(1).trim() : trimmed;
+  if (withoutMentionPrefix.length === 0) return undefined;
+  return withoutMentionPrefix.toLowerCase();
+}
+
+/**
  * Decide whether the candidate may be promoted to `routeable: true`.
  *
  * Order of checks is deliberate: cheapest / most-fundamental first.
@@ -133,8 +147,14 @@ export function admitForRouting(
     };
   }
 
+  const normalizedSnapshot = {
+    templateBaselineIds: normalizeIdentitySet(snapshot.templateBaselineIds),
+    existingRouteableIdentities: normalizeIdentitySet(snapshot.existingRouteableIdentities),
+    activeNonProviderTransportIdentities: normalizeIdentitySet(snapshot.activeNonProviderTransportIdentities),
+  };
+
   for (const claim of claims) {
-    if (snapshot.templateBaselineIds.has(claim)) {
+    if (normalizedSnapshot.templateBaselineIds.has(claim)) {
       return {
         admitted: false,
         reason: 'reserved-baseline-collision',
@@ -145,7 +165,7 @@ export function admitForRouting(
   }
 
   for (const claim of claims) {
-    if (snapshot.existingRouteableIdentities.has(claim)) {
+    if (normalizedSnapshot.existingRouteableIdentities.has(claim)) {
       return {
         admitted: false,
         reason: 'existing-routeable-collision',
@@ -156,7 +176,7 @@ export function admitForRouting(
   }
 
   for (const claim of claims) {
-    if (snapshot.activeNonProviderTransportIdentities.has(claim)) {
+    if (normalizedSnapshot.activeNonProviderTransportIdentities.has(claim)) {
       return {
         admitted: false,
         reason: 'active-cat-collision',
@@ -178,12 +198,11 @@ function collectIdentityClaims(candidate: RoutingAdmissionCandidate): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
   const push = (value: string | undefined): void => {
-    if (!value) return;
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return;
-    if (seen.has(trimmed)) return;
-    seen.add(trimmed);
-    ordered.push(trimmed);
+    const normalized = normalizeRouteableIdentityClaim(value);
+    if (!normalized) return;
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    ordered.push(normalized);
   };
   push(candidate.providerId);
   push(candidate.catId);
@@ -192,4 +211,13 @@ function collectIdentityClaims(candidate: RoutingAdmissionCandidate): string[] {
     push(pattern);
   }
   return ordered;
+}
+
+function normalizeIdentitySet(values: ReadonlySet<string>): ReadonlySet<string> {
+  const normalized = new Set<string>();
+  for (const value of values) {
+    const identity = normalizeRouteableIdentityClaim(value);
+    if (identity) normalized.add(identity);
+  }
+  return normalized;
 }

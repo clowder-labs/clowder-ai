@@ -5,7 +5,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { AuditEventTypes, type EventAuditLog, getEventAuditLog } from '../domains/cats/services/index.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import { validatePort } from '../domains/preview/port-validator.js';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 
 interface PreviewRouteOpts {
   portDiscovery: PortDiscoveryService;

@@ -130,6 +130,32 @@ describe('P1.3 — snapshot must include binding + active-cat mention patterns',
     );
   });
 
+  it('includes manifest providerId in existing routeable identities before descriptor name', () => {
+    const candidate = makeRow().descriptor;
+    const otherPluginEntry = {
+      id: 'other-plugin',
+      type: 'agentProvider',
+      enabled: true,
+      source: 'cat-cafe',
+      pluginId: 'other-plugin',
+      agentProvider: {
+        ...candidate,
+        name: 'my-provider',
+        providerId: 'openai',
+      },
+    };
+    const snapshot = buildAgentProviderAdmissionSnapshot({
+      capabilitiesConfig: { version: 1, capabilities: [otherPluginEntry] },
+      activeCatConfigs: {},
+      templateBaselineIds: new Set(),
+      hasProviderTransportConfig: () => false,
+      candidatePluginId: 'clowder-code',
+      candidateCapId: 'clowder-code',
+    });
+    assert.ok(snapshot.existingRouteableIdentities.has('openai'));
+    assert.equal(snapshot.existingRouteableIdentities.has('my-provider'), false);
+  });
+
   it('blocks @-alias collision with an active cat (mentionPatterns), not just the cat-id literal', () => {
     const snapshot = buildAgentProviderAdmissionSnapshot({
       capabilitiesConfig: { version: 1, capabilities: [] },

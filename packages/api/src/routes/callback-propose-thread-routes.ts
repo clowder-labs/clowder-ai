@@ -19,7 +19,7 @@ import type { IProposalStore } from '../domains/cats/services/stores/ports/Propo
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { normalizeCatIdMentionsInText } from '../utils/cat-mention-handle.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { buildProposalCardBlock } from './proposal-card-block.js';
 

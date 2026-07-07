@@ -312,6 +312,10 @@ export interface GlobalBubbleDefaults {
   cliOutput: BubbleExpandState;
 }
 
+type ReplaceThreadMessagesOptions = {
+  persist?: boolean;
+};
+
 /**
  * Resolve whether a bubble type should be expanded.
  * Priority: thread override > global config > fallback (collapsed).
@@ -699,11 +703,17 @@ export interface ChatState {
    * `replaceMessages` but for arbitrary thread (current OR background).
    * Used by `handleBackgroundAgentMessage` to apply reducer's nextMessages
    * to the target thread's state. Unlike `hydrateThread` (server-authoritative
-   * hydration with IDB persist), this is for per-event reducer mutations:
+   * hydration with IDB persist), this defaults to per-event reducer mutations:
    * no IDB write, no hasMore-required (defaults to existing thread.hasMore),
-   * mirrors flat when threadId === currentThreadId.
+   * mirrors flat when threadId === currentThreadId. Durable system-bubble
+   * replacements can opt into one final snapshot write with `persist: true`.
    */
-  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
+  replaceThreadMessages: (
+    threadId: string,
+    msgs: ChatMessage[],
+    hasMore?: boolean,
+    options?: ReplaceThreadMessagesOptions,
+  ) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
   patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
@@ -1664,10 +1674,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   // F183 Phase B1.7 — see interface comment.
-  replaceThreadMessages: (threadId, msgs, hasMore) => {
+  replaceThreadMessages: (threadId, msgs, hasMore, options) => {
     // F183 Phase E AC-E2 (砚砚 R2 P1 fix): same strict-gate as replaceMessages
     forwardStoreInvariantViolationsStrict(msgs, threadId);
-    return set((state) => {
+    set((state) => {
       if (threadId === state.currentThreadId) {
         revokeRemovedBlobUrls(state.messages, msgs);
         const nextHasMore = hasMore ?? state.hasMore;
@@ -1687,6 +1697,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
     });
+    if (options?.persist) {
+      const snapshot = get().getThreadState(threadId);
+      void saveMessagesSnapshot(threadId, msgs, snapshot.hasMore).catch(() => {});
+    }
   },
 
   hydrateThread: (threadId, msgs, hasMore) => {
@@ -2392,13 +2406,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  removeThreadMessage: (threadId, messageId) =>
+  removeThreadMessage: (threadId, messageId) => {
+    // F070 stale-banner fix (砚砚 R2 P1): writer must (a) mirror to threadStates so
+    // KD-2 (threadStates is the writer source) holds for the active thread too, and
+    // (b) persist the deletion to the offline snapshot — otherwise the message comes
+    // right back on the next IDB first-paint (the original governance_blocked stale-
+    // banner symptom).
+    let nextHasMore: boolean | undefined;
+    let nextSnapshot: ChatMessage[] | undefined;
     set((state) => {
       if (threadId === state.currentThreadId) {
         const nextMessages = state.messages.filter((m) => m.id !== messageId);
         if (nextMessages.length === state.messages.length) return state;
         revokeRemovedBlobUrls(state.messages, nextMessages);
-        return { messages: nextMessages };
+        nextHasMore = state.hasMore;
+        nextSnapshot = nextMessages;
+        return {
+          messages: nextMessages,
+          ...mirrorActiveFlat(state, { messages: nextMessages, hasMore: state.hasMore }),
+        };
       }
 
       const existing = state.threadStates[threadId];
@@ -2406,6 +2432,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const nextMessages = existing.messages.filter((m) => m.id !== messageId);
       if (nextMessages.length === existing.messages.length) return state;
       revokeRemovedBlobUrls(existing.messages, nextMessages);
+      nextHasMore = existing.hasMore;
+      nextSnapshot = nextMessages;
       return {
         threadStates: {
           ...state.threadStates,
@@ -2416,7 +2444,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         },
       };
-    }),
+    });
+    if (nextSnapshot !== undefined && nextHasMore !== undefined) {
+      void saveMessagesSnapshot(threadId, nextSnapshot, nextHasMore).catch(() => {});
+    }
+  },
 
   replaceThreadMessageId: (threadId, fromId, toId) =>
     set((state) => {
@@ -2814,7 +2846,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, unreadCount: ts.unreadCount + 1 },
+          [threadId]: { ...ts, unreadCount: ts.unreadCount + 1, lastActivity: Date.now() },
         },
       };
     }),

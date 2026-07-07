@@ -16,7 +16,7 @@ import { homedir } from 'node:os';
 import { delimiter, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
-import { resolveCatCafeSkillsSource } from '../../utils/skill-source.js';
+import { resolveCatCafeSkillsSource } from '../../utils/skills/skill-source.js';
 import { migrateCapabilitiesV1ToV2 } from '../governance/capabilities-migration.js';
 import {
   cleanStaleClaudeProjectOverrides,

@@ -642,6 +642,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <MessageActions key={msg.id} message={msg} threadId={threadId}>
           <ChatMessage
             message={msg}
+            threadId={threadId}
             getCatById={getCatById}
             onEditCat={handleEditCat}
             onEditCoCreator={handleEditCoCreator}

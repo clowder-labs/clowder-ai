@@ -118,7 +118,7 @@ export function projectRouteableAgentProviders(inputs: AgentProviderProjectionIn
     const candidate: RoutingAdmissionCandidate = {
       pluginId: row.pluginId,
       capId: row.capId,
-      providerId: descriptor.name,
+      providerId: descriptor.providerId ?? descriptor.name,
       catId: binding.catId,
       profileId: binding.profileId,
       mentionPatterns: binding.mentionPatterns,

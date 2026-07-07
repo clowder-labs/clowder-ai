@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import { checkGovernancePreflight } from '../config/governance/governance-preflight.js';
-import { findMonorepoRoot } from '../utils/monorepo-root.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { findMonorepoRoot } from '../utils/paths/monorepo-root.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const execFileAsync = promisify(execFile);
@@ -61,7 +61,7 @@ export const governanceStatusRoute: FastifyPluginAsync<GovernanceStatusRouteOpti
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
-    const query = request.query as { projectPath?: string };
+    const query = request.query as { projectPath?: string; clientId?: string; provider?: string };
     if (!query.projectPath) {
       reply.status(400);
       return { error: 'projectPath parameter is required' };
@@ -74,7 +74,8 @@ export const governanceStatusRoute: FastifyPluginAsync<GovernanceStatusRouteOpti
     }
 
     const catCafeRoot = opts?.catCafeRoot ?? findMonorepoRoot(process.cwd());
-    const preflight = await checkGovernancePreflight(validated, catCafeRoot);
+    const clientId = query.clientId || query.provider;
+    const preflight = await checkGovernancePreflight(validated, catCafeRoot, clientId);
 
     const [empty, gitRepo, gitOk] = await Promise.all([
       isEmptyDir(validated),

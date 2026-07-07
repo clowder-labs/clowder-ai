@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 
 await import('tsx/esm');
 const { cleanOrphanAgentBrowserChrome, parseAgentBrowserChromeCleanupPids, parseOrphanPids } = await import(
-  '../src/utils/orphan-chrome-cleaner.ts'
+  '../src/utils/process/orphan-chrome-cleaner.ts'
 );
 
 const fakeLog = {

@@ -167,6 +167,268 @@ describe('GovernanceBlockedCard', () => {
     expect(container.textContent).not.toContain('C:\\workspace\\tmp');
   });
 
+  it('calls onSelfClear when provider-scoped governance status is ready on mount (F070 stale-banner self-heal)', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ready: true,
+        needsBootstrap: false,
+        needsConfirmation: false,
+      }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-stale',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      // flush mount effect microtasks
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
+    expect(onSelfClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('self-clears legacy unscoped banners only when all governance provider scopes are ready', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ready: true,
+        needsBootstrap: false,
+        needsConfirmation: false,
+      }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-legacy',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=anthropic',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=google',
+      '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=kimi',
+    ]);
+    expect(onSelfClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps legacy unscoped banners visible when any provider scope is still blocked', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => ({
+      ok: true,
+      json: async () => ({
+        ready: !url.includes('clientId=openai'),
+        needsBootstrap: url.includes('clientId=openai'),
+        needsConfirmation: false,
+      }),
+    }));
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-legacy',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(4);
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
+  it('scopes self-heal status probe to the blocked cat provider', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: false,
+            needsBootstrap: true,
+            needsConfirmation: false,
+          }),
+        };
+      }
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: true,
+            needsBootstrap: false,
+            needsConfirmation: false,
+          }),
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-stale',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSelfClear when governance status is not ready', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ready: false,
+        needsBootstrap: true,
+        needsConfirmation: false,
+      }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+    // banner stays visible — bootstrap button still rendered
+    expect(container.querySelector('button')?.textContent).toContain('初始化治理并继续');
+  });
+
+  it('does not self-clear from registry-only health when project preflight is still blocked', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url === '/api/governance/health') {
+        return {
+          ok: true,
+          json: async () => ({
+            projects: [{ projectPath: '/test/proj', status: 'healthy' }],
+          }),
+        };
+      }
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: false,
+            needsBootstrap: false,
+            needsConfirmation: true,
+          }),
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_confirmation',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSelfClear when server omits the project', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ projects: [] }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSelfClear when health endpoint fails (network error)', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockRejectedValueOnce(new Error('network down'));
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSelfClear).not.toHaveBeenCalled();
+    expect(container.querySelector('button')?.textContent).toContain('初始化治理并继续');
+  });
+
+  it('skips self-heal probe when onSelfClear is not provided', async () => {
+    act(() => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+        }),
+      );
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
   it('resets to idle state when invocationId prop changes', async () => {
     mockApiFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })

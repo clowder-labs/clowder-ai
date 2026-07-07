@@ -20,9 +20,9 @@ import { join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
-import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { formatCliExitError } from '../../../../../utils/cli/cli-format.js';
+import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli/cli-spawn.js';
+import type { SpawnFn } from '../../../../../utils/cli/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
 import { transformDareEvent } from './dare-event-transform.js';
 

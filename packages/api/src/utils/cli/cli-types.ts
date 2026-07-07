@@ -6,7 +6,7 @@
 import type { Readable, Writable } from 'node:stream';
 import type { CatId } from '@cat-cafe/shared';
 import type { Span } from '@opentelemetry/api';
-import type { AgentMessage } from '../domains/cats/services/types.js';
+import type { AgentMessage } from '../../domains/cats/services/types.js';
 
 /**
  * Options for spawning a CLI process

@@ -336,9 +336,7 @@ describe('FirstRunQuestWizard', () => {
     await flushEffects();
 
     // Step 1: select 幼仔 template
-    const templateButton = Array.from(document.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('幼猫'),
-    );
+    const templateButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('幼猫'));
     expect(templateButton).toBeTruthy();
     await act(async () => {
       templateButton!.click();

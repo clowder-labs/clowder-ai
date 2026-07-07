@@ -262,11 +262,11 @@ import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { threadMemberStrategyRoutes } from './routes/thread-member-strategy.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
-import { resolveActiveProjectRoot } from './utils/active-project-root.js';
-import { resolveMemoryRepoPaths } from './utils/memory-root.js';
-import { findMonorepoRoot } from './utils/monorepo-root.js';
+import { getDefaultUploadDir } from './utils/media/upload-paths.js';
+import { resolveActiveProjectRoot } from './utils/paths/active-project-root.js';
+import { resolveMemoryRepoPaths } from './utils/paths/memory-root.js';
+import { findMonorepoRoot } from './utils/paths/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
-import { getDefaultUploadDir } from './utils/upload-paths.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
@@ -686,7 +686,7 @@ async function main(): Promise<void> {
   const { resolve } = await import('node:path');
   const { repoRoot, docsRoot, markersDir } = resolveMemoryRepoPaths(process.cwd());
 
-  const { initRepoIdentity, isSameRepo } = await import('./utils/is-same-repo.js');
+  const { initRepoIdentity, isSameRepo } = await import('./utils/paths/is-same-repo.js');
   initRepoIdentity(repoRoot);
 
   const { createMemoryServices } = await import('./domains/memory/factory.js');
@@ -3448,7 +3448,7 @@ async function main(): Promise<void> {
 
   // F145 P0: Kill orphan agent-browser headless Chrome processes from previous sessions.
   try {
-    const { cleanOrphanAgentBrowserChrome } = await import('./utils/orphan-chrome-cleaner.js');
+    const { cleanOrphanAgentBrowserChrome } = await import('./utils/process/orphan-chrome-cleaner.js');
     await cleanOrphanAgentBrowserChrome(app.log);
   } catch (err) {
     app.log.warn(`[api] Orphan Chrome cleanup failed (best-effort): ${String(err)}`);

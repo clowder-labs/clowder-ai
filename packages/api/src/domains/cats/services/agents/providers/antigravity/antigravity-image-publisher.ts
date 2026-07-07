@@ -3,7 +3,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { extname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
-import { ALLOWED_IMAGE_MIMES, type SupportedImageMime } from '../../../../../../utils/image-storage.js';
+import { ALLOWED_IMAGE_MIMES, type SupportedImageMime } from '../../../../../../utils/media/image-storage.js';
 import { type PublishedGeneratedImage, publishGeneratedImage } from '../generated-image-publication.js';
 import type { TrajectoryStep } from './AntigravityBridge.js';
 

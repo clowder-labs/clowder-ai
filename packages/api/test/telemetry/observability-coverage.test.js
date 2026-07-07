@@ -39,7 +39,7 @@ test('F153: liveness probe register/unregister lifecycle', async (t) => {
 });
 
 test('F153: cli-spawn wires liveness probes', () => {
-  const source = readFileSync(resolve(__dirname, '../../src/utils/cli-spawn.ts'), 'utf8');
+  const source = readFileSync(resolve(__dirname, '../../src/utils/cli/cli-spawn.ts'), 'utf8');
 
   // Must import both register and unregister
   assert.ok(source.includes('registerLivenessProbe'), 'cli-spawn must import registerLivenessProbe');

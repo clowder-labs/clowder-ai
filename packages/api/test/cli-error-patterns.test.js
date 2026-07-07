@@ -2,7 +2,7 @@
 
 import assert from 'node:assert';
 import test from 'node:test';
-import { classifyCliError } from '../dist/utils/cli-diagnostics.js';
+import { classifyCliError } from '../dist/utils/cli/cli-diagnostics.js';
 
 const fixtures = [
   // Existing (must regress — predates F212, must keep behavior)

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import { type CSSProperties, useCallback } from 'react';
 import { type CatData, formatCatName } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
@@ -71,6 +71,12 @@ function isConnectorSystemNotice(message: ChatMessageType): boolean {
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  /**
+   * Owning thread id for this message render. Required for thread-scoped store actions
+   * (e.g. clearing a stale F070 banner from a split-pane / background thread). Falls back
+   * to `currentThreadId` when omitted so legacy callers keep working.
+   */
+  threadId?: string;
   getCatById: (id: string) => CatData | undefined;
   onEditCat?: (catId: string) => void;
   /** F056 follow-up: click co-creator avatar to open editor (consistent with cat avatar behavior). */
@@ -90,6 +96,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({
   message,
+  threadId,
   getCatById,
   onEditCat,
   onEditCoCreator,
@@ -103,6 +110,17 @@ export function ChatMessage({
   const threads = useChatStore((s) => s.threads);
   const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
+  // F070 self-healing handler: drop a stale governance_blocked banner from its owning
+  // thread when the card's mount-time health probe confirms governance is healthy.
+  // 砚砚 R2 P1: must target the *rendering* thread (split-pane / background thread may
+  // not equal currentThreadId). Fall back to currentThreadId only when threadId prop
+  // is absent (legacy callers).
+  const removeThreadMessage = useChatStore((s) => s.removeThreadMessage);
+  const owningThreadId = threadId ?? currentThreadId;
+  const handleGovernanceBannerSelfClear = useCallback(() => {
+    if (!owningThreadId) return;
+    removeThreadMessage(owningThreadId, message.id);
+  }, [owningThreadId, message.id, removeThreadMessage]);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -237,8 +255,19 @@ export function ChatMessage({
     }
 
     if (message.variant === 'governance_blocked' && message.extra?.governanceBlocked) {
-      const { projectPath, reasonKind, invocationId } = message.extra.governanceBlocked;
-      return <GovernanceBlockedCard projectPath={projectPath} reasonKind={reasonKind} invocationId={invocationId} />;
+      const { projectPath, reasonKind, invocationId, clientId } = message.extra.governanceBlocked;
+      // F070 self-healing: banner is a transient store/IDB message — if governance has
+      // been initialized since (e.g. user confirmed elsewhere or earlier session), let
+      // the card clear itself on mount so a stale banner doesn't linger forever.
+      return (
+        <GovernanceBlockedCard
+          projectPath={projectPath}
+          reasonKind={reasonKind}
+          invocationId={invocationId}
+          clientId={clientId}
+          onSelfClear={handleGovernanceBannerSelfClear}
+        />
+      );
     }
 
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.

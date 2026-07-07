@@ -2,7 +2,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
-const MODULE_DEFAULT_UPLOAD_DIR = resolve(THIS_DIR, '../../uploads');
+const MODULE_DEFAULT_UPLOAD_DIR = resolve(THIS_DIR, '../../../uploads');
 
 /**
  * Resolve the upload directory.

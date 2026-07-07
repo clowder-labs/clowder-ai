@@ -9,7 +9,7 @@ const REPO_ROOT = resolve(API_DIR, '../..');
 describe('resolveMainRepoPath', () => {
   it('falls back to the repository root when git is unavailable', () => {
     const script = `
-const mod = await import('./dist/utils/skill-mount.js');
+const mod = await import('./dist/utils/skills/skill-mount.js');
 console.log(await mod.resolveMainRepoPath());
 `;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {

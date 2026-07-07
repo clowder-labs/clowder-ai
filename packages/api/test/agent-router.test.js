@@ -1474,7 +1474,7 @@ describe('AgentRouter', () => {
 
   test('passes workingDirectory when thread has non-default projectPath', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
-    const { findMonorepoRoot } = await import('../dist/utils/monorepo-root.js');
+    const { findMonorepoRoot } = await import('../dist/utils/paths/monorepo-root.js');
     // Keep this path inside the host repo: this test covers workingDirectory
     // propagation, not the external-project governance gate.
     const projectPath = findMonorepoRoot();

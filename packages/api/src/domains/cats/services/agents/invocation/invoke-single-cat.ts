@@ -69,12 +69,12 @@ import {
   recordToolUseSpan,
 } from '../../../../../infrastructure/telemetry/span-helpers.js';
 import { ToolSpanTracker } from '../../../../../infrastructure/telemetry/tool-span-tracker.js';
-import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
-import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
-import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
-import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
-import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
-import { tcpProbe } from '../../../../../utils/tcp-probe.js';
+import { resolveCliCommand } from '../../../../../utils/cli/cli-resolve.js';
+import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli/cli-timeout.js';
+import { tcpProbe } from '../../../../../utils/network/tcp-probe.js';
+import { resolveActiveProjectRoot } from '../../../../../utils/paths/active-project-root.js';
+import { findMonorepoRoot, isSameProject } from '../../../../../utils/paths/monorepo-root.js';
+import { isUnderAllowedRoot } from '../../../../../utils/paths/project-path.js';
 import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry.js';
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
 import { resolveBootcampWorkspaceRoot } from '../../bootcamp/workspace-root.js';
@@ -1244,7 +1244,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
       const catEntry = catRegistry.tryGet(catId as string);
-      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.clientId);
+      const clientId = catEntry?.config.clientId;
+      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, clientId);
       if (!preflight.ready) {
         const reasonKind = preflight.needsBootstrap
           ? 'needs_bootstrap'
@@ -1261,6 +1262,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             reasonKind,
             reason: preflight.reason,
             invocationId: params.parentInvocationId,
+            ...(clientId ? { clientId } : {}),
           }),
           timestamp: Date.now(),
         };

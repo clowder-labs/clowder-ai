@@ -25,9 +25,9 @@ import { basename, join, resolve } from 'node:path';
 import { type AgyProfileConfig, type CatId, type CliDiagnostics, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { buildCliDiagnostics, buildSilentCompletionDiagnostic } from '../../../../../utils/cli-diagnostics.js';
-import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
+import { buildCliDiagnostics, buildSilentCompletionDiagnostic } from '../../../../../utils/cli/cli-diagnostics.js';
+import { formatCliExitError } from '../../../../../utils/cli/cli-format.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli/cli-resolve.js';
 import {
   buildChildEnv,
   isCliError,
@@ -35,11 +35,11 @@ import {
   isCliTimeout,
   isLivenessWarning,
   spawnCli,
-} from '../../../../../utils/cli-spawn.js';
-import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
-import type { SpawnFn } from '../../../../../utils/cli-types.js';
-import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
-import { sanitizeCliStderr } from '../../../../../utils/sanitize-cli-stderr.js';
+} from '../../../../../utils/cli/cli-spawn.js';
+import { resolveCliTimeoutMs } from '../../../../../utils/cli/cli-timeout.js';
+import type { SpawnFn } from '../../../../../utils/cli/cli-types.js';
+import { sanitizeCliStderr } from '../../../../../utils/cli/sanitize-cli-stderr.js';
+import { readJsonlTail } from '../../../../../utils/parsing/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
@@ -916,7 +916,7 @@ export class GeminiAgentService implements AgentService {
             invocationId?: string;
             rawArchivePath?: string;
             // F212 Phase A (砚砚 2nd P2): cliDiagnostics piggyback on __cliTimeout
-            cliDiagnostics?: import('../../../../../utils/cli-diagnostics.js').CliDiagnostics;
+            cliDiagnostics?: import('../../../../../utils/cli/cli-diagnostics.js').CliDiagnostics;
           }
         | undefined;
       let cliErrorEvent:
@@ -928,7 +928,7 @@ export class GeminiAgentService implements AgentService {
             command: string;
             reasonCode?: string;
             // F212 Phase A: structured CLI diagnostics piggybacking on __cliError event
-            cliDiagnostics?: import('../../../../../utils/cli-diagnostics.js').CliDiagnostics;
+            cliDiagnostics?: import('../../../../../utils/cli/cli-diagnostics.js').CliDiagnostics;
           }
         | undefined;
       let cancelled = false;

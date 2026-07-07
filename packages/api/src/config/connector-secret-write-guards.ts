@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 import { normalizeTelegramBotToken } from '../infrastructure/connectors/telegram-token.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
 import { isConnectorSecret } from './connector-secrets-allowlist.js';
 

@@ -19,7 +19,7 @@ describe('image-storage', () => {
   });
 
   it('saves a validated image buffer to uploadDir and returns /uploads metadata', async () => {
-    const { saveImageBufferToUploadDir } = await import('../dist/utils/image-storage.js');
+    const { saveImageBufferToUploadDir } = await import('../dist/utils/media/image-storage.js');
 
     const result = await saveImageBufferToUploadDir({
       buffer: Buffer.from('fake-png'),
@@ -38,7 +38,7 @@ describe('image-storage', () => {
   });
 
   it('copies a local image file into uploadDir and returns canonical /uploads metadata', async () => {
-    const { copyImageFileToUploadDir } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir } = await import('../dist/utils/media/image-storage.js');
 
     const sourcePath = join(sourceDir, 'source.png');
     await writeFile(sourcePath, Buffer.from('source-png'));
@@ -59,7 +59,7 @@ describe('image-storage', () => {
   });
 
   it('rejects copied image files exceeding 10MB', async () => {
-    const { copyImageFileToUploadDir, ImageUploadError } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir, ImageUploadError } = await import('../dist/utils/media/image-storage.js');
 
     const sourcePath = join(sourceDir, 'too-large.png');
     await writeFile(sourcePath, Buffer.alloc(10 * 1024 * 1024 + 1));
@@ -78,7 +78,7 @@ describe('image-storage', () => {
 
   it('throws on duplicate target when onExists is error', async () => {
     const { copyImageFileToUploadDir, saveImageBufferToUploadDir, ImageUploadError } = await import(
-      '../dist/utils/image-storage.js'
+      '../dist/utils/media/image-storage.js'
     );
 
     const sourcePath = join(sourceDir, 'source.png');
@@ -125,7 +125,7 @@ describe('image-storage', () => {
   });
 
   it('reuses duplicate target when onExists is reuse', async () => {
-    const { copyImageFileToUploadDir } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir } = await import('../dist/utils/media/image-storage.js');
 
     const sourcePath = join(sourceDir, 'source.png');
     await writeFile(sourcePath, Buffer.from('source-png'));
@@ -151,7 +151,7 @@ describe('image-storage', () => {
   });
 
   it('honors onExists when source path already equals the target path', async () => {
-    const { copyImageFileToUploadDir, ImageUploadError } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir, ImageUploadError } = await import('../dist/utils/media/image-storage.js');
 
     const sourcePath = join(uploadDir, 'same-path.png');
     await writeFile(sourcePath, Buffer.from('already-published'));
@@ -181,7 +181,7 @@ describe('image-storage', () => {
   });
 
   it('rejects missing same-path source instead of returning phantom metadata', async () => {
-    const { copyImageFileToUploadDir } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir } = await import('../dist/utils/media/image-storage.js');
 
     const missingSourcePath = join(uploadDir, 'missing-same-path.png');
 
@@ -199,7 +199,7 @@ describe('image-storage', () => {
   });
 
   it('reuses an existing target when original source has been cleaned up', async () => {
-    const { copyImageFileToUploadDir } = await import('../dist/utils/image-storage.js');
+    const { copyImageFileToUploadDir } = await import('../dist/utils/media/image-storage.js');
 
     const existingTargetPath = join(uploadDir, 'recovered-image.png');
     const missingSourcePath = join(sourceDir, 'already-cleaned-up.png');

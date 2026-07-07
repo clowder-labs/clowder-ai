@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { isDirectLoopbackRequest } from './loopback-request.js';
+import { isDirectLoopbackRequest } from './network/loopback-request.js';
 import { resolveOwnerGate } from './owner-gate.js';
 
 export type PrivilegedRouteGuardResult = { ok: true; userId: string } | { ok: false; response: { error: string } };

@@ -17,8 +17,8 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_SPAWN_SRC = resolve(__dirname, '../../src/utils/cli-spawn.ts');
-const CLI_TYPES_SRC = resolve(__dirname, '../../src/utils/cli-types.ts');
+const CLI_SPAWN_SRC = resolve(__dirname, '../../src/utils/cli/cli-spawn.ts');
+const CLI_TYPES_SRC = resolve(__dirname, '../../src/utils/cli/cli-types.ts');
 const TYPES_SRC = resolve(__dirname, '../../src/domains/cats/services/types.ts');
 const CLAUDE_SERVICE_SRC = resolve(__dirname, '../../src/domains/cats/services/agents/providers/ClaudeAgentService.ts');
 const INVOKE_SRC = resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts');

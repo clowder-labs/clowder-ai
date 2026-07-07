@@ -16,7 +16,7 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import { GuideLifecycleService } from '../domains/guides/GuideLifecycleService.js';
 import { createGuideStoreBridge, type IGuideSessionStore } from '../domains/guides/GuideSessionRepository.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 
 // ---------------------------------------------------------------------------

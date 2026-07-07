@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 const { DEFAULT_CLI_TIMEOUT_MS, parseCliTimeoutMs, readCliTimeoutMsFromEnv, resolveCliTimeoutMs } = await import(
-  '../dist/utils/cli-timeout.js'
+  '../dist/utils/cli/cli-timeout.js'
 );
 
 describe('cli-timeout', () => {

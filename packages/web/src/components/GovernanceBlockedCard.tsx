@@ -6,6 +6,15 @@ interface GovernanceBlockedCardProps {
   projectPath: string;
   reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
   invocationId?: string;
+  /** Provider clientId from the blocked dispatch; keeps self-clear aligned with backend preflight. */
+  clientId?: string;
+  /**
+   * F070 self-healing (#TODO-followup): called when this banner detects that governance
+   * is already healthy on the server. Parent should remove the underlying transient
+   * message so a stale banner from a past failed invocation doesn't linger after the
+   * user has already initialized governance (in another thread / from CLI / earlier session).
+   */
+  onSelfClear?: () => void;
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -16,7 +25,19 @@ const REASON_LABELS: Record<string, string> = {
 
 type CardState = 'idle' | 'confirming' | 'retrying' | 'done' | 'error';
 
-export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId }: GovernanceBlockedCardProps) {
+interface GovernanceStatusResponse {
+  ready?: boolean;
+}
+
+const LEGACY_GOVERNANCE_SELF_HEAL_CLIENT_IDS = ['anthropic', 'openai', 'google', 'kimi'] as const;
+
+export function GovernanceBlockedCard({
+  projectPath,
+  reasonKind,
+  invocationId,
+  clientId,
+  onSelfClear,
+}: GovernanceBlockedCardProps) {
   const [state, setState] = useState<CardState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -28,6 +49,39 @@ export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId }:
       setErrorMsg('');
     }
   }, [invocationId]);
+
+  // F070 self-healing: if the server already considers this project healthy, the banner
+  // is stale (left over in store/IDB from a past failed invocation) — ask the parent to
+  // remove it. We only fire while the user has not interacted (state === 'idle'); once
+  // they've started bootstrap, the in-flight state machine owns the lifecycle.
+  useEffect(() => {
+    if (!onSelfClear || state !== 'idle') return;
+    const scopedClientId = clientId?.trim();
+    const clientIdsToProbe = scopedClientId ? [scopedClientId] : LEGACY_GOVERNANCE_SELF_HEAL_CLIENT_IDS;
+    let canceled = false;
+    (async () => {
+      try {
+        const readyByScope = await Promise.all(
+          clientIdsToProbe.map(async (probeClientId) => {
+            const params = new URLSearchParams({ projectPath });
+            params.set('clientId', probeClientId);
+            const res = await apiFetch(`/api/governance/status?${params.toString()}`);
+            if (!res.ok) return false;
+            const data = (await res.json()) as GovernanceStatusResponse;
+            return data.ready === true;
+          }),
+        );
+        if (!canceled && readyByScope.every(Boolean)) {
+          onSelfClear();
+        }
+      } catch {
+        // network failure — leave banner visible; user can still bootstrap manually
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, [projectPath, clientId, onSelfClear, state]);
 
   const handleBootstrap = useCallback(async () => {
     setState('confirming');

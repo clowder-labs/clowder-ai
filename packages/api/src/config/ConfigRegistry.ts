@@ -7,7 +7,7 @@
  */
 
 import { catRegistry } from '@cat-cafe/shared';
-import { DEFAULT_CLI_TIMEOUT_MS, readCliTimeoutMsFromEnv } from '../utils/cli-timeout.js';
+import { DEFAULT_CLI_TIMEOUT_MS, readCliTimeoutMsFromEnv } from '../utils/cli/cli-timeout.js';
 import { configStore } from './ConfigStore.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 import { getCoCreatorConfig } from './cat-config-loader.js';
