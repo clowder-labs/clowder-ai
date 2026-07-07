@@ -730,6 +730,53 @@ describe('ReviewFeedbackTaskSpec', () => {
     const policy = triggered[0][6];
     assert.equal(policy.priority, 'normal');
     assert.equal(policy.suggestedSkill, 'merge-gate');
+    assert.notEqual(
+      policy.eventDrivenExternalWaitCoverage,
+      true,
+      'review-intent approval wake must not claim CI-pass callback coverage',
+    );
+  });
+
+  it('APPROVED merge-intent wake grants event-driven wait coverage (Phase C)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const triggered = [];
+    const mergeIntentTask = mockTask(
+      {
+        repoFullName: 'owner/repo',
+        prNumber: 42,
+        catId: 'opus',
+        threadId: 'th-1',
+        userId: 'u-1',
+      },
+      { automationState: { intent: 'merge' } },
+    );
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: mockTaskStore([mergeIntentTask]),
+      fetchComments: async () => [],
+      fetchReviews: async () => [
+        { id: 1, author: 'reviewer', state: 'APPROVED', body: 'LGTM', submittedAt: '2026-01-01' },
+      ],
+      reviewFeedbackRouter: {
+        async route() {
+          return { kind: 'notified', threadId: 't1', catId: 'opus', messageId: 'm1', content: 'approved' };
+        },
+      },
+      invokeTrigger: {
+        trigger: (...args) => {
+          triggered.push(args);
+          return Promise.resolve();
+        },
+      },
+      log: noopLog,
+    });
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+    assert.equal(triggered.length, 1);
+    const policy = triggered[0][6];
+    assert.equal(policy.priority, 'normal');
+    assert.equal(policy.suggestedSkill, 'merge-gate');
+    assert.equal(policy.eventDrivenExternalWaitCoverage, true);
   });
 
   it('COMMENTED-only triggers with no suggestedSkill (Phase C)', async () => {

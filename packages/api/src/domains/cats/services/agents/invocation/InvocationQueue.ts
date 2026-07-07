@@ -46,6 +46,8 @@ export interface QueueEntry {
   position?: number;
   /** F175: skill hint for connector triggers — flows through as promptTags on execution */
   suggestedSkill?: string;
+  /** True only for connector wakes backed by verified external callback/tracking coverage. */
+  eventDrivenExternalWaitCoverage?: boolean;
   callerTraceContext?: CallerTraceContext;
   /** Explicit A2A trigger message for stream reply threading. */
   a2aTriggerMessageId?: string;
@@ -183,6 +185,9 @@ export class InvocationQueue {
           if (input.sourceCategory && !existing.sourceCategory) {
             existing.sourceCategory = input.sourceCategory;
           }
+          if (input.eventDrivenExternalWaitCoverage) {
+            existing.eventDrivenExternalWaitCoverage = true;
+          }
         }
         const position = q.findIndex((entry) => entry.id === existing.id);
         return {
@@ -222,6 +227,7 @@ export class InvocationQueue {
       sourceCategory: input.sourceCategory,
       continuationKey: input.continuationKey,
       suggestedSkill: input.suggestedSkill,
+      eventDrivenExternalWaitCoverage: input.eventDrivenExternalWaitCoverage,
       callerTraceContext: input.callerTraceContext,
       a2aTriggerMessageId: input.a2aTriggerMessageId,
       position: undefined,

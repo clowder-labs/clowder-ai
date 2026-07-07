@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-07-eval-a2a-stable-void-hold-baseline",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-07-F167-eval.yaml",
+      "sha256": "994093120156e5b39845aa9830caaa635582d3eace4158dc9fdd48ed33ec3b65"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-07-F167-attribution.yaml",
+      "sha256": "20690818bd295ccaa96d14aeac547302fbef55735d0160c1e728fc3290c21566"
+    }
+  ],
+  "generatedAt": "2026-07-07T03:01:28.927Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

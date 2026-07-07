@@ -167,6 +167,10 @@ export interface RouteOptions {
    *  Separate from frustrationAutoIssueEligible because A2A/multi-mention callbacks
    *  suppress frustration issues but still need verdict-pass handoff guards. */
   verdictPassWarningEnabled?: boolean | undefined;
+  /** Whether `External Wait: event-driven (...)` may count as a routing exit.
+   *  Must be true only when the caller has verified callback/tracking coverage for
+   *  the external id; text alone does not create a wake-up. */
+  eventDrivenExternalWaitCoverage?: boolean | undefined;
 }
 
 export interface IncrementalContextResult {

@@ -1577,6 +1577,37 @@ describe('QueueProcessor', () => {
     assert.equal(opts.a2aTriggerMessageId, undefined);
   });
 
+  it('executeEntry does not treat connector source alone as event-driven wait coverage', async () => {
+    const entry = enqueueEntry(deps.queue, { source: 'connector' });
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-connector');
+
+    await processor.processNext('t1', 'u1');
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.ok(deps.router.routeExecution.mock.calls.length > 0);
+    const call = deps.router.routeExecution.mock.calls[0];
+    const opts = call.arguments[6];
+    assert.ok(opts && typeof opts === 'object', 'expected opts object');
+    assert.notEqual(opts.eventDrivenExternalWaitCoverage, true);
+  });
+
+  it('executeEntry passes explicit queued event-driven wait coverage to routeExecution', async () => {
+    const entry = enqueueEntry(deps.queue, {
+      source: 'connector',
+      eventDrivenExternalWaitCoverage: true,
+    });
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-connector-covered');
+
+    await processor.processNext('t1', 'u1');
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.ok(deps.router.routeExecution.mock.calls.length > 0);
+    const call = deps.router.routeExecution.mock.calls[0];
+    const opts = call.arguments[6];
+    assert.ok(opts && typeof opts === 'object', 'expected opts object');
+    assert.equal(opts.eventDrivenExternalWaitCoverage, true);
+  });
+
   it('degrades when messageStore.getById throws: still executes without contentBlocks', async () => {
     deps.messageStore.getById = mock.fn(async () => {
       throw new Error('redis down');

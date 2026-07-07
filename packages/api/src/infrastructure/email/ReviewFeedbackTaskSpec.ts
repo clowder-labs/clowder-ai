@@ -22,6 +22,7 @@ export interface ReviewFeedbackSignal {
   task: TaskItem;
   repoFullName: string;
   prNumber: number;
+  headSha?: string;
   newComments: PrFeedbackComment[];
   newDecisions: PrReviewDecision[];
   commitCursor: () => Promise<void>;
@@ -388,6 +389,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 task,
                 repoFullName,
                 prNumber,
+                headSha: prMetadata?.headSha,
                 newComments,
                 newDecisions,
                 commitCursor: () =>
@@ -449,6 +451,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
           {
             repoFullName: signal.repoFullName,
             prNumber: signal.prNumber,
+            headSha: signal.headSha,
             newComments: signal.newComments,
             newDecisions: signal.newDecisions,
           },
@@ -457,6 +460,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             catId: task.ownerCatId ?? '',
             userId: task.userId ?? '',
             trackingInstructions: task.automationState?.trackingInstructions,
+            trackingInstructionsHeadSha: task.automationState?.trackingInstructionsHeadSha,
           },
         );
 
@@ -481,12 +485,15 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const hasApproved = !hasChangesRequested && signal.newDecisions.some((d) => d.state === 'APPROVED');
             const suggestedSkill = hasChangesRequested ? 'receive-review' : hasApproved ? 'merge-gate' : undefined;
             const coalesceTargetCatId = routeResult.catId || task.ownerCatId || 'unassigned';
+            const intent = task.automationState?.intent ?? 'review';
+            const eventDrivenExternalWaitCoverage = hasApproved ? intent === 'merge' : true;
 
             const policy: ConnectorTriggerPolicy = {
               priority: hasChangesRequested ? 'urgent' : 'normal',
               reason: 'github_review_feedback',
               sourceCategory: 'review',
               suggestedSkill,
+              eventDrivenExternalWaitCoverage,
               coalesceKey: `${subjectKey}:review-feedback:${coalesceTargetCatId}`,
             };
             void opts.invokeTrigger

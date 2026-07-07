@@ -140,7 +140,7 @@ async function loadRealRoster() {
 
 async function runRoute(service, threadId, extraServices = {}, mockOptions = {}) {
   return withCatRegistryLock(async () => {
-    const { thinkingMode = 'play', ...depsOptions } = mockOptions;
+    const { thinkingMode = 'play', routeOptions = {}, ...depsOptions } = mockOptions;
     const original = catRegistry.getAllConfigs();
     await loadRealRoster();
     const appended = [];
@@ -150,6 +150,7 @@ async function runRoute(service, threadId, extraServices = {}, mockOptions = {})
       const yielded = [];
       for await (const msg of routeSerial(deps, ['codex'], 'guard test', 'user1', threadId, {
         thinkingMode,
+        ...routeOptions,
       })) {
         yielded.push(msg);
       }
@@ -325,6 +326,25 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.deepEqual(codexMessages[0].mentions, ['opus']);
   });
 
+  test('event-driven wait coverage does not leak from first cat to A2A worklist targets', async () => {
+    const codexService = createSequenceService('codex', ['@opus']);
+    const opusService = createSequenceService('opus', ['External Wait: event-driven (pr:35)', '@co-creator']);
+
+    const { appended } = await runRoute(
+      codexService,
+      'thread-routing-guard-event-driven-coverage-per-cat',
+      { opus: opusService },
+      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+    );
+
+    assert.equal(opusService.calls.length, 2, 'A2A target must not inherit connector callback coverage');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting leaked coverage',
+    );
+  });
+
   test('debug A2A prompt sees validated first-pass content routed by remedial exit', async () => {
     const codexService = createSequenceService('codex', ['First-pass debug context.', '@opus']);
     const opusService = createSequenceService('opus', ['ack from opus'], { needsGuard: false });
@@ -377,6 +397,98 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
       yielded.filter((m) => m.type === 'text').map((m) => m.content),
       ['我先持球继续。'],
       'tool-only remedial exits keep the original text, so the live stream must re-emit it too',
+    );
+  });
+
+  test('event-driven external-wait remedial with verified callback coverage counts as route-only and keeps first-pass text visible', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [firstPass, 'External Wait: event-driven (pr:35)']);
+
+    const { appended, calls, yielded } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-remedial',
+      {},
+      {
+        routeOptions: { eventDrivenExternalWaitCoverage: true },
+      },
+    );
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'event-driven route-only remedial should count as a valid routing exit',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-syntax-hint'),
+      undefined,
+      'event-driven remedial exit should suppress inline-mention syntax hints for the preserved first-pass text',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'void-hold-hint'),
+      undefined,
+      'event-driven remedial exit should not be treated as a void hold',
+    );
+
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, firstPass);
+    assert.deepEqual(codexMessages[0].mentions, []);
+    assert.notEqual(codexMessages[0].mentionsUser, true);
+    assert.deepEqual(
+      yielded.filter((m) => m.type === 'text').map((m) => m.content),
+      [firstPass],
+      'live stream must surface the first-pass text, not the bare event-driven exit patch',
+    );
+  });
+
+  test('signed event-driven external-wait remedial with verified callback coverage counts as route-only and keeps first-pass text visible', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [
+      firstPass,
+      'External Wait: event-driven (pr:35)\n\n[砚砚/GPT-5.5]',
+    ]);
+
+    const { appended, calls, yielded } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-remedial-signed',
+      {},
+      { routeOptions: { eventDrivenExternalWaitCoverage: true } },
+    );
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'signed event-driven route-only remedial should count as a valid routing exit',
+    );
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-syntax-hint'),
+      undefined,
+      'signed event-driven remedial exit should suppress inline-mention syntax hints for the preserved text',
+    );
+
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, firstPass);
+    assert.deepEqual(
+      yielded.filter((m) => m.type === 'text').map((m) => m.content),
+      [firstPass],
+      'live stream must surface the first-pass text, not the signed event-driven exit patch',
+    );
+  });
+
+  test('event-driven external-wait remedial without verified callback coverage is rejected as missing route', async () => {
+    const firstPass = '我查完 current truth；不再 @codex，只剩外部 CI gate。';
+    const service = createSequenceService('codex', [firstPass, 'External Wait: event-driven (pr:35)']);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-remedial-no-coverage');
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    assert.notEqual(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'text-only event-driven wait must not count as a valid routing exit',
     );
   });
 
@@ -662,6 +774,115 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
     const spokenChunks = socketEvents.filter((e) => e.event === 'voice_chunk').map((e) => e.payload.text);
     assert.deepEqual(spokenChunks, ['我先持球继续。'], 'voice TTS should match the preserved live text');
+  });
+
+  test('2b event-driven external wait final slot with verified callback coverage counts as a routing exit without remedial invoke', async () => {
+    const service = createSequenceService('codex', [
+      'cloud / CI 已有结构化回调覆盖，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(
+      service,
+      'thread-routing-guard-event-driven-wait',
+      {},
+      {
+        routeOptions: { eventDrivenExternalWaitCoverage: true },
+      },
+    );
+
+    assert.equal(calls.length, 1, 'explicit 2b event-driven external wait should not trigger remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'event-driven external wait should not emit routing guard failure',
+    );
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
+  test('2b event-driven external wait rejects PR tracking registration without pickup proof', async () => {
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'tool_use',
+          toolName: 'cat_cafe_register_pr_tracking',
+          toolInput: { repoFullName: 'clowder-labs/clowder-ai', prNumber: 35 },
+        },
+        {
+          type: 'tool_result',
+          toolName: 'cat_cafe_register_pr_tracking',
+          content: '{"status":"ok","threadId":"thread-routing-guard-event-driven-register"}',
+        },
+        {
+          type: 'text',
+          content:
+            '已注册 PR tracking，后续 review/CI 会结构化回调。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#35)',
+        },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-register');
+
+    assert.equal(calls.length, 2, 'same-turn PR tracking registration alone should not prevent a remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting PR tracking registration alone',
+    );
+  });
+
+  test('2b event-driven external wait honors issue tracking registered earlier in the same turn', async () => {
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'tool_use',
+          toolName: 'cat_cafe_register_issue_tracking',
+          toolInput: { repoFullName: 'clowder-labs/clowder-ai', issueNumber: 35 },
+        },
+        {
+          type: 'tool_result',
+          toolName: 'cat_cafe_register_issue_tracking',
+          content: '{"status":"ok","threadId":"thread-routing-guard-event-driven-issue-register"}',
+        },
+        {
+          type: 'text',
+          content:
+            '已注册 issue tracking，后续评论会结构化回调。\n\nExternal Wait: event-driven (issue:clowder-labs/clowder-ai#35)',
+        },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-issue-register');
+
+    assert.equal(calls.length, 1, 'same-turn issue tracking registration should prevent a remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'confirmed issue tracking registration should count as verified callback coverage for 2b',
+    );
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.match(codexMessages[0].content, /External Wait: event-driven/);
+  });
+
+  test('2b event-driven external wait final slot without verified callback coverage still gets remedial invoke', async () => {
+    const service = createSequenceService('codex', [
+      'cloud / CI 也许会回调，不需要 hold_ball。\n\nExternal Wait: event-driven (pr:clowder-labs/clowder-ai#32)',
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-event-driven-wait-no-coverage');
+
+    assert.equal(calls.length, 2, 'text-only event-driven external wait should still trigger remedial invoke');
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'valid follow-up remedial exit should avoid failure after rejecting the text-only event wait',
+    );
   });
 
   test('guard-disabled cat still runs once and keeps legacy non-blocking hint behavior', async () => {

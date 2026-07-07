@@ -24,6 +24,8 @@ export interface ValidationInput {
   readonly structuredTargetCats: readonly string[];
   /** Roster handle whitelist (from cat-config). Non-roster @ mentions are ignored. */
   readonly rosterHandles: readonly string[];
+  /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
+  readonly hasEventDrivenExternalWaitCoverage?: boolean;
 }
 
 export type ValidationResult =
@@ -37,6 +39,50 @@ export type ValidationResult =
 const MARKDOWN_LINE_PREFIX_RE = /^(?:(?:>\s*)|(?:[-*+]\s+)|(?:\d+[.)]\s+))+/;
 const URL_RE = /https?:\/\/[^\s)\]]+/g;
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
+const EVENT_DRIVEN_EXTERNAL_WAIT_RE =
+  /^(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))?External Wait\s*:\s*event-driven\s*\((?!\s*\))[^)\r\n]+\)\s*$/i;
+const CAT_SIGNATURE_LINE_RE = /^\s*\[(?:[^[\]\n]+\/[^[\]\n]+|[^[\]\n]+🐾)\]\s*$/u;
+
+/**
+ * Strip trailing cat-signature paragraphs so final-slot checks land on the last
+ * content paragraph. Body bracket tokens like `[Phase B]` are preserved because
+ * they do not match the slashed-or-paw signature shape.
+ */
+export function stripTrailingCatSignatures(text: string): string {
+  if (!text) return text;
+  const lines = text.split(/\r?\n/);
+  let lastContentIdx = lines.length - 1;
+  while (lastContentIdx >= 0) {
+    const line = lines[lastContentIdx] ?? '';
+    if (line.trim() === '' || CAT_SIGNATURE_LINE_RE.test(line)) {
+      lastContentIdx--;
+      continue;
+    }
+    break;
+  }
+  if (lastContentIdx < 0) return '';
+  return lines.slice(0, lastContentIdx + 1).join('\n');
+}
+
+function selectFinalRoutingSlot(text: string, options: { stripUrls: boolean }): string {
+  if (!text) return '';
+
+  const noFence = text.replace(FENCED_CODE_RE, '');
+
+  const noQuote = noFence
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*>/.test(line))
+    .join('\n');
+
+  const slotSource = options.stripUrls ? noQuote.replace(URL_RE, '') : noQuote;
+
+  const paragraphs = slotSource
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1]! : '';
+}
 
 /**
  * Extract final routing slot = structurally-stripped last non-empty paragraph.
@@ -53,23 +99,26 @@ const FENCED_CODE_RE = /```[\s\S]*?```/g;
  * later (via optional param), this function's signature can be extended.
  */
 export function finalRoutingSlot(text: string): string {
-  if (!text) return '';
+  return selectFinalRoutingSlot(text, { stripUrls: true });
+}
 
-  const noFence = text.replace(FENCED_CODE_RE, '');
+function finalRoutingSlotPreservingUrls(text: string): string {
+  return selectFinalRoutingSlot(text, { stripUrls: false });
+}
 
-  const noQuote = noFence
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*>/.test(line))
-    .join('\n');
+function slotHasEventDrivenExternalWaitExit(slot: string): boolean {
+  if (!slot) return false;
+  return slot.split(/\r?\n/).some((line) => EVENT_DRIVEN_EXTERNAL_WAIT_RE.test(line.trim()));
+}
 
-  const noUrl = noQuote.replace(URL_RE, '');
-
-  const paragraphs = noUrl
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  return paragraphs.length > 0 ? paragraphs[paragraphs.length - 1]! : '';
+/**
+ * True iff the final routing slot contains the documented structural 2b external-wait exit.
+ *
+ * This is deliberately a slot-template check, not a natural-language intent classifier.
+ */
+export function hasEventDrivenExternalWaitExit(text: string | undefined): boolean {
+  if (!text) return false;
+  return slotHasEventDrivenExternalWaitExit(finalRoutingSlotPreservingUrls(stripTrailingCatSignatures(text)));
 }
 
 /**
@@ -132,6 +181,7 @@ export function findInlineMentionsInSlot(slot: string, rosterHandles: readonly s
  *   - legitimate line-start @mention present
  *   - hold_ball tool call present
  *   - structured MCP routing (targetCats / multi_mention targets) present
+ *   - structural 2b external wait slot present with verified callback coverage
  *   - no inline @handle inside final routing slot
  *
  * Returns `invalid_route_syntax` when NONE of the above AND slot has inline @handle.
@@ -142,6 +192,8 @@ export function validateRoutingSyntax(input: ValidationInput): ValidationResult 
   if (input.structuredTargetCats.length > 0) return { kind: 'ok' };
 
   const slot = finalRoutingSlot(input.text);
+  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) return { kind: 'ok' };
+
   const inlineMentions = findInlineMentionsInSlot(slot, input.rosterHandles);
   if (inlineMentions.length === 0) return { kind: 'ok' };
 

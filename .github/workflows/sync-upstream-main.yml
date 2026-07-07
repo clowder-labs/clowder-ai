@@ -35,7 +35,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Configure git
@@ -77,9 +77,40 @@ jobs:
 
       - name: Gate merged main
         if: steps.main.outputs.changed == 'true'
+        # Runs the same gate the upstream CI workflow enforces, but expanded
+        # explicitly so we can skip `pnpm check:capability-tips`. That check is
+        # an incremental guard (each PR adding a new feature doc must also add
+        # a matching capability tip), gated on `git diff origin/main...HEAD`.
+        # In this batch-merge sync context, that diff includes every upstream
+        # commit's file changes, so every newly synced feature/skill file is
+        # treated as "missing" — which is the wrong semantics for sync. The
+        # incremental check still runs on regular PRs against fork develop,
+        # where the diff range is correct.
+        #
+        # GIT_* env vars mirror upstream ci.yml's Test (Public) job (added in
+        # upstream PR #994). F208 execute-apply tests spawn `git commit` inside
+        # scripts/with-test-home.sh sandbox, which switches HOME and drops the
+        # workflow's `git config` settings — env vars survive that switch.
+        env:
+          GIT_AUTHOR_NAME: CI Runner
+          GIT_AUTHOR_EMAIL: ci@clowder-ai.dev
+          GIT_COMMITTER_NAME: CI Runner
+          GIT_COMMITTER_EMAIL: ci@clowder-ai.dev
         run: |
           set -euo pipefail
-          pnpm check
+          pnpm biome check . --diagnostic-level=error
+          pnpm check:features
+          pnpm check:sop-definitions
+          pnpm check:skills:manifest
+          pnpm check:skills:surfaces
+          pnpm check:env-ports
+          pnpm check:env-registry
+          pnpm check:env-example
+          pnpm check:start-profile-isolation
+          pnpm check:pre-merge-gate
+          pnpm check:guides
+          pnpm check:followup-tails
+          pnpm check:scripts-ascii-only
           pnpm --filter @cat-cafe/shared build
           pnpm --filter @cat-cafe/api build
           pnpm --filter @cat-cafe/web build

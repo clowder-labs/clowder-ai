@@ -42,6 +42,7 @@ export interface PrReviewDecision {
 export interface ReviewFeedbackSignal {
   readonly repoFullName: string;
   readonly prNumber: number;
+  readonly headSha?: string;
   readonly newComments: readonly PrFeedbackComment[];
   readonly newDecisions: readonly PrReviewDecision[];
 }
@@ -66,13 +67,23 @@ export class ReviewFeedbackRouter {
 
   async route(
     signal: ReviewFeedbackSignal,
-    tracking: { threadId: string; catId: string; userId: string; trackingInstructions?: string },
+    tracking: {
+      threadId: string;
+      catId: string;
+      userId: string;
+      trackingInstructions?: string;
+      trackingInstructionsHeadSha?: string;
+    },
   ): Promise<ReviewFeedbackRouteResult> {
     if (signal.newComments.length === 0 && signal.newDecisions.length === 0) {
       return { kind: 'skipped', reason: 'no new feedback' };
     }
 
-    const content = buildReviewFeedbackContent(signal, tracking.trackingInstructions);
+    const content = buildReviewFeedbackContent(
+      signal,
+      tracking.trackingInstructions,
+      tracking.trackingInstructionsHeadSha,
+    );
 
     const source: ConnectorSource = {
       connector: 'github-review-feedback',
@@ -106,7 +117,11 @@ export class ReviewFeedbackRouter {
 
 // ── Message Formatting (OQ-2: three-section aggregation) ───────────
 
-export function buildReviewFeedbackContent(signal: ReviewFeedbackSignal, trackingInstructions?: string): string {
+export function buildReviewFeedbackContent(
+  signal: ReviewFeedbackSignal,
+  trackingInstructions?: string,
+  trackingInstructionsHeadSha?: string,
+): string {
   const lines: string[] = [];
 
   // F140 Phase E.1: prepend severity header when comments/decisions contain
@@ -170,11 +185,22 @@ export function buildReviewFeedbackContent(signal: ReviewFeedbackSignal, trackin
   }
 
   // F202 Phase 2C (AC-C2): append user-provided tracking instructions
-  if (trackingInstructions) {
+  if (shouldAppendTrackingInstructions(trackingInstructions, signal.headSha, trackingInstructionsHeadSha)) {
     lines.push('', '📌 **Tracking Instructions**', trackingInstructions);
   }
 
   return lines.join('\n');
+}
+
+function shouldAppendTrackingInstructions(
+  trackingInstructions: string | undefined,
+  currentHeadSha: string | undefined,
+  instructionsHeadSha: string | undefined,
+): trackingInstructions is string {
+  if (!trackingInstructions) return false;
+  if (!instructionsHeadSha) return true;
+  if (!currentHeadSha) return false;
+  return instructionsHeadSha === currentHeadSha;
 }
 
 function decisionEmoji(state: PrReviewDecision['state']): string {

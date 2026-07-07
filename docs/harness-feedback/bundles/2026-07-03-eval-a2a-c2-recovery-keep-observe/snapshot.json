@@ -1,0 +1,62 @@
+{
+  "verdictId": "2026-07-03-eval-a2a-c2-recovery-keep-observe",
+  "evalSnapshotId": "eval-F167-2026-07-03",
+  "featureId": "F167",
+  "generatedAt": "2026-07-03T03:01:19.248Z",
+  "window": {
+    "startMs": 1782961389561,
+    "endMs": 1783047600834,
+    "durationHours": 23.94757583333333
+  },
+  "components": [
+    {
+      "id": "L1",
+      "name": "WorklistRegistry (ping-pong breaker)",
+      "confidence": "medium",
+      "activationCounts": {
+        "l1.streak_warn_count": 0,
+        "l1.streak_break_count": 0
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 0
+      },
+      "frictionCounts": {
+        "c1.zombie_hold_count": 0,
+        "c1.hold_cancel_count": 0
+      }
+    },
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": null,
+        "c2.verdict_hint_emitted": 0,
+        "c2.checked": 248,
+        "c2.void_hold_checked": 248
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 0,
+        "c2.void_hold_hint_emitted": 3
+      }
+    },
+    {
+      "id": "route-serial",
+      "name": "route-serial (A2A handoff routing)",
+      "confidence": "high",
+      "activationCounts": {
+        "inline_action.checked": 248,
+        "line_start.detected": 69
+      },
+      "frictionCounts": {
+        "inline_action.routed_set_skip": 1
+      }
+    }
+  ]
+}

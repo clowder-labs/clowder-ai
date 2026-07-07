@@ -271,6 +271,40 @@ describe('ConnectorInvokeTrigger', () => {
     );
   });
 
+  it('connector direct route without callback policy does not mark event-driven waits covered', async () => {
+    const trigger = createTrigger();
+    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Plain connector msg', 'msg-plain');
+    await waitForTrigger();
+
+    assert.strictEqual(routerMock.calls.length, 1);
+    assert.notStrictEqual(
+      routerMock.calls[0].options?.eventDrivenExternalWaitCoverage,
+      true,
+      'plain bound-chat connector messages must not count as callback-covered external waits',
+    );
+  });
+
+  it('connector direct route carries explicit event-driven callback coverage policy', async () => {
+    const trigger = createTrigger();
+    trigger.trigger(
+      'thread-1',
+      /** @type {any} */ ('opus'),
+      'user-1',
+      'Review feedback msg',
+      'msg-review-feedback',
+      undefined,
+      {
+        reason: 'github_review_feedback',
+        sourceCategory: 'review',
+        eventDrivenExternalWaitCoverage: true,
+      },
+    );
+    await waitForTrigger();
+
+    assert.strictEqual(routerMock.calls.length, 1);
+    assert.strictEqual(routerMock.calls[0].options?.eventDrivenExternalWaitCoverage, true);
+  });
+
   it('broadcasts agent messages to WebSocket room', async () => {
     const trigger = createTrigger();
     trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Review msg', 'msg-1');
@@ -1097,6 +1131,40 @@ describe('ConnectorInvokeTrigger', () => {
       assert.strictEqual(entries.length, 1);
       assert.strictEqual(entries[0].sourceCategory, 'review', 'sourceCategory should be preserved on queue entry');
       assert.strictEqual(entries[0].priority, 'urgent');
+    });
+
+    it('queued connector without callback policy does not mark event-driven waits covered', async () => {
+      trackerMock.setActive('thread-1', 'user-1');
+      const trigger = createTrigger();
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Plain connector msg', 'msg-plain');
+      await waitForTrigger();
+
+      const entries = queue.list('thread-1', 'user-1');
+      assert.strictEqual(entries.length, 1);
+      assert.notStrictEqual(entries[0].eventDrivenExternalWaitCoverage, true);
+    });
+
+    it('queued connector preserves explicit event-driven callback coverage policy', async () => {
+      trackerMock.setActive('thread-1', 'user-1');
+      const trigger = createTrigger();
+      trigger.trigger(
+        'thread-1',
+        /** @type {any} */ ('opus'),
+        'user-1',
+        'Review feedback msg',
+        'msg-review-feedback',
+        undefined,
+        {
+          reason: 'github_review_feedback',
+          sourceCategory: 'review',
+          eventDrivenExternalWaitCoverage: true,
+        },
+      );
+      await waitForTrigger();
+
+      const entries = queue.list('thread-1', 'user-1');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0].eventDrivenExternalWaitCoverage, true);
     });
 
     it('urgent connector with owner mismatch still enqueues without cancel (F175)', async () => {

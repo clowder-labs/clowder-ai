@@ -12,6 +12,8 @@
  * keyword). `shouldWarnVoidHold` is preserved as a backward-compatible shim.
  */
 
+import { hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
+
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const URL_RE = /https?:\/\/[^\s)\]]+/g;
 
@@ -81,6 +83,8 @@ export interface VoidHoldInput {
   readonly lineStartMentions: readonly string[];
   readonly structuredTargetCats: readonly string[];
   readonly hasCoCreatorLineStartMention?: boolean;
+  /** True only when the route has verified callback/EYES coverage for a 2b event-driven wait. */
+  readonly hasEventDrivenExternalWaitCoverage?: boolean;
 }
 
 export interface VoidHoldEvaluation {
@@ -98,7 +102,8 @@ export interface VoidHoldEvaluation {
 /**
  * Full evaluation: returns both emission decision and matched trigger.
  * Emission is suppressed if any legitimate exit is present (hold_ball tool,
- * line-start @cat / co-creator mention, or structured MCP routing).
+ * line-start @cat / co-creator mention, structured MCP routing, or a verified
+ * event-driven external wait).
  */
 export function evaluateVoidHold(input: VoidHoldInput): VoidHoldEvaluation {
   const matched = matchHoldPattern(input.text);
@@ -107,6 +112,9 @@ export function evaluateVoidHold(input: VoidHoldInput): VoidHoldEvaluation {
   if (input.lineStartMentions.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.structuredTargetCats.length > 0) return { shouldEmit: false, matchedPattern: matched };
   if (input.hasCoCreatorLineStartMention) return { shouldEmit: false, matchedPattern: matched };
+  if (input.hasEventDrivenExternalWaitCoverage && hasEventDrivenExternalWaitExit(input.text)) {
+    return { shouldEmit: false, matchedPattern: matched };
+  }
   return { shouldEmit: true, matchedPattern: matched };
 }
 

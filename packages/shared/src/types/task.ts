@@ -97,6 +97,8 @@ export interface AutomationState {
   readonly intent?: PrTrackingIntent;
   /** F202 Phase 2C: user-provided instructions appended to trigger messages. Task preference, not system override. */
   readonly trackingInstructions?: string;
+  /** PR head that trackingInstructions were written for; stale-head callbacks suppress the instructions. */
+  readonly trackingInstructionsHeadSha?: string;
 }
 
 export interface TaskItem {
