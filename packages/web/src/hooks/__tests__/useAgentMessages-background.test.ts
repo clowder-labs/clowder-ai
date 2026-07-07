@@ -772,6 +772,65 @@ describe('background thread socket handling', () => {
     });
   });
 
+  describe('F070 governance_blocked background refresh', () => {
+    it('replaces same-project stale banner by appending the fresh banner at transcript end and bumping unread', () => {
+      const now = Date.now();
+      useChatStore.getState().replaceThreadMessages(
+        'thread-bg-gov',
+        [
+          {
+            id: 'old-banner',
+            type: 'system',
+            variant: 'governance_blocked',
+            content: 'old governance banner',
+            timestamp: now,
+            extra: {
+              governanceBlocked: {
+                projectPath: '/work/project',
+                reasonKind: 'needs_bootstrap',
+                invocationId: 'inv-old',
+              },
+            },
+          },
+          {
+            id: 'later-user-prompt',
+            type: 'user',
+            content: 'latest prompt that should stay before refreshed banner',
+            timestamp: now + 1,
+          },
+        ],
+        true,
+      );
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg-gov',
+        content: JSON.stringify({
+          type: 'governance_blocked',
+          projectPath: '/work/project',
+          reasonKind: 'needs_confirmation',
+          invocationId: 'inv-new',
+          clientId: 'openai',
+        }),
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-gov');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0].id).toBe('later-user-prompt');
+      const banner = ts.messages[1];
+      expect(banner.id).toMatch(/^gov-blocked-/);
+      expect(banner.extra?.governanceBlocked).toMatchObject({
+        projectPath: '/work/project',
+        reasonKind: 'needs_confirmation',
+        invocationId: 'inv-new',
+        clientId: 'openai',
+      });
+      expect(ts.unreadCount).toBe(1);
+    });
+  });
+
   describe('regression: background stream chunk merging', () => {
     it('requests catch-up when reducer returns catch-up for a late background stream chunk', () => {
       const now = Date.now();

@@ -6,6 +6,8 @@ interface GovernanceBlockedCardProps {
   projectPath: string;
   reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
   invocationId?: string;
+  /** Provider clientId from the blocked dispatch; keeps self-clear aligned with backend preflight. */
+  clientId?: string;
   /**
    * F070 self-healing (#TODO-followup): called when this banner detects that governance
    * is already healthy on the server. Parent should remove the underlying transient
@@ -31,6 +33,7 @@ export function GovernanceBlockedCard({
   projectPath,
   reasonKind,
   invocationId,
+  clientId,
   onSelfClear,
 }: GovernanceBlockedCardProps) {
   const [state, setState] = useState<CardState>('idle');
@@ -54,7 +57,9 @@ export function GovernanceBlockedCard({
     let canceled = false;
     (async () => {
       try {
-        const res = await apiFetch(`/api/governance/status?projectPath=${encodeURIComponent(projectPath)}`);
+        const params = new URLSearchParams({ projectPath });
+        if (clientId) params.set('clientId', clientId);
+        const res = await apiFetch(`/api/governance/status?${params.toString()}`);
         if (canceled || !res.ok) return;
         const data = (await res.json()) as GovernanceStatusResponse;
         if (!canceled && data.ready === true) {
@@ -67,7 +72,7 @@ export function GovernanceBlockedCard({
     return () => {
       canceled = true;
     };
-  }, [projectPath, onSelfClear, state]);
+  }, [projectPath, clientId, onSelfClear, state]);
 
   const handleBootstrap = useCallback(async () => {
     setState('confirming');

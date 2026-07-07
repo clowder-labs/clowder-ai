@@ -1244,7 +1244,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
       const catEntry = catRegistry.tryGet(catId as string);
-      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.clientId);
+      const clientId = catEntry?.config.clientId;
+      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, clientId);
       if (!preflight.ready) {
         const reasonKind = preflight.needsBootstrap
           ? 'needs_bootstrap'
@@ -1261,6 +1262,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             reasonKind,
             reason: preflight.reason,
             invocationId: params.parentInvocationId,
+            ...(clientId ? { clientId } : {}),
           }),
           timestamp: Date.now(),
         };

@@ -196,6 +196,50 @@ describe('GovernanceBlockedCard', () => {
     expect(onSelfClear).toHaveBeenCalledTimes(1);
   });
 
+  it('scopes self-heal status probe to the blocked cat provider', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: false,
+            needsBootstrap: true,
+            needsConfirmation: false,
+          }),
+        };
+      }
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: true,
+            needsBootstrap: false,
+            needsConfirmation: false,
+          }),
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-stale',
+          clientId: 'openai',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
+    expect(onSelfClear).not.toHaveBeenCalled();
+  });
+
   it('does not call onSelfClear when governance status is not ready', async () => {
     const onSelfClear = vi.fn();
     mockApiFetch.mockResolvedValueOnce({

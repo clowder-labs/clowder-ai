@@ -296,6 +296,8 @@ export interface ChatMessage {
       projectPath: string;
       reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
       invocationId?: string;
+      /** Provider clientId used by the blocked dispatch preflight (e.g. openai -> AGENTS.md). */
+      clientId?: string;
     };
     /**
      * F173 a2a-handoff bug fix: marker for system messages that must be

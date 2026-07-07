@@ -61,7 +61,7 @@ export const governanceStatusRoute: FastifyPluginAsync<GovernanceStatusRouteOpti
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
-    const query = request.query as { projectPath?: string };
+    const query = request.query as { projectPath?: string; clientId?: string; provider?: string };
     if (!query.projectPath) {
       reply.status(400);
       return { error: 'projectPath parameter is required' };
@@ -74,7 +74,8 @@ export const governanceStatusRoute: FastifyPluginAsync<GovernanceStatusRouteOpti
     }
 
     const catCafeRoot = opts?.catCafeRoot ?? findMonorepoRoot(process.cwd());
-    const preflight = await checkGovernancePreflight(validated, catCafeRoot);
+    const clientId = query.clientId || query.provider;
+    const preflight = await checkGovernancePreflight(validated, catCafeRoot, clientId);
 
     const [empty, gitRepo, gitOk] = await Promise.all([
       isEmptyDir(validated),

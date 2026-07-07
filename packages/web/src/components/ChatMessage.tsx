@@ -255,7 +255,7 @@ export function ChatMessage({
     }
 
     if (message.variant === 'governance_blocked' && message.extra?.governanceBlocked) {
-      const { projectPath, reasonKind, invocationId } = message.extra.governanceBlocked;
+      const { projectPath, reasonKind, invocationId, clientId } = message.extra.governanceBlocked;
       // F070 self-healing: banner is a transient store/IDB message — if governance has
       // been initialized since (e.g. user confirmed elsewhere or earlier session), let
       // the card clear itself on mount so a stale banner doesn't linger forever.
@@ -264,6 +264,7 @@ export function ChatMessage({
           projectPath={projectPath}
           reasonKind={reasonKind}
           invocationId={invocationId}
+          clientId={clientId}
           onSelfClear={handleGovernanceBannerSelfClear}
         />
       );

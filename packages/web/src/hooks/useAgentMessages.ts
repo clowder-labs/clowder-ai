@@ -1067,10 +1067,16 @@ export function consumeBackgroundSystemInfo(
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
       const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+      const clientId =
+        typeof parsed.clientId === 'string'
+          ? parsed.clientId
+          : typeof parsed.provider === 'string'
+            ? parsed.provider
+            : undefined;
       const threadState = options.store.getThreadState(msg.threadId);
-      const existingIndex = threadState.messages.findIndex(
+      const nextMessagesWithoutStaleBanner = threadState.messages.filter(
         (m: { variant?: string; extra?: { governanceBlocked?: { projectPath?: string } } }) =>
-          m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
+          !(m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath),
       );
       const nextBanner: ChatMessage = {
         id: `gov-blocked-${msg.timestamp}-${options.nextBgSeq()}`,
@@ -1083,17 +1089,13 @@ export function consumeBackgroundSystemInfo(
             projectPath,
             reasonKind: reasonKind as 'needs_bootstrap' | 'needs_confirmation' | 'files_missing',
             invocationId: invId,
+            clientId,
           },
         },
       };
-      const nextMessages =
-        existingIndex >= 0
-          ? threadState.messages.map((m, idx) => (idx === existingIndex ? nextBanner : m))
-          : [...threadState.messages, nextBanner];
+      const nextMessages = [...nextMessagesWithoutStaleBanner, nextBanner];
       options.store.replaceThreadMessages(msg.threadId, nextMessages, threadState.hasMore, { persist: true });
-      if (existingIndex < 0) {
-        options.store.incrementUnread(msg.threadId);
-      }
+      options.store.incrementUnread(msg.threadId);
       consumed = true;
     } else if (isInternalSystemInfoTelemetry(parsed)) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
@@ -5152,6 +5154,12 @@ export function useAgentMessages() {
             const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
             const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
             const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            const clientId =
+              typeof parsed.clientId === 'string'
+                ? parsed.clientId
+                : typeof parsed.provider === 'string'
+                  ? parsed.provider
+                  : undefined;
             const existingBlocked = useChatStore
               .getState()
               .messages.find(
@@ -5171,6 +5179,7 @@ export function useAgentMessages() {
                   projectPath,
                   reasonKind: reasonKind as 'needs_bootstrap' | 'needs_confirmation' | 'files_missing',
                   invocationId: invId,
+                  clientId,
                 },
               },
             });

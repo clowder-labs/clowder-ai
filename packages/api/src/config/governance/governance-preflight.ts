@@ -23,8 +23,11 @@ export interface PreflightResult {
 
 const CAT_PROVIDER_MAP: Record<string, Provider> = {
   anthropic: 'claude',
+  claude: 'claude',
   openai: 'codex',
+  codex: 'codex',
   google: 'gemini',
+  gemini: 'gemini',
   kimi: 'kimi',
 };
 
