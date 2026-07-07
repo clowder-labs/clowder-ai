@@ -539,6 +539,28 @@ interface SystemInfoConsumeResult {
   variant: 'info' | 'a2a_followup';
 }
 
+function normalizeGovernanceBlockedClientId(clientId: string | undefined): string | undefined {
+  const normalized = clientId?.trim().toLowerCase();
+  return normalized ? normalized : undefined;
+}
+
+function isSameGovernanceBlockedScope(
+  message: ChatMessage,
+  projectPath: string,
+  clientId: string | undefined,
+): boolean {
+  if (message.variant !== 'governance_blocked') return false;
+  const governanceBlocked = message.extra?.governanceBlocked;
+  if (governanceBlocked?.projectPath !== projectPath) return false;
+
+  const existingClientId = normalizeGovernanceBlockedClientId(governanceBlocked.clientId);
+  const incomingClientId = normalizeGovernanceBlockedClientId(clientId);
+  // Older persisted banners did not carry provider scope. Treat either missing
+  // clientId as project-scoped so the next scoped banner can replace stale legacy UI.
+  if (!existingClientId || !incomingClientId) return true;
+  return existingClientId === incomingClientId;
+}
+
 function recoverBackgroundStreamingMessage(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
@@ -1075,8 +1097,7 @@ export function consumeBackgroundSystemInfo(
             : undefined;
       const threadState = options.store.getThreadState(msg.threadId);
       const nextMessagesWithoutStaleBanner = threadState.messages.filter(
-        (m: { variant?: string; extra?: { governanceBlocked?: { projectPath?: string } } }) =>
-          !(m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath),
+        (m) => !isSameGovernanceBlockedScope(m, projectPath, clientId),
       );
       const nextBanner: ChatMessage = {
         id: `gov-blocked-${msg.timestamp}-${options.nextBgSeq()}`,
@@ -5162,9 +5183,7 @@ export function useAgentMessages() {
                   : undefined;
             const existingBlocked = useChatStore
               .getState()
-              .messages.find(
-                (m) => m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
-              );
+              .messages.find((m) => isSameGovernanceBlockedScope(m, projectPath, clientId));
             if (existingBlocked) {
               removeMessage(existingBlocked.id);
             }

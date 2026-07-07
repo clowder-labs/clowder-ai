@@ -829,6 +829,86 @@ describe('background thread socket handling', () => {
       });
       expect(ts.unreadCount).toBe(1);
     });
+
+    it('preserves same-project governance banners for different providers and only replaces matching scope', () => {
+      const now = Date.now();
+      useChatStore.getState().replaceThreadMessages(
+        'thread-bg-gov-provider',
+        [
+          {
+            id: 'anthropic-banner',
+            type: 'system',
+            variant: 'governance_blocked',
+            content: 'anthropic still blocked',
+            timestamp: now,
+            extra: {
+              governanceBlocked: {
+                projectPath: '/work/project',
+                reasonKind: 'files_missing',
+                invocationId: 'inv-anthropic-old',
+                clientId: 'anthropic',
+              },
+            },
+          },
+          {
+            id: 'later-user-prompt',
+            type: 'user',
+            content: 'latest prompt that should stay before refreshed banner',
+            timestamp: now + 1,
+          },
+        ],
+        true,
+      );
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg-gov-provider',
+        content: JSON.stringify({
+          type: 'governance_blocked',
+          projectPath: '/work/project',
+          reasonKind: 'needs_confirmation',
+          invocationId: 'inv-openai-first',
+          clientId: 'openai',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg-gov-provider',
+        content: JSON.stringify({
+          type: 'governance_blocked',
+          projectPath: '/work/project',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-openai-refresh',
+          clientId: 'openai',
+        }),
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-gov-provider');
+      const governanceBanners = ts.messages.filter((m) => m.variant === 'governance_blocked');
+      expect(governanceBanners).toHaveLength(2);
+      expect(governanceBanners.map((m) => m.extra?.governanceBlocked?.clientId).sort()).toEqual([
+        'anthropic',
+        'openai',
+      ]);
+      expect(governanceBanners.find((m) => m.extra?.governanceBlocked?.clientId === 'anthropic')?.id).toBe(
+        'anthropic-banner',
+      );
+      expect(
+        governanceBanners.find((m) => m.extra?.governanceBlocked?.clientId === 'openai')?.extra?.governanceBlocked,
+      ).toMatchObject({
+        projectPath: '/work/project',
+        reasonKind: 'needs_bootstrap',
+        invocationId: 'inv-openai-refresh',
+        clientId: 'openai',
+      });
+      expect(ts.messages.map((m) => m.id)).toEqual(['anthropic-banner', 'later-user-prompt', expect.any(String)]);
+      expect(ts.unreadCount).toBe(2);
+    });
   });
 
   describe('regression: background stream chunk merging', () => {

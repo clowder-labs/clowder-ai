@@ -44,6 +44,9 @@ const mockPatchThreadMessage = vi.fn();
 const mockReplaceThreadMessageId = vi.fn();
 const mockReplaceThreadTargetCats = vi.fn();
 const mockRemoveThreadMessage = vi.fn();
+const mockRemoveMessage = vi.fn((messageId: string) => {
+  storeState.messages = storeState.messages.filter((m) => m.id !== messageId);
+});
 const mockAppendToThreadMessage = vi.fn();
 const mockAppendToolEventToThread = vi.fn();
 const mockAppendRichBlockToThread = vi.fn();
@@ -65,7 +68,17 @@ const mockThreadState = {
 const mockGetThreadState = vi.fn(() => mockThreadState);
 
 const storeState = {
-  messages: [] as Array<{ id: string; type: string; catId?: string; content: string; timestamp: number }>,
+  messages: [] as Array<{
+    id: string;
+    type: string;
+    catId?: string;
+    content: string;
+    timestamp: number;
+    variant?: string;
+    extra?: {
+      governanceBlocked?: { projectPath?: string; reasonKind?: string; invocationId?: string; clientId?: string };
+    };
+  }>,
   addMessage: mockAddMessage,
   appendToMessage: mockAppendToMessage,
   appendToolEvent: mockAppendToolEvent,
@@ -101,6 +114,7 @@ const storeState = {
   patchThreadMessage: mockPatchThreadMessage,
   replaceThreadMessageId: mockReplaceThreadMessageId,
   replaceThreadTargetCats: mockReplaceThreadTargetCats,
+  removeMessage: mockRemoveMessage,
   removeThreadMessage: mockRemoveThreadMessage,
   appendToThreadMessage: mockAppendToThreadMessage,
   appendToolEventToThread: mockAppendToolEventToThread,
@@ -254,6 +268,82 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
       expect(mockAddMessageToThread).not.toHaveBeenCalled();
       // active path must update cat status (text event → 'streaming')
       expect(mockSetCatStatus).toHaveBeenCalledWith('opus', 'streaming');
+    });
+
+    it('keeps same-project governance banners for different providers on the active path', () => {
+      storeState.currentThreadId = 'thread-active';
+      storeState.messages = [
+        {
+          id: 'anthropic-banner',
+          type: 'system',
+          variant: 'governance_blocked',
+          content: 'anthropic still blocked',
+          timestamp: 1700000000000,
+          extra: {
+            governanceBlocked: {
+              projectPath: '/work/project',
+              reasonKind: 'files_missing',
+              invocationId: 'inv-anthropic-old',
+              clientId: 'anthropic',
+            },
+          },
+        },
+      ];
+      mockAddMessage.mockImplementation((message) => {
+        storeState.messages.push(message);
+      });
+
+      act(() => {
+        root.render(React.createElement(Harness));
+      });
+
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'system_info',
+          catId: 'codex',
+          threadId: 'thread-active',
+          content: JSON.stringify({
+            type: 'governance_blocked',
+            projectPath: '/work/project',
+            reasonKind: 'needs_confirmation',
+            invocationId: 'inv-openai-first',
+            clientId: 'openai',
+          }),
+          timestamp: 1700000000001,
+        });
+      });
+
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'system_info',
+          catId: 'codex',
+          threadId: 'thread-active',
+          content: JSON.stringify({
+            type: 'governance_blocked',
+            projectPath: '/work/project',
+            reasonKind: 'needs_bootstrap',
+            invocationId: 'inv-openai-refresh',
+            clientId: 'openai',
+          }),
+          timestamp: 1700000000002,
+        });
+      });
+
+      const governanceBanners = storeState.messages.filter((m) => m.variant === 'governance_blocked');
+      expect(governanceBanners).toHaveLength(2);
+      expect(governanceBanners.map((m) => m.extra?.governanceBlocked?.clientId).sort()).toEqual([
+        'anthropic',
+        'openai',
+      ]);
+      expect(mockRemoveMessage).not.toHaveBeenCalledWith('anthropic-banner');
+      expect(
+        governanceBanners.find((m) => m.extra?.governanceBlocked?.clientId === 'openai')?.extra?.governanceBlocked,
+      ).toMatchObject({
+        projectPath: '/work/project',
+        reasonKind: 'needs_bootstrap',
+        invocationId: 'inv-openai-refresh',
+        clientId: 'openai',
+      });
     });
   });
 });
