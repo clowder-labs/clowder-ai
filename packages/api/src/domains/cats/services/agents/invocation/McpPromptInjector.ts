@@ -10,8 +10,8 @@
  */
 
 import type { CatConfig } from '@cat-cafe/shared';
-import type { AgentService } from '../../types.js';
 import { renderSegment } from '../../context/prompt-template-loader.js';
+import type { AgentService } from '../../types.js';
 
 /**
  * Issue #59 — centralized MCP prompt injection decision.

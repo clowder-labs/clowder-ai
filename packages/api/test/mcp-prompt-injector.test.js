@@ -138,11 +138,7 @@ describe('resolveMcpPromptInjection (Issue #59)', () => {
     const { resolveMcpPromptInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    const result = resolveMcpPromptInjection(
-      mockService('none'),
-      { mcpSupport: true },
-      '/some/mcp/server/path',
-    );
+    const result = resolveMcpPromptInjection(mockService('none'), { mcpSupport: true }, '/some/mcp/server/path');
     assert.equal(result.injectNativeMcpDocs, false, 'should NOT inject S13 native MCP docs');
     assert.equal(result.injectHttpCallbackDocs, false, 'should NOT inject C1 HTTP callback');
   });
@@ -151,11 +147,7 @@ describe('resolveMcpPromptInjection (Issue #59)', () => {
     const { resolveMcpPromptInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    const result = resolveMcpPromptInjection(
-      mockService('native-mcp'),
-      { mcpSupport: true },
-      '/some/mcp/server/path',
-    );
+    const result = resolveMcpPromptInjection(mockService('native-mcp'), { mcpSupport: true }, '/some/mcp/server/path');
     assert.equal(result.injectNativeMcpDocs, true, 'should inject S13 native MCP docs');
     assert.equal(result.injectHttpCallbackDocs, false, 'should NOT inject C1');
   });
@@ -164,11 +156,7 @@ describe('resolveMcpPromptInjection (Issue #59)', () => {
     const { resolveMcpPromptInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    const result = resolveMcpPromptInjection(
-      mockService('http-callback'),
-      { mcpSupport: false },
-      undefined,
-    );
+    const result = resolveMcpPromptInjection(mockService('http-callback'), { mcpSupport: false }, undefined);
     assert.equal(result.injectNativeMcpDocs, false, 'should NOT inject S13');
     assert.equal(result.injectHttpCallbackDocs, true, 'should inject C1 HTTP callback');
   });
@@ -177,11 +165,7 @@ describe('resolveMcpPromptInjection (Issue #59)', () => {
     const { resolveMcpPromptInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    const result = resolveMcpPromptInjection(
-      legacyService(),
-      { mcpSupport: true },
-      '/some/mcp/server/path',
-    );
+    const result = resolveMcpPromptInjection(legacyService(), { mcpSupport: true }, '/some/mcp/server/path');
     assert.equal(result.injectNativeMcpDocs, true, 'legacy: mcpAvailable=true → S13');
     assert.equal(result.injectHttpCallbackDocs, false, 'legacy: mcpAvailable=true → no C1');
   });
@@ -190,11 +174,7 @@ describe('resolveMcpPromptInjection (Issue #59)', () => {
     const { resolveMcpPromptInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    const result = resolveMcpPromptInjection(
-      legacyService(),
-      { mcpSupport: false },
-      '/some/mcp/server/path',
-    );
+    const result = resolveMcpPromptInjection(legacyService(), { mcpSupport: false }, '/some/mcp/server/path');
     assert.equal(result.injectNativeMcpDocs, false, 'legacy: mcpAvailable=false → no S13');
     assert.equal(result.injectHttpCallbackDocs, true, 'legacy: mcpAvailable=false → C1');
   });
