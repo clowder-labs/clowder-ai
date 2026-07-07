@@ -167,15 +167,14 @@ describe('GovernanceBlockedCard', () => {
     expect(container.textContent).not.toContain('C:\\workspace\\tmp');
   });
 
-  it('calls onSelfClear when server reports project healthy on mount (F070 stale-banner self-heal)', async () => {
+  it('calls onSelfClear when per-project governance status is ready on mount (F070 stale-banner self-heal)', async () => {
     const onSelfClear = vi.fn();
     mockApiFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        projects: [
-          { projectPath: '/test/proj', status: 'healthy' },
-          { projectPath: '/other/proj', status: 'stale' },
-        ],
+        ready: true,
+        needsBootstrap: false,
+        needsConfirmation: false,
       }),
     });
 
@@ -193,16 +192,18 @@ describe('GovernanceBlockedCard', () => {
       await Promise.resolve();
     });
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/health');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj');
     expect(onSelfClear).toHaveBeenCalledTimes(1);
   });
 
-  it('does not call onSelfClear when server reports project not healthy', async () => {
+  it('does not call onSelfClear when governance status is not ready', async () => {
     const onSelfClear = vi.fn();
     mockApiFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        projects: [{ projectPath: '/test/proj', status: 'never-synced' }],
+        ready: false,
+        needsBootstrap: true,
+        needsConfirmation: false,
       }),
     });
 
@@ -221,6 +222,46 @@ describe('GovernanceBlockedCard', () => {
     expect(onSelfClear).not.toHaveBeenCalled();
     // banner stays visible — bootstrap button still rendered
     expect(container.querySelector('button')?.textContent).toContain('初始化治理并继续');
+  });
+
+  it('does not self-clear from registry-only health when project preflight is still blocked', async () => {
+    const onSelfClear = vi.fn();
+    mockApiFetch.mockImplementation(async (url: string) => {
+      if (url === '/api/governance/health') {
+        return {
+          ok: true,
+          json: async () => ({
+            projects: [{ projectPath: '/test/proj', status: 'healthy' }],
+          }),
+        };
+      }
+      if (url === '/api/governance/status?projectPath=%2Ftest%2Fproj') {
+        return {
+          ok: true,
+          json: async () => ({
+            ready: false,
+            needsBootstrap: false,
+            needsConfirmation: true,
+          }),
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_confirmation',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj');
+    expect(onSelfClear).not.toHaveBeenCalled();
   });
 
   it('does not call onSelfClear when server omits the project', async () => {

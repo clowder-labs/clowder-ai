@@ -23,8 +23,8 @@ const REASON_LABELS: Record<string, string> = {
 
 type CardState = 'idle' | 'confirming' | 'retrying' | 'done' | 'error';
 
-interface GovernanceHealthResponse {
-  projects?: Array<{ projectPath: string; status: string }>;
+interface GovernanceStatusResponse {
+  ready?: boolean;
 }
 
 export function GovernanceBlockedCard({
@@ -54,11 +54,10 @@ export function GovernanceBlockedCard({
     let canceled = false;
     (async () => {
       try {
-        const res = await apiFetch('/api/governance/health');
+        const res = await apiFetch(`/api/governance/status?projectPath=${encodeURIComponent(projectPath)}`);
         if (canceled || !res.ok) return;
-        const data = (await res.json()) as GovernanceHealthResponse;
-        const entry = data.projects?.find((p) => p.projectPath === projectPath);
-        if (!canceled && entry?.status === 'healthy') {
+        const data = (await res.json()) as GovernanceStatusResponse;
+        if (!canceled && data.ready === true) {
           onSelfClear();
         }
       } catch {
