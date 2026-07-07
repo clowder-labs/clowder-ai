@@ -22,7 +22,7 @@
  * service's exclusive privilege.
  */
 
-import type { AgentProviderCapabilityDescriptor, CapabilitiesConfig, CatConfig } from '@cat-cafe/shared';
+import type { AgentProviderCapabilityDescriptor, CapabilitiesConfig, CatColor, CatConfig } from '@cat-cafe/shared';
 import {
   admitForRouting,
   type RoutingAdmissionCandidate,
@@ -74,6 +74,11 @@ export interface AgentProviderProjectionResult {
   /** Capabilities skipped, with reason — useful for telemetry/log. */
   readonly skipped: Array<{ pluginId: string; capId: string; reason: string }>;
 }
+
+const SYNTHETIC_PROVIDER_COLOR = {
+  primary: '#334155',
+  secondary: '#cbd5e1',
+} satisfies CatColor;
 
 /**
  * Build the synthetic CatConfig map. Pure, side-effect free (except onSkip logging).
@@ -167,8 +172,8 @@ function synthesizeCatConfig(
     name: d.name,
     displayName: d.name,
     avatar: '🧩',
-    color: 'gray',
-    mentionPatterns: [...(binding.mentionPatterns ?? [])],
+    color: SYNTHETIC_PROVIDER_COLOR,
+    mentionPatterns: binding.mentionPatterns?.length ? [...binding.mentionPatterns] : [`@${binding.catId}`],
     clientId: d.name,
     defaultModel: '',
     mcpSupport: true,

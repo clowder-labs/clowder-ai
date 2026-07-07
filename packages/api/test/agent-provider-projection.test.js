@@ -106,6 +106,30 @@ describe('projectRouteableAgentProviders', () => {
     assert.equal(synth.pluginProjection.pluginId, 'clowder-code');
   });
 
+  it('defaults synthetic routeable identity fields for provider configs', () => {
+    const rows = [
+      makeRow({
+        overrides: {
+          descriptor: {
+            routeableBinding: {
+              catId: 'clowder-cat',
+            },
+          },
+        },
+      }),
+    ];
+    const result = projectRouteableAgentProviders({
+      rows,
+      buildSnapshot: () => admittingSnapshot(),
+      now: () => 30_000,
+    });
+
+    const synth = result.configs['clowder-cat'];
+    assert.ok(synth, 'synthetic config should be projected');
+    assert.deepEqual(synth.mentionPatterns, ['@clowder-cat']);
+    assert.deepEqual(synth.color, { primary: '#334155', secondary: '#cbd5e1' });
+  });
+
   it('skips when health is missing', () => {
     const rows = [makeRow({ overrides: { descriptor: { health: undefined } } })];
     const result = projectRouteableAgentProviders({
