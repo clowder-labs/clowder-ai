@@ -19,7 +19,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { VoiceConfig } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 import { resolveBreedId } from './breed-resolver.js';
 import { getAllCatIdsFromConfig, loadCatConfig } from './cat-config-loader.js';
 

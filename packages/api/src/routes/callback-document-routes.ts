@@ -16,7 +16,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { PandocService } from '../infrastructure/document/PandocService.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 
 const generateDocumentSchema = z.object({

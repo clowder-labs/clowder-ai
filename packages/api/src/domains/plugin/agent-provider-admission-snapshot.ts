@@ -17,7 +17,7 @@
 
 import type { AgentProviderCapabilityDescriptor, CapabilitiesConfig, CatConfig } from '@cat-cafe/shared';
 import { normalizeCapId } from './PluginRegistry.js';
-import type { RoutingAdmissionSnapshot } from './RoutingAdmissionService.js';
+import { normalizeRouteableIdentityClaim, type RoutingAdmissionSnapshot } from './RoutingAdmissionService.js';
 
 export interface AgentProviderAdmissionSnapshotInputs {
   /** Capability config snapshot (the source of existing routeable identities). */
@@ -52,6 +52,10 @@ export function buildAgentProviderAdmissionSnapshot(
   // routeableBinding catId / profileId / mentionPatterns even if their `name`
   // fields differ.
   const existingRouteableIdentities = new Set<string>();
+  const addIdentity = (set: Set<string>, value: string | undefined): void => {
+    const normalized = normalizeRouteableIdentityClaim(value);
+    if (normalized) set.add(normalized);
+  };
   for (const cap of inputs.capabilitiesConfig?.capabilities ?? []) {
     if (cap.type !== 'agentProvider' || !cap.agentProvider) continue;
     // Skip the candidate itself — Slice 1 red line: never let the snapshot
@@ -61,13 +65,13 @@ export function buildAgentProviderAdmissionSnapshot(
     }
     const descriptor = cap.agentProvider as AgentProviderCapabilityDescriptor;
     if (!descriptor.routeable) continue;
-    if (descriptor.name) existingRouteableIdentities.add(descriptor.name);
+    addIdentity(existingRouteableIdentities, descriptor.providerId ?? descriptor.name);
     const binding = descriptor.routeableBinding;
     if (binding) {
-      if (binding.catId) existingRouteableIdentities.add(binding.catId);
-      if (binding.profileId) existingRouteableIdentities.add(binding.profileId);
+      addIdentity(existingRouteableIdentities, binding.catId);
+      addIdentity(existingRouteableIdentities, binding.profileId);
       for (const pattern of binding.mentionPatterns ?? []) {
-        if (pattern) existingRouteableIdentities.add(pattern);
+        addIdentity(existingRouteableIdentities, pattern);
       }
     }
   }
@@ -92,14 +96,18 @@ export function buildAgentProviderAdmissionSnapshot(
   for (const [id, config] of Object.entries(inputs.activeCatConfigs)) {
     if (inputs.hasProviderTransportConfig(id)) continue;
     if ((config as { pluginProjection?: unknown }).pluginProjection !== undefined) continue;
-    activeNonProviderTransportIdentities.add(id);
+    addIdentity(activeNonProviderTransportIdentities, id);
     for (const pattern of config.mentionPatterns ?? []) {
-      if (pattern) activeNonProviderTransportIdentities.add(pattern);
+      addIdentity(activeNonProviderTransportIdentities, pattern);
     }
   }
 
   return {
-    templateBaselineIds: new Set(inputs.templateBaselineIds),
+    templateBaselineIds: new Set(
+      [...inputs.templateBaselineIds]
+        .map((identity) => normalizeRouteableIdentityClaim(identity))
+        .filter((identity): identity is string => identity !== undefined),
+    ),
     existingRouteableIdentities,
     activeNonProviderTransportIdentities,
   };

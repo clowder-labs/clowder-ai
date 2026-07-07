@@ -183,6 +183,28 @@ describe('AgentProviderApprovalService.approveRouteable', () => {
       assert.equal(persisted.routeableApproved, false);
     });
 
+    it('uses manifest providerId instead of descriptor name for admission', async () => {
+      const row = makeCapabilityRow({
+        resourceOverrides: {
+          name: 'my-provider',
+          providerId: 'openai',
+        },
+      });
+      const { service, store } = makeService({ capabilities: [row] });
+      const result = await service.approveRouteable({
+        pluginId: 'clowder-code',
+        capId: 'clowder-code',
+        catId: 'safe-plugin-cat',
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.reason, 'reserved-baseline-collision');
+      assert.equal(result.conflictingIdentity, 'openai');
+
+      const persisted = store.get().capabilities[0].agentProvider;
+      assert.equal(persisted.routeable, false);
+      assert.equal(persisted.routeableApproved, false);
+    });
+
     it('propagates active-cat collision', async () => {
       const { service } = makeService({
         buildSnapshot: () => ({

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import type { MountRules } from '@cat-cafe/shared';
 import { withCapabilityLock } from '../config/capabilities/capability-orchestrator.js';
 import { isValidSkillName } from '../config/governance/skill-sync.js';
-import { buildSkillMountTargets } from '../utils/skill-mount.js';
+import { buildSkillMountTargets } from '../utils/skills/skill-mount.js';
 import type { DriftResult } from './drift-detector.js';
 import { syncProject } from './skill-sync-engine.js';
 

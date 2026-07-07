@@ -12,7 +12,7 @@
  * The "环境 & 文件" tab picks it up automatically.
  */
 
-import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli-timeout.js';
+import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli/cli-timeout.js';
 
 export type EnvCategory =
   | 'server'

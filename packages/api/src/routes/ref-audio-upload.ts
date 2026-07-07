@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 
 const MAX_REF_AUDIO_BYTES = 10 * 1024 * 1024;
 

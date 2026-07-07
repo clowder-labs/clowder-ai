@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { applyEnvUpdatesToFile } from '../routes/config.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { configEventBus, createChangeSetId } from './config-event-bus.js';
 
 export interface ConnectorSecretUpdate {

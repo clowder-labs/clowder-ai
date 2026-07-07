@@ -13,7 +13,7 @@ import type { CatCafeConfig } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { compileL0ViaSubprocess } from '../domains/cats/services/agents/providers/l0-compiler.js';
-import { getDefaultRootsForPlatform, isPathUnderRoots, validateProjectPath } from '../utils/project-path.js';
+import { getDefaultRootsForPlatform, isPathUnderRoots, validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 function findProjectRoot(): string {

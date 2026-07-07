@@ -10,8 +10,8 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { CapabilitiesConfig } from '@cat-cafe/shared';
-import { resolvePluginResourcePath, resourcePathBasename } from '../domains/plugin/PluginRegistry.js';
-import { parsePluginManifest } from '../domains/plugin/plugin-manifest.js';
+import { resolvePluginResourcePath, resourcePathBasename } from '../../domains/plugin/PluginRegistry.js';
+import { parsePluginManifest } from '../../domains/plugin/plugin-manifest.js';
 
 export interface PluginSkillInfo {
   pluginId: string;

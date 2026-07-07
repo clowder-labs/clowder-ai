@@ -23,10 +23,10 @@ const {
   KILL_GRACE_MS,
   SEMANTIC_COMPLETION_GRACE_MS,
   resolveCliSupervisorNodeArgs,
-} = await import('../dist/utils/cli-spawn.js');
-const { DEFAULT_CLI_TIMEOUT_MS } = await import('../dist/utils/cli-timeout.js');
-const { isParseError } = await import('../dist/utils/ndjson-parser.js');
-const { ProcessLivenessProbe } = await import('../dist/utils/ProcessLivenessProbe.js');
+} = await import('../dist/utils/cli/cli-spawn.js');
+const { DEFAULT_CLI_TIMEOUT_MS } = await import('../dist/utils/cli/cli-timeout.js');
+const { isParseError } = await import('../dist/utils/parsing/ndjson-parser.js');
+const { ProcessLivenessProbe } = await import('../dist/utils/process/ProcessLivenessProbe.js');
 
 /** Helper: collect all items from async iterable */
 async function collect(iterable) {
@@ -281,7 +281,7 @@ test(
   async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-cli-supervisor-'));
     const markerPath = join(tempDir, 'terminated.txt');
-    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli-supervisor.js', import.meta.url));
+    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli/cli-supervisor.js', import.meta.url));
     const childScript = [
       'const fs = require("node:fs");',
       `process.on("SIGTERM", () => { fs.writeFileSync(${JSON.stringify(markerPath)}, "SIGTERM"); process.exit(0); });`,
@@ -329,7 +329,7 @@ test(
   'cli supervisor escalates stubborn supervised child before parent kill grace elapses',
   { skip: process.platform === 'win32' && 'Unix process-group supervisor is not used on Windows' },
   async () => {
-    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli-supervisor.js', import.meta.url));
+    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli/cli-supervisor.js', import.meta.url));
     const childScript = ['process.on("SIGTERM", () => {});', 'setInterval(() => {}, 60_000);'].join('\n');
     const supervisor = nodeSpawn(process.execPath, [supervisorPath, '--', process.execPath, '-e', childScript], {
       env: {
@@ -858,7 +858,7 @@ test('spawnCli marks no rollout found stderr as missing_rollout reasonCode', asy
 });
 
 test('formatCliExitError propagates reasonCode into message string', async () => {
-  const { formatCliExitError } = await import('../dist/utils/cli-format.js');
+  const { formatCliExitError } = await import('../dist/utils/cli/cli-format.js');
 
   // Without reasonCode — unchanged behavior
   assert.equal(
@@ -1801,7 +1801,7 @@ test('F212 (云端 codex P2): maybeCollectStreamError extracts Error.message (no
   // serializes correctly even without the fix. The real bug surfaces only when `evt.error` is a
   // genuine Error instance — name/message/stack are non-enumerable on Error.prototype and would
   // serialize to `{}`. Test the pure helper directly to exercise the actual failure mode.
-  const { maybeCollectStreamError } = await import('../dist/utils/cli-spawn.js');
+  const { maybeCollectStreamError } = await import('../dist/utils/cli/cli-spawn.js');
   const sink = [];
   const evt = { type: 'error', error: new Error('401 Unauthorized') };
   maybeCollectStreamError(evt, sink);
@@ -1811,7 +1811,7 @@ test('F212 (云端 codex P2): maybeCollectStreamError extracts Error.message (no
     `Error.message must survive non-enumerable serialization; got: ${sink[0]}`,
   );
   // Verify the classifier can actually reach the reasonCode from the extracted text
-  const { classifyCliError } = await import('../dist/utils/cli-diagnostics.js');
+  const { classifyCliError } = await import('../dist/utils/cli/cli-diagnostics.js');
   assert.equal(
     classifyCliError(sink[0]),
     'auth_failed',
@@ -1821,7 +1821,7 @@ test('F212 (云端 codex P2): maybeCollectStreamError extracts Error.message (no
 
 test('F212 (云端 codex P2): maybeCollectStreamError extracts plain object error fields', async () => {
   // Regression: plain {error:{name,message,data:{message,statusCode}}} should also work.
-  const { maybeCollectStreamError } = await import('../dist/utils/cli-spawn.js');
+  const { maybeCollectStreamError } = await import('../dist/utils/cli/cli-spawn.js');
   const sink = [];
   maybeCollectStreamError(
     {
@@ -1836,7 +1836,7 @@ test('F212 (云端 codex P2): maybeCollectStreamError extracts plain object erro
 });
 
 test('F212 (云端 codex P2): maybeCollectStreamError ignores non-error events', async () => {
-  const { maybeCollectStreamError } = await import('../dist/utils/cli-spawn.js');
+  const { maybeCollectStreamError } = await import('../dist/utils/cli/cli-spawn.js');
   const sink = [];
   maybeCollectStreamError({ type: 'text', content: 'hello' }, sink);
   maybeCollectStreamError(null, sink);
@@ -1847,7 +1847,7 @@ test('F212 (云端 codex P2): maybeCollectStreamError ignores non-error events',
 
 test('F212 (云端 codex round-5 P2): maybeCollectStreamError bounds sink entries', async () => {
   // Long-running session emitting many error events must not grow sink unbounded.
-  const { maybeCollectStreamError } = await import('../dist/utils/cli-spawn.js');
+  const { maybeCollectStreamError } = await import('../dist/utils/cli/cli-spawn.js');
   const sink = [];
   // Push 100 small error events; cap is 50 entries.
   for (let i = 0; i < 100; i++) {
@@ -1858,7 +1858,7 @@ test('F212 (云端 codex round-5 P2): maybeCollectStreamError bounds sink entrie
 
 test('F212 (云端 codex round-5 P2): maybeCollectStreamError bounds total chars', async () => {
   // Single huge error event must not push beyond 16384 chars total.
-  const { maybeCollectStreamError } = await import('../dist/utils/cli-spawn.js');
+  const { maybeCollectStreamError } = await import('../dist/utils/cli/cli-spawn.js');
   const sink = [];
   const huge = 'A'.repeat(20000); // 20KB single message
   maybeCollectStreamError({ type: 'error', error: { message: huge } }, sink);

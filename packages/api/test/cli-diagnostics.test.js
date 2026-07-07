@@ -7,8 +7,8 @@ import {
   buildCliExitDiagnostic,
   buildSilentCompletionDiagnostic,
   formatCliStderrForLog,
-} from '../dist/utils/cli-diagnostics.js';
-import { maybeCollectStreamError } from '../dist/utils/cli-spawn.js';
+} from '../dist/utils/cli/cli-diagnostics.js';
+import { maybeCollectStreamError } from '../dist/utils/cli/cli-spawn.js';
 
 const baseRef = { command: 'codex', exitCode: 1, signal: null, invocationId: 'inv-1' };
 

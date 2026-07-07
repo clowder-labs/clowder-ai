@@ -187,7 +187,7 @@ export class AgentProviderApprovalService {
       const candidate: RoutingAdmissionCandidate = {
         pluginId: request.pluginId,
         capId: request.capId,
-        providerId: descriptor.name,
+        providerId: descriptor.providerId ?? descriptor.name,
         catId: request.catId,
         profileId: request.profileId,
         mentionPatterns: request.mentionPatterns,

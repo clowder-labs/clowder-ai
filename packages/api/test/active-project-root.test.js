@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
-const { resolveActiveProjectRoot } = await import('../dist/utils/active-project-root.js');
+const { resolveActiveProjectRoot } = await import('../dist/utils/paths/active-project-root.js');
 
 describe('resolveActiveProjectRoot', () => {
   const savedEnv = {};

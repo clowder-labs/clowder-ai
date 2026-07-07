@@ -343,12 +343,8 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
         ? {
             clientId: t.runtimeDefaults.clientId,
             defaultModel: t.runtimeDefaults.defaultModel,
-            ...(t.runtimeDefaults.catAgentProtocol
-              ? { catAgentProtocol: t.runtimeDefaults.catAgentProtocol }
-              : {}),
-            ...(t.runtimeDefaults.nativeToolLevel
-              ? { nativeToolLevel: t.runtimeDefaults.nativeToolLevel }
-              : {}),
+            ...(t.runtimeDefaults.catAgentProtocol ? { catAgentProtocol: t.runtimeDefaults.catAgentProtocol } : {}),
+            ...(t.runtimeDefaults.nativeToolLevel ? { nativeToolLevel: t.runtimeDefaults.nativeToolLevel } : {}),
           }
         : {}),
     });

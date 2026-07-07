@@ -108,6 +108,17 @@ describe('RoutingAdmissionService — admitForRouting', () => {
       assert.equal(result.conflictingIdentity, 'anthropic');
     });
 
+    it('normalizes routeable identities before reserved-baseline checks', () => {
+      const result = admitForRouting(
+        makeCandidate({ providerId: 'OpenAI' }),
+        makeSnapshot({
+          templateBaselineIds: new Set(['openai']),
+        }),
+      );
+      assert.equal(result.reason, 'reserved-baseline-collision');
+      assert.equal(result.conflictingIdentity, 'openai');
+    });
+
     it('denies when catId collides with the cat-template baseline', () => {
       const result = admitForRouting(makeCandidate({ providerId: 'clowder-code', catId: 'openai' }), makeSnapshot());
       assert.equal(result.reason, 'reserved-baseline-collision');
@@ -142,6 +153,17 @@ describe('RoutingAdmissionService — admitForRouting', () => {
       );
       assert.equal(result.reason, 'existing-routeable-collision');
       assert.equal(result.conflictingIdentity, 'plugin-b');
+    });
+
+    it('normalizes @-aliases before existing-routeable collision checks', () => {
+      const result = admitForRouting(
+        makeCandidate({ mentionPatterns: ['@codex'] }),
+        makeSnapshot({
+          existingRouteableIdentities: new Set(['@Codex']),
+        }),
+      );
+      assert.equal(result.reason, 'existing-routeable-collision');
+      assert.equal(result.conflictingIdentity, 'codex');
     });
   });
 

@@ -65,6 +65,24 @@ function makeActivator({ providerTransportRegistry = { has: (transportId) => tra
   return { activator, capStore };
 }
 
+function makeActivatorWithStore({
+  readCapabilities,
+  writeCapabilities,
+  withCapabilityLock,
+  providerTransportRegistry = { has: (transportId) => transportId === 'cli-jsonl' },
+}) {
+  const activator = new PluginResourceActivator({
+    resolveProjectRoot: () => '/tmp/project',
+    pluginsDir: '/tmp/project/plugins',
+    limbRegistry: { register: async () => {}, deregister: () => {} },
+    readCapabilities,
+    writeCapabilities,
+    withCapabilityLock,
+    providerTransportRegistry,
+  });
+  return { activator };
+}
+
 describe('PluginResourceActivator - agentProvider resources', () => {
   it('activates agentProvider as transportReady but not routeable', async () => {
     const { activator, capStore } = makeActivator();
@@ -140,6 +158,50 @@ describe('PluginResourceActivator - agentProvider descriptor hash (Slice 2b)', (
     assert.equal(entry.agentProvider.routeable, true, 'routeable should be preserved');
     assert.equal(entry.agentProvider.state, 'healthy', 'lifecycle state should be preserved');
     assert.ok(entry.agentProvider.health, 'health result should be preserved');
+    assert.equal(entry.agentProvider.health.passed, true);
+  });
+
+  it('re-reads the existing descriptor under the capability lock before preserving approval state', async () => {
+    const { activator: seedActivator, capStore } = makeActivator();
+    await seedActivator.enablePlugin(makeManifest());
+
+    const beforeApproval = structuredClone(capStore.get());
+    const afterApproval = structuredClone(beforeApproval);
+    afterApproval.capabilities[0].agentProvider.routeableApproved = true;
+    afterApproval.capabilities[0].agentProvider.routeable = true;
+    afterApproval.capabilities[0].agentProvider.state = 'healthy';
+    afterApproval.capabilities[0].agentProvider.health = {
+      passed: true,
+      checkedAt: 1000,
+      ttlMs: 60000,
+      descriptorHash: beforeApproval.capabilities[0].agentProvider.descriptorHash,
+    };
+
+    let insideLock = false;
+    let written = null;
+    const { activator } = makeActivatorWithStore({
+      readCapabilities: async () => structuredClone(insideLock ? afterApproval : beforeApproval),
+      writeCapabilities: async (next) => {
+        written = structuredClone(next);
+      },
+      withCapabilityLock: async (fn) => {
+        insideLock = true;
+        try {
+          return await fn();
+        } finally {
+          insideLock = false;
+        }
+      },
+    });
+
+    await activator.enablePlugin(makeManifest());
+
+    const entry = written?.capabilities[0];
+    assert.ok(entry);
+    assert.equal(entry.agentProvider.routeableApproved, true, 'approval should preserve the lock-visible state');
+    assert.equal(entry.agentProvider.routeable, true, 'routeable should preserve the lock-visible state');
+    assert.equal(entry.agentProvider.state, 'healthy', 'state should preserve the lock-visible state');
+    assert.ok(entry.agentProvider.health, 'health should preserve the lock-visible state');
     assert.equal(entry.agentProvider.health.passed, true);
   });
 

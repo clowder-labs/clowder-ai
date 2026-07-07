@@ -17,11 +17,11 @@
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { buildCliDiagnostics, buildSilentCompletionDiagnostic } from '../../../../../utils/cli-diagnostics.js';
-import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
-import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
-import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { buildCliDiagnostics, buildSilentCompletionDiagnostic } from '../../../../../utils/cli/cli-diagnostics.js';
+import { formatCliExitError } from '../../../../../utils/cli/cli-format.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli/cli-resolve.js';
+import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli/cli-spawn.js';
+import type { SpawnFn } from '../../../../../utils/cli/cli-types.js';
 import { CliRawArchive } from '../../session/CliRawArchive.js';
 import type { AgentMessage, AgentServiceOptions, L0InjectableAgentService, MessageMetadata } from '../../types.js';
 import type { RawArchiveSink } from '../providers/codex-audit-hooks.js';

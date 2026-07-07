@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { CatAgentProtocol, NativeToolLevel } from '@cat-cafe/shared';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { ClientId } from '../hub-cat-editor.model';
 

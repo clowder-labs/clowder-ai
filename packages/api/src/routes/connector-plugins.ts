@@ -33,7 +33,7 @@ import {
   resolvePluginsDir,
   uninstallPlugin,
 } from '../infrastructure/connectors/plugins/plugin-installer.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { resolveSessionUserId } from '../utils/request-identity.js';
 import { invalidateManifestCache } from './connector-hub.js';
 

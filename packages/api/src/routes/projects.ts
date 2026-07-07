@@ -11,7 +11,12 @@ import { homedir } from 'node:os';
 import { basename, posix, resolve, win32 } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import { getAllowedRoots, isDenylistMode, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
+import {
+  getAllowedRoots,
+  isDenylistMode,
+  isUnderAllowedRoot,
+  validateProjectPath,
+} from '../utils/paths/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const execFileAsync = promisify(execFile);

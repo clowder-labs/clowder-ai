@@ -12,7 +12,7 @@ import { dirname, join, relative } from 'node:path';
 
 import { type CapabilityEntry, type MountRules, STANDARD_MOUNT_POINT_IDS } from '@cat-cafe/shared';
 import { readCapabilitiesConfig, writeCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
-import { buildSkillMountTargets, createSkillSymlink } from '../utils/skill-mount.js';
+import { buildSkillMountTargets, createSkillSymlink } from '../utils/skills/skill-mount.js';
 import { parseManifestSkillMeta, readSkillMeta } from './skill-meta.js';
 import { classifyMountPath, type MountConflict } from './skill-sync-engine.js';
 

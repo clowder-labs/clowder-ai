@@ -17,7 +17,7 @@
 import { createCatId } from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
 import type { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import {

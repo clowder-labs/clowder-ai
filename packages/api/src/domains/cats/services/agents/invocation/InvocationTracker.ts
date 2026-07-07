@@ -10,7 +10,7 @@
  */
 
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import { resolveCliTimeoutMs } from '../../../../../utils/cli/cli-timeout.js';
 
 const log = createModuleLogger('invocation-tracker');
 

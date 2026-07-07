@@ -15,15 +15,15 @@ import type { FastifyPluginAsync } from 'fastify';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { readMountRules } from '../config/mount/mount-rules-store.js';
 import { parseManifestSkillMeta, resolveSkillMcpStatuses, type SkillMcpDependency } from '../skills/skill-meta.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
   buildMountPointDirCandidates,
   buildSkillMountTargets,
   isSkillMountedAtPoint,
   resolveMainRepoPath,
-} from '../utils/skill-mount.js';
-import { checkStaleness, listSourceSkillNames, type SkillsStaleness } from '../utils/skill-source.js';
+} from '../utils/skills/skill-mount.js';
+import { checkStaleness, listSourceSkillNames, type SkillsStaleness } from '../utils/skills/skill-source.js';
 
 interface SkillMount {
   claude: boolean;

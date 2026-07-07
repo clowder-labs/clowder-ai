@@ -67,7 +67,7 @@ import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types
 import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
-import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { getDefaultUploadDir } from '../utils/media/upload-paths.js';
 
 /** F088 ISSUE-15: Minimal outbound delivery interface — avoids importing full OutboundDeliveryHook. */
 interface OutboundDeliveryHookLike {
@@ -97,7 +97,7 @@ interface StreamingHookLike {
   notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
-import { normalizeErrorMessage } from '../utils/normalize-error.js';
+import { normalizeErrorMessage } from '../utils/parsing/normalize-error.js';
 import { emitQueueUpdated, enrichQueueEntries } from '../utils/queue-enrichment.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';

@@ -5,8 +5,8 @@
 
 import type { CatId, MessageContent, ReplyPreview, TaskStatus } from '@cat-cafe/shared';
 import type { Span } from '@opentelemetry/api';
-import type { CliDiagnostics } from '../../../utils/cli-diagnostics.js';
-import type { CliSpawnOptions } from '../../../utils/cli-types.js';
+import type { CliDiagnostics } from '../../../utils/cli/cli-diagnostics.js';
+import type { CliSpawnOptions } from '../../../utils/cli/cli-types.js';
 import type { AntigravitySessionLifecycle } from './agents/providers/antigravity/antigravity-runtime-lifecycle.js';
 
 /** F8: Unified token usage type across all three cats.

@@ -14,9 +14,9 @@ import { z } from 'zod';
 import { resolveByAccountRef } from '../config/account-resolver.js';
 import { detectAvailableClients } from '../domains/cats/services/first-run-quest/client-detection.js';
 import type { FirstRunQuestStateV1, IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { resolveCliCommand } from '../utils/cli-resolve.js';
-import { resolveWindowsSpawnPlan } from '../utils/cli-spawn-win.js';
+import { resolveCliCommand } from '../utils/cli/cli-resolve.js';
+import { resolveWindowsSpawnPlan } from '../utils/cli/cli-spawn-win.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 const IS_WINDOWS = process.platform === 'win32';

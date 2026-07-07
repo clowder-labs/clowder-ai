@@ -5,7 +5,7 @@
 
 import assert from 'node:assert';
 import test from 'node:test';
-import { sanitizeCliStderr } from '../dist/utils/sanitize-cli-stderr.js';
+import { sanitizeCliStderr } from '../dist/utils/cli/sanitize-cli-stderr.js';
 
 test('strips ANSI escape sequences', () => {
   const input = '\x1b[31mError\x1b[0m: thing';

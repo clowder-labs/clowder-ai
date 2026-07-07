@@ -15,7 +15,7 @@ import { readMountRules } from '../../config/mount/mount-rules-store.js';
 import type { TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
 import { mountSkillSymlinks, unmountSkillSymlinks } from '../../skills/skill-manage.js';
 import { classifyMountPath } from '../../skills/skill-sync-engine.js';
-import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../../utils/skill-mount.js';
+import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../../utils/skills/skill-mount.js';
 import type { LimbRegistry } from '../limb/LimbRegistry.js';
 import { computeAgentProviderDescriptorHash } from './agent-provider-descriptor-hash.js';
 import { normalizeCapId, resolvePluginResourcePath, resourceCapId, resourcePathBasename } from './PluginRegistry.js';
@@ -36,6 +36,9 @@ export interface ActivatePluginResult {
 }
 
 export type LimbAdapterFactory = (pluginId: string, limbYamlPath: string) => Promise<ILimbNode>;
+type AgentProviderDescriptorInput =
+  | AgentProviderCapabilityDescriptor
+  | ((existing: AgentProviderCapabilityDescriptor | undefined) => AgentProviderCapabilityDescriptor);
 
 /** Minimal TaskRunner interface for schedule resource activation (F202 Phase 2) */
 export interface ScheduleTaskRunner {
@@ -493,9 +496,10 @@ export class PluginResourceActivator {
 
   private async activateAgentProvider(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
     if (!resource.agentProvider) throw new Error('AgentProvider resource must have an agentProvider descriptor');
+    const resourceAgentProvider = resource.agentProvider;
     if (!this.deps.providerTransportRegistry) throw new Error('ProviderTransportRegistry not configured');
-    if (!this.deps.providerTransportRegistry.has(resource.agentProvider.transport)) {
-      throw new Error(`Unknown agentProvider transport '${resource.agentProvider.transport}'`);
+    if (!this.deps.providerTransportRegistry.has(resourceAgentProvider.transport)) {
+      throw new Error(`Unknown agentProvider transport '${resourceAgentProvider.transport}'`);
     }
 
     // F241 Phase B Slice 2b: compute the canonical descriptor hash so we can decide
@@ -507,11 +511,11 @@ export class PluginResourceActivator {
     const descriptorHash = computeAgentProviderDescriptorHash({
       pluginId: manifest.id,
       capId,
-      resource: resource.agentProvider,
+      resource: resourceAgentProvider,
     });
-    const existing = await this.readExistingAgentProviderDescriptor(manifest.id, capId);
-
-    const agentProvider: AgentProviderCapabilityDescriptor =
+    const buildAgentProvider = (
+      existing: AgentProviderCapabilityDescriptor | undefined,
+    ): AgentProviderCapabilityDescriptor =>
       existing && existing.descriptorHash === descriptorHash
         ? {
             // Descriptor unchanged — preserve host-owned state verbatim. Spread `existing`
@@ -519,7 +523,7 @@ export class PluginResourceActivator {
             // any non-hash-contributing manifest field (none today, but future-proofing)
             // is refreshed without disturbing host state.
             ...existing,
-            ...resource.agentProvider,
+            ...resourceAgentProvider,
             state: existing.state,
             routeable: existing.routeable,
             routeableApproved: existing.routeableApproved,
@@ -530,33 +534,14 @@ export class PluginResourceActivator {
         : {
             // New activation or descriptor delta — reset host-owned state to fail-closed
             // defaults. `health` and `lastSyncError` are intentionally omitted (undefined).
-            ...resource.agentProvider,
+            ...resourceAgentProvider,
             state: 'transportReady',
             routeable: false,
             routeableApproved: false,
             descriptorHash,
           };
 
-    await this.upsertCapabilityEntry(manifest, resource, true, undefined, undefined, agentProvider);
-  }
-
-  /**
-   * F241 Phase B Slice 2b: read the existing agentProvider descriptor for a given
-   * (pluginId, capId), if any. Returns undefined when no capability row exists, when
-   * the row belongs to a different plugin, or when the row is not an agentProvider.
-   * Pure read — no mutation, no side effects.
-   */
-  private async readExistingAgentProviderDescriptor(
-    pluginId: string,
-    capId: string,
-  ): Promise<AgentProviderCapabilityDescriptor | undefined> {
-    const config = await this.deps.readCapabilities();
-    if (!config) return undefined;
-    const entry = config.capabilities.find((c) => normalizeCapId(c.id) === capId);
-    if (!entry || entry.type !== 'agentProvider' || entry.pluginId !== pluginId) {
-      return undefined;
-    }
-    return entry.agentProvider;
+    await this.upsertCapabilityEntry(manifest, resource, true, undefined, undefined, buildAgentProvider);
   }
 
   private async deactivateAgentProvider(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
@@ -569,7 +554,7 @@ export class PluginResourceActivator {
     enabled: boolean,
     limbNodeId?: string,
     scheduleTaskId?: string,
-    agentProvider?: AgentProviderCapabilityDescriptor,
+    agentProvider?: AgentProviderDescriptorInput,
   ): Promise<CapabilitiesConfig | null> {
     return this.deps.withCapabilityLock(async () => {
       const config = await this.deps.readCapabilities();
@@ -580,6 +565,15 @@ export class PluginResourceActivator {
       let staleLimbNodeIdToClean: string | undefined;
       let staleScheduleTaskIdToClean: string | undefined;
       const existing = cap.capabilities.find((c) => normalizeCapId(c.id) === capId);
+      const resolveAgentProvider = (
+        entry: CapabilityEntry | undefined,
+      ): AgentProviderCapabilityDescriptor | undefined => {
+        if (!agentProvider) return undefined;
+        if (typeof agentProvider !== 'function') return agentProvider;
+        const existingDescriptor =
+          entry?.type === 'agentProvider' && entry.pluginId === manifest.id ? entry.agentProvider : undefined;
+        return agentProvider(existingDescriptor);
+      };
       if (existing) {
         if (existing.pluginId !== undefined && existing.pluginId !== manifest.id) {
           throw new Error(`Capability '${capId}' is already owned by plugin '${existing.pluginId}'`);
@@ -622,7 +616,8 @@ export class PluginResourceActivator {
           delete existing.mcpServer;
           delete existing.limbNodeId;
           delete existing.scheduleTaskId;
-          if (agentProvider) existing.agentProvider = agentProvider;
+          const nextAgentProvider = resolveAgentProvider(existing);
+          if (nextAgentProvider) existing.agentProvider = nextAgentProvider;
         } else {
           delete existing.mcpServer;
           delete existing.scheduleTaskId;
@@ -636,6 +631,7 @@ export class PluginResourceActivator {
         // staleLimbNodeId is deregistered after the write below
         staleLimbNodeIdToClean = staleLimbNodeId;
       } else {
+        const nextAgentProvider = resolveAgentProvider(undefined);
         const entry: CapabilityEntry = {
           id: capId,
           type: resource.type as CapabilityEntry['type'],
@@ -644,7 +640,7 @@ export class PluginResourceActivator {
           pluginId: manifest.id,
           ...(limbNodeId ? { limbNodeId } : {}),
           ...(scheduleTaskId ? { scheduleTaskId } : {}),
-          ...(agentProvider ? { agentProvider } : {}),
+          ...(nextAgentProvider ? { agentProvider: nextAgentProvider } : {}),
         };
 
         if (resource.type === 'mcp') {

@@ -23,7 +23,7 @@ import type { PluginResourceActivator as PluginResourceActivatorType } from '../
 import { assertPluginResourceInsideRoot } from '../domains/plugin/PluginResourceActivator.js';
 import { loadAllPluginConfigs, resolvePluginEnv, writePluginConfig } from '../domains/plugin/plugin-config-store.js';
 import { validateEnvSafety } from '../domains/plugin/plugin-manifest.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 
 interface PluginRoutesOpts {
   pluginRegistry: PluginRegistry;

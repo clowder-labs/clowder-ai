@@ -12,7 +12,7 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { resolveCliCommand } from '../../../../utils/cli-resolve.js';
+import { resolveCliCommand } from '../../../../utils/cli/cli-resolve.js';
 
 const execFileAsync = promisify(execFile);
 

@@ -20,7 +20,7 @@ const { InMemorySpanExporter, SimpleSpanProcessor } = await import('@opentelemet
 const { NodeTracerProvider } = await import('@opentelemetry/sdk-trace-node');
 
 // Module under test
-const { spawnCli } = await import('../../dist/utils/cli-spawn.js');
+const { spawnCli } = await import('../../dist/utils/cli/cli-spawn.js');
 
 /** Collect all items from an async iterable */
 async function collect(iterable) {

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { initRepoIdentity, isSameRepo } from '../../dist/utils/is-same-repo.js';
+import { initRepoIdentity, isSameRepo } from '../../dist/utils/paths/is-same-repo.js';
 
 function configureTestRepo(repoPath) {
   execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: repoPath });

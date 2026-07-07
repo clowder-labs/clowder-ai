@@ -9,7 +9,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import type { GovernanceHealthSummary, GovernancePackMeta } from '@cat-cafe/shared';
-import { pathsEqual } from '../../utils/project-path.js';
+import { pathsEqual } from '../../utils/paths/project-path.js';
 import { GOVERNANCE_PACK_VERSION } from './governance-pack.js';
 
 const REGISTRY_DIR = '.cat-cafe';

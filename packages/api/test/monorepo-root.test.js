@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
-const { _clearCachesForTest, findMonorepoRoot } = await import('../dist/utils/monorepo-root.js');
+const { _clearCachesForTest, findMonorepoRoot } = await import('../dist/utils/paths/monorepo-root.js');
 
 describe('findMonorepoRoot', () => {
   afterEach(() => {

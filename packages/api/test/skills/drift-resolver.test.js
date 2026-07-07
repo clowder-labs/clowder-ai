@@ -13,7 +13,7 @@ import {
 import { checkGlobal } from '../../dist/skills/drift-detector.js';
 import { syncDrift } from '../../dist/skills/drift-resolver.js';
 import { syncProject } from '../../dist/skills/skill-sync-engine.js';
-import { checkStaleness, listSourceSkillNames } from '../../dist/utils/skill-source.js';
+import { checkStaleness, listSourceSkillNames } from '../../dist/utils/skills/skill-source.js';
 
 /**
  * Test helper: wraps checkGlobal for mount-level drift detection.

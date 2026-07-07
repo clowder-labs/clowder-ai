@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_SPAWN_SRC = resolve(__dirname, '../../src/utils/cli-spawn.ts');
+const CLI_SPAWN_SRC = resolve(__dirname, '../../src/utils/cli/cli-spawn.ts');
 
 test('F152: cli-spawn Windows shim debug log must not contain args field', async (t) => {
   // Read the source file and find the Windows shim debug log line

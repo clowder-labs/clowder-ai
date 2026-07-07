@@ -118,7 +118,7 @@ async function* parseOpenAIChatStream(
   const reader = body.getReader();
   const decoder = new TextDecoder('utf-8', { fatal: false });
   let buffer = '';
-  let dataLines: string[] = [];
+  const dataLines: string[] = [];
   const ctx: OpenAIStreamContext = {
     text: '',
     textSeen: false,
@@ -289,9 +289,7 @@ export class OpenAIChatAdapter implements CatAgentProtocolAdapter {
     const body: Record<string, unknown> = {
       model: input.model,
       max_tokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
-      messages: input.systemPrompt
-        ? [{ role: 'system' as const, content: input.systemPrompt }, ...messages]
-        : messages,
+      messages: input.systemPrompt ? [{ role: 'system' as const, content: input.systemPrompt }, ...messages] : messages,
       stream: true,
       stream_options: { include_usage: true },
     };

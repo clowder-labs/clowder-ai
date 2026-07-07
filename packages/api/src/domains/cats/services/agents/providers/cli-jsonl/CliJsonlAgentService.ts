@@ -6,10 +6,10 @@
  */
 
 import { type CatId, createCatId } from '@cat-cafe/shared';
-import { formatCliExitError } from '../../../../../../utils/cli-format.js';
-import { formatCliNotFoundError, resolveCliCommand } from '../../../../../../utils/cli-resolve.js';
-import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../../utils/cli-spawn.js';
-import type { SpawnFn } from '../../../../../../utils/cli-types.js';
+import { formatCliExitError } from '../../../../../../utils/cli/cli-format.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../../utils/cli/cli-resolve.js';
+import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../../utils/cli/cli-spawn.js';
+import type { SpawnFn } from '../../../../../../utils/cli/cli-types.js';
 import { CliRawArchive } from '../../../session/CliRawArchive.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { type RawArchiveSink, sanitizeRawEvent } from '../codex-audit-hooks.js';

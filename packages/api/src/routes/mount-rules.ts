@@ -30,11 +30,11 @@ import {
 import { syncAll } from '../skills/skill-sync-all.js';
 import { classifyMountPath, syncProject } from '../skills/skill-sync-engine.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
-import { resolvePluginSkillSourcesForProject } from '../utils/plugin-skill-source.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
+import { resolveStartupProjectRoot } from '../utils/paths/startup-root.js';
 import { resolveSessionUserId, resolveUserId } from '../utils/request-identity.js';
-import { buildSkillMountTargets, createSkillSymlink, type MountTarget } from '../utils/skill-mount.js';
-import { resolveStartupProjectRoot } from '../utils/startup-root.js';
+import { resolvePluginSkillSourcesForProject } from '../utils/skills/plugin-skill-source.js';
+import { buildSkillMountTargets, createSkillSymlink, type MountTarget } from '../utils/skills/skill-mount.js';
 import { resolveSkillsSourceDir } from './skills.js';
 
 const STARTUP_PROJECT_ROOT = resolveStartupProjectRoot();

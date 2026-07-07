@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import { isLoopbackAddress } from '../../utils/loopback-request.js';
+import { isLoopbackAddress } from '../../utils/network/loopback-request.js';
 import { resolveOwnerGate } from '../../utils/owner-gate.js';
 import { REDACTED_CAPABILITY_SECRET } from './capability-redaction.js';
 

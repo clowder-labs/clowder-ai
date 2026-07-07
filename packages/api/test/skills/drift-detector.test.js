@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 
 import { DEFAULT_MOUNT_RULES } from '@cat-cafe/shared';
 import { checkGlobal, checkProject } from '../../dist/skills/drift-detector.js';
-import { listSourceSkillNames } from '../../dist/utils/skill-source.js';
+import { listSourceSkillNames } from '../../dist/utils/skills/skill-source.js';
 
 /**
  * Test helper: wraps checkGlobal for mount-level drift testing.
