@@ -801,6 +801,17 @@ describe('background thread socket handling', () => {
         ],
         true,
       );
+      const previousActivity = now - 10_000;
+      const seededThreadState = useChatStore.getState().getThreadState('thread-bg-gov');
+      useChatStore.setState((state) => ({
+        threadStates: {
+          ...state.threadStates,
+          'thread-bg-gov': {
+            ...seededThreadState,
+            lastActivity: previousActivity,
+          },
+        },
+      }));
 
       simulateBackgroundMessage({
         type: 'system_info',
@@ -828,6 +839,7 @@ describe('background thread socket handling', () => {
         clientId: 'openai',
       });
       expect(ts.unreadCount).toBe(1);
+      expect(ts.lastActivity).toBeGreaterThan(previousActivity);
     });
 
     it('preserves same-project governance banners for different providers and only replaces matching scope', () => {

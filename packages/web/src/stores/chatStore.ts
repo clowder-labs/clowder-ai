@@ -2846,7 +2846,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, unreadCount: ts.unreadCount + 1 },
+          [threadId]: { ...ts, unreadCount: ts.unreadCount + 1, lastActivity: Date.now() },
         },
       };
     }),
