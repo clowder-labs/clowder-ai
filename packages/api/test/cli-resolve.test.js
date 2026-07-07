@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 const { resolveCliCommand, resolveCliCommandOrBare, formatCliNotFoundError, invalidateCliCommand } = await import(
-  '../dist/utils/cli-resolve.js'
+  '../dist/utils/cli/cli-resolve.js'
 );
 
 // --- formatCliNotFoundError ---

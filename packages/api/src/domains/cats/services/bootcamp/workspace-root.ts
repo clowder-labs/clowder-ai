@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { validateProjectPath } from '../../../../utils/project-path.js';
+import { validateProjectPath } from '../../../../utils/paths/project-path.js';
 
 export type BootcampWorkspaceRootResolution = { ok: true; projectPath: string } | { ok: false; error: string };
 

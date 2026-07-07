@@ -5,7 +5,7 @@
 
 import { resolve } from 'node:path';
 import type { MessageContent } from '@cat-cafe/shared';
-import { getDefaultUploadDir, resolveInternalRouteUrl } from '../../../../../utils/upload-paths.js';
+import { getDefaultUploadDir, resolveInternalRouteUrl } from '../../../../../utils/media/upload-paths.js';
 
 /**
  * Extract absolute image file paths from contentBlocks.

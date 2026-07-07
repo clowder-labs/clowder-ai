@@ -7,7 +7,7 @@
  * - processNext（用户级）：co-creator手动触发处理自己的下一条
  */
 
-import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import { resolveCliTimeoutMs } from '../../../../../utils/cli/cli-timeout.js';
 import { emitQueueUpdated, enrichQueueEntries } from '../../../../../utils/queue-enrichment.js';
 import { hydrateReplyPreview, type IMessageStore } from '../../stores/ports/MessageStore.js';
 import { mergeTokenUsage, type TokenUsage } from '../../types.js';

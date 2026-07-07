@@ -1392,7 +1392,7 @@ describe('GET /api/capabilities (Fastify)', () => {
   it('realigns stale managed cat-cafe MCP paths to the stable main repo root on GET', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
-    const { resolveMainRepoPath } = await import('../dist/utils/skill-mount.js');
+    const { resolveMainRepoPath } = await import('../dist/utils/skills/skill-mount.js');
 
     const projectDir = join('/tmp', `cap-route-test-stale-cat-cafe-path-${Date.now()}`);
     await mkdir(projectDir, { recursive: true });

@@ -15,8 +15,8 @@ import {
   validateConnectorSecretUpdate,
 } from '../config/connector-secret-write-guards.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
+import { isDirectLoopbackRequest } from '../utils/network/loopback-request.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 
 const secretsPatchSchema = z.object({
   updates: z

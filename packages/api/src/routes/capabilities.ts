@@ -59,15 +59,15 @@ import { parsePluginManifest } from '../domains/plugin/plugin-manifest.js';
 import { parseManifestSkillMeta, readSkillMeta, type SkillMeta } from '../skills/skill-meta.js';
 import { syncAll } from '../skills/skill-sync-all.js';
 import { type MountConflict, syncProject } from '../skills/skill-sync-engine.js';
-import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
+import { pathsEqual, validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
   buildMountPointDirCandidates,
   buildSkillMountTargets,
   isSkillMountedAtPoint,
   resolveMainRepoPath,
-} from '../utils/skill-mount.js';
-import { resolveCatCafeSkillsSource } from '../utils/skill-source.js';
+} from '../utils/skills/skill-mount.js';
+import { resolveCatCafeSkillsSource } from '../utils/skills/skill-source.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
 
 // ────────── Capability config helpers ──────────

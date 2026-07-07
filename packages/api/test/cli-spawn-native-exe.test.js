@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const { shouldDirectSpawnNativeExe } = await import('../dist/utils/cli-spawn-win.js');
+const { shouldDirectSpawnNativeExe } = await import('../dist/utils/cli/cli-spawn-win.js');
 
 describe('shouldDirectSpawnNativeExe', () => {
   const trueExists = () => true;

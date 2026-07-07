@@ -8,8 +8,8 @@ import {
   type SavedImageAsset,
   type SupportedImageMime,
   sanitizeFilenameStem,
-} from '../../../../../utils/image-storage.js';
-import { getDefaultUploadDir } from '../../../../../utils/upload-paths.js';
+} from '../../../../../utils/media/image-storage.js';
+import { getDefaultUploadDir } from '../../../../../utils/media/upload-paths.js';
 
 export interface GeneratedImagePublicationInput {
   sourcePath: string;

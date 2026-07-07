@@ -19,15 +19,15 @@ import { lstat, readdir, readlink, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { type MountRules, STANDARD_MOUNT_POINT_IDS } from '@cat-cafe/shared';
-import { pathsEqual } from '../utils/project-path.js';
-import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../utils/skill-mount.js';
+import { pathsEqual } from '../utils/paths/project-path.js';
+import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../utils/skills/skill-mount.js';
 import {
   canonicalSkillMountPathPolicy,
   normalizeSkillMountPathPolicy,
   type SkillMountPathInput,
   skillAllowsMountPoint,
-} from '../utils/skill-mount-policy.js';
-import { listSourceSkillNames } from '../utils/skill-source.js';
+} from '../utils/skills/skill-mount-policy.js';
+import { listSourceSkillNames } from '../utils/skills/skill-source.js';
 
 // ────────── Exported types ──────────
 

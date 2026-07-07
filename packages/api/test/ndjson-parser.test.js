@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 
-const { parseNDJSON, isParseError } = await import('../dist/utils/ndjson-parser.js');
+const { parseNDJSON, isParseError } = await import('../dist/utils/parsing/ndjson-parser.js');
 
 /** Helper: collect all items from async iterable */
 async function collect(iterable) {

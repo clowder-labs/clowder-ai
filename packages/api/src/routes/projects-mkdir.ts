@@ -7,7 +7,7 @@
 import { mkdir, stat } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
-import { isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
+import { isUnderAllowedRoot, validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 /** Characters not allowed in directory names (cross-platform safe) */

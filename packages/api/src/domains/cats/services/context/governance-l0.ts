@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
+import { findMonorepoRoot } from '../../../../utils/paths/monorepo-root.js';
 
 /**
  * Derive the install root from this module's file path.

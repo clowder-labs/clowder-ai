@@ -15,7 +15,7 @@ import { readMountRules } from '../../config/mount/mount-rules-store.js';
 import type { TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
 import { mountSkillSymlinks, unmountSkillSymlinks } from '../../skills/skill-manage.js';
 import { classifyMountPath } from '../../skills/skill-sync-engine.js';
-import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../../utils/skill-mount.js';
+import { buildSkillMountTargets, isManagedDirectoryLevelSkillsSymlink } from '../../utils/skills/skill-mount.js';
 import type { LimbRegistry } from '../limb/LimbRegistry.js';
 import { computeAgentProviderDescriptorHash } from './agent-provider-descriptor-hash.js';
 import { normalizeCapId, resolvePluginResourcePath, resourceCapId, resourcePathBasename } from './PluginRegistry.js';

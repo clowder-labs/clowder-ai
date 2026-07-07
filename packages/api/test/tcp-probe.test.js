@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
 import { describe, it } from 'node:test';
 
-const { tcpProbe } = await import('../dist/utils/tcp-probe.js');
+const { tcpProbe } = await import('../dist/utils/network/tcp-probe.js');
 
 describe('tcpProbe', () => {
   it('returns true for a listening port', async () => {

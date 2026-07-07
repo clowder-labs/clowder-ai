@@ -31,8 +31,8 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { resolveCliCommandOrBare } from '../../../../../utils/cli-resolve.js';
-import { buildChildEnv } from '../../../../../utils/cli-spawn.js';
+import { resolveCliCommandOrBare } from '../../../../../utils/cli/cli-resolve.js';
+import { buildChildEnv } from '../../../../../utils/cli/cli-spawn.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import {
   accumulateUsageFromEntries,

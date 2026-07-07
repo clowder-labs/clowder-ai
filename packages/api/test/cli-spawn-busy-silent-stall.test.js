@@ -17,8 +17,8 @@ import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { clearTimeout as clearKeepAliveTimeout, setTimeout as setKeepAliveTimeout } from 'node:timers';
 
-const { spawnCli, isCliTimeout } = await import('../dist/utils/cli-spawn.js');
-const { ProcessLivenessProbe } = await import('../dist/utils/ProcessLivenessProbe.js');
+const { spawnCli, isCliTimeout } = await import('../dist/utils/cli/cli-spawn.js');
+const { ProcessLivenessProbe } = await import('../dist/utils/process/ProcessLivenessProbe.js');
 
 function createMockProcess(opts = {}) {
   const { exitOnKill = true, exitCode = null, pid = 12345, autoCloseOnExit = true } = opts;
@@ -68,7 +68,7 @@ test('stderr handler should NOT call probe.notifyActivity (structural contract)'
   // Read the cli-spawn source and check whether stderr handler calls notifyActivity
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
-  const source = await readFile(join(import.meta.dirname, '..', 'src', 'utils', 'cli-spawn.ts'), 'utf-8');
+  const source = await readFile(join(import.meta.dirname, '..', 'src', 'utils', 'cli', 'cli-spawn.ts'), 'utf-8');
 
   // Find the stderr handler block using indexOf (regex lazy match stops too early)
   const stderrIdx = source.indexOf("child.stderr?.on('data'");
@@ -116,7 +116,7 @@ test('stderr handler should NOT call probe.notifyActivity (structural contract)'
 test('resetTimeout must NOT have early wall-clock cap (pure inactivity timer)', async () => {
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
-  const source = await readFile(join(import.meta.dirname, '..', 'src', 'utils', 'cli-spawn.ts'), 'utf-8');
+  const source = await readFile(join(import.meta.dirname, '..', 'src', 'utils', 'cli', 'cli-spawn.ts'), 'utf-8');
 
   // Find the resetTimeout function body
   const resetTimeoutMatch = source.match(/const resetTimeout\s*=\s*\(\)\s*(?::\s*void)?\s*=>\s*\{([\s\S]*?)\n {2}\};/);

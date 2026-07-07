@@ -12,7 +12,7 @@ const {
   getDefaultDeniedRoots,
   isPathUnderRoots,
   isDenylistMode,
-} = await import('../dist/utils/project-path.js');
+} = await import('../dist/utils/paths/project-path.js');
 
 describe('denylist mode (default)', () => {
   let savedAllowedRoots;

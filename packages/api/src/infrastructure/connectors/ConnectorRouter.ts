@@ -18,7 +18,7 @@
 import type { CatId, ConnectorDefinition, ConnectorSource, MessageContent } from '@cat-cafe/shared';
 import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { findMonorepoRoot } from '../../utils/monorepo-root.js';
+import { findMonorepoRoot } from '../../utils/paths/monorepo-root.js';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { type CardAction, ConnectorMessageFormatter, DEFAULT_QUICK_ACTIONS } from './ConnectorMessageFormatter.js';
 import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';

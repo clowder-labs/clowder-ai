@@ -38,7 +38,7 @@ import {
 } from '../infrastructure/connectors/plugins/im-connector-manifest.js';
 import { resolvePluginsDir } from '../infrastructure/connectors/plugins/plugin-installer.js';
 import { normalizeTelegramBotToken } from '../infrastructure/connectors/telegram-token.js';
-import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveActiveProjectRoot } from '../utils/paths/active-project-root.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const __filename = fileURLToPath(import.meta.url);

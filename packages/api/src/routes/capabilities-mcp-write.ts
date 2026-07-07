@@ -28,9 +28,9 @@ import {
   requireLocalCapabilityWriteRequest,
   resolveCapabilityWriteSessionUserId,
 } from '../config/capabilities/capability-write-guards.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { validateProjectPath } from '../utils/paths/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { resolveMainRepoPath } from '../utils/skill-mount.js';
+import { resolveMainRepoPath } from '../utils/skills/skill-mount.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
 
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;

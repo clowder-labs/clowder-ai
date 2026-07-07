@@ -15,7 +15,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, describe, it, mock } from 'node:test';
 
 const ACP_CLIENT_MODULE = '../../dist/domains/cats/services/agents/providers/acp/AcpClient.js';
-const { findSystemNode } = await import('../../dist/utils/cli-spawn-win.js');
+const { findSystemNode } = await import('../../dist/utils/cli/cli-spawn-win.js');
 const require = createRequire(import.meta.url);
 const childProcess = require('node:child_process');
 const INIT_RESULT = {
