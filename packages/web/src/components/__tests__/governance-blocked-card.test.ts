@@ -167,7 +167,7 @@ describe('GovernanceBlockedCard', () => {
     expect(container.textContent).not.toContain('C:\\workspace\\tmp');
   });
 
-  it('calls onSelfClear when per-project governance status is ready on mount (F070 stale-banner self-heal)', async () => {
+  it('calls onSelfClear when provider-scoped governance status is ready on mount (F070 stale-banner self-heal)', async () => {
     const onSelfClear = vi.fn();
     mockApiFetch.mockResolvedValueOnce({
       ok: true,
@@ -184,6 +184,7 @@ describe('GovernanceBlockedCard', () => {
           projectPath: '/test/proj',
           reasonKind: 'needs_bootstrap',
           invocationId: 'inv-stale',
+          clientId: 'openai',
           onSelfClear,
         }),
       );
@@ -192,8 +193,28 @@ describe('GovernanceBlockedCard', () => {
       await Promise.resolve();
     });
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
     expect(onSelfClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not self-clear legacy unscoped banners because provider readiness cannot be proven', async () => {
+    const onSelfClear = vi.fn();
+
+    await act(async () => {
+      root.render(
+        React.createElement(GovernanceBlockedCard, {
+          projectPath: '/test/proj',
+          reasonKind: 'needs_bootstrap',
+          invocationId: 'inv-legacy',
+          onSelfClear,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(onSelfClear).not.toHaveBeenCalled();
   });
 
   it('scopes self-heal status probe to the blocked cat provider', async () => {
@@ -297,6 +318,7 @@ describe('GovernanceBlockedCard', () => {
         React.createElement(GovernanceBlockedCard, {
           projectPath: '/test/proj',
           reasonKind: 'needs_confirmation',
+          clientId: 'openai',
           onSelfClear,
         }),
       );
@@ -304,7 +326,7 @@ describe('GovernanceBlockedCard', () => {
       await Promise.resolve();
     });
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/governance/status?projectPath=%2Ftest%2Fproj&clientId=openai');
     expect(onSelfClear).not.toHaveBeenCalled();
   });
 
@@ -320,6 +342,7 @@ describe('GovernanceBlockedCard', () => {
         React.createElement(GovernanceBlockedCard, {
           projectPath: '/test/proj',
           reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
           onSelfClear,
         }),
       );
@@ -339,6 +362,7 @@ describe('GovernanceBlockedCard', () => {
         React.createElement(GovernanceBlockedCard, {
           projectPath: '/test/proj',
           reasonKind: 'needs_bootstrap',
+          clientId: 'openai',
           onSelfClear,
         }),
       );

@@ -100,8 +100,12 @@ const storeState = {
   replaceMessages: vi.fn((msgs: unknown[]) => {
     storeState.messages = msgs as typeof storeState.messages;
   }),
-  // F183 B1.7+: bg path reducer wire-up → replaceThreadMessages (thread-scoped)
-  replaceThreadMessages: vi.fn(),
+  // F183 B1.7+: reducer wire-up → replaceThreadMessages (thread-scoped)
+  replaceThreadMessages: vi.fn((threadId: string, msgs: typeof storeState.messages) => {
+    if (threadId === storeState.currentThreadId) {
+      storeState.messages = msgs;
+    }
+  }),
   incrementUnread: vi.fn(),
   hasMore: true,
   setThreadLoading: mockSetThreadLoading,
@@ -341,6 +345,69 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
       ).toMatchObject({
         projectPath: '/work/project',
         reasonKind: 'needs_bootstrap',
+        invocationId: 'inv-openai-refresh',
+        clientId: 'openai',
+      });
+    });
+
+    it('persists active governance banner refreshes through one thread-scoped replacement snapshot', () => {
+      storeState.currentThreadId = 'thread-active';
+      storeState.messages = [
+        {
+          id: 'openai-banner-old',
+          type: 'system',
+          variant: 'governance_blocked',
+          content: 'openai stale blocked banner',
+          timestamp: 1700000000000,
+          extra: {
+            governanceBlocked: {
+              projectPath: '/work/project',
+              reasonKind: 'needs_confirmation',
+              invocationId: 'inv-openai-old',
+              clientId: 'openai',
+            },
+          },
+        },
+        {
+          id: 'user-message',
+          type: 'user',
+          content: 'keep user message',
+          timestamp: 1700000000001,
+        },
+      ];
+
+      act(() => {
+        root.render(React.createElement(Harness));
+      });
+
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'system_info',
+          catId: 'codex',
+          threadId: 'thread-active',
+          content: JSON.stringify({
+            type: 'governance_blocked',
+            projectPath: '/work/project',
+            reasonKind: 'files_missing',
+            invocationId: 'inv-openai-refresh',
+            clientId: 'openai',
+          }),
+          timestamp: 1700000000002,
+        });
+      });
+
+      expect(mockRemoveMessage).not.toHaveBeenCalled();
+      expect(mockAddMessage).not.toHaveBeenCalled();
+      expect(storeState.replaceThreadMessages).toHaveBeenCalledTimes(1);
+      const [threadId, nextMessages, hasMore, options] = (storeState.replaceThreadMessages as ReturnType<typeof vi.fn>)
+        .mock.calls[0];
+      expect(threadId).toBe('thread-active');
+      expect(hasMore).toBe(true);
+      expect(options).toEqual({ persist: true });
+      expect(nextMessages.map((m) => m.id)).toEqual(['user-message', expect.any(String)]);
+      expect(nextMessages[1]?.extra?.governanceBlocked).toMatchObject({
+        projectPath: '/work/project',
+        reasonKind: 'files_missing',
         invocationId: 'inv-openai-refresh',
         clientId: 'openai',
       });

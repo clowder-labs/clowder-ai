@@ -54,11 +54,13 @@ export function GovernanceBlockedCard({
   // they've started bootstrap, the in-flight state machine owns the lifecycle.
   useEffect(() => {
     if (!onSelfClear || state !== 'idle') return;
+    const scopedClientId = clientId?.trim();
+    if (!scopedClientId) return;
     let canceled = false;
     (async () => {
       try {
         const params = new URLSearchParams({ projectPath });
-        if (clientId) params.set('clientId', clientId);
+        params.set('clientId', scopedClientId);
         const res = await apiFetch(`/api/governance/status?${params.toString()}`);
         if (canceled || !res.ok) return;
         const data = (await res.json()) as GovernanceStatusResponse;

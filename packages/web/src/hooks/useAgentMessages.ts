@@ -5181,13 +5181,7 @@ export function useAgentMessages() {
                 : typeof parsed.provider === 'string'
                   ? parsed.provider
                   : undefined;
-            const existingBlocked = useChatStore
-              .getState()
-              .messages.find((m) => isSameGovernanceBlockedScope(m, projectPath, clientId));
-            if (existingBlocked) {
-              removeMessage(existingBlocked.id);
-            }
-            addMessage({
+            const nextBanner: ChatMessage = {
               id: `gov-blocked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: 'system',
               variant: 'governance_blocked',
@@ -5201,7 +5195,26 @@ export function useAgentMessages() {
                   clientId,
                 },
               },
-            });
+            };
+            const storeSnapshot = useChatStore.getState();
+            const threadId = msg.threadId ?? storeSnapshot.currentThreadId;
+            if (threadId) {
+              const baseMessages =
+                threadId === storeSnapshot.currentThreadId
+                  ? storeSnapshot.messages
+                  : storeSnapshot.getThreadState(threadId).messages;
+              const nextMessages = [
+                ...baseMessages.filter((m) => !isSameGovernanceBlockedScope(m, projectPath, clientId)),
+                nextBanner,
+              ];
+              const nextHasMore =
+                threadId === storeSnapshot.currentThreadId
+                  ? storeSnapshot.hasMore
+                  : storeSnapshot.getThreadState(threadId).hasMore;
+              storeSnapshot.replaceThreadMessages(threadId, nextMessages, nextHasMore, { persist: true });
+            } else {
+              addMessage(nextBanner);
+            }
             consumed = true;
           } else if (isInternalSystemInfoTelemetry(parsed)) {
             // Internal telemetry — suppress to avoid raw JSON bubbles
