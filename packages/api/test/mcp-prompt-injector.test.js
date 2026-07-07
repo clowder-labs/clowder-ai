@@ -117,3 +117,112 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('@codex'), 'should provide a routable handle example');
   });
 });
+
+describe('resolveMcpPromptInjection (Issue #59)', () => {
+  /** @param {string} mode */
+  function mockService(mode) {
+    return /** @type {import('../dist/domains/cats/services/types.js').AgentService} */ ({
+      invoke: async function* () {},
+      mcpPromptMode: () => mode,
+    });
+  }
+
+  /** Service without mcpPromptMode (legacy path) */
+  function legacyService() {
+    return /** @type {import('../dist/domains/cats/services/types.js').AgentService} */ ({
+      invoke: async function* () {},
+    });
+  }
+
+  it("CatAgent mcpPromptMode='none' → neither S13 nor C1 injected", async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      mockService('none'),
+      { mcpSupport: true },
+      '/some/mcp/server/path',
+    );
+    assert.equal(result.injectNativeMcpDocs, false, 'should NOT inject S13 native MCP docs');
+    assert.equal(result.injectHttpCallbackDocs, false, 'should NOT inject C1 HTTP callback');
+  });
+
+  it("Claude mcpPromptMode='native-mcp' → S13 injected, C1 not", async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      mockService('native-mcp'),
+      { mcpSupport: true },
+      '/some/mcp/server/path',
+    );
+    assert.equal(result.injectNativeMcpDocs, true, 'should inject S13 native MCP docs');
+    assert.equal(result.injectHttpCallbackDocs, false, 'should NOT inject C1');
+  });
+
+  it("Codex mcpPromptMode='http-callback' → C1 injected, S13 not", async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      mockService('http-callback'),
+      { mcpSupport: false },
+      undefined,
+    );
+    assert.equal(result.injectNativeMcpDocs, false, 'should NOT inject S13');
+    assert.equal(result.injectHttpCallbackDocs, true, 'should inject C1 HTTP callback');
+  });
+
+  it('legacy fallback: mcpSupport=true + mcpServerPath → S13 (back-compat)', async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      legacyService(),
+      { mcpSupport: true },
+      '/some/mcp/server/path',
+    );
+    assert.equal(result.injectNativeMcpDocs, true, 'legacy: mcpAvailable=true → S13');
+    assert.equal(result.injectHttpCallbackDocs, false, 'legacy: mcpAvailable=true → no C1');
+  });
+
+  it('legacy fallback: mcpSupport=false → C1 (back-compat)', async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      legacyService(),
+      { mcpSupport: false },
+      '/some/mcp/server/path',
+    );
+    assert.equal(result.injectNativeMcpDocs, false, 'legacy: mcpAvailable=false → no S13');
+    assert.equal(result.injectHttpCallbackDocs, true, 'legacy: mcpAvailable=false → C1');
+  });
+
+  it('legacy fallback: antigravity → neither (special case preserved)', async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const result = resolveMcpPromptInjection(
+      legacyService(),
+      { clientId: 'antigravity', mcpSupport: false },
+      undefined,
+    );
+    assert.equal(result.injectNativeMcpDocs, false, 'antigravity: no S13');
+    assert.equal(result.injectHttpCallbackDocs, false, 'antigravity: no C1');
+  });
+
+  it("mcpPromptMode='none' overrides even when mcpSupport=true (capability > config)", async () => {
+    const { resolveMcpPromptInjection } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    // CatAgent scenario: config says mcpSupport=true but service knows better
+    const result = resolveMcpPromptInjection(
+      mockService('none'),
+      { mcpSupport: true, clientId: 'catagent' },
+      '/some/mcp/server/path',
+    );
+    assert.equal(result.injectNativeMcpDocs, false, 'capability should override config');
+    assert.equal(result.injectHttpCallbackDocs, false, 'capability should override config');
+  });
+});
