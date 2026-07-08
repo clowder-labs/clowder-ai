@@ -23,7 +23,7 @@
  */
 
 import { stripTrailingCatSignatures } from './cat-signature-strip.js';
-import { finalRoutingSlot } from './final-routing-slot.js';
+import { finalRoutingSlot, hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
 
 /**
  * Hold pattern catalog. Order matters: more-specific patterns first so a

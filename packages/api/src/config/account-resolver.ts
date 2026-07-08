@@ -262,7 +262,11 @@ function accountToRuntimeProfile(ref: string, account: AccountConfig, projectRoo
   // (which is freeform display, not authoritative routing/security identity).
   // Legacy api_key accounts without `clientFamily` fall through with
   // `profile.client=undefined`, preserving pre-G2 best-effort resolution.
-  const apiKeyClient = !isOAuth ? account.clientFamily : undefined;
+  // clientFamily's literal union includes 'dare' (Hub display), but RuntimeProviderProfile.client
+  // is BuiltinAccountClient — 'dare' has no builtin account and cannot satisfy the fail-closed
+  // family guard, so it falls through as undefined (same as legacy no-clientFamily accounts).
+  const apiKeyClient: BuiltinAccountClient | undefined =
+    !isOAuth && account.clientFamily && account.clientFamily !== 'dare' ? account.clientFamily : undefined;
   const resolvedClient = isBuiltin ? builtinClient : apiKeyClient;
   return {
     id: ref,

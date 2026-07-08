@@ -2696,7 +2696,7 @@ async function main(): Promise<void> {
         const root = resolveActiveProjectRoot();
         await writeCapabilitiesConfig(root, config);
         const { paths } = resolveStartupCliConfigContext(root);
-        await generateCliConfigs(config, paths);
+        await generateCliConfigs(config, paths, root);
       },
       withCapabilityLock: (fn) => withCapabilityLock(resolveActiveProjectRoot(), fn),
       buildAdmissionSnapshot: async (pluginId, capId, capabilitiesConfig) => {

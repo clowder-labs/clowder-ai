@@ -14,7 +14,7 @@
  */
 
 import { stripTrailingCatSignatures } from './cat-signature-strip.js';
-import { finalRoutingSlot } from './final-routing-slot.js';
+import { finalRoutingSlot, hasEventDrivenExternalWaitExit } from './final-routing-slot.js';
 
 // 2026-06-20 verdict eval:a2a C2 void-hold English fix: signature stripping
 // extracted to `cat-signature-strip.ts` so void-hold-detect.ts can share the

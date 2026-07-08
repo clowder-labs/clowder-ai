@@ -1451,7 +1451,7 @@ export async function* routeSerial(
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
             if (completedToolName) {
-              if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
+              if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName.toolName)) {
                 hasEventDrivenExternalWaitCoverage = true;
               }
               const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
@@ -1897,7 +1897,7 @@ export async function* routeSerial(
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
               if (completedToolName) {
-                if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
+                if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName.toolName)) {
                   hasEventDrivenExternalWaitCoverage = true;
                 }
                 const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
