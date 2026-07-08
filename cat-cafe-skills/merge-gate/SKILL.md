@@ -114,7 +114,7 @@ merge-gate 执行时，在 Step 7（squash merge）**之前**，猫必须**组�
 
 | # | 检查项 | 验证方式 | 失败动作 |
 |---|--------|----------|----------|
-| E1 | `head` === PR current HEAD | `git rev-parse HEAD` vs `gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid'` | BLOCKED — HEAD 不一致，可能有 unpushed commit |
+| E1 | `head` === PR current HEAD | `git rev-parse HEAD` vs `gh pr view {PR_NUMBER} --repo clowder-labs/clowder-ai --json headRefOid --jq '.headRefOid'` | BLOCKED — HEAD 不一致，可能有 unpushed commit |
 | E2 | `stale` === false | 按 `headChangeCause` 判定的活跃 review 源覆盖当前 `head`（见上方 `stale` 字段定义的完整映射表）。`nextGateOwner=author` 时（merge-ready 态），沿用最后一次 `headChangeCause` 确定的活跃源；`nextGateOwner=ci/guardian` 时，review 覆盖规则不变（CI/guardian 是额外 gate，不改变 review 覆盖链） | BLOCKED — 活跃 review 源的 SHA 过期，需要 re-review |
 | E3 | reviewer provenance 闭合 | 至少一个 review 源（local 或 cloud）非空且覆盖 `head`（exempt PR 无 cloud 时只看 local） | BLOCKED — 缺 review provenance |
 | E4 | `verdict` !== "blocked" | review 结果为 APPROVE（非 BLOCK / CHANGES_REQUESTED） | BLOCKED — reviewer 未放行 |
@@ -504,7 +504,7 @@ merge 是把状态写进 main 的不可逆点（其他 session 立即读到）�
 
 #### 7.5b — Post-merge：记录已合入状态（在 Step 7 merge 之后）
 
-⚠️ **切到持有 main 的 worktree 再 commit**：`gh pr merge --squash --delete-branch` 之后你仍在 feature worktree 上。直接 commit 会落到**已合并/已删的 feature branch**（或留脏工作树让 Step 8 fail-closed abort）。而且 worktree 开发场景下 `main` 由主仓 worktree 持有——**在 feature worktree `git checkout main` 会被 git 拒绝**（ref 已被另一 worktree 占用）。所以切到持有 main 的 worktree（而非 checkout）：
+⚠️ **切到持有 main 的 worktree 再 commit**：`gh pr merge --repo clowder-labs/clowder-ai --squash --delete-branch` 之后你仍在 feature worktree 上。直接 commit 会落到**已合并/已删的 feature branch**（或留脏工作树让 Step 8 fail-closed abort）。而且 worktree 开发场景下 `main` 由主仓 worktree 持有——**在 feature worktree `git checkout main` 会被 git 拒绝**（ref 已被另一 worktree 占用）。所以切到持有 main 的 worktree（而非 checkout）：
 
 ```bash
 # 找到持有 main 的 worktree（通常是主仓 cat-cafe/），cd 过去做 doc-sync：
