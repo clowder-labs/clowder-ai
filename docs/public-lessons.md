@@ -1771,7 +1771,7 @@ created: 2026-02-26
 
 ---
 
-### LL-080: PR fork base trap — `gh pr create` 在 fork 仓默认提到 parent
+### LL-090: PR fork base trap — `gh pr create` 在 fork 仓默认提到 parent
 - 状态：validated
 - 更新时间：2026-06-28
 

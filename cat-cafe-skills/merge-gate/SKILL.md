@@ -193,7 +193,7 @@ fi
 
 ### 合入方式（唯一正确做法）
 
-> **⚠️ Fork base trap 总规则（LL-080，覆盖本节所有命令）**：
+> **⚠️ Fork base trap 总规则（LL-090，覆盖本节所有命令）**：
 > 本仓 `clowder-labs/clowder-ai` 在 GitHub 后台是 `zts212653/clowder-ai` 的 fork。
 > **所有** `gh pr *` 和 `gh api repos/...` 命令在 fresh clone / 未写 `gh-resolved` 的
 > worktree 上若不显式带 `--repo clowder-labs/clowder-ai`，gh CLI 会默认解析到 parent

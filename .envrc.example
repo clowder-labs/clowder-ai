@@ -10,7 +10,7 @@
 #   这样审查/回滚 GH_REPO 改动归个人 git 操作，不进 PR review 影子层。
 #
 # 这个文件的作用：补 §SOP 之外的"手敲命令"场景。
-# 详见 LL-080（PR Fork Base Trap）+ cat-cafe-skills/merge-gate/SKILL.md。
+# 详见 LL-090（PR Fork Base Trap）+ cat-cafe-skills/merge-gate/SKILL.md。
 #
 # 启用步骤（按你的环境三选一，优先级从上到下）：
 #   1. direnv（**强推荐** — 进出 repo 自动 export/unset，无 cross-repo 污染）：
