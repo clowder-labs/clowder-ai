@@ -113,9 +113,9 @@ Phase A 先落地（价值最高 + 基础设施最成熟），Phase B 扩展通�
    ⚠️ 消息未发送（HELD）
    ━━━━━━━━━━━━━━━━━━━━━━━━━
    原因：你有 1 条未读消息（来自Maine Coon）
-   
+
    [Maine Coon]: "等一下，我发现了一个 bug，这个 PR 先别合…"
-   
+
    你的选择：
    1. 调 cat_cafe_list_recent 看完整内容，再决定怎么回
    2. 修改你的回复后重新调 post_message
@@ -441,16 +441,16 @@ interface RuntimeCapabilityDescriptor {
   // 运行模式
   carrier: string;           // 'headless-p' | 'interactive' | 'bg-cron' | 'cloud' | 'connector'
   driver: string;            // 'claude' | 'codex' | 'gemini' | etc.
-  
+
   // Freshness Gate 能力
   canReceiveHeldResponse: boolean;
   canReceiveContentFreeNotice: boolean;
-  
+
   // 交互能力
   busyDeliveryMode: 'gated' | 'direct' | 'steer';  // -p=gated, SDK=steer
   canAskHumanSync: boolean;    // interactive only
   backgroundBashReliable: boolean;
-  
+
   // 安全
   permissionMode: string;
 }

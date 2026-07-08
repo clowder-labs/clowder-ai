@@ -10,7 +10,7 @@
  * SessionSealer is responsible for the lifecycle state machine.
  */
 
-import type { CatId, SealResult, SessionStatus } from '@cat-cafe/shared';
+import type { CatId, SealResult } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import { extractRecentArtifacts } from '../agents/routing/artifact-tracking.js';
 import { AuditEventTypes, getEventAuditLog } from '../orchestration/EventAuditLog.js';
@@ -110,46 +110,40 @@ export class SessionSealer implements ISessionSealer {
     this.postSealHooks.push(hook);
   }
 
-  async requestSeal(args: { sessionId: string; reason: SealReason }): Promise<SealResult> {
-    const record = await this.store.get(args.sessionId);
-    if (!record) {
+  async requestSeal(args: {
+    sessionId: string;
+    reason: SealReason;
+    expectedCliSessionId?: string;
+  }): Promise<SealResult> {
+    const now = Date.now();
+    const updated = await this.store.compareAndMarkSealing(args.sessionId, {
+      sealReason: args.reason,
+      updatedAt: now,
+      ...(args.expectedCliSessionId !== undefined ? { expectedCliSessionId: args.expectedCliSessionId } : {}),
+    });
+
+    if (!updated) {
+      const current = await this.store.get(args.sessionId);
+      if (current) {
+        return { accepted: false, status: current.status };
+      }
       return { accepted: false, status: 'sealed' };
     }
 
-    // CAS: only active sessions can be sealed
-    // Snapshot status before mutation (memory store returns live reference)
-    const currentStatus: SessionStatus = record.status;
-    if (currentStatus !== 'active') {
-      return { accepted: false, status: currentStatus };
-    }
-
-    // Transition active → sealing
-    const now = Date.now();
-    const updated = await this.store.update(args.sessionId, {
-      status: 'sealing',
-      sealReason: args.reason,
-      updatedAt: now,
-    });
-
-    if (!updated || updated.status !== 'sealing') {
-      // Race condition: another caller got there first
-      return { accepted: false, status: updated?.status ?? 'sealed' };
-    }
-
     log.info(
-      { sessionId: args.sessionId, catId: record.catId, threadId: record.threadId, reason: args.reason },
+      { sessionId: args.sessionId, catId: updated.catId, threadId: updated.threadId, reason: args.reason },
       'session seal requested',
     );
     getEventAuditLog()
       .append({
         type: AuditEventTypes.SEAL_REQUESTED,
-        threadId: record.threadId,
+        threadId: updated.threadId,
         data: {
           sessionId: args.sessionId,
-          catId: record.catId,
-          cliSessionId: record.cliSessionId,
+          catId: updated.catId,
+          cliSessionId: updated.cliSessionId,
           reason: args.reason,
-          seq: record.seq,
+          seq: updated.seq,
         },
       })
       .catch(() => {});

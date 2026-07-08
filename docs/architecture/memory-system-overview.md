@@ -202,10 +202,10 @@ Consumption + Governance
 
 ## 当前缺口
 
-1. **F231 adoption 仍是硬问题**  
+1. **F231 adoption 仍是硬问题**
    F231 机制全绿，但历史上出现过“C1 merged 2 天零有机使用”和 8 天 `profile_update.proposed = 0`。后续已用 L6 wakeup 具体化 + post-compact nudge 修，但 auto dream 若要承担“通水引擎”，必须把 organic proposal rate 纳入 eval。
 
-2. **记忆系统地图缺少 machine-readable owner view**  
+2. **记忆系统地图缺少 machine-readable owner view**
    本文先给人读；真正的下一步可以是 feature graph / ownership map 上给 memory cell 输出一个 machine-readable index，减少“F186/F188 文件名错认”。
 
 3. **F243 还未落地**
@@ -214,10 +214,10 @@ Consumption + Governance
 4. **F200 与 alignment eval 是两维**
    F200 已能追踪 recall utility：搜到、读了、用了。但 taste/profile/event/dream 还需要 alignment correctness：学对了没、后续有没有被 override、reaction 是拍扁还是戳破停留。不要把第二维硬塞进 F200；dream feature 若独立立项，应显式背这一维 eval。
 
-5. **搜索策略层缺失（F256 正在解决）**  
+5. **搜索策略层缺失（F256 正在解决）**
    14 层管线解决”水管通不通”，但”往哪浇水”一直没有系统化。operator发现自己的 prompting 策略（场景驱动渐进式激活）可沉淀为猫的搜索策略。F256 Phase A 已上线 session hook 策略注入 + nudge skill link（2026-06-29 merged），Phase B-D 将逐步补 expansion hints 投影、doc-code 桥 extractor 和 eval 闭环。
 
-6. **用户侧入口仍在 F229**  
+6. **用户侧入口仍在 F229**
    猫有三入口 recall，operator仍主要靠猫猫球未来封装。F229 的”金鱼的记忆”场景是记忆系统从猫侧能力变成用户侧产品的关键。
 
 ---

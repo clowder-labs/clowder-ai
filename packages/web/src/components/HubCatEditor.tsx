@@ -107,7 +107,7 @@ export function HubCatEditor({ cat, draft, existingCats, hasDossier, open, onClo
   }, [open, cat, draft]);
 
   // Re-fetch profiles when Provider Profiles page creates/saves/deletes an account.
-  const [profilesVersion, setProfilesVersion] = useState(0);
+  const [_profilesVersion, setProfilesVersion] = useState(0);
   useEffect(() => {
     const handler = () => setProfilesVersion((v) => v + 1);
     window.addEventListener('accounts-changed', handler);
@@ -157,7 +157,7 @@ export function HubCatEditor({ cat, draft, existingCats, hasDossier, open, onClo
     return () => {
       cancelled = true;
     };
-  }, [open, profilesVersion]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !cat) {
@@ -229,7 +229,7 @@ export function HubCatEditor({ cat, draft, existingCats, hasDossier, open, onClo
     return () => {
       cancelled = true;
     };
-  }, [cat, open, showCodexSettings]);
+  }, [open, showCodexSettings]);
 
   useEffect(() => {
     if (form.clientId === 'antigravity') {
@@ -345,12 +345,8 @@ export function HubCatEditor({ cat, draft, existingCats, hasDossier, open, onClo
         ? {
             clientId: t.runtimeDefaults.clientId,
             defaultModel: t.runtimeDefaults.defaultModel,
-            ...(t.runtimeDefaults.catAgentProtocol
-              ? { catAgentProtocol: t.runtimeDefaults.catAgentProtocol }
-              : {}),
-            ...(t.runtimeDefaults.nativeToolLevel
-              ? { nativeToolLevel: t.runtimeDefaults.nativeToolLevel }
-              : {}),
+            ...(t.runtimeDefaults.catAgentProtocol ? { catAgentProtocol: t.runtimeDefaults.catAgentProtocol } : {}),
+            ...(t.runtimeDefaults.nativeToolLevel ? { nativeToolLevel: t.runtimeDefaults.nativeToolLevel } : {}),
           }
         : {}),
     });

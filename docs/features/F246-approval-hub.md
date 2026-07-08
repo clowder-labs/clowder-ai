@@ -412,4 +412,3 @@ harness_feedback: none | reason: non-harness feature, pure product capability
 - AC-G5 ✅ met — backfill script, DRY RUN default, 6398 default (prod explicit override)
 
 ## Reflection Capsule
-
