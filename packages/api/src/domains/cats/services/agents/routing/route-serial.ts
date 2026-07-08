@@ -1454,7 +1454,6 @@ export async function* routeSerial(
               if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
                 hasEventDrivenExternalWaitCoverage = true;
               }
-              settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
               const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
               emitConfirmedCallbackBallHandedCvo(
                 callbackResult.confirmed,
@@ -1901,7 +1900,6 @@ export async function* routeSerial(
                 if (callbackResult.confirmed && isSameTurnEventDrivenCoverageToolName(completedToolName)) {
                   hasEventDrivenExternalWaitCoverage = true;
                 }
-                settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
                 const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
                 emitConfirmedCallbackBallHandedCvo(
                   callbackResult.confirmed,
