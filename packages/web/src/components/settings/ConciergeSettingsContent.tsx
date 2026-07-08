@@ -12,11 +12,12 @@
  * Pattern: optimistic UI + PUT partial update, matching BubbleToggle/VoiceSettingsPanel.
  */
 
+import { BALL_SIZE_DEFAULT, BALL_SIZE_MAX, BALL_SIZE_MIN } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
-import { RadioOption, TextInput, ToggleSwitch } from './ConciergeSettingsParts';
+import { RadioOption, RangeSlider, TextInput, ToggleSwitch } from './ConciergeSettingsParts';
 import { SettingsField, SettingsPillButton, SettingsSection, SettingsText } from './primitives';
 
 // ---------------------------------------------------------------------------
@@ -30,15 +31,12 @@ interface ConciergeSettingsState {
   dutyCatProfileId: string;
   proactivePolicy: 'ambient' | 'quiet-badge';
   muted: boolean;
-  skin: 'yarn-ball' | 'ragdoll-v1';
+  skin: 'yarn-ball' | 'ragdoll-v1' | 'yanyan-codex' | 'xianxian-codex';
   ballPosition: { x: number; y: number } | null;
+  ballSize: number;
 }
 
-/** Skin ID → display label (locked chip in settings) */
-const SKIN_DISPLAY_NAMES: Record<string, string> = {
-  'yarn-ball': '🧶 毛线球',
-  'ragdoll-v1': '🐱 布偶猫 v1',
-};
+/** Skin options — display names now live inline in RadioOption labels (E2 unlock). */
 
 // ---------------------------------------------------------------------------
 // Component
@@ -69,7 +67,7 @@ export function ConciergeSettingsContent() {
           useConciergeStore.setState(data.config);
         }
       } catch {
-        if (!cancelled) setError('加载前台猫配置失败');
+        if (!cancelled) setError('加载猫猫球配置失败');
       }
     })();
     return () => {
@@ -168,9 +166,9 @@ export function ConciergeSettingsContent() {
       )}
 
       {/* Section 1: 基本开关 */}
-      <SettingsSection title="基本设置" description="控制前台猫的显示与可用性。">
+      <SettingsSection title="基本设置" description="控制猫猫球的显示与可用性。">
         <div className="space-y-4">
-          <SettingsField label="启用前台猫" hint="关闭后悬浮球不再显示。" inline>
+          <SettingsField label="启用猫猫球" hint="关闭后悬浮球不再显示。" inline>
             <ToggleSwitch checked={state.enabled} disabled={saving} onChange={(v) => updateConfig({ enabled: v })} />
           </SettingsField>
 
@@ -180,35 +178,34 @@ export function ConciergeSettingsContent() {
         </div>
       </SettingsSection>
 
-      {/* Section 2: 皮肤 (KD-14, Phase A locked) */}
-      <SettingsSection title="皮肤" description="前台猫的外观。更多皮肤将在后续版本解锁。">
-        <SettingsField label="当前皮肤" hint="Phase E 解锁后可切换四种皮肤。" inline>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.375rem',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '9999px',
-              fontSize: 'var(--console-font-sm, 0.875rem)',
-              color: 'var(--cafe-text-secondary)',
-              backgroundColor: 'var(--console-card-bg)',
-              border: '1px solid var(--cafe-border)',
-              opacity: 0.7,
-            }}
-          >
-            {SKIN_DISPLAY_NAMES[state?.skin ?? 'ragdoll-v1'] ?? state?.skin}
-            <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }}>
-              <path d="M4 6V4a4 4 0 118 0v2h1a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1h1zm2-2a2 2 0 114 0v2H6V4z" />
-            </svg>
-          </span>
-        </SettingsField>
+      {/* Section 2: 皮肤 (E2: unlocked — was KD-14 locked in Phase A) */}
+      <SettingsSection title="皮肤" description="切换猫猫球的外观。">
+        <div className="space-y-3">
+          <RadioOption
+            name="skin"
+            value="yanyan-codex"
+            checked={state.skin === 'yanyan-codex'}
+            disabled={saving}
+            label="🐱 砚砚 v1"
+            hint="9 态动画精灵图，砚砚专属皮肤。（默认）"
+            onChange={() => updateConfig({ skin: 'yanyan-codex' })}
+          />
+          <RadioOption
+            name="skin"
+            value="xianxian-codex"
+            checked={state.skin === 'xianxian-codex'}
+            disabled={saving}
+            label="🐱 宪宪 v1"
+            hint="9 态动画精灵图，宪宪专属皮肤（视频提取）。"
+            onChange={() => updateConfig({ skin: 'xianxian-codex' })}
+          />
+        </div>
       </SettingsSection>
 
       {/* Section 3: 身份与人设 (KD-6) */}
-      <SettingsSection title="身份与人设" description="自定义前台猫的名字和性格基调。">
+      <SettingsSection title="身份与人设" description="自定义猫猫球的名字和性格基调。">
         <div className="space-y-4">
-          <SettingsField label="显示名称" hint="前台猫的名字，最多 50 字。">
+          <SettingsField label="显示名称" hint="猫猫球的名字，最多 50 字。">
             <TextInput
               value={state.displayName}
               maxLength={50}
@@ -262,7 +259,7 @@ export function ConciergeSettingsContent() {
       </SettingsSection>
 
       {/* Section 5: 主动性 (OQ-4) */}
-      <SettingsSection title="主动性策略" description="控制前台猫何时主动出现。">
+      <SettingsSection title="主动性策略" description="控制猫猫球何时主动出现。">
         <div className="space-y-3">
           <RadioOption
             name="proactivePolicy"
@@ -285,7 +282,31 @@ export function ConciergeSettingsContent() {
         </div>
       </SettingsSection>
 
-      {/* Section 6: 球位置重置 */}
+      {/* Section 6: 球大小 (E3) */}
+      <SettingsSection title="猫猫球大小" description="拖拽悬浮球右下角可直接缩放，也可以在这里精确调整。">
+        <div className="space-y-4">
+          <SettingsField label="大小" hint={`范围 ${BALL_SIZE_MIN}–${BALL_SIZE_MAX}px，默认 ${BALL_SIZE_DEFAULT}px。`}>
+            <RangeSlider
+              value={state.ballSize ?? BALL_SIZE_DEFAULT}
+              min={BALL_SIZE_MIN}
+              max={BALL_SIZE_MAX}
+              step={4}
+              disabled={saving}
+              label={(v) => `${v}px`}
+              onChange={(v) => updateConfig({ ballSize: v })}
+            />
+          </SettingsField>
+          {(state.ballSize ?? BALL_SIZE_DEFAULT) !== BALL_SIZE_DEFAULT && (
+            <SettingsField label="" hint="" inline>
+              <SettingsPillButton onClick={() => updateConfig({ ballSize: BALL_SIZE_DEFAULT })}>
+                重置大小
+              </SettingsPillButton>
+            </SettingsField>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* Section 7: 球位置重置 */}
       {state.ballPosition && (
         <SettingsSection title="悬浮球位置" description="拖拽悬浮球可自由放置，这里可以重置到默认位置。">
           <SettingsField

@@ -14,7 +14,7 @@ triggers:
 
 > **SOP 位置**: 本 skill 是 `sop-definitions/development.yaml` stage `quality_gate` 的执行细节。
 > **SOP definition**: `sop-definitions/development.yaml` stage `quality_gate`。
-> **上一步**: `impl` stage | **下一步**: `request-review`（review stage）
+> **上一步**: `impl` stage | **下一步**: `fresh-context-review`（可选）→ `request-review`（review stage）
 
 # Quality Gate
 
@@ -99,6 +99,12 @@ Step 2.7: ARCHITECTURE OWNERSHIP REPORT（F191，warning-only）🔴
 
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
+  - 🔴 F244 Tips Contribution：若本 PR 新增/修改 user-visible feature / capability / guide / harness behavior，
+    必须满足其一：
+    ① `packages/web/src/lib/capability-tips.seed.json` 有对应 `sourceRef` tip
+    ② 相关 feature/guide/skill 文件写明 `tips_exempt: {reason}`
+    并执行 `pnpm check:capability-tips`。
+    注意：CI 只证明结构/anchor/action；reviewer 仍要退回只复述标题、没有动作或时机的废话 tip。
   - 🔴 交付物必须核实 commit/PR 状态（git log --grep + gh pr list）
     spec checkbox 是记录工具，不是真相源（LL-029）
   - 🔴 新增 MCP 工具 → 认知入口更新了吗？优先级：MCP tool description → 相关 skill refs → capability wakeup / L0 quick index；只有 legacy/fallback surface 仍依赖时才补 `MCP_TOOLS_SECTION`（F086 教训：造了工具猫不知道；F203 后不再默认塞 SystemPromptBuilder）
@@ -286,7 +292,12 @@ pnpm -r --if-present run build → exit 0 ✅
 
 ## 下一步
 
-Quality Gate 通过后 → **直接加载 `request-review`** skill 请求 review（SOP stage `review`）。不要停下来问operator"要不要继续"（§17）。
+Quality Gate 通过后：
+
+1. **（可选）加载 `fresh-context-review`** — 非 trivial PR（≥3 files, ≥50 行 diff）推荐；trivial 跳过。Author 自判。详见 `fresh-context-review` skill 触发决策表。
+2. **加载 `request-review`** skill 请求正式 review（SOP stage `review`）。
+
+不要停下来问operator"要不要继续"（§17）。
 
 Gate 未通过时：
 - **P1 遗漏** → 补完再过 gate

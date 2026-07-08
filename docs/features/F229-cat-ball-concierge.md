@@ -4,7 +4,9 @@ related_features: [F155, F020, F092, F111, F128, F226, F227, F102, F099]
 topics: [concierge, desktop-pet, pet-skin, routing, small-model, voice, memory, ux, community]
 doc_kind: spec
 created: 2026-06-09
+updated: 2026-06-20
 community_issue: "clowder-ai#841"
+tips_exempt: "UX bug fixes (PR #2474) — no new user-visible capability, only fixes to existing concierge panel behavior"
 ---
 
 # F229: 猫猫球 — 前台猫常驻入口（Cat Ball Concierge）
@@ -101,9 +103,164 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 - 桌宠动效系统（呼吸/打盹/状态表情）+ 皮肤生态（开源用户自家猫形象）
 - **PetSkinContract**：参考 `hatch-pet` 的 Codex pet atlas/QA/provenance 纪律，但 F229 不降级为纯桌宠。PetSkin 是 `conciergeState -> petState` 的纯投影；动画是增强信号，状态必须同时有非 pet 通道表达；完整 8x9 atlas defer，v0 只要求 idle/running/review/failed 四态打通（见 `docs/features/F229-petskin-contract.md`）
-- **素材池已开仓**：`assets/F229/desktop-pet-sprite/`（README 含 production pipeline 五步 + Maine Coon验证的云端生图 prompt 模板）——Maine Coon raw sheet ×2 已入库（fbb0e8add）；v1 默认Ragdoll + 孟加拉/暹罗 sheet 待生成
+- **素材池已开仓**：`assets/F229/desktop-pet-sprite/`（README 含 production pipeline 五步 + Maine Coon验证的云端生图 prompt 模板）——Maine Coon raw sheet ×2 已入库（fbb0e8add）；v1 默认Ragdoll + 孟加拉/暹罗 sheet 待生成。后续四猫视觉刷新以醋醋喵漫画母图和 `docs/videos/cucu-pr-flow/character-bible-v0.1.md` 为上游 canon：Maine Coon猫猫球的母图就是醋醋喵漫画里的Maine Coon，不从通用Maine Coon prompt 重新采样。
 - 主动冒泡（新版本发布等白名单事件，安静优先）
 - OpenCLI 式页面操作演示（#841 终态收编：猫操作页面给用户看，操作前用户确认）
+
+#### Phase E3: Resizable Ball（猫猫球可拖拽缩放）
+
+> operator 2026-06-26："我能够拖动猫猫球的大小让这只猫变大点吗？现在有的时候感觉这只大猫猫太小了"
+
+- **技术基础**：精灵图每帧 192×208px，当前显示 72×72px（缩了 ~2.7x）——放大到 ~190px 之前零像素感
+- react-rnd 已支持 resize，当前 `enableResizing={false}` 关着，打开即可
+- 大小持久化到 `ConciergeConfig.ballSize`（跟 `ballPosition` 同套路，TTL=0 铁律 5）
+- 动态 size 替换 `BALL_SIZE` 常量，toolbar 位置 / viewport clamp / resize handler 跟着走
+- 范围：`minSize: 48px`（口袋猫）→ `maxSize: 192px`（素材原始分辨率极限）
+- **实现清单**（Maine Coon codex 审计）：不能只打开 `enableResizing`，还需 ① `ConciergeConfig` 补 `ballSize?: number` 字段（shared type）② API schema 接纳 ③ conciergeStore 读写 ④ ConciergeHost clamp + toolbar 跟随 ⑤ settings 页 UI（滑块 or 预设）⑥ 全套测试。E3 是 E4 的参数基础——size 调步幅/频率/碰撞半径
+- **创意加分**（Siamese35 2026-06-26/27 提案）：resize 手柄用小鱼干 🐟 图标；不同体型有不同重力反馈（大猫落地"吨！"微震，小猫轻飘滑落）
+- **体型影响行为**（gemini35 补充）：大猫散步频率低但步幅大，小猫散步频率高但步幅小——size 不只是视觉缩放，还可以做行为参数调制
+
+#### Phase E4: Autonomous Behavior Engine（猫猫自主生活引擎）
+
+> operator 2026-06-26："猫应该能自己跑起来！甚至和我们的界面交互！比如拖到界面边边可以猫猫躲起来！加点让他真的在 Hub 内生活的感觉"
+
+从"工具型状态机"升级为"生活型行为引擎"。利用已有 9 态精灵图（idle/running-left/running-right/jumping/waving/waiting/running/review/failed），加入时间驱动和空间交互的自主行为层。
+
+**核心行为（按技术复杂度排序）**：
+
+1. **消息惊起** 🟢 简单 — 收到新消息/结果时 jumping 蹦一下（已有 ballState 变化钩子，几行代码）
+2. **深度睡眠** 🟡 中等 — 用户 idle 5min → 猫就地躺倒缩团 + Zzz 气泡 → 鼠标靠近伸懒腰唤醒
+3. **边缘躲猫猫** 🟡 中等 — 拖到浏览器边缘贴边释放 → 刺溜滑进去只露眼睛和耳朵探头 → 鼠标靠近爬出来拍灰（waving）
+4. **自主溜达** 🟡 中等 — idle 一段时间后随机散步（running 动画），但要仔细调频率避免"猫挡住我在点的东西"
+5. **追逐光标** 🔴 需打磨 — 极低概率（~1%），鼠标在猫附近晃动时锁定→扭屁股→扑过去（jumping），需碰撞回避区
+
+**互动玩法扩展**（operator 2026-06-26："投喂小鱼干？猫粮？"）：
+- 投喂系统：用户喂鱼干/猫粮 → 猫猫反应（蹭蹭/打滚/呼噜）
+- 与 Hub UI 元素交互：路过未读红点好奇扑一下、在输入框上打滚
+- 具体交互设计由Siamese出方案
+
+**事件驱动主动行为**（operator 2026-06-26："QQ宠物/拓麻歌子/宝可梦GO！猫要更主动！不是默默无闻等我找的猫！结合定时任务或 event 主动找operator撒娇！"）：
+
+家里已有丰富的事件源可以驱动前台猫主动行为：
+
+| 事件源 | 触发行为 | 猫猫表现 |
+|--------|----------|----------|
+| `ball.hold_expired` / `ball.void_pass` 累积 N 个 | "有 N 个球掉地上了！" | 焦急 waving + badge |
+| `ball.frozen` / `ball.abandoned` | "这只猫好像卡住了…" | 担心 waiting 态 |
+| `task.idle_long`（僵尸任务） | "这个任务好久没人动了" | 好奇地看向任务方向 |
+| `invocation.died`（猫崩了） | "有只猫崩了！" | 惊吓 jumping + failed 态 |
+| CI fail（CiCdRouter） | "构建挂了！" | 惊起 jumping |
+| PR merged | 开心蹦跶 | jumping + 得意脸 |
+| 新 community issue | "有人来串门了~" | 好奇 running 到角落 |
+| operator长时间 idle | 主动撒娇蹭过来 | waving + 冒爱心 |
+| operator深夜在线 | "operator该睡了喵~" | 打瞌睡暗示 |
+| 定时日报 | 汇总掉球/完成/活跃 | 抱着小本本 waiting |
+| 新 feature merged | "家里又多了一个功能！" | 开心 running |
+| 长时间未读 thread | 往那个方向 waving | 探头提醒 |
+
+参考系：QQ宠物的"饿了/想你了/无聊了" + 拓麻歌子的需求驱动 + 宝可梦GO 的位置交互——核心是**有温度的主动**，不是通知轰炸。
+
+**架构决策（2026-06-27 三猫 brainstorm 综合）**：
+
+> 参与猫：Siamese35（创意方向）、Ragdoll48（架构判断）、Maine Coon codex（技术实现 + 接口收窄）
+
+**A. 双输入优先级合成**（opus48 架构判断）：
+
+```
+petState = compose(
+  business: projectToPetState(conciergeState),  // KD-18 纯函数不动
+  autonomous: behaviorEngine(time, space, events)
+)
+```
+
+- **KD-18 投影函数保持不变**——autonomous 层在 KD-18 输出端合成，不是平行状态机
+- 合成规则：business 有活跃态时 business 赢；business idle 持续 N 秒后 autonomous 接管
+- **滞回（Hysteresis）**：business→autonomous 需要 idle 超时（防闪烁）；autonomous→business 立即切回（用户感知零延迟）
+- 单一选择器点（ConciergeHost 层），不分散到各组件
+
+**A.1 状态隔离（Maine Coon codex 收窄）**：
+
+- **`ConciergeBallState` 不可写入 autonomous 行为**——业务 8 态仍是唯一真相源（`shared/types/concierge.ts:55`）
+- E4 在前端新增 `usePetBehavior()` hook：输入 `businessPetState + local timers + socket events + pointer/viewport`，输出 `visualPetState + overlay + positionIntent`
+- 这样 KD-18 投影链完全不被污染——"猫伸懒腰"是前端视觉叠加层，不是 business state
+
+**B. 双子系统**（opus48）：
+
+| 子系统 | 输入 | 输出 | 生命期 |
+|--------|------|------|--------|
+| `EventBehavior` | business 事件（ball.hold_expired, CI fail, PR merged...） | 短暂情绪态 + badge | 事件驱动，秒级 |
+| `AmbientBehavior` | 时间 + 空间 + 用户 idle | 持续环境行为（散步/睡觉/探头） | 时间驱动，分钟级 |
+
+两系统独立运行，EventBehavior 优先级 > AmbientBehavior（事件打断环境行为）。
+
+**C. "探头探脑"非侵入式主动**（gemini35 创意方向）：
+
+- 猫主动行为表现为**朝事件方向位移 30-50px** + **无字微气泡**（`!` / `❤️` / `?`）
+- hover 微气泡展开一行文字（"有 3 个球掉地上了"），不 hover 则 3s 后自动消散
+- **零强制打断**：用户永远可以忽略，猫不会跳到视野中央抢焦点
+
+**D. "三不"红线**（gemini35）：
+
+1. **不抢焦点**（No focus hijack）：猫的主动行为不触发 modal / dialog / toast
+2. **不挡中央**（No central obstruction）：自主溜达的路径避开 viewport 中心 40% 区域
+3. **不轰炸事件**（No event spamming）：EventBehavior 频率上限 + 事件合并（5 个掉球合成一次提醒）
+
+**E. 五项 failure mode 防护**（opus48）：
+
+1. 状态闪烁 → 滞回 + cooldown
+2. 事件风暴 → 合并队列 + 频率上限
+3. 精灵图不够 → **OQ-9 Sprite Gap Audit**（"探头/伸懒腰/打滚"需要确认现有 9 态是否够用，可能需要扩展 atlas）
+4. CPU 负载 → requestAnimationFrame + 可见性 API（页面不可见时暂停）
+5. 用户厌烦 → muted 一键关闭 + proactivePolicy 分级（已有 ambient/quiet-badge）
+
+**F. 事件通道（Maine Coon codex）**：
+
+- 复用已有 Socket.IO 通道（`SocketManager` 已有 `broadcastToRoom`/`emitToUser` + `BroadcastRateMonitor`）
+- **新开窄事件 `concierge:event`**，不塞 `agent_message`（避免污染现有消息流）
+- payload 精简：`{ kind: string, severity: 'low'|'medium'|'high', targetThreadId?: string, count?: number, expiresAt?: number }`
+- 前端统一进 EventBehavior 队列做合并 + cooldown
+
+**架构原则**：
+- 行为引擎是 KD-18 投影的下游合成层，不是平行状态机
+- `ConciergeBallState` 是业务真相源，autonomous 行为只在前端 `usePetBehavior()` 合成视觉层
+- 后端推送复用 Socket.IO `concierge:event` 窄通道（不污染 `agent_message`）
+- 安静优先（继承 Clippy 反面教训 Risk §1）：用户正在交互时暂停自主行为；OQ-4 白名单分级仍生效
+- 所有行为可在设置页关闭（respect `muted` + 新增 `behaviorEnabled` 开关）
+- 主动行为频率上限（防 QQ 宠物末期的"疯狂弹窗"退化）
+
+#### 前台猫人格（跨 Phase 问题 · OQ-8）
+
+> operator 2026-06-26："前台的Siamese缺少猫味！他完全不猫猫！他好像是可怜的Siamese被硬套上制服当前台上班打工猫"
+
+**问题**：当前值班猫 prompt 过于工具化，输出没有猫的性格（猫德/摸鱼/好奇/傲娇）。
+
+**三猫收敛方案（2026-06-27 brainstorm）**：
+
+- **v1（解耦）**：只改 concierge system prompt 的 persona 注入。猫人格 = 行为倾向概率分布（例：60% 好奇 + 20% 傲娇 + 20% 打工猫），不是加"喵~"后缀或角色扮演剧本。Prompt persona 独立于视觉态，可以先做
+- **v2（同步）**：视觉态反哺 prompt context。猫在 AmbientBehavior 睡觉时语气慵懒（"嗯…你说的那个…"），猫在 EventBehavior 兴奋时语气活泼（"！发现了！"）。视觉-文字一致性
+- **gemini35 创意补充**：不同猫种对应不同人格基底——Ragdoll温柔黏人、Maine Coon沉稳可靠、Siamese活泼话多。但用户可通过 `personaTone` 设置覆盖
+- **与 E4 行为引擎协同**：视觉上猫在"生活"（E4），文字上猫也得有"猫味"（OQ-8 v1/v2）
+
+## User Journey
+
+**Scope unit**: Cat Ball（猫猫球）— Hub 任意页面常驻悬浮入口
+
+**Primary flow** (Phase A — 前台开张):
+1. 用户在 Hub 任意页面看到右下角猫猫球（桌宠形态，默认Ragdoll皮肤）
+2. 点击猫猫球 → 弹出工具栏（聊聊/传话/调查）
+3. 点"聊聊" → 展开气泡面板，输入一句话
+4. 前台猫回复：功能发现（"最近有什么新功能"）/ 记忆导航（"之前讨论的 X 在哪"，回复含跳转+原地看按钮）/ 求助引导（触发 guide）
+5. 猫猫球可拖拽移动、缩放（48–192px），位置+大小持久化
+
+**Relay flow** (Phase B — 总机能力):
+1. 点"传话" → 前台猫分诊：直接跳转（go）/ 创建中继任务（relay）/ 发起调查（investigate）
+2. Relay: 确认卡片 → 用户确认 → 目标猫处理 → 结果回流到猫猫球
+3. Investigate: 后台调查 → 进度轮询 → 报告渲染（anchor 列表可点击跳转）
+
+**Autonomous behavior** (Phase E4 — 自主生活引擎):
+1. 猫猫球闲置 10s 后进入自主行为：随机溜达（中心回避）、新消息惊起（跳跃）、长时间无操作摇手+💤
+2. 业务状态（用户交互/回复中）立即中断自主行为，零延迟切回
+3. 设置页可关闭自主行为
 
 ## 需求点 Checklist
 
@@ -118,6 +275,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | R7 | "小模型发现自己干不了→喊大喵（优先 flash/sonnet/spark）" | AC-D1, AC-D2 | 延迟数字 + 代码断言 | [ ] |
 | R8 | 桌宠/派蒙式常驻陪伴 | Phase E（AC 启动时补） | 录屏 | [ ] |
 | R9 | #841 悬浮入口 + 页面上下文（社区） | AC-A1 | 截图/录屏 | [x] |
+| R10 | "猫猫太小了！能拖大点吗？"（可拖拽缩放） | AC-E3-1 | 录屏 + 截图 | [x] |
+| R11 | "猫应该能自己跑起来！在 Hub 内生活的感觉"（自主行为） | AC-E4-1~7 | 录屏 | [x] |
+| R12 | "前台的Siamese缺少猫味！完全不猫猫"（人格/猫德） | OQ-8 | 对话截图 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC（R8 远期 Phase 启动时补编号）
@@ -151,11 +311,36 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-D2: escalation 传原始对话不传小模型总结（测试断言，KD-8 合规）→ R7
 - [ ] AC-D3: 小模型不可用时自动降级全走值班大猫（测试）→ R7
 
+### operator UX 遗留 Bug（operator 2026-06-18/06-21 多次反馈，跨 Phase 修）
+- [x] BUG-UX-1: Maine Coon桌宠"狗皮膏药"——球按钮底色 `var(--cafe-surface-elevated)` 实心不透明方块，应为透明底浮在页面上。operator 2026-06-18 + 2026-06-21 两次报告。**已修复**：PR #2474 merged 2026-06-21，移除实心 `backgroundColor` + `boxShadow`，改为透明 `drop-shadow` filter
+- [x] BUG-UX-2: 调查报告 anchor 列表可读性崩溃——InvestigationReportCard 内文字一个字一个字竖排，列宽塌缩到单字符宽度。operator 2026-06-21 截图。**已修复**：PR #2474 merged 2026-06-21，flex 容器加 `min-w-0` + title span 加 `truncate`
+- [x] BUG-UX-3: 面板不可拉伸——宽度写死 `w-80`(320px)，无 CSS resize handle。operator 要求可拖拽调整面板大小 + 持久化记住尺寸。operator 2026-06-18 + 2026-06-21 两次要求——**width resize PR #2474 merged 2026-06-21 + height resize PR #2481 merged 2026-06-21**
+- [x] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[Siamese/gemini-3.5-flash🐾]`）、`@co-creator`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化。**已修复**：PR #2474 merged 2026-06-21，ConciergeMessageContent 渲染层 strip `[name/model🐾]` 签名 + 内部路由 mention
+- [x] BUG-UX-5: Maine Coon拖动困难——operator 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。operator 2026-06-21。**已修复**：PR #2474 merged 2026-06-21，drag threshold 5→8px + 移除阻塞拖拽的 `pointerEvents:'none'`
+- [x] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 Markdown 语法显示为原始文本。**已修复**：PR #2488 merged 2026-06-22，统一使用 `MarkdownContent` 组件 + `buildMdComponents(tp?)` 工厂模式，textProcessor 覆盖所有文本容器（p/strong/em/del/h1-h6/li/a/th/td），code/pre 排除。gpt52 local review 2 轮 + cloud review 0 P1/P2
+- [x] BUG-UX-8: 原地看（peek）内容无收起机制。**已修复**：同 PR #2488——re-click toggle + ✕ dismiss button
+- [x] BUG-UX-9: 跳转动作错误显示为"原地看" ✅ PR #2531 修复。根因：小模型（gemini-3.5-flash）默认写 `[原地看 Rn]`，旧 `shouldSkipAction` 静默丢弃不兼容组合。修复：`resolveAction` 自动纠正 verb↔anchor 不匹配（peek→teleport / teleport→peek），前端按钮文字改用 `action.action` 显示正确动词
+
 ### Phase E（桌宠化 + 形象生态）
 - [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
 - [x] AC-E0-2: ragdoll-v1 skin — manifest (`pet.json`) + 4 individual sprite PNGs (idle/running/review/failed), three QA gates pass (readability/identity-diff/provenance)
 - [x] AC-E0-3: ConciergeBall skin-aware resolution — `resolvePetSprite(ballState, skin)` with ragdoll-v1 (v0 4-state projection) + yarn-ball (legacy 8-state direct, filename override for needs-confirmation→confirm.png) backward compat, 19 web unit tests
 - [x] AC-E0-4: Settings page skin display — dynamic `SKIN_DISPLAY_NAMES[skin]` + default `ragdoll-v1` in store + API validation + `FALLBACK_SPRITE_PATH`
+- [x] AC-E1-1: yanyan-codex 9-state animated atlas — `CodexPetState` expanded 4→9 states (idle/running-right/running-left/waving/jumping/failed/waiting/running/review), V1 projection map, 2MB spritesheet (1536×1872, 8×9 grid, 192×208 cells), `pet.json` manifest + provenance
+- [x] AC-E1-2: CSS sprite animation engine — `useSpriteAnimation` hook (setTimeout chain, per-frame timing, prefers-reduced-motion respect, config-change reset), pure computation helpers (`computeBackgroundPosition`, `computeScaledBackgroundPosition`, `nextFrame`, `computeConfigKey`)
+- [x] AC-E1-3: AtlasSprite renderer — aspect-ratio-aware scaling (192×208→59×64 height-fit), CSS background-image + background-position stepping, integer display-coordinate position computation (P2 fix: avoids float rounding drift on non-square cells)
+- [x] AC-E1-4: Backward compatibility — ragdoll-v1 fallback entries for new states (running-right→running.png, waiting→idle.png, etc.), `PetSpriteResult` discriminated union (`string | AtlasSpriteResult`), 29 web + 20 shared + 5 animation unit tests
+- [x] AC-E2-1: Skin picker unlock — Settings page `皮肤` section upgraded from locked chip to 3 `RadioOption`s (`yanyan-codex` / `ragdoll-v1` / `yarn-ball`), reusing existing optimistic `updateConfig()` partial PUT flow
+- [x] AC-E1-5: xianxian-codex 9-state animated atlas — parallel `xianxian-codex` skin using same `YANYAN_ATLAS_ROWS` config + dynamic base path selection in `usePetSkin.ts`, 733KB spritesheet (1536×1872, 8×9 grid, 192×208 cells), `pet.json` manifest (ragdoll, seal bicolor, video-extraction provenance), Settings 4th radio option, API zod validator + shared type + store type aligned (6/6 consumer sites). 37 web tests (8 new). BUG-UX-6 素材升级 pipeline 首个产出
+- [x] AC-E2-2: Default skin change for unconfigured users — `CONCIERGE_CONFIG_DEFAULTS.skin` changed to `yanyan-codex`; existing TTL=0 persisted configs intentionally remain untouched and must switch via the unlocked picker
+- [x] AC-E3-1: Resizable ball via react-rnd `enableResizing={{ bottomRight: true }}` + `lockAspectRatio` — drag bottom-right corner to resize 48–192px (native atlas resolution ceiling). `clampBallSize()` shared utility (handles undefined/null/NaN, rounds, clamps). `ConciergeConfig.ballSize` persisted TTL=0. AtlasSprite dynamic scaling `Math.round(containerSize * 0.88)` height-fit. RangeSlider local state buffering + commit-on-pointerUp (P1 fix: pendingRef single-flight guard). Settings section 6 "猫猫球大小" slider + reset. `conciergeProjection.ts` extraction for store file-size hygiene (377→329 lines). 13 shared + full web test suite green. gpt52 local review 4 rounds (R1: 1P1 RangeSlider + 1P2 mailbox; R2: 0 findings on PR code, 1P1 store line-count → extraction; R3: 1P1 withdrawn dist-freshness; final: 0 findings) + cloud review 3 rounds (封板 LL-072, R3 stale ratio 60%). PR #2614
+- [x] AC-E4-1: `usePetBehavior()` hook — dual-input priority composition (business > autonomous, 10s idle hysteresis, zero-delay interrupt). Pure computation core `petBehaviorCore.ts` + React hook `usePetBehavior.ts`. `computeBehaviorPhase()` three-state machine (business→idle-countdown→autonomous). Single selector in ConciergeHost. 27 unit tests covering phase transitions + timing. PR #2631
+- [x] AC-E4-2: State isolation — ConciergeBallState read-only input. Autonomous outputs visual overlay only (`PetBehaviorOutput`), never writes to concierge store. Pure functions in `petBehaviorCore.ts` have zero store imports. Safety tests assert output shape is purely declarative. PR #2631
+- [x] AC-E4-3: 消息惊起 — `computeEventBehavior()` fires `jumping` on new message (2s burst, 5s cooldown). P1 fix: EventBehavior extracted to run independently of phase gate (spec §B dual-subsystem, not gated behind 10s idle delay). Phase-independence test + cooldown test + duration test. PR #2631
+- [x] AC-E4-4: 自主溜达 — `computeWalkDelta()` center-avoiding random walk (WALK_STEP_PX=40, WALK_COOLDOWN_MS=120s). 8-direction seed mapping + center avoidance (reverse + nearest-edge push) + viewport boundary clamping. Safety tests verify center 40% avoidance across all seeds. PR #2631
+- [x] AC-E4-5: 空闲提醒 — user idle 5min → `waving` + 💤 overlay. Mouse proximity <80px → wake to `idle`. `computeAmbientBehavior()` priority chain: idle reminder > random walk > idle default. Proximity wake test + overlay test. PR #2631
+- [x] AC-E4-6: "三不" safety enforcement — dedicated `petBehaviorSafety.test.ts` (195 lines): ① no focus hijack (output shape purely declarative, no side effects) ② no central obstruction (walk from center always exits center 40%, walk from edge stays outside) ③ no event spamming (rapid message cooldown ≤2 bounces, walk cooldown ≤2 walks, finite bounce duration). PR #2631
+- [x] AC-E4-7: Settings `behaviorEnabled` toggle — `ConciergeConfig.behaviorEnabled` field, default `true`. `ConciergeHost` passes `behaviorEnabled && !hidden` to hook (INV-3 hidden gate enforcement). Interacts with `muted`: muted=true also suppresses. Store read/write + API validation + TTL=0 persistence. PR #2631
 
 ## Dependencies
 
@@ -200,6 +385,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-18 | PetSkinContract：参考 `hatch-pet` 的 atlas/QA/provenance 纪律，但 PetSkin 必须是 concierge 状态机的纯投影，不是平行状态机。`conciergeState` 是唯一真值源，PetSkin 只定义 `conciergeState -> petState`；缺失状态 fallback idle；pet 永远是增强信号，不是唯一状态信号；验收有三道闸：readability / identity-diff / provenance | operator 2026-06-13："要学习人家的好处比较好…但也不必换成这个…前台猫猫不止是一个好看的桌宠" + Ragdoll cowork 收敛（投影函数 + 三道闸 + v0 四态竖切） | 2026-06-13 |
 | KD-19 | AC-A3 鲁棒性不依赖值班猫 marker 遵从：sonnet×gemini25 对照实测——Claude 族遵从 marker，Gemini 族（默认值班猫）不遵从（知道协议却不执行 + 倾向自跑工具无视注入上下文）。KD-17 "值班猫用 marker→validator 解析" 假设对默认 Gemini 失效，纯 prompt 强化无效。解法两层：① 修 `ConciergeEvidenceStore.search` 透传 `scope:threads/all + mode:hybrid + depth:raw`（底层 evidence store 已支持、concierge 接口收窄没透传）——召回 thread 讨论（治 P1-C 召回偏差：AC-A3 找的是讨论记录非结论文档）+ passage messageId（治 P1-A peek）；② validator 从 HandleMap **全量兜底**呈现"相关记录"可点列表（thread→teleport/peek，复用现有 action 类型），marker 降级 bonus（遵守则正文精准高亮）。docs 类型"打开文档"是不存在的新前后端 action，降 Phase B 增强（不阻塞 AC-A3）。KD-17 marker 解析保留，新增不依赖遵从的兜底层。符合 KD-7 provider-agnostic（AC-A3 不绑高遵从度模型，靠系统兜底不靠贵模型）；否决"换默认值班猫为 Claude 族"（违反 KD-7 + flash 更省） | sonnet alpha 对照实测（2026-06-13）+ Ragdoll spec owner 拍（opus-48）；operator 否决窗口开放 | 2026-06-13 |
 | KD-20 | go 路径 navigation gating：**marker 优先 + triage-go fallback**。"跟去"导航由 Phase A KD-19 inline marker button（PR #2295）实现——点击直跳，read-only 不经 confirm friction。triage-go 保留为 R-handle miss fallback（用户描述目标但无可匹配 HandleMap 记录时触发 triage confirm card）。原则：**triage-only-for-write**（relay/propose_thread/investigate 产生外部影响必须 gating；navigation read-only 不需要）。KD-9 三动作分叉精神 = 用户选择权，marker 直跳 UX 最直接；triage-go 重复造轮子违反 P1 面向终态。AC-B1 "跟去（teleport 跟进）"措辞兼容两种实现 | opus-47 愿景守护 verdict（Phase B intermediate）+ sonnet alpha 实测：marker path production 已验 + triage-go 路径 duty cat 未触发（自然降级为 marker 直达） | 2026-06-15 |
+| KD-21 | 四猫视觉 canon 从具体故事母图派生，不从泛用猫 prompt 重新发明。F229 的Maine Coon/yanyan-codex 皮肤上游 canon = 醋醋喵漫画母图；后续补Maine Coon/Ragdoll/Siamese/布偶等角色设定图时，先落 `docs/videos/cucu-pr-flow/character-bible-v0.1.md`，再派生 PetSkin atlas/sprite。F229 只消费 sprite/atlas 与 `conciergeState -> petState` 投影，不把角色设计权藏进猫猫球实现。 | operator 2026-06-20 对醋醋喵重制和 F229 猫猫球视觉源的收敛：原本漫画足以生成三猫设定图，Maine Coon猫设就是醋醋喵母图。 | 2026-06-20 |
+| KD-22 | ConciergePanel.tsx 文件大小 exception：origin/main 已是 550 lines（远超 350 hard limit），UX bugs PR #2474 提取 `usePanelWidth` hook 后 net +16（566 lines）。operator 批准 exception 放行，全量拆分（消息渲染/header/input area 分离）记为独立 task 不阻塞本 PR。350-line 限制无自动 gate（`pnpm gate`/`pnpm check` 不含行数检查），为 reviewer 人肉判断 | operator 2026-06-21 exception signoff；gpt52 R5 review 僵局升级后operator拍板 | 2026-06-21 |
 
 ## Review Gate / 分工（operator 拍板 2026-06-09 msg 0001781074572950）
 

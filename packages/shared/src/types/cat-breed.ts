@@ -39,8 +39,8 @@ export interface ContextBudget {
 import type { CliEffortValue } from '../cli-effort.js';
 
 export interface CliConfig {
-  readonly command: string; // 'claude' | 'codex' | 'gemini'
-  readonly outputFormat: string; // 'stream-json' | 'json'
+  readonly command: string; // 'claude' | 'codex' | 'agy' | ...
+  readonly outputFormat: string; // 'stream-json' | 'json' | 'plainText'
   readonly defaultArgs?: readonly string[];
   /**
    * Reasoning effort level — each CLI maps to its own flag:
@@ -64,8 +64,12 @@ export interface CatVariant {
   readonly id: string; // 'opus-4.6', 'codex-default'
   /** Override breed-level catId to register as an independent cat (F32-b) */
   readonly catId?: string;
+  /** Override breed-level name for this independent member */
+  readonly name?: string;
   /** Override breed-level displayName (F32-b) */
   readonly displayName?: string;
+  /** Override breed-level nickname. null means explicitly no nickname. */
+  readonly nickname?: string | null;
   /** F32-b P4: Human-readable label for disambiguation (e.g. "4.5", "Sonnet") */
   readonly variantLabel?: string;
   /** Independent mention patterns for this variant (F32-b).

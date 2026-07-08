@@ -21,7 +21,6 @@ test('protocolForClient normalizes provider family routing', () => {
   // protocol-aware answer lives on effectiveProtocolForCat below.
   assert.equal(protocolForClient('catagent'), 'anthropic');
   assert.equal(protocolForClient('opencode'), 'anthropic');
-  assert.equal(protocolForClient('dare'), 'openai');
   assert.equal(protocolForClient('antigravity'), null);
 });
 

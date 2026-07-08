@@ -55,7 +55,13 @@ export async function updateSkillMountPaths(
   projectRoot: string,
   skillNames: string[],
   mountPointIds: string[],
-  opts?: { forceDisabled?: boolean; forceEnabled?: boolean },
+  opts?: {
+    forceDisabled?: boolean;
+    forceEnabled?: boolean;
+    /** Metadata for custom-source skills. When creating new entries,
+     *  includes skillsSource so the entry is complete. */
+    customSourceMeta?: ReadonlyMap<string, { skillsSource: string; pluginId?: string }>;
+  },
 ): Promise<void> {
   if (skillNames.length === 0) return;
   const config = await readCapabilitiesConfig(projectRoot);
@@ -67,8 +73,10 @@ export async function updateSkillMountPaths(
   // should not leak into the global enabled state.
   const hasForce = opts?.forceDisabled === true || opts?.forceEnabled === true;
   const resolvedEnabled = opts?.forceDisabled === true ? false : opts?.forceEnabled === true ? true : undefined;
+  // pluginId is an identity label, not a filter. All cat-cafe skills
+  // are managed uniformly by syncProject.
   const isCatCafeSkill = (cap: (typeof config.capabilities)[number]) =>
-    cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId;
+    cap.type === 'skill' && cap.source === 'cat-cafe';
   const existingIds = new Set(config.capabilities.filter(isCatCafeSkill).map((c) => c.id));
 
   for (const cap of config.capabilities) {
@@ -88,6 +96,7 @@ export async function updateSkillMountPaths(
 
   for (const skillName of nameSet) {
     if (!existingIds.has(skillName)) {
+      const meta = opts?.customSourceMeta?.get(skillName);
       config.capabilities.push({
         id: skillName,
         type: 'skill',
@@ -95,6 +104,8 @@ export async function updateSkillMountPaths(
         enabled: resolvedEnabled ?? true,
         globalEnabled: resolvedEnabled ?? true,
         mountPaths: [...mountPointIds],
+        ...(meta?.skillsSource ? { skillsSource: meta.skillsSource } : {}),
+        ...(meta?.pluginId ? { pluginId: meta.pluginId } : {}),
       });
     }
   }
@@ -103,8 +114,8 @@ export async function updateSkillMountPaths(
 }
 
 /**
- * Remove source-tree Cat Cafe skill capabilities that no longer exist.
- * Plugin-owned skill capabilities are intentionally preserved.
+ * Remove Clowder AI skill capabilities that no longer exist in any source
+ * (default source dir OR custom skillsSource).
  */
 export async function removeCatCafeSkillCapabilities(projectRoot: string, skillNames: string[]): Promise<void> {
   if (skillNames.length === 0) return;
@@ -114,7 +125,7 @@ export async function removeCatCafeSkillCapabilities(projectRoot: string, skillN
   const nameSet = new Set(skillNames);
   const before = config.capabilities.length;
   config.capabilities = config.capabilities.filter(
-    (cap) => !(cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId && nameSet.has(cap.id)),
+    (cap) => !(cap.type === 'skill' && cap.source === 'cat-cafe' && nameSet.has(cap.id)),
   );
   if (config.capabilities.length !== before) {
     await writeCapabilitiesConfig(projectRoot, config);
@@ -136,12 +147,24 @@ export interface ConfigSyncCtx {
   pruneMountPaths?: boolean;
   /** When true, inherited-only global mount paths are skipped to preserve cascade. */
   preserveGlobalCascade?: boolean;
+  /** Skill names that already exist in the project config. Used with preserveGlobalCascade
+   *  to distinguish existing skills from newly discovered ones during drift-resolve sync;
+   *  new skills still need a config entry without mountPaths to keep global cascade live. */
+  existingProjectSkills?: ReadonlySet<string>;
   /** Mount point IDs that were just enabled (absent in previous rules, present now).
    *  When set, active skills (mountPaths.length > 0) get these IDs supplemented. */
   newlyEnabledMountPointIds?: string[];
+  /** Custom-source skills from global config. Passed through to updateSkillMountPaths
+   *  so new entries include skillsSource metadata. */
+  globalCustomSourceSkills?: ReadonlyMap<string, { skillsSource: string; pluginId?: string }>;
 }
 
 export async function updateConfigAfterSync(projectRoot: string, ctx: ConfigSyncCtx): Promise<void> {
+  // New skills discovered during drift-resolve that inherit only global mount paths.
+  // They need a config entry (so drift-check stops reporting configNew) but must NOT
+  // have project-local mountPaths written (that would freeze the global cascade).
+  const cascadeNewSkills: string[] = [];
+
   if (ctx.enabledNames.length > 0) {
     const grouped = new Map<string, { skillNames: string[]; mountPointIds: string[] }>();
     const noPolicySkills: string[] = [];
@@ -157,7 +180,14 @@ export async function updateConfigAfterSync(projectRoot: string, ctx: ConfigSync
         // Only active in drift-resolve context (preserveGlobalCascade=true) where global
         // policy changes should propagate without freezing. Explicit sync operations
         // (sync/sync-skill) write mount paths to establish local baseline.
-        if (ctx.preserveGlobalCascade && !hasLocalPolicy && !ctx.mountPathsBySkill.has(name)) continue;
+        if (ctx.preserveGlobalCascade && !hasLocalPolicy && !ctx.mountPathsBySkill.has(name)) {
+          // New skills still need a config entry so drift-check stops reporting configNew.
+          // Collect them for registration WITHOUT mountPaths below.
+          if (ctx.existingProjectSkills && !ctx.existingProjectSkills.has(name)) {
+            cascadeNewSkills.push(name);
+          }
+          continue;
+        }
         const shouldPrune = ctx.pruneMountPaths || !hasLocalPolicy;
         const mountPointIds = shouldPrune ? declared.filter((id) => activeSet.has(id)) : [...declared];
         // F228: When a mount point is newly enabled, supplement active skills
@@ -175,10 +205,43 @@ export async function updateConfigAfterSync(projectRoot: string, ctx: ConfigSync
       } else noPolicySkills.push(name);
     }
     for (const { skillNames, mountPointIds } of grouped.values())
-      await updateSkillMountPaths(projectRoot, skillNames, mountPointIds);
+      await updateSkillMountPaths(projectRoot, skillNames, mountPointIds, {
+        customSourceMeta: ctx.globalCustomSourceSkills,
+      });
     // F228: no-policy skills (no declared mountPaths) get all active mount points.
     if (noPolicySkills.length > 0) {
-      await updateSkillMountPaths(projectRoot, noPolicySkills, ctx.activeTargetIds);
+      await updateSkillMountPaths(projectRoot, noPolicySkills, ctx.activeTargetIds, {
+        customSourceMeta: ctx.globalCustomSourceSkills,
+      });
+    }
+  }
+  // Register new inherited-only skills in config WITHOUT mountPaths.
+  // This creates a managed capability entry (drift-check stops reporting configNew)
+  // while preserving global mount path cascade (no project-local mountPaths written,
+  // so resolveEffectiveSkillMountPaths falls through to global policy).
+  if (cascadeNewSkills.length > 0) {
+    const config = await readCapabilitiesConfig(projectRoot);
+    if (config) {
+      const existingIds = new Set(
+        config.capabilities.filter((c) => c.type === 'skill' && c.source === 'cat-cafe').map((c) => c.id),
+      );
+      let changed = false;
+      for (const name of cascadeNewSkills) {
+        if (!existingIds.has(name)) {
+          const meta = ctx.globalCustomSourceSkills?.get(name);
+          config.capabilities.push({
+            id: name,
+            type: 'skill',
+            source: 'cat-cafe',
+            enabled: true,
+            globalEnabled: true,
+            ...(meta?.skillsSource ? { skillsSource: meta.skillsSource } : {}),
+            ...(meta?.pluginId ? { pluginId: meta.pluginId } : {}),
+          });
+          changed = true;
+        }
+      }
+      if (changed) await writeCapabilitiesConfig(projectRoot, config);
     }
   }
   if (ctx.removedNames.length > 0) {
@@ -210,6 +273,10 @@ export async function updateConfigAfterSync(projectRoot: string, ctx: ConfigSync
       else noConfig.push(name);
     }
     if (hasConfig.length > 0) await updateSkillMountPaths(projectRoot, hasConfig, []);
-    if (noConfig.length > 0) await updateSkillMountPaths(projectRoot, noConfig, [], { forceDisabled: true });
+    if (noConfig.length > 0)
+      await updateSkillMountPaths(projectRoot, noConfig, [], {
+        forceDisabled: true,
+        customSourceMeta: ctx.globalCustomSourceSkills,
+      });
   }
 }

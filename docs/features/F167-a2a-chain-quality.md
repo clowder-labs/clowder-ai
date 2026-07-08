@@ -4,6 +4,8 @@ related_features: [F064, F027, F122, F055]
 topics: [a2a, collaboration, harness-engineering, agent-readiness]
 doc_kind: spec
 created: 2026-04-17
+tips_exempt: harness-internal shadow telemetry infra — no user-visible capability change
+user_journey_exempt: pure harness-internal infra (ping-pong breaker, void-pass detection, role guard) — no user-perceivable surface changes
 ---
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
@@ -62,6 +64,7 @@ operator experience：
 - **L1 false-positive 误杀**：正常 review 循环 A→B→A→B (streak=3) 被误杀 → reset 条件（第三只猫 / user 消息）必须正确触发；覆盖见 `pingpong-reset.test.js`
 - **C2 over-fire**：纯信息查询无后续动作的输出被强制要求 @（边界场景：信息回答 vs 协作传球的判定漂移）
 - **C1 hold_ball 滥用**：`maxHoldsPerWindow` 超限（默认 3 / ~1h rolling）→ cat 在用 hold 替代正常传球
+- **C1 stale hold wake**：等待对象已被结构化事件满足（review / CI / issue / user message / managed command）后，旧 `hold_ball` timer 仍唤醒猫 → 目标为 0；若发生，必须能追到 `waitSourceRef` / `subjectKey` / `expectedSignalKey` / `resolvedBy`
 - **Routing 旁路**：invocation 文本响应有 @ 但 MCP `targetCats` 为空（或反之）→ `routing-syntax-hint`（route-serial 行首 @ 语法检测）或 `verdict-no-pass-hint`（verdict 无 @ 出口检测）触发
 
 ### 3. Regression Fixture
@@ -73,6 +76,7 @@ operator experience：
 - `role-gate/l3-retired` → `route-serial-pingpong.test.js`（AC-E — asserts `a2a_role_rejected` must NOT fire after KD-20 retirement）
 - `forced-pass/review-verdict-no-mention` → `route-serial-verdict-hint.test.js`（C2 verdict detection）
 - `hold-ball/zombie-hold` → Maine Coon原话 "Hold 不是对外协议状态"（C1 设计动机）
+- `hold-ball/event-satisfied-retirement` → Phase Q 待补：review/CI/issue/user event 先满足等待时，subject + normalized signal matching hold retired 且旧 timer 不再 wake；signal 不匹配时不退休；前端不再显示可取消 pending 状态
 
 ### 4. Sunset Signal
 
@@ -685,3 +689,6 @@ operator experience："简直了你和Maine Coon是没头脑（Maine Coon听不�
 | operator 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ✅ Phase J |
 | operator + Maine Coon 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
 | operator 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ✅ Phase L |
+| operator 2026-06-18 | 守门 thread 不能挂 PR/issue tracking 或 hold_ball，必须机制层拦截 | AC-N1~N5 | ✅ Phase N / PR #2384 |
+| operator 2026-06-25 | -p 下猫 run_in_background 跑 gate 后没下文 + hold_ball 缺条件唤醒 | AC-P0~P5 | ✅ Phase P (P-0 PR #2544, P1-P5 PR #2550) |
+| operator 2026-06-29 | 结构化事件已唤醒/满足等待后，旧 hold timer 仍过期唤醒；前端仍显示定时任务/可取消 | AC-Q1~Q7 | ⬜ Phase Q 设计草案 |

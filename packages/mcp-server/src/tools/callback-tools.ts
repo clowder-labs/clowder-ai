@@ -1,6 +1,12 @@
 /**
  * MCP Callback Tools — core callbacks
  * 鉴权: process.env CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN
+ *
+ * #1092 credential refresh: When CAT_CAFE_CREDENTIAL_FILE is set, invocationId
+ * and callbackToken are re-read from the file on each callback call. This lets
+ * the MCP server subprocess pick up fresh credentials after a session resume
+ * without needing to be restarted. The API writes the file before each invocation;
+ * the MCP server reads it before each callback.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -105,17 +111,47 @@ function resolveAgentKeySecret(options?: AgentKeyOptions): string | undefined {
   return readAgentKeyFile(process.env.CAT_CAFE_AGENT_KEY_FILE);
 }
 
+/**
+ * #1092: Read fresh invocation credentials from a file.
+ * The API writes { invocationId, callbackToken } to this file before each
+ * invocation. The MCP server re-reads it on every callback call so that
+ * a long-lived subprocess (persisting across ACP session resume) always
+ * sends the current invocationId — not the stale one from process.env.
+ *
+ * Returns null on any error (missing file, bad JSON, missing fields) —
+ * callers fall back to process.env values.
+ */
+function readCredentialFile(): { invocationId: string; callbackToken: string } | null {
+  const filePath = process.env.CAT_CAFE_CREDENTIAL_FILE;
+  if (!filePath) return null;
+  try {
+    const raw = readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : '';
+    const callbackToken = typeof parsed.callbackToken === 'string' ? parsed.callbackToken : '';
+    if (invocationId && callbackToken) return { invocationId, callbackToken };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function getCallbackConfig(options?: AgentKeyOptions): CallbackConfig | null {
   const apiUrl = process.env.CAT_CAFE_API_URL;
   if (!apiUrl) return null;
 
-  const invocationId = process.env.CAT_CAFE_INVOCATION_ID;
-  const callbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
   const agentKeySecret = resolveAgentKeySecret(options);
   if (options?.forceAgentKey === true) {
     if (!agentKeySecret) return null;
     return { apiUrl, agentKeySecret };
   }
+
+  // #1092: Prefer credential file over process.env for invocation creds.
+  // The file is updated per-invocation by the API; process.env is set once
+  // at subprocess spawn and goes stale after session resume.
+  const fileCreds = readCredentialFile();
+  const invocationId = fileCreds?.invocationId ?? process.env.CAT_CAFE_INVOCATION_ID;
+  const callbackToken = fileCreds?.callbackToken ?? process.env.CAT_CAFE_CALLBACK_TOKEN;
 
   if (!invocationId && !callbackToken && !agentKeySecret) return null;
 
@@ -282,6 +318,14 @@ export const postMessageInputSchema = {
         'Response always includes message field (human-readable routing summary).',
     ),
   agentKeyCatId: agentKeyCatIdSchema,
+  // F254 Phase A: acknowledge held — force send even when there are unseen messages
+  acknowledgeHeld: z
+    .boolean()
+    .optional()
+    .describe(
+      'F254 Freshness Gate escape hatch. Set to true to force-send your message even when the thread has unseen messages. ' +
+        'Use only after you have reviewed the held envelope previews and decided your message is still appropriate.',
+    ),
 };
 
 export const getPendingMentionsInputSchema = {
@@ -289,6 +333,13 @@ export const getPendingMentionsInputSchema = {
     .boolean()
     .optional()
     .describe('When true, include acknowledged mentions for explicit history review.'),
+  responseMode: z
+    .enum(['anchor', 'full'])
+    .optional()
+    .describe(
+      'Response projection mode. "anchor" (DEFAULT): head+tail excerpt with requiresDrill flag. ' +
+        '"full": complete mention body (no truncation). Prefer anchor unless you need the full message.',
+    ),
 };
 
 export const ackMentionsInputSchema = {
@@ -340,6 +391,15 @@ export const getThreadContextInputSchema = {
     .optional()
     .describe(
       'Optional: filter and rank messages by keyword relevance. Multi-word keywords are tokenized and scored (0-1). Results sorted by relevance when keyword is provided.',
+    ),
+  responseMode: z
+    .enum(['anchor', 'full'])
+    .optional()
+    .describe(
+      'Response projection mode. "anchor" (DEFAULT — omit for normal use): token-lean previews with drillDown pointers to full content. ' +
+        '"full": returns complete message bodies (no truncation, no drillDown). ' +
+        'Use "full" ONLY when you already know you need every message body (e.g. bulk analysis, export). ' +
+        'Anchor mode saves ~60-80% tokens on long threads; prefer it unless you have a concrete reason for full.',
     ),
   agentKeyCatId: agentKeyCatIdSchema,
 };
@@ -499,7 +559,20 @@ export const crossPostMessageInputSchema = {
     .max(200)
     .optional()
     .describe('Optional idempotency key for at-least-once delivery de-duplication'),
+  effectClass: z
+    .enum(['fyi', 'coordinate', 'investigate', 'assign_work'])
+    .optional()
+    .describe(
+      'F246 Phase B: Effect-class of the cross-thread dispatch. ' +
+        'fyi/coordinate/investigate → auto-deliver (default). ' +
+        'assign_work → held as a DispatchProposal pending operator approval in the Approval Hub.',
+    ),
   agentKeyCatId: agentKeyCatIdSchema,
+  // F254 Phase A: acknowledge held — force send even when there are unseen messages
+  acknowledgeHeld: z
+    .boolean()
+    .optional()
+    .describe('F254 Freshness Gate escape hatch. Force-send despite unseen messages in the target thread.'),
 };
 
 export const listTasksInputSchema = {
@@ -510,6 +583,11 @@ export const listTasksInputSchema = {
     .enum(['work', 'pr_tracking'])
     .optional()
     .describe('Optional task kind filter (work = manual tasks, pr_tracking = PR automation)'),
+  taskId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('F236 why-drill: pass a taskId to retrieve that task with its full (untruncated) why field'),
 };
 
 /**
@@ -549,6 +627,8 @@ async function _executePostMessage(input: {
   clientMessageId?: string | undefined;
   targetCats?: string[] | undefined;
   agentKeyCatId?: string | undefined;
+  effectClass?: 'fyi' | 'coordinate' | 'investigate' | 'assign_work' | undefined;
+  acknowledgeHeld?: boolean | undefined;
 }): Promise<ToolResult> {
   // F174 Phase E (AC-E2/E5): explicit kind:'none' policy. There's no useful
   // local fallback for post_message — losing the message is preferable to
@@ -565,6 +645,8 @@ async function _executePostMessage(input: {
           ...(input.replyTo ? { replyTo: input.replyTo } : {}),
           clientMessageId: input.clientMessageId ?? randomUUID(),
           ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
+          ...(input.effectClass ? { effectClass: input.effectClass } : {}),
+          ...(input.acknowledgeHeld ? { acknowledgeHeld: true } : {}),
         },
         { enableOutbox: true, agentKeyCatId: input.agentKeyCatId },
       ),
@@ -584,8 +666,33 @@ async function _executePostMessage(input: {
             'Include the message content in your stdout response instead.',
         );
       }
+
+      // F254 Phase A: Detect held — server returned 200 but message was NOT sent
+      // because the cat has unseen messages in the thread (freshness gate).
+      if (data?.status === 'held') {
+        const previews = (data.previews ?? []) as Array<{ from: string; messageId: string; preview: string }>;
+        const previewLines = previews.map(
+          (p: { from: string; preview: string }) =>
+            `  [${p.from}]: "${p.preview.slice(0, 100)}${p.preview.length > 100 ? '…' : ''}"`,
+        );
+        const omitted = (data.omittedCount ?? 0) as number;
+        const omittedLine = omitted > 0 ? `  ...and ${omitted} more message(s)\n` : '';
+
+        return errorResult(
+          `⚠️ Message NOT sent (HELD)\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Reason: You have ${data.unseenCount ?? 'unknown'} unseen message(s) in this thread.\n\n` +
+            (previewLines.length > 0
+              ? `Recent messages you haven't read:\n${previewLines.join('\n')}\n${omittedLine}\n`
+              : '') +
+            `Your options:\n` +
+            `1. Call cat_cafe_list_recent or cat_cafe_get_thread_context to read the new messages first\n` +
+            `2. Revise your message based on what you learn, then call post_message again\n` +
+            `3. Call post_message with acknowledgeHeld: true to force-send your original message as-is`,
+        );
+      }
     } catch {
-      // parse failure is fine — means result is not a stale_ignored response
+      // parse failure is fine — means result is not a stale_ignored/held response
     }
   }
 
@@ -655,9 +762,13 @@ export async function handlePostMessage(input: {
   return _executePostMessage(input);
 }
 
-export async function handleGetPendingMentions(input: { includeAcked?: boolean | undefined }): Promise<ToolResult> {
+export async function handleGetPendingMentions(input: {
+  includeAcked?: boolean | undefined;
+  responseMode?: 'anchor' | 'full' | undefined;
+}): Promise<ToolResult> {
   return callbackGet('/api/callbacks/pending-mentions', {
     ...(input.includeAcked ? { includeAcked: '1' } : {}),
+    ...(input.responseMode ? { responseMode: input.responseMode } : {}),
   });
 }
 
@@ -675,6 +786,7 @@ export async function handleGetThreadContext(input: {
   after?: number | undefined;
   catId?: string | undefined;
   keyword?: string | undefined;
+  responseMode?: 'anchor' | 'full' | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet(
@@ -687,6 +799,7 @@ export async function handleGetThreadContext(input: {
       ...(input.after !== undefined ? { after: String(input.after) } : {}),
       ...(input.catId ? { catId: input.catId } : {}),
       ...(input.keyword ? { keyword: input.keyword } : {}),
+      ...(input.responseMode ? { responseMode: input.responseMode } : {}),
     },
     { agentKeyCatId: input.agentKeyCatId },
   );
@@ -696,6 +809,7 @@ export async function handleGetThreadContext(input: {
 export async function handleGetMessage(input: {
   messageId: string;
   contextCount?: number | undefined;
+  mode?: 'preview' | 'full' | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet(
@@ -703,6 +817,7 @@ export async function handleGetMessage(input: {
     {
       messageId: input.messageId,
       ...(input.contextCount ? { contextCount: String(input.contextCount) } : {}),
+      ...(input.mode ? { mode: input.mode } : {}),
     },
     { agentKeyCatId: input.agentKeyCatId },
   );
@@ -903,6 +1018,8 @@ export async function handleCrossPostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
   agentKeyCatId?: string | undefined;
+  effectClass?: 'fyi' | 'coordinate' | 'investigate' | 'assign_work' | undefined;
+  acknowledgeHeld?: boolean | undefined;
 }): Promise<ToolResult> {
   // F193 AC-A4 closing砚砚 review P1: MCP layer fail-closed.
   // The API route layer (callbacks.ts) only triggers AC-A4 reject when
@@ -941,6 +1058,8 @@ export async function handleCrossPostMessage(input: {
     ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
     ...(input.agentKeyCatId ? { agentKeyCatId: input.agentKeyCatId } : {}),
     ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
+    ...(input.effectClass ? { effectClass: input.effectClass } : {}),
+    ...(input.acknowledgeHeld ? { acknowledgeHeld: true } : {}),
   });
 }
 
@@ -949,12 +1068,14 @@ export async function handleListTasks(input: {
   catId?: string | undefined;
   status?: 'todo' | 'doing' | 'blocked' | 'done' | undefined;
   kind?: 'work' | 'pr_tracking' | undefined;
+  taskId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet('/api/callbacks/list-tasks', {
     ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(input.catId ? { catId: input.catId } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.kind ? { kind: input.kind } : {}),
+    ...(input.taskId ? { taskId: input.taskId } : {}),
   });
 }
 
@@ -1556,7 +1677,7 @@ export const proposeThreadInputSchema = {
     .max(500)
     .optional()
     .describe(
-      'Optional absolute project directory the child thread belongs to (e.g. "/home/user/clowder-ai"). This decides the working directory cats use when invoked in the new thread. Omit to inherit THIS thread\'s project; if THIS thread is default/未分类/eval/lobby and the child will do repo or implementation work, set projectPath explicitly. Invalid/non-existent paths are rejected (400), never silently defaulted. The user can also change it on the approval card.',
+      'Optional absolute project directory the child thread belongs to (e.g. "/home/user/projects/clowder-ai"). This decides the working directory cats use when invoked in the new thread. Omit to inherit THIS thread\'s project; if THIS thread is default/未分类/eval/lobby and the child will do repo or implementation work, set projectPath explicitly. Invalid/non-existent paths are rejected (400), never silently defaulted. The user can also change it on the approval card.',
     ),
   clientRequestId: z
     .string()
@@ -1800,12 +1921,194 @@ export async function handleGuideControl(input: { action: string }): Promise<Too
 export async function handleHoldBall(input: {
   reason: string;
   nextStep: string;
-  wakeAfterMs: number;
+  wakeAfterMs?: number;
+  wakeWhen?: { command: string; cwd?: string; timeoutMs?: number };
+  waitSourceRef?: {
+    kind: string;
+    value: string;
+    anchorRef?: string;
+    expectedSignal: string;
+    slaUntilMs: number;
+  };
 }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/hold-ball', {
+  // P2-1 fix: validate mutual exclusion locally before HTTP roundtrip.
+  // JSON Schema can't express cross-field refine, so we enforce here.
+  const hasWakeAfter = input.wakeAfterMs != null;
+  const hasWakeWhen = input.wakeWhen != null;
+  if (hasWakeAfter && hasWakeWhen) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: wakeAfterMs and wakeWhen are mutually exclusive — provide exactly one.' },
+      ],
+      isError: true,
+    };
+  }
+  if (!hasWakeAfter && !hasWakeWhen) {
+    return {
+      content: [{ type: 'text', text: 'Error: exactly one of wakeAfterMs or wakeWhen must be provided.' }],
+      isError: true,
+    };
+  }
+  // PR-O3 R1 P1-1: wakeAfterMs requires waitSourceRef to ground the timer.
+  // wakeWhen is self-grounding (the command IS the wait source).
+  if (hasWakeAfter && !input.waitSourceRef) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text:
+            'Error: waitSourceRef is REQUIRED when using wakeAfterMs. ' +
+            'Declare what external condition justifies the timer — e.g. ' +
+            '{ kind: "github_issue", value: "#123", expectedSignal: "CI pass", slaUntilMs: 3600000 }. ' +
+            'If you are waiting for a person to respond, use @co-creator or @句柄 instead of hold_ball.',
+        },
+      ],
+      isError: true,
+    };
+  }
+  const result = await callbackPost('/api/callbacks/hold-ball', {
     reason: input.reason,
     nextStep: input.nextStep,
-    wakeAfterMs: input.wakeAfterMs,
+    ...(hasWakeAfter ? { wakeAfterMs: input.wakeAfterMs } : {}),
+    ...(hasWakeWhen ? { wakeWhen: input.wakeWhen } : {}),
+    ...(input.waitSourceRef ? { waitSourceRef: input.waitSourceRef } : {}),
+  });
+
+  // F254 B2: Check for unresolved freshness notices after successful hold_ball.
+  // If the cat has unacknowledged notices, append a reminder to the result.
+  // Fail-open: reminder errors never block hold_ball.
+  if (!result.isError && getCallbackConfig()) {
+    try {
+      const reminderResult = await callbackPost('/api/callbacks/freshness-hold-ball-reminder', {});
+      if (!reminderResult.isError) {
+        const data = JSON.parse((reminderResult.content[0] as { text: string }).text);
+        if (data?.reminder?.text) {
+          result.content = [...result.content, { type: 'text', text: `\n\n${data.reminder.text}` }];
+        }
+      }
+    } catch {
+      // Fail-open: reminder check errors should never block hold_ball
+    }
+  }
+
+  return result;
+}
+
+// ─── F236 Phase C: cat-controlled anchor mode ─────────────────────────────
+
+import { unlinkSync, writeFileSync } from 'node:fs';
+
+/**
+ * Resolve the mode file path for the current session.
+ * Uses invocation ID (Clowder AI managed) or returns null.
+ */
+function resolveAnchorModeFilePath(): string | null {
+  const invocationId = process.env.CAT_CAFE_INVOCATION_ID;
+  if (invocationId) {
+    return `/tmp/cat-cafe-anchor-mode-${invocationId}`;
+  }
+  return null;
+}
+
+const setReadModeInputSchema = {
+  mode: z
+    .enum(['anchor', 'full'])
+    .describe(
+      'Session-level mode for cc native Read/Grep/Glob output. ' +
+        '"anchor" = PostToolUse hook replaces output with locator (path + line count + drill pointer). ' +
+        '"full" = pass-through (original output unchanged). Default is full (fail-open).',
+    ),
+};
+
+export async function handleSetReadMode(input: { mode: 'anchor' | 'full' }): Promise<ToolResult> {
+  const modePath = resolveAnchorModeFilePath();
+  if (!modePath) {
+    return errorResult(
+      'Cannot set read mode: CAT_CAFE_INVOCATION_ID not set. ' + 'This tool requires a Clowder AI managed session.',
+    );
+  }
+
+  try {
+    if (input.mode === 'anchor') {
+      writeFileSync(modePath, 'anchor', 'utf-8');
+    } else {
+      // 'full' = remove mode file (fail-open semantics)
+      try {
+        unlinkSync(modePath);
+      } catch {
+        // File already absent = already in full mode, no-op
+      }
+    }
+    return successResult(JSON.stringify({ ok: true, mode: input.mode, path: modePath }));
+  } catch (err) {
+    return errorResult(`Failed to set read mode: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// #872: Thread Metadata MCP — get/set low-frequency metadata anchors
+export async function handleGetThreadMetadata(): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/thread-metadata');
+}
+
+export const setThreadMetadataInputSchema = {
+  title: z.string().min(1).optional().describe('Update thread title (replaces existing)'),
+  labels: z.array(z.string()).optional().describe('Update thread labels (replaces entire array)'),
+  worktrees: z.array(z.string()).optional().describe('Worktree paths to add (append + dedupe)'),
+  prs: z
+    .array(z.object({ repo: z.string().min(1), number: z.number().int().positive() }))
+    .optional()
+    .describe('PRs to add (append + dedupe by repo#number)'),
+  issues: z
+    .array(z.object({ repo: z.string().min(1), number: z.number().int().positive() }))
+    .optional()
+    .describe('Issues to add (append + dedupe by repo#number)'),
+  features: z.array(z.string()).optional().describe('Feature IDs to add (append + dedupe)'),
+  notes: z
+    .record(z.string(), z.string().nullable())
+    .optional()
+    .describe('Free-form KV notes: string value sets key, null deletes key'),
+  removeWorktrees: z.array(z.string()).optional().describe('Worktree paths to remove'),
+  removePrs: z
+    .array(z.object({ repo: z.string().min(1), number: z.number().int().positive() }))
+    .optional()
+    .describe('PRs to remove (matched by repo#number)'),
+  removeIssues: z
+    .array(z.object({ repo: z.string().min(1), number: z.number().int().positive() }))
+    .optional()
+    .describe('Issues to remove (matched by repo#number)'),
+  removeFeatures: z.array(z.string()).optional().describe('Feature IDs to remove'),
+};
+
+export async function handleSetThreadMetadata(input: {
+  title?: string;
+  labels?: string[];
+  worktrees?: string[];
+  prs?: Array<{ repo: string; number: number }>;
+  issues?: Array<{ repo: string; number: number }>;
+  features?: string[];
+  notes?: Record<string, string | null>;
+  removeWorktrees?: string[];
+  removePrs?: Array<{ repo: string; number: number }>;
+  removeIssues?: Array<{ repo: string; number: number }>;
+  removeFeatures?: string[];
+}): Promise<ToolResult> {
+  return withDegradation({
+    toolName: 'set_thread_metadata',
+    primary: () =>
+      callbackPost('/api/callbacks/set-thread-metadata', {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.labels !== undefined ? { labels: input.labels } : {}),
+        ...(input.worktrees !== undefined ? { worktrees: input.worktrees } : {}),
+        ...(input.prs !== undefined ? { prs: input.prs } : {}),
+        ...(input.issues !== undefined ? { issues: input.issues } : {}),
+        ...(input.features !== undefined ? { features: input.features } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        ...(input.removeWorktrees !== undefined ? { removeWorktrees: input.removeWorktrees } : {}),
+        ...(input.removePrs !== undefined ? { removePrs: input.removePrs } : {}),
+        ...(input.removeIssues !== undefined ? { removeIssues: input.removeIssues } : {}),
+        ...(input.removeFeatures !== undefined ? { removeFeatures: input.removeFeatures } : {}),
+      }),
+    policy: { kind: 'none' },
   });
 }
 
@@ -1842,7 +2145,8 @@ export const callbackTools = [
   {
     name: 'cat_cafe_get_thread_context',
     description:
-      'READ raw messages from a thread. Use to understand what has been discussed recently. ' +
+      'READ messages from a thread. Default returns token-lean ANCHOR previews (saves ~60-80% tokens) with drillDown pointers — drill into specific messages via cat_cafe_get_message when you need full content. ' +
+      'Pass responseMode="full" ONLY when you need complete message bodies (bulk analysis, export). ' +
       'Pass threadId to read a DIFFERENT thread (cross-thread context); omit to read the current thread. ' +
       'Use keyword to find and RANK messages by relevance (multi-word tokenized scoring, results sorted by match quality). ' +
       'BOUNDARY: This tool READS one thread. For FINDING information across all project knowledge (features, decisions, plans, lessons), use search_evidence instead.',
@@ -1856,7 +2160,8 @@ export const callbackTools = [
       'Look up a single message by its messageId. Use when you receive a message with replyTo — ' +
       'call this to read the original quoted message and its surrounding context. ' +
       'Returns the message content, sender, timestamp, and optionally N nearby messages for context. ' +
-      'PARAM GUIDE: messageId = required exact ID. contextCount = number of messages before/after to include (default 0, max 10).',
+      'PARAM GUIDE: messageId = required exact ID. contextCount = number of messages before/after to include (default 0, max 10). ' +
+      'mode = "preview" (default — bounded excerpt that saves context) or "full" (complete original content; use when you need the whole message — anchor drillDown pointers already request mode=full).',
     inputSchema: {
       messageId: z.string().min(1).describe('The exact message ID to look up'),
       contextCount: z
@@ -1866,6 +2171,10 @@ export const callbackTools = [
         .max(10)
         .optional()
         .describe('Number of messages before and after to include for context (0-10, default 0)'),
+      mode: z
+        .enum(['preview', 'full'])
+        .optional()
+        .describe('preview (default, bounded excerpt) or full (complete content). F236 anchor-first drill terminal.'),
       agentKeyCatId: agentKeyCatIdSchema,
     },
     handler: handleGetMessage,
@@ -2047,7 +2356,7 @@ export const callbackTools = [
       'Update the SOP workflow stage for a Feature (Mission Hub bulletin board). ' +
       'Use to record current stage, baton holder, resume capsule, and checks. ' +
       'This is information sharing, not flow control — cats decide their own actions. ' +
-      'STAGE VALUES: kickoff → impl → quality_gate → review → merge → completion. ' +
+      'STAGE VALUES: kickoff → impl → quality_gate → [fresh_context] → review → merge → completion. ' +
       'TIP: Always set resumeCapsule when updating stage — it helps the next cat cold-start.',
     inputSchema: updateWorkflowInputSchema,
     handler: handleUpdateWorkflow,
@@ -2196,15 +2505,19 @@ export const callbackTools = [
       'Declare a bounded ball hold: keep the ball while waiting for a short, predictable condition, then get auto-re-invoked with your context. ' +
       'Use when: ball is clearly yours + nobody else can advance + short predictable wait ' +
       '(e.g. CI running, build compiling, PR checks pending) + you know exactly what to do next. ' +
-      'NOT for: need review/approval → @ reviewer or @co-creator; need another cat to act → @ that cat; ' +
+      'NOT for: waiting for co-creator/user OR another cat to reply / answer / decide → @co-creator or @ that cat ' +
+      '(their next message re-invokes you; a hold timer just stacks a redundant 2nd trigger). ' +
+      'This is the #1 misuse — hold_ball is NOT a way to "stay alive" until a person replies; ' +
+      'need review/approval → @ reviewer or @co-creator; need another cat to act → @ that cat; ' +
       '"let me think" / "I\'ll hold for now" → hesitation not hold, pick 接/退/升; ' +
       'review/analysis done → MUST @ author, conclusion ≠ endpoint; status updates → use post_message. ' +
       'Output: system schedules a one-shot wake-up after wakeAfterMs; you get re-invoked with reason + nextStep as trigger context. ' +
       'GOTCHA: max 3 holds per (thread, cat) within a rolling ~1h window — 4th call returns 429, you MUST pass (@ another cat or @co-creator). ' +
       'GOTCHA: the counter is process-local best-effort (in-memory on the API node); API restart or multi-instance deploys may reset it, so do not treat the 429 as a hard security boundary — treat it as a self-discipline guardrail. ' +
       'GOTCHA: hold is an EXCEPTION state, not a default exit. Most turns should end with @ someone, not hold. ' +
-      'GOTCHA (F167 Phase M): only hold for harness-INVISIBLE waits — external conditions nothing will call you back about (cloud review verdict, remote CI, external webhook). Background work the harness already tracks (a background Bash command, a spawned task) AUTO-RE-INVOKES you on completion; holding for that just stacks a redundant wake on top. Ask "will something call me back already?" — if yes, do NOT hold. ' +
-      'GOTCHA: SINGLE-SLOT per (thread, cat) — calling hold_ball again while a previous hold is pending REPLACES the prior wake (prior taskId cancelled). This is intentional (KD-23): hold = "持一个球" exception, not a queue. If you need to track multiple waiting conditions, merge them into one nextStep (e.g. "等 CI + @co-creator 确认" 合并成一句). Rolling-window counter still ticks per call.',
+      'GOTCHA (F167 Phase M): only hold for harness-INVISIBLE waits — external conditions nothing will call you back about (cloud review verdict, remote CI, external webhook). Background work the harness already tracks (a background Bash command, a spawned task) AUTO-RE-INVOKES you on completion; holding for that just stacks a redundant wake on top. Ask "will something call me back already?" — if yes, do NOT hold. A co-creator or another cat sending a message into this thread IS such a callback (it re-invokes you), so "waiting for co-creator to answer" must be @co-creator, never a hold. ' +
+      'GOTCHA: SINGLE-SLOT per (thread, cat) — calling hold_ball again while a previous hold is pending REPLACES the prior wake (prior taskId cancelled). This is intentional (KD-23): hold = "持一个球" exception, not a queue. If you need to track multiple waiting conditions, merge them into one nextStep (e.g. "等 CI + @co-creator 确认" 合并成一句). Rolling-window counter still ticks per call. ' +
+      'NEW (F167 Phase P): wakeWhen — instead of a timed delay, specify a shell command to run. The server spawns it, captures output, and wakes you when it completes (or times out). Use for: pnpm gate, pnpm test, build commands — anything you would run_in_background and poll. wakeWhen is for LOCAL COMMANDS ONLY — it does not turn hold_ball into a universal "smart wait": waiting on a person is still @co-creator / @ that cat, waiting on a cloud event (PR / CI / issue) is still register_pr_tracking / register_issue_tracking. wakeWhen and wakeAfterMs are MUTUALLY EXCLUSIVE — provide exactly one.',
     inputSchema: {
       reason: z.string().min(1).max(500).describe('Why you need to hold the ball (e.g. "tests still running")'),
       nextStep: z
@@ -2212,8 +2525,96 @@ export const callbackTools = [
         .min(1)
         .max(500)
         .describe('What you will do when re-invoked (e.g. "check test results, then @ author")'),
-      wakeAfterMs: z.number().int().min(5000).max(3600000).describe('Delay in ms before system re-invokes you (5s–1h)'),
+      wakeAfterMs: z
+        .number()
+        .int()
+        .min(5000)
+        .max(3600000)
+        .optional()
+        .describe('Delay in ms before system re-invokes you (5s–1h). Mutually exclusive with wakeWhen.'),
+      wakeWhen: z
+        .object({
+          command: z.string().min(1).describe('Shell command to run (e.g. "pnpm gate", "pnpm test")'),
+          cwd: z.string().optional().describe('Working directory for the command (defaults to project root)'),
+          timeoutMs: z
+            .number()
+            .int()
+            .min(1000)
+            .max(3600000)
+            .optional()
+            .describe('Timeout in ms (default 10min, max 1h). Process killed on timeout.'),
+        })
+        .optional()
+        .describe(
+          'Run a shell command and wake when it completes. Mutually exclusive with wakeAfterMs. ' +
+            'The server spawns the command, captures stdout+stderr, and re-invokes you with the result (exit code, output tail, duration).',
+        ),
+      waitSourceRef: z
+        .object({
+          kind: z
+            .enum(['github_issue', 'github_comment', 'thread_message', 'task', 'reporter_handle', 'managed_command'])
+            .describe('What type of external condition you are waiting on'),
+          value: z.string().min(1).describe('Primary identifier (e.g. "#123", "thread-abc", "task-xyz")'),
+          anchorRef: z
+            .string()
+            .optional()
+            .describe(
+              'Durable anchor id — REQUIRED for reporter_handle kind (narrative kinds need anchor to a real id)',
+            ),
+          expectedSignal: z
+            .string()
+            .min(1)
+            .describe('What signal will indicate the wait is over (e.g. "CI pass", "comment posted")'),
+          slaUntilMs: z
+            .number()
+            .int()
+            .positive()
+            .describe('SLA deadline in ms from epoch. Must be ≤ now + 3_600_000 (1h). No SLA = no hold.'),
+        })
+        .optional()
+        .describe(
+          'REQUIRED when using wakeAfterMs — structured declaration of what external condition justifies the timer. ' +
+            'NOT needed for wakeWhen (the command itself IS the wait source). ' +
+            'If you are waiting for a person to respond in the Hub, do NOT hold_ball — use @co-creator or @句柄 instead.',
+        ),
     },
     handler: handleHoldBall,
+  },
+  {
+    name: 'cat_cafe_set_read_mode',
+    description:
+      'Set session-level mode for cc native Read/Grep/Glob output (F236 Phase C). ' +
+      '"anchor" mode: PostToolUse hook replaces tool output with a locator ' +
+      '(file path + total lines + drill pointer) — saves context tokens. ' +
+      '"full" mode: pass-through, original output unchanged (default). ' +
+      'Bounded Read (offset/limit present) ALWAYS passes through regardless of mode — ' +
+      'this is your escape hatch to drill into specific file sections after anchor. ' +
+      'Workflow: set_read_mode("anchor") → Read/Grep gives locator → ' +
+      'Read(file_path=..., offset=X, limit=Y) for the real slice. ' +
+      'GOTCHA: Mode is per-invocation (scoped to the current Clowder AI session, ' +
+      'cleaned up on session end). Does NOT persist across sessions. ' +
+      'GOTCHA: Requires Clowder AI managed session (CAT_CAFE_INVOCATION_ID).',
+    inputSchema: setReadModeInputSchema,
+    handler: handleSetReadMode,
+  },
+  {
+    name: 'cat_cafe_get_thread_metadata',
+    description:
+      'Read low-frequency metadata anchors for the current thread: worktree paths, associated PRs/issues, ' +
+      'feature links, labels, title, and free-form notes. Call at session start or handoff to recover context. ' +
+      'Returns all metadata fields; missing fields are omitted (not null).',
+    inputSchema: {},
+    handler: handleGetThreadMetadata,
+  },
+  {
+    name: 'cat_cafe_set_thread_metadata',
+    description:
+      'Write low-frequency metadata anchors for the current thread. Merge semantics: ' +
+      'title/labels REPLACE; worktrees/prs/issues/features APPEND with dedupe (use remove* fields to remove); ' +
+      'notes MERGE (string sets, null deletes key). ' +
+      'WHEN: after creating a worktree, PR, or issue association — NOT for dynamic state. ' +
+      'SCOPE: current thread only (no threadId param); cross-thread writes are impossible.',
+    inputSchema: setThreadMetadataInputSchema,
+    handler: handleSetThreadMetadata,
   },
 ] as const;

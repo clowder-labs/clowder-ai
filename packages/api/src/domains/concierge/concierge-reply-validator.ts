@@ -57,22 +57,42 @@ const LABEL_PREFIX: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Fail-closed guards
+// Verb auto-correction (BUG-UX-9 fix)
 // ---------------------------------------------------------------------------
 
+type ActionVerb = '跳过去' | '原地看';
+
 /**
- * Determine if an action should be skipped (fail-closed).
+ * Resolve the actual action type and display verb, auto-correcting when the
+ * duty cat picked the wrong verb for the anchor's capabilities.
  *
- * - peek without messageId → no-op button (CardBlock.tsx:189 returns early)
- * - teleport for non-thread anchors → frontend can't navigate (only real threadIds)
+ * BUG-UX-12: thread anchors → ALWAYS teleport, regardless of what the duty cat
+ * requested or whether the anchor has a messageId. Concierge actions pointing to
+ * threads are semantically jumps — "原地看" confuses users.
+ * (operator feedback: "这些按钮本质的含义不是跳转吗？！")
+ *
+ * Resolution rules:
+ * - thread type → always teleport (BUG-UX-12, supersedes BUG-UX-9 partial fix)
+ * - non-thread → null (fail-closed: frontend can only navigate to real threadIds)
+ *
+ * Note: MARKER_PATTERN still parses [原地看 Rn] for backward compat (old stored
+ * messages, non-compliant models), but resolveAction auto-corrects all thread
+ * markers to teleport. Non-thread anchors are consistently unactionable — matching
+ * buildConciergeActions fallback behavior (L197: `if (anchor.type !== 'thread') continue`).
  */
-function shouldSkipAction(
-  actionType: 'concierge_teleport' | 'concierge_peek',
+function resolveAction(
+  _requestedType: 'concierge_teleport' | 'concierge_peek',
   anchor: { messageId?: string; type: string },
-): boolean {
-  if (actionType === 'concierge_peek' && !anchor.messageId) return true;
-  if (actionType === 'concierge_teleport' && anchor.type !== 'thread') return true;
-  return false;
+): { actionType: 'concierge_teleport' | 'concierge_peek'; displayVerb: ActionVerb } | null {
+  // BUG-UX-12: thread anchors → always teleport
+  if (anchor.type === 'thread') {
+    return { actionType: 'concierge_teleport', displayVerb: '跳过去' };
+  }
+
+  // Non-thread anchors are not navigable — frontend can only route to real threadIds.
+  // Returning peek here would cause handleTeleport to navigate to e.g. /thread/feature:F229
+  // which is invalid. Consistent with buildConciergeActions fallback which also skips non-thread.
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,32 +120,31 @@ export async function extractConciergeActions(
 
   if (matches.length === 0) return [];
 
-  // 2. Deduplicate (verb + handle)
+  // 2. Look up each handle, resolve action, and deduplicate by resolved action+handle
+  // (BUG-UX-9: dedup AFTER resolution — [跳过去 R1] and [原地看 R1] on the same
+  // thread-only handle both resolve to teleport; dedup by verb would keep both)
   const seen = new Set<string>();
-  const unique: Array<{ verb: string; handle: string }> = [];
-  for (const match of matches) {
-    const key = `${match.verb}:${match.handle}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(match);
-    }
-  }
-
-  // 3. Look up each handle and build actions (fail-closed)
   const actions: ConciergeAction[] = [];
-  for (const { verb, handle } of unique) {
+  for (const { verb, handle } of matches) {
     const anchor = await store.getHandle(threadId, handle);
     if (!anchor) continue; // fail-closed: unknown handle → skip
 
-    const actionType = ACTION_MAP[verb];
-    if (!actionType) continue; // safety guard
-    if (shouldSkipAction(actionType, anchor)) continue;
+    const requestedType = ACTION_MAP[verb];
+    if (!requestedType) continue; // safety guard
+
+    const resolved = resolveAction(requestedType, anchor);
+    if (!resolved) continue; // truly incompatible → fail-closed
+
+    // Dedup by resolved action type + handle (not raw verb + handle)
+    const dedupeKey = `${resolved.actionType}:${handle}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
 
     actions.push({
-      action: actionType,
-      label: `${LABEL_PREFIX[verb]}：${anchor.title}`,
+      action: resolved.actionType,
+      label: `${LABEL_PREFIX[resolved.displayVerb]}：${anchor.title}`,
       handle,
-      verb,
+      verb, // keep original text verb — frontend uses it as actionMap key for marker matching
       payload: {
         threadId: anchor.threadId,
         ...(anchor.messageId != null ? { messageId: anchor.messageId } : {}),
@@ -177,6 +196,7 @@ export async function buildConciergeActions(
   const actions: ConciergeAction[] = [];
   for (const { anchor } of handles) {
     if (anchor.type !== 'thread') continue; // only real threads are navigable
+    // BUG-UX-12: only teleport for thread anchors — no peek buttons
     actions.push({
       action: 'concierge_teleport',
       label: `跳过去：${anchor.title}`,
@@ -185,13 +205,6 @@ export async function buildConciergeActions(
         ...(anchor.messageId != null ? { messageId: anchor.messageId } : {}),
       },
     });
-    if (anchor.messageId) {
-      actions.push({
-        action: 'concierge_peek',
-        label: `原地看：${anchor.title}`,
-        payload: { threadId: anchor.threadId, messageId: anchor.messageId },
-      });
-    }
   }
   return actions.slice(0, FALLBACK_MAX_ACTIONS);
 }

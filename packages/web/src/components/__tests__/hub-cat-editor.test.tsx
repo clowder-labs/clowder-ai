@@ -51,6 +51,7 @@ const emptyAcpFields = {
   acpStartupArgs: '',
   acpMaxLiveProcesses: '',
   acpIdleTtlMinutes: '',
+  mcpSupport: true,
 };
 
 const emptyNativeToolFields = {
@@ -195,7 +196,7 @@ describe('HubCatEditor', () => {
   }
 
   it('shows extra CLI args editor for CLI clients and hides it for API-only clients', async () => {
-    for (const clientId of ['anthropic', 'openai', 'google', 'kimi', 'dare', 'opencode'] as const) {
+    for (const clientId of ['anthropic', 'openai', 'google', 'kimi', 'opencode'] as const) {
       await renderAdvancedRuntimeSection(clientId);
       expect(document.body.textContent, clientId).toContain('额外 CLI 参数');
     }
@@ -348,6 +349,20 @@ describe('HubCatEditor', () => {
 
     const payload = buildCatPayload(baseForm, existingCat) as Record<string, unknown>;
     expect(payload.mcpSupport).toBe(true);
+
+    const acpPayload = buildCatPayload(
+      {
+        ...baseForm,
+        clientId: 'acp',
+        accountRef: 'claude',
+        defaultModel: 'acp-model',
+        acpEnabled: true,
+        acpCommand: 'custom-acp-agent',
+        acpStartupArgs: '--acp',
+      },
+      { ...existingCat, clientId: 'openai' },
+    ) as Record<string, unknown>;
+    expect(acpPayload.mcpSupport).toBe(true);
   });
 
   it('buildCatPayload seeds default Antigravity command args when the field is still blank', () => {
@@ -772,6 +787,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
       acpStartupArgs: '--acp --mode agent',
@@ -818,6 +834,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
       acpStartupArgs: 'acp',
@@ -910,6 +927,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'deepseek-cli',
       acpStartupArgs: '--acp',
@@ -964,6 +982,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'opencode',
       acpStartupArgs: 'acp',
@@ -1025,6 +1044,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'kimi',
       acpStartupArgs: 'acp',
@@ -1084,6 +1104,7 @@ describe('HubCatEditor', () => {
       ...emptyVoiceFields,
       ...emptyNativeToolFields,
       acpEnabled: true,
+      mcpSupport: true,
       acpTransport: 'stdio',
       acpCommand: 'some-acp-agent',
       acpStartupArgs: 'acp',
@@ -2119,7 +2140,6 @@ describe('HubCatEditor', () => {
       'claude-sponsor',
       'codex-sponsor',
     ]);
-    expect(filterProfiles('dare', profiles).map((profile) => profile.id)).toEqual(['claude-sponsor', 'codex-sponsor']);
     expect(filterProfiles('opencode', profiles).map((profile) => profile.id)).toEqual([
       'claude-sponsor',
       'codex-sponsor',
@@ -2962,7 +2982,8 @@ describe('HubCatEditor', () => {
     const payload = JSON.parse(String(patchCall?.[1]?.body));
     expect(payload.clientId).toBe('antigravity');
     expect(payload.accountRef).toBeNull();
-    expect(payload.mcpSupport).toBe(true);
+    // #712: mcpSupport is omitted from PATCH when the value hasn't changed (both default to true)
+    expect(payload.mcpSupport).toBeUndefined();
   });
 
   it('sends contextBudget=null when clearing existing runtime budget', async () => {
@@ -4308,5 +4329,63 @@ describe('HubCatEditor', () => {
     expect(JSON.parse(String(strategyPatches[1]?.[1]?.body)).strategy).toBe('compress');
     expect(document.body.textContent).toContain('network dropped during cat save');
     expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('shows dossier notice badge only when hasDossier is true (OQ-9 per-field regression)', async () => {
+    const catWithDossier: CatData = {
+      id: 'opus',
+      name: 'opus',
+      displayName: '布偶猫',
+      clientId: 'claude-code',
+      defaultModel: 'claude-opus-4-6',
+      commandArgs: [],
+      color: { primary: '#7c3aed', secondary: '#ddd6fe' },
+      mentionPatterns: ['@opus'],
+      avatar: '/avatars/opus.png',
+      roleDescription: '主架构师',
+      personality: '温柔但有主见',
+    };
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/accounts') {
+        return Promise.resolve(jsonResponse({ projectPath: '/tmp/project', activeProfileId: null, providers: [] }));
+      }
+      if (path === '/api/config/session-strategy') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/cat-templates') {
+        return Promise.resolve(jsonResponse({ templates: [] }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    // Render WITH hasDossier=true — badge should appear
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, {
+          open: true,
+          cat: catWithDossier,
+          hasDossier: true,
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    expect(document.body.textContent).toContain('擅长领域由画像驱动');
+
+    // Re-render WITHOUT hasDossier — badge must NOT appear
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, {
+          open: true,
+          cat: catWithDossier,
+          hasDossier: false,
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    expect(document.body.textContent).not.toContain('擅长领域由画像驱动');
   });
 });

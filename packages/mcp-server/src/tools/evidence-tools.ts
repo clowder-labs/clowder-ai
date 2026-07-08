@@ -83,6 +83,18 @@ export const searchEvidenceInputSchema = {
     .boolean()
     .optional()
     .describe('When true, include rankingFactors (bm25Score, consumptionPrior, mmrPenalty) on each result'),
+  intent: z
+    .enum(['topk', 'coverage'])
+    .optional()
+    .describe(
+      'Search intent: topk (default, ranked list) or coverage (exhaustive multi-scope search with coverage matrix output). Use coverage for "哪些/所有/历史上" style source-map queries.',
+    ),
+  include_expansion: z
+    .boolean()
+    .optional()
+    .describe(
+      'F256 Phase B: Include expansion hints ("Related directions") in topk results. Default true. Set false to suppress.',
+    ),
 };
 
 export async function handleSearchEvidence(input: {
@@ -98,6 +110,8 @@ export async function handleSearchEvidence(input: {
   dimension?: string | undefined;
   collections?: string | undefined;
   explain?: boolean | undefined;
+  intent?: 'topk' | 'coverage' | undefined;
+  include_expansion?: boolean | undefined;
 }): Promise<ToolResult> {
   const { dimension = 'project' } = input;
   const params = new URLSearchParams({ q: input.query });
@@ -114,6 +128,8 @@ export async function handleSearchEvidence(input: {
   params.set('dimension', dimension);
   if (input.collections) params.set('collections', input.collections);
   if (input.explain) params.set('explain', 'true');
+  if (input.intent) params.set('intent', input.intent);
+  if (input.include_expansion === false) params.set('include_expansion', 'false');
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
   const queryLabel = JSON.stringify(input.query);
@@ -127,6 +143,57 @@ export async function handleSearchEvidence(input: {
         `[cat-cafe-search-evidence] HTTP error ${response.status} for ${url}\n  query=${queryLabel}\n  body=${text.slice(0, 500)}`,
       );
       return errorResult(`Evidence search failed for ${queryLabel} (${response.status}): ${text}`);
+    }
+
+    // F200 HW-1: intent=coverage returns CoverageSearchResult (different shape from topk)
+    if (input.intent === 'coverage') {
+      const coverageData = (await response.json()) as {
+        query: string;
+        totalHits: number;
+        bySource: Record<string, { count: number; cap: number }>;
+        matrix: Array<{
+          anchor: string;
+          title: string;
+          kind: string;
+          matchType: string;
+          confidence: number;
+          source: string;
+          sourcePath?: string;
+          expansionProvenance?: { source: string; via: string; confidence: string };
+        }>;
+        gaps: string[];
+        degraded?: Array<{ source: string; reason: string }>;
+      };
+
+      const lines: string[] = [];
+      lines.push(`📊 Coverage Search: ${coverageData.totalHits} hit(s) for ${queryLabel}`);
+      lines.push('');
+
+      for (const [src, info] of Object.entries(coverageData.bySource)) {
+        lines.push(`  ${src}: ${info.count}/${info.cap}`);
+      }
+      lines.push('');
+
+      for (const item of coverageData.matrix) {
+        const prov = item.expansionProvenance
+          ? ` [${item.expansionProvenance.source} via ${item.expansionProvenance.via}]`
+          : '';
+        lines.push(`[${item.matchType}] ${item.title}`);
+        lines.push(`  anchor: ${item.anchor}`);
+        lines.push(`  source: ${item.source} | confidence: ${item.confidence}${prov}`);
+        if (item.sourcePath) lines.push(`  sourcePath: ${item.sourcePath}`);
+        lines.push('');
+      }
+
+      if (coverageData.degraded && coverageData.degraded.length > 0) {
+        lines.push('⚠️ Degraded sources:');
+        for (const d of coverageData.degraded) {
+          lines.push(`  ${d.source}: ${d.reason}`);
+        }
+        lines.push('');
+      }
+
+      return successResult(lines.join('\n'));
     }
 
     const data = (await response.json()) as {
@@ -167,6 +234,14 @@ export async function handleSearchEvidence(input: {
       degradeReason?: string;
       effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
       variantId?: string;
+      /** F256 Phase B: expansion hints from TopkExpansionService */
+      expansionHints?: Array<{
+        anchor: string;
+        title: string;
+        kind: string;
+        sourcePath?: string;
+        provenance?: { source: string; via: string; confidence: string };
+      }>;
     };
 
     const degradedBanner = formatDegradedBanner(data.degraded, data.degradeReason, data.effectiveMode);
@@ -279,6 +354,19 @@ export async function handleSearchEvidence(input: {
       lines.push('');
     }
 
+    // F256 Phase B: expansion hints — "Related directions" block
+    if (data.expansionHints && data.expansionHints.length > 0) {
+      lines.push('📎 Related directions:');
+      for (const hint of data.expansionHints) {
+        const source = hint.provenance?.source ?? '';
+        const via = hint.provenance?.via ?? '';
+        // AC-B2: provenance visible — show source type + via trace (砚砚 review P2)
+        const prov = source && via ? ` [${source}: ${via}]` : via ? ` (${via})` : '';
+        lines.push(`   - ${hint.anchor}: ${hint.title}${prov}`);
+      }
+      lines.push('');
+    }
+
     // F188 Phase F AC-F3 + KD-7: deterministic nudge on low-hit (no high/mid doc anchors)
     const nudgeText = composeMemoryNavigationNudge(data);
     if (nudgeText) {
@@ -323,6 +411,7 @@ function composeMemoryNavigationNudge(data: {
       '🧭 Memory navigation — no match, try a different entry:',
       '  • 精确 anchor (F186 / ADR-019 等) → cat_cafe_graph_resolve',
       '  • 零先验 / 扫一眼最近活动 → cat_cafe_list_recent(scope="all", since="7d")',
+      '  • 换切面/多刀搜 → 加载 memory-search-best-practices skill（8 种题型 recipe + 何时停）',
     ].join('\n');
   }
   const hasHighOrMidDocHit = data.results.some(
@@ -333,6 +422,7 @@ function composeMemoryNavigationNudge(data: {
       '🧭 Memory navigation — low confidence hits, consider an alternate entry:',
       '  • 看 anchor 周边关系 → cat_cafe_graph_resolve',
       '  • 时间窗口扫描 → cat_cafe_list_recent',
+      '  • 换切面/多刀搜 → 加载 memory-search-best-practices skill（题型 recipe + 补刀策略）',
     ].join('\n');
   }
   return null;

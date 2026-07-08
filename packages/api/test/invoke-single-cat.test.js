@@ -6,7 +6,7 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,26 @@ async function rmWithRetry(path, attempts = 5) {
   }
 }
 
+async function makeSameProjectWorkspace(prefix) {
+  const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
+  const projectRoot = await realpath(join(__dirname, '..', '..', '..'));
+  let fakeGitDir = join(projectRoot, '.git', 'worktrees', `${prefix}gitdir`);
+  try {
+    const dotGit = await readFile(join(projectRoot, '.git'), 'utf-8');
+    const match = dotGit.trim().match(/^gitdir:\s*(.+)$/);
+    if (match?.[1]) {
+      const hostGitDir = match[1].startsWith('/') ? match[1] : join(projectRoot, match[1]);
+      const commonGitDir = join(hostGitDir, '..', '..');
+      fakeGitDir = join(commonGitDir, 'worktrees', `${prefix}gitdir`);
+    }
+  } catch {
+    // Main worktree has .git as a directory; the default fakeGitDir above points
+    // back to the same common git dir through resolveGitCommonDir().
+  }
+  await writeFile(join(dir, '.git'), `gitdir: ${fakeGitDir}\n`, 'utf-8');
+  return dir;
+}
+
 /**
  * F171: bootstrapCatCatalog() now creates empty catalogs (first-run quest).
  * Tests that call bootstrapCatCatalog() and then read catalog breeds must call
@@ -64,7 +84,6 @@ const BUILTIN_ACCOUNT_IDS = {
   openai: 'codex',
   google: 'gemini',
   kimi: 'kimi',
-  dare: 'dare',
   opencode: 'opencode',
 };
 
@@ -2936,6 +2955,14 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       ),
       'invalid_thinking_signature',
     );
+    // Kimi: generic -32603 must NOT be classified as missing_session (PR #1058 P1-3)
+    assert.equal(classifyResumeFailure('prompt_failure: ACP error -32603: Internal error'), null);
+    // Only -32603 with bootstrap CWD/FileNotFoundError evidence → missing_session
+    assert.equal(
+      classifyResumeFailure('ACP error -32603: Internal error: FileNotFoundError: [Errno 2] No such file or directory'),
+      'missing_session',
+    );
+    assert.equal(classifyResumeFailure('ACP error -32603: os.getcwd() failed'), 'missing_session');
     assert.equal(classifyResumeFailure('upstream timeout'), null);
   });
 
@@ -3079,6 +3106,80 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(optionsSeen[0].cliSessionId, 'stale-sess', 'first attempt should have cliSessionId');
     // Retry after self-heal should NOT carry stale cliSessionId
     assert.equal(optionsSeen[1].cliSessionId, undefined, 'retry should clear cliSessionId');
+  });
+
+  it('clowder-ai#1038: opencode "Session not found" (in cliDiagnostics) self-heals to fresh session', async () => {
+    // opencode's stale-session signal surfaces in metadata.cliDiagnostics.reasonCode, NOT in
+    // msg.error (which is the generic exit-1 string with a [session_not_found] suffix). Without
+    // the reasonCode route, isMissingClaudeSessionError(msg.error) misses it and the error would
+    // fall into transient retry (Path B), re-running the same stale --session forever.
+    let invokeCount = 0;
+    const sessionDeletes = [];
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'opus',
+            error: 'opencode CLI: CLI 异常退出 (code: 1, signal: none) [session_not_found]',
+            metadata: {
+              cliDiagnostics: {
+                reasonCode: 'session_not_found',
+                publicSummary: 'CLI session 找不到',
+                publicHint: '已自动新建会话重试本轮',
+                debugRef: { command: 'opencode', exitCode: 1, signal: null },
+              },
+            },
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'session_init', catId: 'opus', sessionId: 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'recovered', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'stale-sess',
+      store: async () => {},
+      delete: async (u, c, t) => {
+        sessionDeletes.push(`${u}:${c}:${t}`);
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'user-1038',
+        threadId: 'thread-1038',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokeCount, 2, 'should re-invoke once after stale-session diagnostic');
+    assert.equal(optionsSeen[0].sessionId, 'stale-sess', 'first attempt should resume stale session');
+    assert.equal(optionsSeen[1].sessionId, undefined, 'retry should drop --session (fresh)');
+    assert.equal(optionsSeen[0].cliSessionId, 'stale-sess', 'first attempt carries cliSessionId');
+    assert.equal(optionsSeen[1].cliSessionId, undefined, 'retry clears cliSessionId');
+    assert.deepEqual(sessionDeletes, ['user-1038:opus:thread-1038'], 'should delete stale session before retry');
+    assert.ok(
+      msgs.some((m) => m.type === 'text' && m.content === 'recovered'),
+      'should recover and stream retry result',
+    );
+    assert.equal(
+      msgs.some((m) => m.type === 'error' && m.metadata?.cliDiagnostics?.reasonCode === 'session_not_found'),
+      false,
+      'stale-session error should be suppressed when retry succeeds',
+    );
   });
 
   it('F-BLOAT cloud P1: self-heal retry re-injects systemPrompt when session drops', async () => {
@@ -6073,6 +6174,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const mcpDir = join(root, 'packages', 'mcp-server', 'dist');
     await mkdir(mcpDir, { recursive: true });
     await writeFile(join(mcpDir, 'index.js'), '// stub mcp server', 'utf-8');
+    for (const entry of ['collab.js', 'memory.js', 'signals.js', 'limb.js']) {
+      await writeFile(join(mcpDir, entry), '// stub split server', 'utf-8');
+    }
 
     const anthropicProfile = await createProviderProfile(root, {
       provider: 'anthropic',
@@ -6148,13 +6252,19 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-ant-mcp-key');
     assert.ok(seenRuntimeConfig, 'runtime config must be parseable');
     assert.ok(seenRuntimeConfig.mcp, 'runtime config must contain mcp section');
-    const mcpCafe = seenRuntimeConfig.mcp['cat-cafe'];
-    assert.equal(mcpCafe.type, 'local');
-    assert.equal(mcpCafe.command.length, 2);
-    assert.equal(mcpCafe.command[0], 'node');
+    assert.equal(seenRuntimeConfig.mcp['cat-cafe'], undefined, 'monolith must not be injected');
+    const mcpCollab = seenRuntimeConfig.mcp['cat-cafe-collab'];
+    assert.ok(mcpCollab, 'split server cat-cafe-collab expected');
+    assert.equal(mcpCollab.type, 'local');
+    assert.equal(mcpCollab.command.length, 2);
+    const nodeBin91 = mcpCollab.command[0];
     assert.ok(
-      mcpCafe.command[1].endsWith('/packages/mcp-server/dist/index.js'),
-      `mcp command[1] must point to mcp-server entry: ${mcpCafe.command[1]}`,
+      nodeBin91 === 'node' || nodeBin91.endsWith('/node') || nodeBin91.endsWith('\\node.exe'),
+      `command[0] must be a node binary: ${nodeBin91}`,
+    );
+    assert.ok(
+      mcpCollab.command[1].endsWith('/packages/mcp-server/dist/collab.js'),
+      `mcp command[1] must point to split entrypoint: ${mcpCollab.command[1]}`,
     );
     // Config file should be cleaned up after invocation
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
@@ -6175,6 +6285,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
       const envMcpPath = join(externalMcpDir, 'index.js');
       await writeFile(envMcpPath, '// stub mcp server from env', 'utf-8');
+      for (const entry of ['collab.js', 'memory.js', 'signals.js', 'limb.js']) {
+        await writeFile(join(externalMcpDir, entry), '// stub split server', 'utf-8');
+      }
 
       const anthropicProfile = await createProviderProfile(root, {
         provider: 'anthropic',
@@ -6258,10 +6371,16 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-ant-mcp-env-key');
       assert.ok(seenRuntimeConfig, 'runtime config must be parseable');
       assert.ok(seenRuntimeConfig.mcp, 'runtime config must contain mcp section');
-      const mcpCafe = seenRuntimeConfig.mcp['cat-cafe'];
-      assert.equal(mcpCafe.type, 'local');
-      assert.equal(mcpCafe.command[0], 'node');
-      assert.equal(mcpCafe.command[1], envMcpPath);
+      assert.equal(seenRuntimeConfig.mcp['cat-cafe'], undefined, 'monolith must not be injected');
+      const mcpCollab = seenRuntimeConfig.mcp['cat-cafe-collab'];
+      assert.ok(mcpCollab, 'split server cat-cafe-collab expected');
+      assert.equal(mcpCollab.type, 'local');
+      const nodeBin92 = mcpCollab.command[0];
+      assert.ok(
+        nodeBin92 === 'node' || nodeBin92.endsWith('/node') || nodeBin92.endsWith('\\node.exe'),
+        `command[0] must be a node binary: ${nodeBin92}`,
+      );
+      assert.ok(mcpCollab.command[1].endsWith('collab.js'), 'must point to split entrypoint');
       await assert.rejects(readFile(seenConfigPath, 'utf-8'));
     },
   );
@@ -6276,6 +6395,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const mcpDir = join(root, 'packages', 'mcp-server', 'dist');
     await mkdir(mcpDir, { recursive: true });
     await writeFile(join(mcpDir, 'index.js'), '// stub mcp server', 'utf-8');
+    for (const entry of ['collab.js', 'memory.js', 'signals.js', 'limb.js']) {
+      await writeFile(join(mcpDir, entry), '// stub split server', 'utf-8');
+    }
 
     // Create a subscription-mode profile (no API key)
     const subscriptionProfile = await createProviderProfile(root, {
@@ -6362,7 +6484,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         undefined,
         'non-api_key runtime config must not reference missing CAT_CAFE_OC_BASE_URL',
       );
-      assert.ok(runtimeConfig.mcp?.['cat-cafe'], 'MCP config must still be present for subscription path');
+      assert.equal(runtimeConfig.mcp?.['cat-cafe'], undefined, 'monolith must not be injected for subscription path');
+      assert.ok(
+        runtimeConfig.mcp?.['cat-cafe-collab'],
+        'split server cat-cafe-collab must be present for subscription path',
+      );
     } finally {
       process.chdir(previousCwd);
       catRegistry.reset();
@@ -7143,6 +7269,458 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'should reach done (service was invoked)',
     );
     assert.equal(optionsSeen[0]?.workingDirectory, undefined, 'workingDirectory must be undefined for game threads');
+  });
+
+  it('fails loud for OpenCode when thread projectPath is a virtual game path', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke() {
+        invokedService = true;
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: 'games/werewolf', createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opencode',
+        service,
+        prompt: 'test game briefing',
+        userId: 'user1',
+        threadId: 'thread-opencode-game-werewolf',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, false, 'OpenCode must not inherit runtime cwd for virtual game projectPaths');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('virtual game projectPath games/werewolf')),
+      `expected virtual game projectPath error, got: ${msgs.map((m) => m.type).join(',')}`,
+    );
+  });
+
+  it('passes a valid thread projectPath as OpenCode workingDirectory', async () => {
+    const projectRoot = await realpath(join(__dirname, '..', '..', '..'));
+
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: projectRoot, createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opencode',
+        service,
+        prompt: 'test project cwd',
+        userId: 'user1',
+        threadId: 'thread-opencode-project-cwd',
+        isLastCat: true,
+      }),
+    );
+
+    assert.ok(
+      msgs.some((m) => m.type === 'done'),
+      'service should complete',
+    );
+    assert.equal(optionsSeen.length, 1, `service should be invoked once, got messages: ${JSON.stringify(msgs)}`);
+    assert.equal(optionsSeen[0]?.workingDirectory, projectRoot);
+  });
+
+  it('drops OpenCode resume when the stored session workspace differs from the current thread workspace', async () => {
+    const repoA = await makeSameProjectWorkspace('opencode-repo-a-');
+    const repoB = await makeSameProjectWorkspace('opencode-repo-b-');
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+    const activeRecord = {
+      id: 'rec-opencode-repo-a',
+      seq: 0,
+      status: 'active',
+      cliSessionId: 'ses_repo_a',
+      catId: 'opencode',
+      threadId: 'thread-opencode-stale-workspace',
+      userId: 'user1',
+      messageCount: 0,
+      workspaceFingerprint: repoA,
+      workingDirectory: repoA,
+    };
+    const chainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      get: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async (_id, patch) => Object.assign(activeRecord, patch),
+    };
+
+    try {
+      await collect(
+        invokeSingleCat(
+          {
+            ...makeDeps(),
+            sessionChainStore: chainStore,
+            threadStore: {
+              get: async () => ({ projectPath: repoB, createdBy: 'user1' }),
+              updateParticipantActivity: async () => {},
+            },
+          },
+          {
+            catId: 'opencode',
+            service,
+            prompt: 'test stale workspace resume',
+            userId: 'user1',
+            threadId: 'thread-opencode-stale-workspace',
+            isLastCat: true,
+          },
+        ),
+      );
+    } finally {
+      await rmWithRetry(repoA);
+      await rmWithRetry(repoB);
+    }
+
+    assert.equal(optionsSeen.length, 1);
+    assert.equal(optionsSeen[0]?.workingDirectory, repoB);
+    assert.equal(optionsSeen[0]?.sessionId, undefined, 'OpenCode must start fresh on workspace mismatch');
+    assert.equal(optionsSeen[0]?.cliSessionId, undefined, 'stale session id must not be used for diagnostics either');
+  });
+
+  it('keeps OpenCode resume when the stored session workspace matches the current thread workspace', async () => {
+    const repo = await makeSameProjectWorkspace('opencode-repo-match-');
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+    const activeRecord = {
+      id: 'rec-opencode-repo-match',
+      seq: 0,
+      status: 'active',
+      cliSessionId: 'ses_repo_match',
+      catId: 'opencode',
+      threadId: 'thread-opencode-matching-workspace',
+      userId: 'user1',
+      messageCount: 0,
+      workspaceFingerprint: repo,
+      workingDirectory: repo,
+    };
+    const chainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      get: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async (_id, patch) => Object.assign(activeRecord, patch),
+    };
+
+    try {
+      await collect(
+        invokeSingleCat(
+          {
+            ...makeDeps(),
+            sessionChainStore: chainStore,
+            threadStore: {
+              get: async () => ({ projectPath: repo, createdBy: 'user1' }),
+              updateParticipantActivity: async () => {},
+            },
+          },
+          {
+            catId: 'opencode',
+            service,
+            prompt: 'test matching workspace resume',
+            userId: 'user1',
+            threadId: 'thread-opencode-matching-workspace',
+            isLastCat: true,
+          },
+        ),
+      );
+    } finally {
+      await rmWithRetry(repo);
+    }
+
+    assert.equal(optionsSeen.length, 1);
+    assert.equal(optionsSeen[0]?.workingDirectory, repo);
+    assert.equal(optionsSeen[0]?.sessionId, 'ses_repo_match');
+    assert.equal(optionsSeen[0]?.cliSessionId, 'ses_repo_match');
+  });
+
+  it('drops OpenCode resume when the stored session workspace is unknown', async () => {
+    const repo = await makeSameProjectWorkspace('opencode-repo-unknown-');
+    const optionsSeen = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+    const activeRecord = {
+      id: 'rec-opencode-unknown',
+      seq: 0,
+      status: 'active',
+      cliSessionId: 'ses_unknown_workspace',
+      catId: 'opencode',
+      threadId: 'thread-opencode-unknown-workspace',
+      userId: 'user1',
+      messageCount: 0,
+    };
+    const chainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      get: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async (_id, patch) => Object.assign(activeRecord, patch),
+    };
+
+    try {
+      await collect(
+        invokeSingleCat(
+          {
+            ...makeDeps(),
+            sessionChainStore: chainStore,
+            threadStore: {
+              get: async () => ({ projectPath: repo, createdBy: 'user1' }),
+              updateParticipantActivity: async () => {},
+            },
+          },
+          {
+            catId: 'opencode',
+            service,
+            prompt: 'test unknown workspace resume',
+            userId: 'user1',
+            threadId: 'thread-opencode-unknown-workspace',
+            isLastCat: true,
+          },
+        ),
+      );
+    } finally {
+      await rmWithRetry(repo);
+    }
+
+    assert.equal(optionsSeen.length, 1);
+    assert.equal(optionsSeen[0]?.workingDirectory, repo);
+    assert.equal(optionsSeen[0]?.sessionId, undefined, 'OpenCode must start fresh when stored workspace is unknown');
+    assert.equal(optionsSeen[0]?.cliSessionId, undefined, 'unknown-workspace resume id must not reach diagnostics');
+  });
+
+  it('fails loud for OpenCode when thread projectPath is default', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke() {
+        invokedService = true;
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: 'default', createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opencode',
+        service,
+        prompt: 'test missing project path',
+        userId: 'user1',
+        threadId: 'thread-default-project-path',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, false, 'OpenCode must not inherit runtime cwd when projectPath is default');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('OpenCode requires a thread projectPath')),
+      `expected missing projectPath error, got: ${msgs.map((m) => m.type).join(',')}`,
+    );
+  });
+
+  it('fails loud for OpenCode when thread projectPath is rejected by project-path validation', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke() {
+        invokedService = true;
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: '/dev', createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opencode',
+        service,
+        prompt: 'test invalid project path',
+        userId: 'user1',
+        threadId: 'thread-invalid-project-path',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, false, 'OpenCode must not spawn when projectPath is invalid');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('Invalid thread projectPath')),
+      `expected invalid projectPath error, got: ${msgs.map((m) => m.type).join(',')}`,
+    );
+  });
+
+  it('degrades for non-OpenCode when thread projectPath is rejected by project-path validation', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        invokedService = true;
+        assert.equal(options?.workingDirectory, undefined);
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: '/dev', createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test invalid project path degrade',
+        userId: 'user1',
+        threadId: 'thread-invalid-project-path-non-opencode',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, true, 'non-OpenCode providers keep best-effort fallback');
+    assert.ok(
+      msgs.some((m) => m.type === 'done'),
+      'should reach done',
+    );
+    assert.ok(
+      !msgs.some((m) => m.type === 'error' && String(m.error).includes('Invalid thread projectPath')),
+      'non-OpenCode provider must not hard-fail historical invalid projectPath',
+    );
+  });
+
+  it('degrades when thread workspace lookup fails before spawn', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        invokedService = true;
+        assert.equal(options?.workingDirectory, undefined);
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => {
+          throw new Error('thread store unavailable');
+        },
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test workspace lookup failure degrade',
+        userId: 'user1',
+        threadId: 'thread-workspace-lookup-fails',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, true, 'threadStore transient failure should keep best-effort fallback');
+    assert.ok(
+      msgs.some((m) => m.type === 'done'),
+      'should reach done',
+    );
+    assert.ok(
+      !msgs.some((m) => m.type === 'error' && String(m.error).includes('Unable to resolve thread workspace')),
+      'threadStore transient failure must not hard-fail invocation',
+    );
+  });
+
+  it('fails loud for OpenCode when thread workspace lookup fails before spawn', async () => {
+    let invokedService = false;
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke() {
+        invokedService = true;
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => {
+          throw new Error('thread store unavailable');
+        },
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'opencode',
+        service,
+        prompt: 'test opencode workspace lookup failure',
+        userId: 'user1',
+        threadId: 'thread-opencode-workspace-lookup-fails',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokedService, false, 'OpenCode must not inherit runtime cwd when workspace lookup fails');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('Unable to resolve thread workspace')),
+      `expected OpenCode workspace lookup error, got: ${msgs.map((m) => m.type).join(',')}`,
+    );
   });
 
   it('bug-fix: account resolution uses runtime root (process.cwd()), not thread.projectPath', async () => {

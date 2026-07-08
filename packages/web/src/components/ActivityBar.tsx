@@ -2,8 +2,9 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { lazy, Suspense, useCallback, useState } from 'react';
+import { useApprovalHubSync } from '@/hooks/useApprovalHub';
 import { usePinnedSections } from '@/hooks/usePinnedSections';
-import { useCallbackAuthAggregate, useCallbackAuthAvailable } from '@/stores/callbackAuthStore';
+import { useApprovalHubStore } from '@/stores/approvalHubStore';
 import { useChatStore } from '@/stores/chatStore';
 import { ConciergeRailToggle } from './concierge/ConciergeRailToggle';
 import { HubIcon } from './hub-icons';
@@ -151,22 +152,74 @@ function PinnedSections({ pinned, onNav }: { pinned: readonly string[]; onNav: (
   );
 }
 
-const DEGRADED_COLOR = 'var(--semantic-warning)';
-const BROKEN_COLOR = 'var(--semantic-critical)';
-const BROKEN_THRESHOLD = 6;
+function BellIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <title>审批中心</title>
+      <path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ApprovalHubButton() {
+  const count = useApprovalHubStore((s) => s.count);
+  const fetchPending = useApprovalHubStore((s) => s.fetchPending);
+  const setWorkspaceMode = useChatStore((s) => s.setWorkspaceMode);
+  const workspaceMode = useChatStore((s) => s.workspaceMode);
+  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
+  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+
+  const handleClick = useCallback(() => {
+    // F246 Phase C: bell click → workspace approval tab (replaces drawer toggle)
+    if (workspaceMode === 'approval' && rightPanelMode === 'workspace') {
+      // Already on approval tab + workspace open → toggle close
+      setRightPanelMode('status');
+    } else {
+      // Open workspace panel and switch to approval tab
+      setWorkspaceMode('approval');
+      // Refresh pending approvals on open (preserves old drawer toggle semantics)
+      fetchPending();
+    }
+  }, [workspaceMode, rightPanelMode, setWorkspaceMode, setRightPanelMode, fetchPending]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="relative flex h-10 w-10 items-center justify-center rounded-lg transition-all hover:bg-[var(--console-rail-item)] hover:shadow-[var(--console-rail-shadow)]"
+      title={count > 0 ? `${count} 项待审批` : '审批中心'}
+      data-testid="approval-hub-button"
+    >
+      <BellIcon className="h-5 w-5" />
+      {count > 0 && (
+        <span
+          className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-micro font-bold flex items-center justify-center"
+          style={{
+            backgroundColor: 'var(--semantic-warning)',
+            color: 'var(--cafe-accent-foreground)',
+            maxWidth: '22px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          data-testid="approval-hub-badge"
+        >
+          {count > 99 ? '99+' : String(count)}
+        </span>
+      )}
+    </button>
+  );
+}
 
 function SettingsButton({ pathname, onNav }: { pathname: string; onNav: (path: string) => void }) {
   const searchParams = useSearchParams();
   const isSettingsRoute = pathname.startsWith('/settings');
   const isStandalone = isSettingsRoute && searchParams?.get('standalone') === '1';
   const isSettings = isSettingsRoute && !isStandalone;
-
-  const aggregate = useCallbackAuthAggregate();
-  const isAvailable = useCallbackAuthAvailable();
-  const unviewed = isAvailable ? aggregate.unviewedFailures24h : 0;
-  const showBadge = unviewed > 0;
-  const badgeColor = unviewed >= BROKEN_THRESHOLD ? BROKEN_COLOR : DEGRADED_COLOR;
-  const badgeText = unviewed > 99 ? '99+' : String(unviewed);
 
   return (
     <button
@@ -177,29 +230,12 @@ function SettingsButton({ pathname, onNav }: { pathname: string; onNav: (path: s
           ? 'bg-[var(--console-rail-active)] shadow-[var(--console-rail-shadow)]'
           : 'hover:bg-[var(--console-rail-item)] hover:shadow-[var(--console-rail-shadow)]'
       }`}
-      title={showBadge ? `设置 · MCP Callback Auth 24h ${unviewed} 次未查看失败` : '设置'}
+      title="设置"
       aria-current={isSettings ? 'page' : undefined}
       data-guide-id="hub.trigger"
       data-testid="settings-button"
-      data-callback-auth-unviewed={showBadge ? String(unviewed) : undefined}
     >
       <SettingsIcon className="h-5 w-5" />
-      {showBadge && (
-        <span
-          data-testid="settings-callback-auth-badge"
-          className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-micro font-bold flex items-center justify-center"
-          style={{
-            backgroundColor: badgeColor,
-            color: 'var(--cafe-accent-foreground)',
-            maxWidth: '22px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {badgeText}
-        </span>
-      )}
     </button>
   );
 }
@@ -249,6 +285,9 @@ export function ActivityBar({ className }: ActivityBarProps) {
   const { pinned } = usePinnedSections();
   const [tunerOpen, setTunerOpen] = useState(false);
 
+  // F246: Approval Hub — fetch pending on mount + subscribe to proposal events
+  useApprovalHubSync();
+
   const handleNav = useCallback(
     (path: string) => {
       router.push(resolveNavTarget(path, pathname));
@@ -288,6 +327,8 @@ export function ActivityBar({ className }: ActivityBarProps) {
       </Suspense>
 
       <div className="mt-auto flex flex-col items-center gap-1.5">
+        {/* F246: Approval Hub bell icon with badge count */}
+        <ApprovalHubButton />
         {/* F229: concierge re-entry —唤回入口，muted 时是唯一入口 (INV-3) */}
         <ConciergeRailToggle />
         <PresentationRailToggle />

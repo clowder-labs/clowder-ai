@@ -1,4 +1,4 @@
-import React, { act, useState } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '@/utils/api-client';
@@ -207,7 +207,7 @@ describe('FirstRunQuestWizard', () => {
     );
     expect(templateButton).toBeTruthy();
     await act(async () => {
-      templateButton!.click();
+      templateButton?.click();
     });
     await flushEffects();
 
@@ -215,7 +215,7 @@ describe('FirstRunQuestWizard', () => {
     const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     expect(clientButton).toBeTruthy();
     await act(async () => {
-      clientButton!.click();
+      clientButton?.click();
     });
     await flushEffects();
 
@@ -242,8 +242,8 @@ describe('FirstRunQuestWizard', () => {
 
     // Assert: POST /api/cats must use clientId, not client
     expect(catsPayload).not.toBeNull();
-    expect(catsPayload!.clientId).toBe('anthropic');
-    expect(catsPayload!.client).toBeUndefined();
+    expect(catsPayload?.clientId).toBe('anthropic');
+    expect(catsPayload?.client).toBeUndefined();
   });
 
   // F159 G2 follow-up: kitten/catagent template must POST with clientId=catagent
@@ -336,12 +336,10 @@ describe('FirstRunQuestWizard', () => {
     await flushEffects();
 
     // Step 1: select 幼仔 template
-    const templateButton = Array.from(document.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('幼猫'),
-    );
+    const templateButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('幼猫'));
     expect(templateButton).toBeTruthy();
     await act(async () => {
-      templateButton!.click();
+      templateButton?.click();
     });
     await flushEffects();
 
@@ -350,7 +348,7 @@ describe('FirstRunQuestWizard', () => {
     const clientButton = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Claude'));
     expect(clientButton).toBeTruthy();
     await act(async () => {
-      clientButton!.click();
+      clientButton?.click();
     });
     await flushEffects();
 
@@ -375,19 +373,19 @@ describe('FirstRunQuestWizard', () => {
 
     // Assert: template runtimeDefaults override.
     expect(catsPayload).not.toBeNull();
-    expect(catsPayload!.clientId).toBe('catagent');
-    expect(catsPayload!.catAgentProtocol).toBe('openai-chat');
-    expect(catsPayload!.nativeToolLevel).toBe('L1');
+    expect(catsPayload?.clientId).toBe('catagent');
+    expect(catsPayload?.catAgentProtocol).toBe('openai-chat');
+    expect(catsPayload?.nativeToolLevel).toBe('L1');
     // Family consistency: accountRef from openai-family ConfigStep filter.
     // OpenAIChatAdapter.clientFamily='openai' will match account.clientFamily='openai' at invoke time.
-    expect(catsPayload!.accountRef).toBe('codex');
+    expect(catsPayload?.accountRef).toBe('codex');
     // connectivity-test must use the codex CLI probe (template's effective family),
     // NOT the claude probe that user picked in ClientStep. Without this, probe runs
     // wrong CLI binary against right account → testResult.ok fails → create blocked.
     expect(connectivityPayload).not.toBeNull();
-    expect(connectivityPayload!.client).toBe('codex');
+    expect(connectivityPayload?.client).toBe('codex');
     // clientId comes from selectedProfile.provider (account-binding), which is 'codex'
     // for the OAuth builtin; what matters is it's openai-family (not 'claude'/'anthropic').
-    expect(connectivityPayload!.clientId).toBe('codex');
+    expect(connectivityPayload?.clientId).toBe('codex');
   });
 });

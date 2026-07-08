@@ -171,6 +171,28 @@ export interface RouteOptions {
    *  Must be true only when the caller has verified callback/tracking coverage for
    *  the external id; text alone does not create a wake-up. */
   eventDrivenExternalWaitCoverage?: boolean | undefined;
+  /** F254 B3: Freshness re-invoke enqueue — called when doneMsg.metadata.freshnessReinvoke.shouldReinvoke
+   *  is true. Enqueues a new invocation for the same (cat, thread) to address unseen messages. */
+  freshnessReinvokeEnqueue?:
+    | ((entry: {
+        threadId: string;
+        userId: string;
+        content: string;
+        source: 'agent';
+        sourceCategory: 'freshness';
+        targetCats: string[];
+        callerCatId: string;
+        autoExecute: true;
+        priority: 'normal';
+        intent: 'execute';
+        /** Notice IDs that triggered this re-invoke (for event log correlation) */
+        freshnessContext: {
+          sourceNoticeIds: string[];
+          senders: string[];
+          reason: string;
+        };
+      }) => void)
+    | undefined;
 }
 
 export interface IncrementalContextResult {
@@ -667,6 +689,37 @@ export interface IncrementalContextOptions {
   threadTitle?: string;
 }
 
+async function resolveRecentFilesTouched(
+  deps: RouteStrategyDeps,
+  userId: string,
+  catId: CatId,
+  threadId: string,
+  options?: IncrementalContextOptions,
+): Promise<Array<{ path: string; ops: string[] }>> {
+  if (options?.recentFilesTouched) return options.recentFilesTouched;
+
+  const sessionChainStore = deps.invocationDeps.sessionChainStore;
+  const transcriptWriter = deps.invocationDeps.transcriptWriter;
+  if (!sessionChainStore || !transcriptWriter) return [];
+
+  try {
+    const activeSession = await Promise.resolve(sessionChainStore.getActive(catId, threadId));
+    if (activeSession?.userId === userId) {
+      return transcriptWriter.getFilesTouched(activeSession.id, { threadId, catId });
+    }
+
+    const threadSessions = await Promise.resolve(sessionChainStore.getChainByThread(threadId));
+    const callerSession = [...threadSessions]
+      .reverse()
+      .find((session) => session.status === 'active' && session.catId === catId && session.userId === userId);
+    if (!callerSession) return [];
+    return transcriptWriter.getFilesTouched(callerSession.id, { threadId, catId: callerSession.catId });
+  } catch {
+    return [];
+  }
+}
+
+/* @segment N2 — 对话历史增量 */
 export async function assembleIncrementalContext(
   deps: RouteStrategyDeps,
   userId: string,
@@ -729,8 +782,10 @@ export async function assembleIncrementalContext(
     }
   }
 
+  const recentFilesTouched = await resolveRecentFilesTouched(deps, userId, catId, threadId, options);
+
   const recentArtifacts = extractRecentArtifacts({
-    filesTouched: options?.recentFilesTouched ?? [],
+    filesTouched: recentFilesTouched,
     prTasks: allThreadTasks,
     catId,
   });
