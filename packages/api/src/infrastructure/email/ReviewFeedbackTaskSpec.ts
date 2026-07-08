@@ -606,15 +606,11 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             newDecisions: signal.newDecisions,
           },
           {
-            threadId: effectiveThreadId,
-            catId: task.ownerCatId ?? '',
-            userId: task.userId ?? '',
-            trackingInstructions: task.automationState?.trackingInstructions,
-            trackingInstructionsHeadSha: task.automationState?.trackingInstructionsHeadSha,
             threadId: repairedTask.threadId,
             catId: repairedTask.ownerCatId ?? '',
             userId: repairedTask.userId ?? '',
             trackingInstructions: repairedTask.automationState?.trackingInstructions,
+            trackingInstructionsHeadSha: repairedTask.automationState?.trackingInstructionsHeadSha,
           },
         );
 
@@ -629,10 +625,9 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
             const hasApproved = !hasChangesRequested && signal.newDecisions.some((d) => d.state === 'APPROVED');
             const suggestedSkill = hasChangesRequested ? 'receive-review' : hasApproved ? 'merge-gate' : undefined;
-            const coalesceTargetCatId = routeResult.catId || task.ownerCatId || 'unassigned';
-            const intent = task.automationState?.intent ?? 'review';
-            const eventDrivenExternalWaitCoverage = hasApproved ? intent === 'merge' : true;
             const coalesceTargetCatId = routeResult.catId || repairedTask.ownerCatId || 'unassigned';
+            const intent = repairedTask.automationState?.intent ?? 'review';
+            const eventDrivenExternalWaitCoverage = hasApproved ? intent === 'merge' : true;
 
             const policy: ConnectorTriggerPolicy = {
               priority: hasChangesRequested ? 'urgent' : 'normal',

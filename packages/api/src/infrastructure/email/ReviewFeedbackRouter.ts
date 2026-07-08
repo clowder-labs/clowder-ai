@@ -212,6 +212,8 @@ function shouldAppendTrackingInstructions(
   if (!instructionsHeadSha) return true;
   if (!currentHeadSha) return false;
   return instructionsHeadSha === currentHeadSha;
+}
+
 function formatRoutingAudit(audit: ReviewFeedbackRoutingAudit): string[] {
   switch (audit.kind) {
     case 'legacy-auto-rotated-repaired':

@@ -160,13 +160,9 @@ exit 0
   return { binDir, logFile };
 }
 
-function withStubbedPnpmEnv(projectDir) {
-  const { binDir, logFile } = createPnpmStub(projectDir);
-  return isolatedRuntimeEnv({
 function withStubbedPnpmEnv(projectDir, options = {}) {
   const { binDir, logFile } = createPnpmStub(projectDir, options);
-  return {
-    ...process.env,
+  return isolatedRuntimeEnv({
     CAT_CAFE_RUNTIME_RESTART_OK: '1',
     PATH: `${binDir}:${process.env.PATH}`,
     RUNTIME_TEST_PNPM_LOG: logFile,

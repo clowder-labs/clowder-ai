@@ -10,7 +10,7 @@
  * SessionSealer is responsible for the lifecycle state machine.
  */
 
-import type { CatId, SealResult } from '@cat-cafe/shared';
+import type { CatId, SealResult, SessionStatus } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import { extractRecentArtifacts } from '../agents/routing/artifact-tracking.js';
 import { AuditEventTypes, getEventAuditLog } from '../orchestration/EventAuditLog.js';
@@ -116,20 +116,40 @@ export class SessionSealer implements ISessionSealer {
       return { accepted: false, status: 'sealed' };
     }
 
+    // CAS: only active sessions can be sealed
+    // Snapshot status before mutation (memory store returns live reference)
+    const currentStatus: SessionStatus = record.status;
+    if (currentStatus !== 'active') {
+      return { accepted: false, status: currentStatus };
+    }
+
+    // Transition active → sealing
+    const now = Date.now();
+    const updated = await this.store.update(args.sessionId, {
+      status: 'sealing',
+      sealReason: args.reason,
+      updatedAt: now,
+    });
+
+    if (!updated || updated.status !== 'sealing') {
+      // Race condition: another caller got there first
+      return { accepted: false, status: updated?.status ?? 'sealed' };
+    }
+
     log.info(
-      { sessionId: args.sessionId, catId: updated.catId, threadId: updated.threadId, reason: args.reason },
+      { sessionId: args.sessionId, catId: record.catId, threadId: record.threadId, reason: args.reason },
       'session seal requested',
     );
     getEventAuditLog()
       .append({
         type: AuditEventTypes.SEAL_REQUESTED,
-        threadId: updated.threadId,
+        threadId: record.threadId,
         data: {
           sessionId: args.sessionId,
-          catId: updated.catId,
-          cliSessionId: updated.cliSessionId,
+          catId: record.catId,
+          cliSessionId: record.cliSessionId,
           reason: args.reason,
-          seq: updated.seq,
+          seq: record.seq,
         },
       })
       .catch(() => {});

@@ -319,9 +319,6 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
   it('POST and PATCH /api/cats persist CatAgent native tool settings', async () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
-  it('PATCH /api/cats/:id can update AGY Opus after bootstrap persists a stale catalog injection', async () => {
-    const projectRoot = createProjectRootFromRepoTemplate();
-    removeAgyOpusFromRuntimeCatalog(projectRoot);
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -648,6 +645,16 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     });
     assert.equal(rejectedPatchRes.statusCode, 400);
     assert.match(JSON.parse(rejectedPatchRes.body).error, /only supported for catagent clients/i);
+  });
+
+  it('PATCH /api/cats/:id can update AGY Opus after bootstrap persists a stale catalog injection', async () => {
+    const projectRoot = createProjectRootFromRepoTemplate();
+    removeAgyOpusFromRuntimeCatalog(projectRoot);
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
     try {
       await app.register(catsRoutes);
 
@@ -3363,6 +3370,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.ok(maineCoon, 'maine-coon template present');
     assert.equal(maineCoon.runtimeDefaults?.clientId, 'openai');
     assert.equal(maineCoon.runtimeDefaults?.catAgentProtocol, undefined);
+  });
+
   it('F247 KD-17: POST with provider=openai-chatgpt-pro skips default cli (cloud-only)', async () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
