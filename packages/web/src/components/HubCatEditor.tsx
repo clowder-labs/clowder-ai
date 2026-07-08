@@ -107,7 +107,7 @@ export function HubCatEditor({ cat, draft, existingCats, hasDossier, open, onClo
   }, [open, cat, draft]);
 
   // Re-fetch profiles when Provider Profiles page creates/saves/deletes an account.
-  const [_profilesVersion, setProfilesVersion] = useState(0);
+  const [, setProfilesVersion] = useState(0);
   useEffect(() => {
     const handler = () => setProfilesVersion((v) => v + 1);
     window.addEventListener('accounts-changed', handler);
