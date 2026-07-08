@@ -214,7 +214,6 @@ function buildExportedRootScripts(sourceScripts) {
     'antigravity:smoke',
     'check:hmac-salt',
     'check:antigravity-smoke',
-    'check:biome-version',
     'check:incident-containment',
     'check:sync-export',
     'check:web-global-css-imports',
@@ -226,7 +225,17 @@ function buildExportedRootScripts(sourceScripts) {
     // (PR #2333). Must mirror sync-to-opensource.sh internalScripts list.
     'check:reverse-sanitizer',
     'check:boundary-roundtrip',
+    // Privacy gate test — references F207 internal incident context; home-only.
+    'check:export-privacy-gate',
+    // F251 Task 4b — public delta gate test suite (classifier + cli + wire + replay).
+    // Home-only sync-pipeline harness; mirrors sync-to-opensource.sh internalScripts.
+    'check:sync-public-delta-gate',
+    // F251 Task 5 — Public Behavior Change Reporter (KD-11). Home-only sync-pipeline harness.
+    'check:public-behavior-impact',
+    // F251 AC-A6 — 30-day retroactive eval helper. Home-only, single-shot.
+    'check:f251-v1-eval',
     'clean:root-debris',
+    'guards:check',
   ];
   for (const scriptName of internalScripts) {
     delete scripts[scriptName];
@@ -924,6 +933,22 @@ excluded:
       }
     });
 
+    it('sync-manifest exports public pre-merge check script closure', () => {
+      const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
+      const requiredScripts = [
+        'scripts/pre-merge-check.sh',
+        'scripts/pre-merge-check.test.mjs',
+        'scripts/write-gate-last-run.sh',
+      ];
+
+      for (const scriptPath of requiredScripts) {
+        assert.ok(
+          managedScripts.includes(scriptPath),
+          `sync-manifest should export ${scriptPath} because public check:pre-merge-gate executes it`,
+        );
+      }
+    });
+
     it('sync-manifest does not protect managed service wrappers as target-owned', () => {
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
       const targetOwnedFiles = readYamlTopLevelList('sync-manifest.yaml', 'target_owned_files');
@@ -941,7 +966,7 @@ excluded:
       }
     });
 
-    it('sync-to-opensource.sh drops home-only root package scripts whose targets are not exported', () => {
+    it('sync-to-opensource.sh keeps exported root package script surfaces closed', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
 
       assert.ok(
@@ -969,8 +994,8 @@ excluded:
         'public package.json should drop source-only F223 action tracking because its inventory truth source is not exported',
       );
       assert.ok(
-        content.includes('"check:biome-version"'),
-        'public package.json should drop check:biome-version because its script target is not exported',
+        !content.includes('"check:biome-version",'),
+        'public package.json should keep check:biome-version because public hooks/pre-merge call it',
       );
     });
 
@@ -1015,6 +1040,7 @@ excluded:
       const managedFiles = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_files'));
       const managedScripts = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts'));
       const requiredScripts = [
+        'scripts/check-biome-version.mjs',
         'scripts/clean-stale-skill-links.sh',
         'scripts/brand-dictionary-helper.mjs',
         'scripts/brand-dictionary-helper.test.mjs',
@@ -1055,11 +1081,16 @@ excluded:
 
     it('sync-manifest exports F203 native L0 runtime closure', () => {
       const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
+      const managedRoots = readYamlTopLevelList('sync-manifest.yaml', 'managed_roots');
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
 
       assert.ok(
         managedFiles.includes('assets/system-prompts/system-prompt-l0.md'),
         'sync-manifest should export the F203 L0 template required by native prompt compilation',
+      );
+      assert.ok(
+        managedRoots.includes('assets/prompt-templates'),
+        'sync-manifest should export the F237 segmented L0 templates loaded by the native prompt compiler',
       );
       assert.ok(
         managedScripts.includes('scripts/compile-system-prompt-l0.mjs'),
@@ -1106,7 +1137,7 @@ excluded:
     it('sync-manifest exports the GitHub plugin manifest used by public schedule factories', () => {
       const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
       const targetOwnedFiles = readYamlTopLevelList('sync-manifest.yaml', 'target_owned_files');
-      const pluginManifest = 'plugins/github/plugin.yaml';
+      const pluginManifest = 'packages/api/src/plugins/github/plugin.yaml';
 
       assert.ok(
         existsSync(resolve(ROOT, pluginManifest)),
@@ -1130,6 +1161,10 @@ excluded:
         transformTargets.includes('assets/system-prompts/system-prompt-l0.md'),
         'system-prompt-l0.md carries governance rules and must be explicitly tracked as a sanitize transform',
       );
+      assert.ok(
+        transformTargets.includes('assets/prompt-templates/l4-iron-laws.md'),
+        'segmented L4 iron-laws template carries data-safety rules and must be explicitly tracked as a sanitize transform',
+      );
     });
 
     it('public F203 native L0 template sanitization removes home-only runtime rules', () => {
@@ -1139,8 +1174,19 @@ excluded:
       assert.doesNotMatch(sanitized, /Redis production Redis \(sacred\)/);
       assert.doesNotMatch(sanitized, /Redis production Redis (sacred)/);
       assert.doesNotMatch(sanitized, /\b6398\b|\b6399\b/);
-      assert.match(sanitized, /\*\*Runtime data safety\*\*/);
       assert.doesNotMatch(sanitized, /Clowder AI 的护城河是情感壁垒不是技术壁垒/);
+    });
+
+    it('public F237 segmented L4 template sanitization removes home-only runtime rules', () => {
+      const sourceL4 = readFileSync(resolve(ROOT, 'assets/prompt-templates/l4-iron-laws.md'), 'utf-8');
+      const sanitized = sanitizeFixture('assets/prompt-templates/l4-iron-laws.md', sourceL4);
+
+      assert.match(sanitized, /\*\*Runtime data safety\*\*/);
+      assert.match(sanitized, /\*\*Release acceptance channel\*\*/);
+      assert.doesNotMatch(sanitized, /Redis production Redis \(sacred\)/);
+      assert.doesNotMatch(sanitized, /Redis production Redis (sacred)/);
+      assert.doesNotMatch(sanitized, /\b6398\b|\b6399\b/);
+      assert.doesNotMatch(sanitized, /co-creator/);
     });
 
     it('public docs and skill refs sanitize internal role, thread, and ops-cost markers', () => {
@@ -1307,6 +1353,16 @@ excluded:
       );
     });
 
+    it('sync-to-opensource.sh allows story redaction regex literals in the security scan', () => {
+      const content = readSyncScript();
+
+      assert.match(
+        content,
+        /\/domains\/story\/content-sanitizer\\\.ts\$/,
+        'story export redaction module carries secret-shaped regex literals and must be treated like other secret scanners',
+      );
+    });
+
     it('sync-manifest exports a portable F180 Claude settings hook template', () => {
       const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
       const templatePath = '.claude/hooks/user-level/claude-settings.template.json';
@@ -1330,7 +1386,7 @@ excluded:
     it('F180 Claude settings hook template guard rejects maintainer absolute-path variants', () => {
       const absolutePathTemplates = [
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"/home/alice/.claude/hooks/session-start-recall.sh"}]}]}}',
-        '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:/home/user/session-start-recall.sh"}]}]}}',
+        '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:/home/user/.claude/hooks/session-start-recall.sh"}]}]}}',
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:\\\\Users\\\\Alice\\\\.claude\\\\hooks\\\\session-start-recall.sh"}]}]}}',
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"bash \\"/home/alice/.claude/hooks/session-start-recall.sh\\""}]}]}}',
       ];
@@ -1520,6 +1576,50 @@ excluded:
         publishScript,
         /ensure_tag_points_to "\$TARGET_DIR" "clowder-ai" "\$TARGET_SHA"/,
         'post-merge lane should advance the matching clowder-ai tag too',
+      );
+    });
+
+    it('sync-to-opensource.sh guards empty delta override arrays with a scalar count under Bash 3.2 nounset', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.match(
+        content,
+        /DELTA_GATE_OVERRIDES=\(\)\s+DELTA_GATE_OVERRIDE_COUNT=0/,
+        'override argv state must initialise a scalar count next to the Bash array',
+      );
+      assert.match(
+        content,
+        /DELTA_GATE_OVERRIDES\+=\("\$arg"\)\s+DELTA_GATE_OVERRIDE_COUNT=\$\(\(DELTA_GATE_OVERRIDE_COUNT \+ 1\)\)/,
+        'split-form --override parsing must increment the scalar override count',
+      );
+      assert.match(
+        content,
+        /DELTA_GATE_OVERRIDES\+=\("\$override_value"\)\s+DELTA_GATE_OVERRIDE_COUNT=\$\(\(DELTA_GATE_OVERRIDE_COUNT \+ 1\)\)/,
+        'equals-form --override parsing must increment the scalar override count',
+      );
+      const guardedOverrideLoops = [
+        ...content.matchAll(
+          /if \[ "\$DELTA_GATE_OVERRIDE_COUNT" -gt 0 \]; then\s+for ovr in "\$\{DELTA_GATE_OVERRIDES\[@\]\}"; do/g,
+        ),
+      ];
+      assert.equal(
+        guardedOverrideLoops.length,
+        3,
+        'validate, dry-run, and production delta gates must guard empty DELTA_GATE_OVERRIDES before expanding it',
+      );
+      assert.doesNotMatch(
+        content,
+        /\$\{#DELTA_GATE_OVERRIDES\[@\]\}/,
+        'delta gate override guards should not use Bash array-length expansion under nounset',
+      );
+      assert.doesNotMatch(
+        content,
+        /DELTA_GATE_(?:TARGET_OWNED|OVERRIDE)_ARGS=\(\)/,
+        'delta gate optional args should use "$@" so empty argument groups are safe under Bash 3.2 nounset',
+      );
+      assert.doesNotMatch(
+        content,
+        /\$\{DELTA_GATE_(?:TARGET_OWNED|OVERRIDE)_ARGS\[@\]\}/,
+        'delta gate optional args should not expand empty arrays under Bash 3.2 nounset',
       );
     });
 

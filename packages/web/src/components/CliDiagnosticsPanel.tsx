@@ -90,6 +90,10 @@ const REASON_PALETTE: Record<CliErrorReasonCode, Palette> = {
   // Tier 3 — system / environment
   spawn_failed: { ...PALETTE_SYSTEM, Icon: TerminalIcon },
   missing_rollout: { ...PALETTE_SYSTEM, Icon: FileXIcon },
+  // clowder-ai#1038: opencode resumed a stale --session (session DB rebuilt/cleared while
+  // Redis held the old cliSessionId). Same system tier as missing_rollout — session-side
+  // issue, auto-self-healed by the backend (Path A drops + retries fresh).
+  session_not_found: { ...PALETTE_SYSTEM, Icon: FileXIcon },
   // Tier 4 — cognitive / context limit
   context_window_exceeded: { ...PALETTE_COGNITIVE, Icon: TextQuoteIcon },
   invalid_thinking_signature: { ...PALETTE_COGNITIVE, Icon: BrainIcon },
@@ -151,7 +155,7 @@ function truncateMiddle(s: string, max = 32): string {
 
 /**
  * 云端 codex P2-5 (2026-05-27): backend `resolveCliCommand()` may resolve to an
- * absolute path (e.g. `/home/user/codex` from `which` fallback), and
+ * absolute path (e.g. `/home/user/.npm/bin/codex` from `which` fallback), and
  * the api-side sanitizer redacts HOME/USERPROFILE only inside stderr — not the
  * structured `debugRef.command`. Mirror the same redaction on the frontend before
  * rendering so the debug strip can't leak host install paths.

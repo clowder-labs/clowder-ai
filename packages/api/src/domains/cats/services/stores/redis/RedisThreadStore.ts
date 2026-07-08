@@ -10,7 +10,7 @@
  * 默认持久化；用户可见状态禁止默认 TTL（LL-048）。
  */
 
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
+import type { CatId, ThreadKind, ThreadPhase } from '@cat-cafe/shared';
 import { generateThreadId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type {
@@ -22,11 +22,19 @@ import type {
   Thread,
   ThreadMemoryV1,
   ThreadMentionRoutingFeedback,
+  ThreadMetadataPatch,
+  ThreadMetadataV1,
   ThreadParticipantActivity,
   ThreadRoutingPolicyV1,
   VotingStateV1,
 } from '../ports/ThreadStore.js';
-import { buildExternalRuntimeAnchorThreadId, DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
+import {
+  buildExternalRuntimeAnchorThreadId,
+  DEFAULT_THREAD_ID,
+  mergeThreadMetadata,
+  parseThreadMetadataJson,
+  validateMergedTotals,
+} from '../ports/ThreadStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
@@ -43,6 +51,25 @@ if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
 end
 redis.call('HSET', KEYS[1], unpack(ARGV))
 return 1
+`;
+
+/**
+ * #872 P2: Compare-And-Swap guard for thread metadata merge atomicity.
+ * Only writes if (a) thread exists (has `id`) AND (b) current field value
+ * matches the snapshot the caller read. Returns 1 on success, 0 on conflict.
+ * KEYS[1] = detail key, ARGV[1] = field, ARGV[2] = expected, ARGV[3] = new.
+ */
+const CAS_HSET_IF_HAS_ID_LUA = `
+if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
+  return 0
+end
+local cur = redis.call('HGET', KEYS[1], ARGV[1])
+if cur == false then cur = '' end
+if cur == ARGV[2] then
+  redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
+  return 1
+end
+return 0
 `;
 
 /**
@@ -578,8 +605,8 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
-  /** F229: Set or clear threadKind marker for concierge thread. */
-  async updateThreadKind(threadId: string, kind: 'concierge' | null): Promise<void> {
+  /** F229 / F167: Set or clear threadKind marker for concierge / gate-keeping thread. */
+  async updateThreadKind(threadId: string, kind: ThreadKind | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (kind === null) {
       await this.deleteDetailFields(key, 'threadKind');
@@ -599,7 +626,7 @@ export class RedisThreadStore implements IThreadStore {
 
   async updatePreferredWorkspaceMode(
     threadId: string,
-    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | null,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory' | null,
   ): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (mode === null) {
@@ -1065,6 +1092,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.labels && thread.labels.length > 0) {
       result.labels = JSON.stringify(thread.labels);
     }
+    if (thread.threadMetadata) {
+      result.threadMetadata = JSON.stringify(thread.threadMetadata);
+    }
     // F229: Concierge thread marker (set separately via updateThreadKind; also persisted here for
     // cold-create paths where the full thread object is serialized before updateThreadKind is called)
     if (thread.threadKind) {
@@ -1208,7 +1238,16 @@ export class RedisThreadStore implements IThreadStore {
         /* ignore malformed JSON */
       }
     }
-    const validModes = new Set(['dev', 'recall', 'schedule', 'tasks', 'community', 'artifacts']);
+    const validModes = new Set([
+      'dev',
+      'recall',
+      'schedule',
+      'tasks',
+      'community',
+      'artifacts',
+      'approval',
+      'trajectory',
+    ]);
     if (data.preferredWorkspaceMode && validModes.has(data.preferredWorkspaceMode)) {
       result.preferredWorkspaceMode = data.preferredWorkspaceMode as Thread['preferredWorkspaceMode'];
     }
@@ -1222,9 +1261,14 @@ export class RedisThreadStore implements IThreadStore {
         /* ignore malformed JSON */
       }
     }
-    // F229: Restore concierge thread marker (written by updateThreadKind; validate value)
-    if (data.threadKind === 'concierge') {
-      result.threadKind = 'concierge';
+    // #872: Thread metadata anchor
+    if (data.threadMetadata) {
+      const meta = parseThreadMetadataJson(data.threadMetadata);
+      if (meta) result.threadMetadata = meta;
+    }
+    // F229 / F167: Restore thread kind marker (written by updateThreadKind; validate value)
+    if (data.threadKind === 'concierge' || data.threadKind === 'gate-keeping') {
+      result.threadKind = data.threadKind;
     }
     return result;
   }
@@ -1232,6 +1276,63 @@ export class RedisThreadStore implements IThreadStore {
   async updateLabels(threadId: string, labelIds: string[]): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     await this.redis.hset(key, { labels: JSON.stringify(labelIds) });
+  }
+
+  async getThreadMetadata(threadId: string): Promise<ThreadMetadataV1 | null> {
+    const key = ThreadKeys.detail(threadId);
+    const raw = await this.redis.hget(key, 'threadMetadata');
+    if (!raw) return null;
+    return parseThreadMetadataJson(raw);
+  }
+
+  async updateThreadMetadata(threadId: string, metadata: ThreadMetadataV1 | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (metadata === null) {
+      await this.deleteDetailFields(key, 'threadMetadata');
+    } else {
+      await this.setDetailFields(key, 'threadMetadata', JSON.stringify(metadata));
+    }
+  }
+
+  /**
+   * #872 P2: Atomically read-merge-write thread metadata using CAS.
+   * Prevents concurrent callers from losing each other's appends.
+   * Retries up to 5 times on CAS conflict; throws on exhaustion (no fallback).
+   */
+  async atomicMergeThreadMetadata(threadId: string, patch: ThreadMetadataPatch): Promise<ThreadMetadataV1> {
+    const key = ThreadKeys.detail(threadId);
+    const maxRetries = 5;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const raw = await this.redis.hget(key, 'threadMetadata');
+      const existing = raw != null ? parseThreadMetadataJson(raw) : null;
+      // P1-2: if stored data exists but cannot be parsed (malformed / future version / empty string),
+      // refuse to merge rather than silently overwriting it with a fresh v:1 object.
+      // Uses `raw != null` (not truthy) so empty-string fields are correctly rejected.
+      if (raw != null && !existing) {
+        throw new Error(
+          `Thread ${threadId} has unparseable metadata (${raw.length} bytes); refusing merge to prevent data loss`,
+        );
+      }
+      const merged = mergeThreadMetadata(existing ?? undefined, patch);
+      validateMergedTotals(merged);
+      const newJson = JSON.stringify(merged);
+      const ok = (await this.redis.eval(
+        CAS_HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'threadMetadata',
+        raw ?? '',
+        newJson,
+      )) as number;
+      if (ok === 1) {
+        // #872 cloud-review P2: CAS bypasses setDetailFields, so refresh retention
+        // explicitly — otherwise metadata-only writes leave TTL stale when THREAD_TTL_SECONDS is set.
+        await this.applyKeyRetention([key]);
+        return merged;
+      }
+    }
+    // P1-1: No fallback write — throwing preserves the concurrent-safety guarantee.
+    throw new Error(`Thread metadata CAS conflict after ${maxRetries} retries for thread ${threadId}`);
   }
 
   async updateMemberSessionStrategy(
@@ -1283,6 +1384,68 @@ export class RedisThreadStore implements IThreadStore {
     const key = ThreadKeys.detail(threadId);
     const raw = await this.redis.hget(key, `memberSS:${catId}`);
     return raw === 'reborn';
+  }
+
+  /**
+   * F247 AC-B1c-1: Update a cloud cat's ChatGPT chat URL binding for this thread.
+   *
+   * Stored as individual Redis hash field `cloudBinding:<catId>` (NOT a single
+   * JSON-stringified map). Pattern matches existing `memberSS:<catId>` —
+   * separate fields are NEVER hydrated by `.get()` / `hydrateThread()`, which
+   * gives privacy-by-absence: cloudCatBindings cannot leak through default
+   * thread serialization paths (get_thread_context, thread export, cross-post,
+   * memory index) because it simply isn't on the in-memory Thread object after
+   * a Redis read.
+   *
+   * Owner authorization MUST be enforced at the route/MCP layer; this method
+   * does not check ownership.
+   *
+   * URL format validation is NOT enforced here; callers MUST pre-validate with
+   * `isValidChatGptChatUrl()`.
+   *
+   * **Delete-race guard (gpt52 R1 P2-1)**: HSET path uses `HSET_IF_HAS_ID_LUA`
+   * to fail-closed when the canonical `id` field is gone (thread deleted
+   * between route's `get()` and this write). Without the guard, raw HSET would
+   * resurrect a deleted thread's detail hash with only `cloudBinding:*` fields —
+   * an orphan hash inconsistent with the rest of this store's atomic update
+   * convention (see line 40, 568, 637, 972 for the existing pattern).
+   *
+   * HDEL path remains bare: Redis HDEL on a non-existent key is a safe no-op
+   * (returns 0, does not create the hash), so the same race cannot resurrect.
+   */
+  async updateCloudCatBinding(threadId: string, catId: string, chatUrl: string | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    const field = `cloudBinding:${catId}`;
+    if (chatUrl === null) {
+      // HDEL on missing hash returns 0 — no orphan resurrection risk.
+      await this.redis.hdel(key, field);
+    } else {
+      // HSET via guarded Lua: returns 0 (silently skipped) if thread.id field is gone.
+      // Callers are expected to validate thread existence via the route layer; this
+      // is defense-in-depth against TOCTOU between route.get() and store write.
+      await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, field, chatUrl);
+    }
+  }
+
+  /**
+   * F247 AC-B1c-1: Read all cloud cat bindings for this thread.
+   *
+   * Scans the thread detail hash for `cloudBinding:<catId>` fields and returns
+   * them as a flat `Record<catId, chatUrl>`. Empty object when no bindings.
+   *
+   * Owner authorization MUST be enforced at the route/MCP layer.
+   */
+  async getCloudCatBindings(threadId: string): Promise<Record<string, string>> {
+    const key = ThreadKeys.detail(threadId);
+    const data = await this.redis.hgetall(key);
+    const result: Record<string, string> = {};
+    for (const [field, value] of Object.entries(data)) {
+      if (field.startsWith('cloudBinding:') && typeof value === 'string' && value.length > 0) {
+        const catId = field.slice('cloudBinding:'.length);
+        if (catId.length > 0) result[catId] = value;
+      }
+    }
+    return result;
   }
 
   async setPendingContinuation(

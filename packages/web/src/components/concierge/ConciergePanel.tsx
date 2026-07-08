@@ -21,7 +21,7 @@
  * Liveness (P0 fix):
  *   - Polls /api/threads/:threadId/queue for authoritative activeInvocations
  *   - Replaces 60s local safety valve with server-truth-driven status
- *   - Shows real "值班猫处理中" / "似乎卡住了" / "未收到回复" status
+ *   - Shows real "猫猫球处理中" / "似乎卡住了" / "未收到回复" status
  *
  * z-30: same layer as ball (below FloatingPresentationSurface z-[35])
  */
@@ -31,11 +31,13 @@ import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
+import { CafeIcon } from '../rich/CafeIcons';
 import { RichBlocks } from '../rich/RichBlocks';
 import { ConciergeMessageContent } from './ConciergeMessageContent';
 import { useConciergeConfirmations } from './useConciergeConfirmations';
 import { useConciergeMessages } from './useConciergeMessages';
 import { useConciergeQueue } from './useConciergeQueue';
+import { usePanelWidth } from './usePanelWidth';
 
 export function ConciergePanel() {
   const surfaceState = useConciergeStore((s) => s.surfaceState);
@@ -48,6 +50,9 @@ export function ConciergePanel() {
   const invocationStatus = useConciergeStore((s) => s.invocationStatus);
   const muted = useConciergeStore((s) => s.muted);
   const setMuted = useConciergeStore((s) => s.setMuted);
+  const behaviorEnabled = useConciergeStore((s) => s.behaviorEnabled);
+  const setBehaviorEnabled = useConciergeStore((s) => s.setBehaviorEnabled);
+  const notifyMessage = useConciergeStore((s) => s.notifyMessage);
   const threadId = useConciergeStore((s) => s.threadId);
   // A3a P2 fix: pre-filled prompt from toolbar ability buttons (找找看/新功能/传话)
   const pendingPrompt = useConciergeStore((s) => s.pendingPrompt);
@@ -74,6 +79,18 @@ export function ConciergePanel() {
   const catMsgCountAtSendRef = useRef(0);
   const [inputValue, setInputValue] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // BUG-UX-3: Resizable panel dimensions (extracted to usePanelWidth hook — gpt52 R5 P1)
+  const {
+    panelWidth,
+    panelHeight,
+    handleResizePointerDown,
+    handleResizePointerMove,
+    handleResizePointerUp,
+    handleHeightResizePointerDown,
+    handleHeightResizePointerMove,
+    handleHeightResizePointerUp,
+  } = usePanelWidth();
 
   const { messages, isLoading, addOptimistic, removeOptimistic, refresh } = useConciergeMessages(threadId);
 
@@ -124,6 +141,34 @@ export function ConciergePanel() {
     }
   }, [messages, invocationStatus, setInvocationStatus]);
 
+  // E4 cloud-fix R2-2: notify store when new cat messages arrive (AC-E4-3 消息惊起 trigger).
+  // Tracks non-user message count; any increase → notifyMessage() → lastMessageTimestamp update.
+  // Three-phase initialization to avoid treating loaded history as new messages:
+  //   Phase 1 (sentinel -1): very first render (messages=[]) — record baseline, don't trigger
+  //   Phase 2 (!historySettled): first messages change after mount — history load, update baseline
+  //   Phase 3 (steady): real-time tracking — notify on count increase
+  const prevCatMsgCountRef = useRef(-1);
+  const historySettledRef = useRef(false);
+  useEffect(() => {
+    const catCount = messages.filter((m) => !m.isUser).length;
+    if (prevCatMsgCountRef.current === -1) {
+      // Phase 1: very first render — set initial baseline
+      prevCatMsgCountRef.current = catCount;
+      return;
+    }
+    if (!historySettledRef.current) {
+      // Phase 2: first change after mount — treat as history load settling
+      historySettledRef.current = true;
+      prevCatMsgCountRef.current = catCount;
+      return;
+    }
+    // Phase 3: steady state — real-time tracking
+    if (catCount > prevCatMsgCountRef.current) {
+      notifyMessage();
+    }
+    prevCatMsgCountRef.current = catCount;
+  }, [messages, notifyMessage]);
+
   // Continued polling every 5 s while in_progress (bridges initial burst for slow replies)
   useEffect(() => {
     if (invocationStatus !== 'in_progress') return;
@@ -164,6 +209,32 @@ export function ConciergePanel() {
   const handleClose = useCallback(() => setSurfaceState('toolbar'), [setSurfaceState]);
   // AC-A6: muted toggle — accessible from panel
   const handleMuteToggle = useCallback(() => void setMuted(!muted), [muted, setMuted]);
+  // AC-E4-7: behavior toggle — disable autonomous animations
+  const handleBehaviorToggle = useCallback(
+    () => void setBehaviorEnabled(!behaviorEnabled),
+    [behaviorEnabled, setBehaviorEnabled],
+  );
+
+  // F229 UX: cancel/stop in-progress invocation via scoped per-cat cancel (F122B AC-B9).
+  // Uses /cancel/:catId (scoped to the duty cat) instead of /force-reset (whole-thread nuclear).
+  // dutyCatId comes from useConciergeQueue which polls activeInvocations during in_progress.
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const handleCancel = useCallback(async () => {
+    if (!threadId || !queueStatus.dutyCatId || cancelLoading) return;
+    setCancelLoading(true);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/cancel/${queueStatus.dutyCatId}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        setInvocationStatus('idle');
+      }
+    } catch {
+      // Silently fail — user can retry or wait for natural timeout
+    } finally {
+      setCancelLoading(false);
+    }
+  }, [threadId, queueStatus.dutyCatId, cancelLoading, setInvocationStatus]);
 
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
@@ -246,12 +317,15 @@ export function ConciergePanel() {
         backgroundColor: 'var(--cafe-surface-canvas)',
         borderColor: 'var(--cafe-border-subtle)',
         boxShadow: 'var(--shadow-elevation-2)',
+        // BUG-UX-3: dynamic dimensions from resize handles
+        width: panelWidth,
+        height: panelHeight,
       }}
       className={[
         // Position: above ball, right-aligned (Layer 3 layout §7)
         'fixed bottom-[calc(24px+72px+16px)] right-6',
         'z-30',
-        'w-80 max-h-[60vh]',
+        // height now controlled by usePanelWidth hook (replaces max-h-[60vh])
         'flex flex-col',
         // Comic bubble shape: 16px radius + speech bubble tail (CSS pseudo)
         // R7 fix: NO overflow-hidden here so the tail triangles can escape the clip
@@ -262,6 +336,26 @@ export function ConciergePanel() {
         'animate-[concierge-bubble-pop_200ms_cubic-bezier(0.34,1.56,0.64,1)_both]',
       ].join(' ')}
     >
+      {/* BUG-UX-3: Left-edge resize handle — drag to widen/narrow panel */}
+      <div
+        aria-label="拖拽调整面板宽度"
+        role="separator"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 hover:bg-[var(--cafe-accent)] hover:opacity-30 rounded-l-2xl transition-colors"
+      />
+
+      {/* BUG-UX-3: Top-edge resize handle — drag up to make taller, down to shrink */}
+      <div
+        aria-label="拖拽调整面板高度"
+        role="separator"
+        onPointerDown={handleHeightResizePointerDown}
+        onPointerMove={handleHeightResizePointerMove}
+        onPointerUp={handleHeightResizePointerUp}
+        className="absolute left-0 right-0 top-0 h-1.5 cursor-ns-resize z-10 hover:bg-[var(--cafe-accent)] hover:opacity-30 rounded-t-2xl transition-colors"
+      />
+
       {/* Speech bubble tail (CSS triangle pointing toward cat) */}
       {/* R7 fix: tail sits outside the inner overflow-hidden wrapper so it is never clipped */}
       <div
@@ -317,7 +411,25 @@ export function ConciergePanel() {
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
             ].join(' ')}
           >
-            {muted ? '🔔' : '🔕'}
+            <CafeIcon name={muted ? 'bell' : 'bell-off'} className="w-4 h-4" />
+          </button>
+          {/* AC-E4-7: behavior toggle — disable/enable autonomous cat animations */}
+          <button
+            type="button"
+            aria-label={behaviorEnabled ? '关闭自主行为' : '开启自主行为'}
+            onClick={handleBehaviorToggle}
+            title={behaviorEnabled ? '关闭猫猫自主活动' : '开启猫猫自主活动'}
+            style={{
+              color: behaviorEnabled ? 'var(--cafe-text-muted)' : 'var(--semantic-warning)',
+            }}
+            className={[
+              'p-1 rounded',
+              'transition-colors duration-150',
+              'hover:opacity-80',
+              'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
+            ].join(' ')}
+          >
+            <CafeIcon name="paw" className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -331,7 +443,7 @@ export function ConciergePanel() {
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
             ].join(' ')}
           >
-            ✕
+            <CafeIcon name="cross" className="w-4 h-4" />
           </button>
         </div>
 
@@ -352,7 +464,7 @@ export function ConciergePanel() {
             </p>
           ) : messages.length === 0 ? (
             <p style={{ color: 'var(--cafe-text-secondary)' }} className="text-sm text-center mt-4">
-              你好！我是值班前台猫，有什么可以帮你？
+              你好！我是猫猫球，有什么可以帮你？
             </p>
           ) : (
             <div className="flex flex-col gap-2">
@@ -375,7 +487,7 @@ export function ConciergePanel() {
                             borderColor: 'var(--cafe-border-subtle)',
                           }
                     }
-                    className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words"
+                    className={`max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug break-words overflow-hidden [overflow-wrap:anywhere] ${msg.isUser ? 'whitespace-pre-wrap' : ''}`}
                   >
                     {/* Bug2 method A: inline marker buttons for duty cat replies.
                          User messages render as plain text (no markers to parse). */}
@@ -430,12 +542,30 @@ export function ConciergePanel() {
             </div>
           )}
           {invocationStatus === 'in_progress' && (
-            <div style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs text-center mt-2" role="status">
-              {queueStatus.isRunning ? (
-                <span className="animate-pulse">值班猫正在处理…</span>
-              ) : (
-                <span className="animate-pulse">确认回复中…</span>
-              )}
+            <div className="flex items-center justify-center gap-2 mt-2" role="status">
+              <span style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs animate-pulse">
+                {queueStatus.isRunning ? '猫猫球处理中…' : '确认回复中…'}
+              </span>
+              <button
+                type="button"
+                aria-label="停止回复"
+                disabled={cancelLoading || !queueStatus.dutyCatId}
+                onClick={() => void handleCancel()}
+                style={{
+                  color: 'var(--cafe-text-muted)',
+                  borderColor: 'var(--cafe-border-subtle)',
+                }}
+                className={[
+                  'px-2 py-0.5 rounded text-xs',
+                  'border',
+                  'transition-opacity duration-150',
+                  'hover:opacity-70',
+                  'disabled:opacity-40 disabled:cursor-not-allowed',
+                  'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
+                ].join(' ')}
+              >
+                {cancelLoading ? '停止中…' : '停止'}
+              </button>
             </div>
           )}
           {/* Error display */}
@@ -461,7 +591,7 @@ export function ConciergePanel() {
             onKeyDown={handleKeyDown}
             onCompositionStart={ime.onCompositionStart}
             onCompositionEnd={ime.onCompositionEnd}
-            placeholder="发消息给前台猫…"
+            placeholder="发消息给猫猫球…"
             aria-label="消息输入框"
             style={{
               backgroundColor: 'var(--cafe-surface-elevated)',

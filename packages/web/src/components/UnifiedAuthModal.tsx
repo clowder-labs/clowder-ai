@@ -9,7 +9,7 @@ import { HubIcon } from './hub-icons';
 import { TagEditor } from './hub-tag-editor';
 import { formInputClass } from './mcp-form-helpers';
 
-const CLIENT_OPTIONS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'kimi', 'dare', 'opencode', 'acp'];
+const CLIENT_OPTIONS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'kimi', 'opencode', 'acp'];
 
 /** Suggested models per client — kept in sync with cat-template.json clientDefaults. */
 const MODEL_SUGGESTIONS: Partial<Record<BuiltinAccountClient, string[]>> = {
@@ -21,8 +21,7 @@ const MODEL_SUGGESTIONS: Partial<Record<BuiltinAccountClient, string[]>> = {
     'claude-opus-4-5-20251101',
   ],
   openai: ['gpt-5.4', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
-  google: ['gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'],
-  dare: ['claude-sonnet-4-6'],
+  google: ['Gemini 3.1 Pro (High)', 'Gemini 3.1 Pro (Low)', 'Gemini 3.5 Flash (High)', 'Claude Opus 4.6 (Thinking)'],
   opencode: ['claude-sonnet-4-6', 'claude-opus-4-6'],
 };
 

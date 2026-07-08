@@ -736,8 +736,11 @@ export class ConnectorInvokeTrigger {
             status: 'failed',
             error: errorMsg,
           });
-        } catch {
-          /* best-effort */
+        } catch (statusErr) {
+          log.warn(
+            { err: statusErr, invocationId },
+            '[ConnectorInvokeTrigger] invocation status update failed (best-effort)',
+          );
         }
       }
 

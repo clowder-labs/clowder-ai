@@ -36,7 +36,6 @@ const MOCK_CATS: Record<string, { id: string; displayName: string; color: { prim
   codex: { id: 'codex', displayName: '缅因猫', color: { primary: '#5B8C5A', secondary: '#D4E6D3' } },
   gemini: { id: 'gemini', displayName: '暹罗猫', color: { primary: '#4A90E2', secondary: '#D8E6F8' } },
   kimi: { id: 'kimi', displayName: '梵花猫', color: { primary: '#4B5563', secondary: '#E5E7EB' } },
-  dare: { id: 'dare', displayName: '狸花猫', color: { primary: '#FFB300', secondary: '#FFE082' } },
   gpt52: { id: 'gpt52', displayName: '缅因猫', color: { primary: '#66BB6A', secondary: '#C8E6C9' } },
   'opus-45': { id: 'opus-45', displayName: '布偶猫', color: { primary: '#7E57C2', secondary: '#E1D5F0' } },
   'opus-47': { id: 'opus-47', displayName: '布偶猫', color: { primary: '#7B1FA2', secondary: '#E1BEE7' } },
@@ -56,6 +55,12 @@ vi.mock('@/hooks/useCatData', () => ({
 
 vi.mock('../status-helpers', () => ({
   truncateId: (id: string, len: number) => (id.length > len ? `${id.slice(0, len)}…` : id),
+}));
+
+// Stub next/link — render as <a> so we can assert href
+vi.mock('next/link', () => ({
+  default: (props: { href: string; className?: string; children: React.ReactNode }) =>
+    React.createElement('a', { href: props.href, className: props.className }, props.children),
 }));
 
 const origCreateElement = document.createElement.bind(document);
@@ -811,20 +816,6 @@ describe('F24: SessionChainPanel', () => {
     expect(card!.style.boxShadow).toMatch(/rgba?\(74,\s*144,\s*226/);
   });
 
-  it('applies dare colors from cat.color', async () => {
-    // dare primary #FFB300 → 255,179,0
-    mockSessionsResponse([
-      { id: 's1', catId: 'dare', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },
-    ]);
-    renderPanel('thread-1');
-    await flushFetch();
-    const card = container.querySelector(
-      '[data-testid="session-card-active"][data-cat-id="dare"]',
-    ) as HTMLElement | null;
-    expect(card).not.toBeNull();
-    expect(card!.style.boxShadow).toMatch(/rgba?\(255,\s*179,\s*0/);
-  });
-
   it('applies gpt52 (maine-coon variant) colors from cat.color', async () => {
     // gpt52 primary #66BB6A → 102,187,106
     mockSessionsResponse([
@@ -1018,7 +1009,7 @@ describe('F24: SessionChainPanel', () => {
       expect(html).not.toContain('bg-codex-light');
       expect(html).not.toContain('text-codex-dark');
       expect(html).not.toContain('border-gemini-primary');
-      expect(html).not.toContain('border-dare-primary');
+      expect(html).not.toContain('border-opus-45-primary');
       expect(html).not.toContain('border-kimi-primary');
       expect(html).not.toContain('border-opus-primary');
       // Legacy arbitrary hex tokens for gpt52 / opus-45 / sonnet
@@ -1283,6 +1274,41 @@ describe('F24: SessionChainPanel', () => {
 
       // Collapsed again
       expect(container.querySelector('[data-testid="session-card-sealed"]')).toBeNull();
+    });
+  });
+
+  describe('F252: Story Player entry point', () => {
+    it('does NOT render standalone replay link for sealed sessions (AC-E1 sunset)', async () => {
+      mockSessionsResponse([
+        {
+          id: 'ses_sealed_replay',
+          catId: 'opus',
+          seq: 0,
+          status: 'sealed',
+          messageCount: 10,
+          createdAt: Date.now() - 60000,
+          sealedAt: Date.now() - 30000,
+        },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expandSealed();
+
+      // AC-E1: standalone session replay route is sunset — canonical entry
+      // is Theater Overlay via ThreadItem, not a per-session link here
+      const replayLink = container.querySelector('a[href="/story/session:ses_sealed_replay"]');
+      expect(replayLink).toBeNull();
+    });
+
+    it('does NOT render replay link for active sessions', async () => {
+      mockSessionsResponse([
+        { id: 'ses_active_no_replay', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      const replayLink = container.querySelector('a[href*="/story/session:"]');
+      expect(replayLink).toBeNull();
     });
   });
 });

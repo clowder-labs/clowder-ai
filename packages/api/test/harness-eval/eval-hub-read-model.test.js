@@ -233,10 +233,14 @@ Evidence:
     assert.ok(summary.domains, 'domains field must exist');
     assert.equal(
       summary.domains.length,
-      5,
-      'should have 5 registered domains (eval:a2a + eval:memory + eval:sop + eval:capability-wakeup + eval:task-outcome)',
+      9,
+      'should have 9 registered domains (eval:a2a + eval:memory + eval:sop + eval:capability-wakeup + eval:task-outcome + eval:friction[F245] + eval:anchor-first[F236] + eval:capability-tips[F244] + eval:qc[F253])',
     );
-    assert.equal(summary.counts.registeredDomains, 5);
+    assert.equal(summary.counts.registeredDomains, 9);
+    // F245 Phase C: eval:friction registered + enabled:true since PR1b wired the live sink.
+    const frictionDomain = summary.domains.find((d) => d.domainId === 'eval:friction');
+    assert.ok(frictionDomain, 'eval:friction must appear in Hub domains');
+    assert.equal(frictionDomain.enabled, true, 'eval:friction enabled:true after PR1b live sink wiring');
 
     const a2aDomain = summary.domains.find((d) => d.domainId === 'eval:a2a');
     assert.ok(a2aDomain, 'eval:a2a must appear in domains');
@@ -262,6 +266,12 @@ Evidence:
     assert.equal(capabilityWakeupDomain.hasVerdict, true);
     assert.ok(capabilityWakeupDomain.latestVerdictId, 'eval:capability-wakeup should have latestVerdictId');
     assert.equal(capabilityWakeupDomain.evalCatHandle, '@opus47');
+
+    // F253 Phase C: eval:qc domain (zero-baseline, weekly, opus)
+    const qcDomain = summary.domains.find((d) => d.domainId === 'eval:qc');
+    assert.ok(qcDomain, 'eval:qc must appear in domains (F253 Phase C)');
+    assert.equal(qcDomain.hasVerdict, false);
+    assert.equal(qcDomain.evalCatHandle, '@opus');
   });
 
   // OQ-20: domain summary must include evalCatId + nextCronFireAt for frontend edit + display

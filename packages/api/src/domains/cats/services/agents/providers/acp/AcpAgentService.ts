@@ -17,14 +17,22 @@
  *   - System prompt: prepended to prompt text (ACP agents have no system prompt flag)
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CapabilitiesConfig, CatId } from '@cat-cafe/shared';
+import { readCapabilitiesConfig } from '../../../../../../config/capabilities/capability-orchestrator.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { createPromptDigest } from '../../../context/prompt-digest.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { type AcpCapacitySignal, AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
 import type { AcpLease, AcpProcessPool, PoolKey } from './AcpProcessPool.js';
+import {
+  bindSessionCredentialFile,
+  type PreparedCredentialEnv,
+  prepareSessionCredentialFile,
+  resolveSessionCredentialFile,
+  writeSessionCredentialFile,
+} from './acp-credential-file.js';
 import { createAcpSessionState, flushAcpThinking, transformAcpEvent } from './acp-event-transformer.js';
-import { resolveUserProjectMcpServers } from './acp-mcp-resolver.js';
+import { resolveAcpMcpServers, resolveDisabledServerIds, resolveUserProjectMcpServers } from './acp-mcp-resolver.js';
 import { callbackEnvDiagnostic, materializeSessionMcpServers } from './acp-session-env.js';
 import type { AcpMcpServer, AcpNewSessionResult } from './types.js';
 
@@ -36,7 +44,13 @@ export interface AcpAgentServiceConfig {
   poolKey: PoolKey;
   /** Project root (monorepo root) — used as default session cwd */
   projectRoot: string;
-  /** MCP servers to pass to each ACP session (resolved from mcpWhitelist) */
+  /**
+   * MCP whitelist from ACP variant config. When set, MCP servers are resolved
+   * at invoke time from capabilities.json (not frozen at construction time).
+   * This ensures capability toggles take effect without registry rebuild.
+   */
+  mcpWhitelist?: string[];
+  /** @deprecated Pre-resolved MCP servers. Prefer mcpWhitelist for invoke-time resolution. */
   mcpServers?: AcpMcpServer[];
   /** Provider name for metadata (e.g. 'google', 'opencode'). Defaults to 'acp'. */
   providerName?: string;
@@ -56,6 +70,9 @@ export class AcpAgentService implements AgentService {
   private readonly pool: AcpProcessPool;
   private readonly poolKey: PoolKey;
   private readonly projectRoot: string;
+  /** Invoke-time whitelist — when non-null, MCP servers are resolved fresh each invoke. */
+  private readonly mcpWhitelist: string[] | null;
+  /** Pre-resolved servers (legacy/test path). Used only when mcpWhitelist is null. */
   private readonly mcpServers: AcpMcpServer[];
   private readonly providerName: string;
   private readonly modelName: string;
@@ -67,6 +84,7 @@ export class AcpAgentService implements AgentService {
     this.pool = config.pool;
     this.poolKey = config.poolKey;
     this.projectRoot = config.projectRoot;
+    this.mcpWhitelist = config.mcpWhitelist ?? null;
     this.mcpServers = config.mcpServers ?? [];
     this.providerName = config.providerName ?? 'acp';
     this.modelName = config.modelName ?? config.sessionModel ?? 'acp';
@@ -164,22 +182,70 @@ export class AcpAgentService implements AgentService {
     const MAX_SCRATCHPAD_SUPPRESSED_EVENTS = 50;
 
     try {
-      // F145 Phase E: merge user project MCP servers per-invoke (thread.projectPath → workingDirectory)
-      // F161 gate: when mcpSupport is disabled, skip ALL MCP — both base (already []) and per-project.
-      let invokeServers = this.mcpServers;
+      // #712 P1-1: resolve MCP servers at invoke time from capabilities.json
+      // so capability toggles take effect immediately without registry rebuild.
+      // P1-2: check project-local capabilities.json first, fall back to runtime root.
       const userProjectRoot = options?.workingDirectory;
+      let baseMcpServers: AcpMcpServer[];
+      if (this.mcpWhitelist !== null) {
+        let capConfig: CapabilitiesConfig | null = null;
+        // Track which root supplied capabilities.json — external MCP entries
+        // with relative paths must resolve against the config source, not runtime root.
+        let configSourceRoot = this.projectRoot;
+        if (this.mcpSupportEnabled && userProjectRoot && userProjectRoot !== this.projectRoot) {
+          try {
+            capConfig = await readCapabilitiesConfig(userProjectRoot);
+            configSourceRoot = userProjectRoot;
+          } catch {
+            /* No project-local config — fall back to runtime root */
+          }
+        }
+        if (!capConfig) {
+          try {
+            capConfig = await readCapabilitiesConfig(this.projectRoot);
+            configSourceRoot = this.projectRoot;
+          } catch {
+            /* best-effort — resolveAcpMcpServers handles null config */
+          }
+        }
+        const disabled = resolveDisabledServerIds(this.projectRoot, this.catId as string, capConfig);
+        baseMcpServers = await resolveAcpMcpServers(this.projectRoot, this.mcpWhitelist, undefined, {
+          mcpSupport: this.mcpSupportEnabled,
+          disabledServerIds: disabled,
+          catId: this.catId as string,
+          capabilitiesConfig: capConfig,
+          configSourceRoot,
+        });
+      } else {
+        baseMcpServers = this.mcpServers;
+      }
+
+      // F145 Phase E: merge user project .mcp.json servers per-invoke
+      // F161 gate: when mcpSupport is disabled, skip ALL MCP
+      let invokeServers = baseMcpServers;
       if (this.mcpSupportEnabled && userProjectRoot && userProjectRoot !== this.projectRoot) {
-        const baseNames = new Set(this.mcpServers.map((s) => s.name));
+        const baseNames = new Set(baseMcpServers.map((s) => s.name));
         const userServers = resolveUserProjectMcpServers(userProjectRoot, baseNames);
         if (userServers.length > 0) {
-          invokeServers = [...this.mcpServers, ...userServers];
+          invokeServers = [...baseMcpServers, ...userServers];
         }
       }
 
       // Per-invocation: merge callbackEnv into cat-cafe* MCP servers so callback tools
       // (multi_mention, post_message, etc.) get CAT_CAFE_API_URL / token / invocationId.
-      const sessionMcpServers = materializeSessionMcpServers(invokeServers, options?.callbackEnv);
-      const envDiag = callbackEnvDiagnostic(options?.callbackEnv);
+      // #1099 review P1: the credential refresh file is SESSION-scoped — the nonce path
+      // is decided before session/new (MCP subprocess env freezes at session creation),
+      // and resume rewrites the same file with fresh creds. A superseded process keeps
+      // its own file, which stops updating — its late callbacks fail registry.isLatest().
+      const buildSessionConfig = (preparedCreds: PreparedCredentialEnv | null) => {
+        const sessionCallbackEnv = preparedCreds?.env ?? options?.callbackEnv;
+        return {
+          mcpServers: materializeSessionMcpServers(invokeServers, sessionCallbackEnv),
+          envDiag: callbackEnvDiagnostic(sessionCallbackEnv),
+        };
+      };
+      let sessionMcpServers: AcpMcpServer[] = invokeServers;
+      let envDiag = callbackEnvDiagnostic(options?.callbackEnv);
       // Session reuse: if options.sessionId is provided (from session chain), try to
       // reuse the existing ACP session for multi-turn memory. The agent keeps conversation
       // history server-side, so reusing the session avoids "amnesia" across turns.
@@ -188,15 +254,30 @@ export class AcpAgentService implements AgentService {
       let resumeSessionLoadFailed = false;
 
       if (resumeSessionId) {
+        const resumeCreds = resolveSessionCredentialFile(options?.callbackEnv, resumeSessionId);
+        const resumeConfig = buildSessionConfig(resumeCreds);
         try {
           log.info(
-            { ...ctx, sessionId: resumeSessionId, cwd, mcpCount: sessionMcpServers.length, ...envDiag },
+            {
+              ...ctx,
+              sessionId: resumeSessionId,
+              cwd,
+              mcpCount: resumeConfig.mcpServers.length,
+              ...resumeConfig.envDiag,
+            },
             'ACP session resume: loading existing session',
           );
-          const session = await client.loadSession(resumeSessionId, cwd, sessionMcpServers);
+          const session = await client.loadSession(resumeSessionId, cwd, resumeConfig.mcpServers);
           sessionId = session.sessionId || resumeSessionId;
           this.pool.rememberSession?.(this.poolKey, sessionId, lease);
           if (sessionId !== resumeSessionId) this.pool.rememberSession?.(this.poolKey, resumeSessionId, lease);
+          if (resumeCreds) {
+            writeSessionCredentialFile(options?.callbackEnv, resumeCreds.path);
+            bindSessionCredentialFile(sessionId, resumeCreds.path);
+            if (sessionId !== resumeSessionId) bindSessionCredentialFile(resumeSessionId, resumeCreds.path);
+          }
+          sessionMcpServers = resumeConfig.mcpServers;
+          envDiag = resumeConfig.envDiag;
           metadata.sessionId = sessionId;
           isResumedSession = true;
           log.info({ ...ctx, sessionId, requestedSessionId: resumeSessionId }, 'ACP session resume completed');
@@ -211,6 +292,10 @@ export class AcpAgentService implements AgentService {
       }
 
       if (!isResumedSession) {
+        const freshCreds = prepareSessionCredentialFile(options?.callbackEnv);
+        const freshConfig = buildSessionConfig(freshCreds);
+        sessionMcpServers = freshConfig.mcpServers;
+        envDiag = freshConfig.envDiag;
         log.info(
           { ...ctx, cwd, promptLen: prompt.length, mcpCount: sessionMcpServers.length, ...envDiag },
           'ACP newSession starting',
@@ -218,6 +303,7 @@ export class AcpAgentService implements AgentService {
         const session = await client.newSession(cwd, sessionMcpServers);
         sessionId = session.sessionId;
         this.pool.rememberSession?.(this.poolKey, sessionId, lease);
+        if (freshCreds) bindSessionCredentialFile(sessionId, freshCreds.path);
         metadata.sessionId = sessionId;
         log.info({ ...ctx, sessionId }, 'ACP newSession completed');
 
@@ -365,6 +451,120 @@ export class AcpAgentService implements AgentService {
         }
       }
       log.info({ ...ctx, sessionId, eventCount }, 'ACP promptStream completed');
+
+      // #1091: Zero-event resume detection. Some ACP providers (e.g. kimi) return
+      // success from session/load but don't actually restore conversation context.
+      // The subsequent promptStream produces zero content events and exits immediately.
+      // Detect this and retry with a fresh session so the cat isn't silently dead.
+      const promptElapsedMs = Date.now() - promptStreamStartedAt;
+      const RESUME_EMPTY_THRESHOLD_MS = 3_000;
+      if (isResumedSession && eventCount === 0 && promptElapsedMs < RESUME_EMPTY_THRESHOLD_MS) {
+        log.warn(
+          { ...ctx, sessionId, promptElapsedMs },
+          '#1091: ACP resumed session produced zero events in <3s — retrying with fresh session',
+        );
+        // Create fresh session and retry promptStream once (not recursive — single retry)
+        try {
+          const retryCreds = prepareSessionCredentialFile(options?.callbackEnv);
+          const retryConfig = buildSessionConfig(retryCreds);
+          const freshSession = await client.newSession(cwd, retryConfig.mcpServers);
+          const freshSessionId = freshSession.sessionId;
+          this.pool.rememberSession?.(this.poolKey, freshSessionId, lease);
+          // Replacement retry is a NEW ACP session, so it must get a fresh
+          // credential file path. Reusing the failed resume path would let the
+          // dead session read future replacement-session credentials.
+          if (retryCreds) bindSessionCredentialFile(freshSessionId, retryCreds.path);
+          metadata.sessionId = freshSessionId;
+          // Repoint the outer sessionId so the abort handler cancels the fresh
+          // session, not the dead resumed one.
+          sessionId = freshSessionId;
+
+          // Abort may have fired during the fresh newSession (mirrors Window 2)
+          if (options?.signal?.aborted) {
+            client.cancelSession(freshSessionId);
+            yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+            return;
+          }
+
+          // Apply session model if configured
+          const sessionModel = this.sessionModel;
+          const modelConfig = sessionModel ? resolveSessionModelConfigOption(freshSession, sessionModel) : null;
+          if (modelConfig && sessionModel) {
+            try {
+              await client.setSessionConfigOption(freshSessionId, modelConfig.configId, sessionModel);
+            } catch {
+              /* best-effort — continue with agent default */
+            }
+          }
+
+          // Announce the replacement session so the invocation layer rebinds the
+          // session chain to the fresh sessionId. Without this, the next resume
+          // would target the dead session and hit the zero-event path again.
+          yield {
+            type: 'session_init',
+            catId: this.catId,
+            sessionId: freshSessionId,
+            ephemeralSession: false,
+            metadata,
+            timestamp: Date.now(),
+          };
+
+          // Consumer may abort during the yield above (mirrors Window 3)
+          if (options?.signal?.aborted) {
+            client.cancelSession(freshSessionId);
+            yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+            return;
+          }
+
+          // Build effective prompt with system prompt (fresh session has no memory)
+          const retryPrompt = options?.systemPrompt
+            ? `${options.systemPrompt}\n\n${prompt}`
+            : options?.resumeFallbackSystemPrompt
+              ? `${options.resumeFallbackSystemPrompt}\n\n${prompt}`
+              : prompt;
+
+          const retryState = createAcpSessionState();
+          let retryEventCount = 0;
+          log.info({ ...ctx, sessionId: freshSessionId }, '#1091: retry promptStream on fresh session');
+          for await (const event of client.promptStream(freshSessionId, retryPrompt)) {
+            // Skip synthetic events (capacity/idle/tool-wait warnings)
+            if (event.update?.sessionUpdate === 'provider_capacity_signal') continue;
+            if (event.update?.sessionUpdate === 'stream_idle_warning') continue;
+            if (event.update?.sessionUpdate === 'stream_tool_wait_warning') continue;
+
+            retryEventCount++;
+            const result = transformAcpEvent(event, this.catId, metadata, retryState);
+            if (!result) continue;
+            if (Array.isArray(result)) {
+              for (const msg of result) yield msg;
+            } else {
+              yield result;
+            }
+          }
+          log.info({ ...ctx, sessionId: freshSessionId, retryEventCount }, '#1091: retry promptStream completed');
+
+          // Flush trailing thinking from retry
+          const retryThinking = flushAcpThinking(retryState, this.catId, metadata);
+          if (retryThinking) yield retryThinking;
+          client.clearRecentCapacitySignal();
+          yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+          return; // Exit — retry path handled completion
+        } catch (retryErr) {
+          const retryErrMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          log.error({ ...ctx, sessionId, err: retryErrMsg }, '#1091: retry with fresh session also failed');
+          yield {
+            type: 'error',
+            catId: this.catId,
+            error: `resume_empty_retry_failed: ${retryErrMsg}`,
+            errorCode: 'prompt_failure',
+            metadata,
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+          return; // Exit — error path handled completion
+        }
+      }
+
       // Flush any remaining accumulated thinking before done.
       const trailingThinking = flushAcpThinking(acpState, this.catId, metadata);
       if (trailingThinking) yield trailingThinking;
@@ -511,13 +711,21 @@ function classifyError(
   clientRecentSignal?: AcpCapacitySignal | null,
 ): { errorCode: string; errorMsg: string } {
   if (err instanceof AcpProtocolError) {
-    if (err.code === -32000 || err.message.includes('capacity')) {
-      return { errorCode: 'model_capacity', errorMsg: err.message };
+    // JSON-RPC data.error carries the real cause (e.g. Kimi wraps exceptions
+    // as -32603 "Internal error" with the detail in data). Surface it.
+    const dataDetail =
+      typeof err.data === 'object' && err.data !== null && 'error' in (err.data as Record<string, unknown>)
+        ? String((err.data as Record<string, unknown>).error)
+        : null;
+    const fullMsg = dataDetail ? `${err.message} — ${dataDetail}` : err.message;
+
+    if (err.code === -32000 || fullMsg.includes('capacity')) {
+      return { errorCode: 'model_capacity', errorMsg: fullMsg };
     }
-    if (/\bmcp\b/i.test(err.message)) {
-      return { errorCode: 'mcp_pollution', errorMsg: err.message };
+    if (/\bmcp\b/i.test(fullMsg)) {
+      return { errorCode: 'mcp_pollution', errorMsg: fullMsg };
     }
-    return { errorCode: 'prompt_failure', errorMsg: err.message };
+    return { errorCode: 'prompt_failure', errorMsg: fullMsg };
   }
   if (err instanceof AcpTimeoutError) {
     // Priority 1: invoke-level listener captured signal in real time

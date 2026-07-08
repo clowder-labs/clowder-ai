@@ -25,6 +25,7 @@ import {
 } from '@cat-cafe/shared';
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
 import {
+  providerRequiresThreadWorkspace,
   resolveBuiltinClientForProvider,
   resolveForClient,
   validateRuntimeProviderBinding,
@@ -73,7 +74,7 @@ import { resolveActiveProjectRoot } from '../../../../../utils/active-project-ro
 import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
-import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
+import { pathsEqual, validateProjectPathDetailed } from '../../../../../utils/project-path.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry.js';
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
@@ -94,9 +95,11 @@ import {
   parseOpenCodeModel,
   safeProviderName,
   summarizeOpenCodeRuntimeConfigForDebug,
+} from '../providers/opencode-config-template.js';
+import {
   writeOpenCodeInstructionsOnlyConfig,
   writeOpenCodeRuntimeConfig,
-} from '../providers/opencode-config-template.js';
+} from '../providers/opencode-config-writer.js';
 import { appendTranscriptPathHints } from '../providers/transcript-path-hints.js';
 import { buildContextManagementHint, queueContextHint, takeContextHintPrefix } from './context-management-hint.js';
 
@@ -168,6 +171,7 @@ import {
   isMalformedToolCallError,
   isMissingClaudeSessionError,
   isPromptTokenLimitExceededError,
+  isSessionNotFoundDiagnostic,
   isTransientAcpPromptFailure,
   isTransientCliExitCode1,
   preflightRace,
@@ -256,6 +260,23 @@ export function _resetStaticIdentityRegistryRevisionForTests(): void {
 
 function sessionIdentityKey(userId: string, catId: CatId, threadId: string): string {
   return `${userId}:${catId as string}:${threadId}`;
+}
+
+function normalizeSessionWorkspacePath(workingDirectory: string): string {
+  return resolve(workingDirectory);
+}
+
+function buildSessionWorkspaceFingerprint(workingDirectory: string): string {
+  const normalized = normalizeSessionWorkspacePath(workingDirectory);
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function getStoredSessionWorkspaceFingerprint(session: SessionRecord | null | undefined): string | undefined {
+  if (!session) return undefined;
+  return (
+    session.workspaceFingerprint ??
+    (session.workingDirectory ? buildSessionWorkspaceFingerprint(session.workingDirectory) : undefined)
+  );
 }
 
 function isAntigravityRuntimeSessionInit(msg: AgentMessage): boolean {
@@ -572,6 +593,48 @@ export interface InvocationDeps {
   readonly conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
   /** F229 Phase B: TriagePlan store for triage-plan marker → confirm/cancel card actions (optional, fail-open) */
   readonly conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
+  /**
+   * F247 AC-B1c-2: Cloud invoke bridge — fire-and-forget dispatch for cloud-only
+   * cats (Remote MCP, provider='openai-chatgpt-pro'). When the KD-17 guard
+   * fires we still need to notify the cloud cat that it was @ mentioned;
+   * the bridge handles that via PinchTab CDP in PR-C.
+   *
+   * Optional / fail-open: tests + early environments without PinchTab can
+   * pass `null`; the bridge then never gets invoked and the KD-17 guard
+   * silently skips dispatch (same as the original B1a behavior). When the
+   * bridge IS wired, dispatch is fire-and-forget — invokeSingleCat does
+   * NOT block on the cloud cat's response (it travels back through the
+   * cloud cat's own MCP read tool on the next invocation).
+   */
+  readonly cloudInvokeBridge?: import('../../cloud-bridge/types.js').ICloudInvokeBridge | null;
+  /**
+   * F254 Phase B3/B4: Optional freshness re-invoke callback.
+   * Called after invocation terminal event to decide if a re-invoke is needed
+   * for unacknowledged high-priority notices. The routing layer wires this
+   * with access to Redis + event log + InvocationRegistry.
+   *
+   * Returns reinvoke decision or null (fail-open). When shouldReinvoke=true,
+   * the returned prompt/senders are used for the re-invoke invocation.
+   */
+  /**
+   * F254 Phase C: Freshness invocation state store (optional).
+   * Used to persist the carrier tier at invocation start so callback routes
+   * can derive a RuntimeCapabilityDescriptor without AgentService access.
+   */
+  readonly freshnessStateStore?: import('../../freshness/FreshnessInvocationStateStore.js').FreshnessInvocationStateStore;
+  readonly freshnessReinvokeCheck?: (params: {
+    invocationId: string;
+    threadId: string;
+    catId: import('@cat-cafe/shared').CatId;
+    userId: string;
+  }) => Promise<{
+    shouldReinvoke: boolean;
+    reason: string;
+    skipReason?: string;
+    noticeIds: string[];
+    senders: string[];
+    reinvokePrompt?: string;
+  } | null>;
 }
 
 /**
@@ -584,6 +647,30 @@ export interface InvocationParams {
   readonly prompt: string;
   readonly userId: string;
   readonly threadId: string;
+  /**
+   * F247 AC-B1c-2/12: For cloud-cat dispatches via the bridge, the **raw**
+   * mention text (the user's / mentioning cat's words — NOT the fully
+   * orchestrated `prompt` which includes system context, dynamic injection,
+   * chain history etc). Used as the `intent` field in the runtime delta
+   * payload so the cloud cat sees what was actually asked.
+   *
+   * Optional and currently NOT plumbed by `route-serial` / `route-parallel`
+   * (PR-B is a library drop; PR-C will plumb this through both routes +
+   * wire `cloudInvokeBridge` into `AgentRouter.getStrategyDeps`). When
+   * absent, the bridge dispatch is suppressed (KD-17 guard falls back to
+   * B1a no-op behavior), which is safer than sending the wrong text to
+   * the cloud cat.
+   */
+  readonly mentionContent?: string;
+  /**
+   * F247 AC-B1c-2/12: For cloud-cat dispatches via the bridge, the catId of
+   * the local cat that @ mentioned the cloud cat. Used as `calledBy` in the
+   * delta payload so the cloud cat knows whose ack to address.
+   *
+   * Optional + currently not plumbed (see `mentionContent` note above).
+   * When absent, bridge dispatch is suppressed.
+   */
+  readonly mentioningCatId?: CatId;
   readonly contentBlocks?: readonly MessageContent[];
   readonly uploadDir?: string;
   readonly signal?: AbortSignal;
@@ -745,6 +832,85 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
+  // F247 KD-17: cloud-only cats (Remote MCP) skip local CLI dispatch.
+  // The mention is already persisted in the thread; the cloud cat reads it via
+  // its own MCP read tools on next invocation. Detect via explicit `provider`
+  // marker (matches POST handler symmetry); antigravity / ACP cats are NOT
+  // caught — they have their own dispatch path even without cli.command.
+  //
+  // F247 AC-B1c-2 (PR-B): instead of silently returning, fire the cloud-invoke
+  // bridge (if wired) so the cloud cat actually GETS the @ mention through
+  // its bound ChatGPT chat. Fire-and-forget — never block the invocation
+  // generator on bridge success. Errors are absorbed by the bridge itself
+  // (emits fallback `system_info` if PinchTab unavailable, AC-B1c-4).
+  const cloudOnlyConfig = catRegistry.tryGet(catId as string)?.config;
+  if (cloudOnlyConfig && cloudOnlyConfig.provider === 'openai-chatgpt-pro') {
+    log.info(
+      { catId, threadId, userId, provider: cloudOnlyConfig.provider, clientId: cloudOnlyConfig.clientId },
+      'F247 KD-17: cloud-only cat (Remote MCP) — skipping local dispatch; dispatching B1c bridge',
+    );
+    // Fire-and-forget bridge dispatch (AC-B1c-2). The bridge:
+    //  - Builds the 5-field thread runtime delta payload (AC-B1c-12).
+    //  - Calls PinchTab CDP adapter to inject + capture chat URL (PR-C).
+    //  - Writes binding back to thread metadata.
+    //  - Emits fallback notification on failure (AC-B1c-4).
+    //
+    // gpt52 R1 P1-2 contract: `mentionContent` is the RAW mention text (not
+    // the orchestrated `prompt`, which already includes system context /
+    // chain history). `mentioningCatId` is the local cat that @ mentioned
+    // (not the thread owner `userId`). Both are plumbed from `route-serial`
+    // / `route-parallel` in PR-C; until then they're absent → bridge
+    // dispatch is suppressed (silently falls back to B1a no-op). This is
+    // SAFER than sending the wrong text or "called by alice" to the cloud
+    // cat (cloud cat would see misleading context and write back to wrong
+    // attribution).
+    //
+    // gpt52 R1 P1-1 contract: `cloudInvokeBridge` is currently NOT supplied
+    // by `AgentRouter.getStrategyDeps` either — also a PR-C wiring step. So
+    // even with mentionContent / mentioningCatId plumbed, the `if` below
+    // short-circuits today. PR-B = library drop; PR-C = runtime wiring.
+    if (deps.cloudInvokeBridge && params.mentionContent && params.mentioningCatId) {
+      const threadMetadata = threadStore ? await threadStore.get(threadId) : null;
+      deps.cloudInvokeBridge
+        .dispatch({
+          catId,
+          threadId,
+          userId,
+          threadTitle: threadMetadata?.title ?? null,
+          // Participants list: pulled from thread.participants (includes the
+          // cloud cat itself + other recently-active cats). Handle resolution
+          // is best-effort — we use the catId as the handle if no separate
+          // handle registry is present. PR-C may enrich with a real handle map.
+          participants: (threadMetadata?.participants ?? []).map((pCatId) => ({
+            catId: pCatId,
+            handle: `@${pCatId}`,
+          })),
+          calledBy: params.mentioningCatId,
+          intent: params.mentionContent,
+        })
+        .catch((err: unknown) => {
+          log.warn(
+            { catId, threadId, err: err instanceof Error ? err.message : String(err) },
+            'F247 AC-B1c-2: bridge dispatch promise rejected (caught — should be impossible)',
+          );
+        });
+    } else if (deps.cloudInvokeBridge) {
+      // Telemetry: bridge IS wired but params lack the new fields. This is
+      // expected during PR-B/C-rollout window; flagging so we can spot the
+      // case in logs and confirm PR-C plumbed them in.
+      log.info(
+        { catId, threadId, hasMentionContent: !!params.mentionContent, hasMentioningCatId: !!params.mentioningCatId },
+        'F247 AC-B1c-2: bridge wired but mentionContent/mentioningCatId missing (PR-C will plumb)',
+      );
+    }
+    yield {
+      type: 'done' as const,
+      catId,
+      timestamp: Date.now(),
+    };
+    return;
+  }
+
   // F198 Bug #3: a bg carrier has no stable per-conversation sessionId — the
   // daemon forks a fresh UUID every `--bg --resume` round. Derive a stable
   // chainKey anchor so sessionId resolution / resume mutex / session_init
@@ -813,6 +979,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // "missing required parameter". Inject the live threadId so prompt template
     // can resolve to a concrete value.
     CAT_CAFE_THREAD_ID: threadId,
+    // F254 AC-C2: Runtime mode for freshness gate descriptor derivation.
+    // The MCP server reads this to construct RuntimeCapabilityDescriptor,
+    // which parameterizes held/notice behavior per carrier tier.
+    // carrierTier is extracted after this block and persisted to Redis
+    // via freshnessStateStore.setCarrierTier() (producer side of AC-C2).
+    ...((service as unknown as { _carrierTier?: string })._carrierTier
+      ? { CAT_CAFE_RUNTIME_MODE: (service as unknown as { _carrierTier: string })._carrierTier }
+      : {}),
     ...(process.env.CAT_CAFE_SIGNAL_USER ? { CAT_CAFE_SIGNAL_USER: process.env.CAT_CAFE_SIGNAL_USER } : {}),
     // Per-cat git author identity (W1: cats are Agents with identity).
     // GIT_AUTHOR_NAME/GIT_COMMITTER_NAME override the runtime git config's pinned
@@ -835,6 +1009,23 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       })(),
     ),
   };
+
+  // #1092 / #1099 review P1: the MCP credential refresh file is written by the ACP
+  // layer (acp-credential-file.ts), scoped per ACP session — NOT here. A deterministic
+  // per-(thread,cat) path written at invoke time lets a superseded-but-alive process
+  // read the newest invocation's credentials and defeat registry.isLatest().
+  // Non-ACP providers spawn fresh MCP subprocesses per invocation, so their env
+  // credentials are never stale and no file is needed.
+
+  // F254 AC-C2: Persist carrier tier at invocation start (fire-and-forget, fail-open).
+  // Callback routes read this via FreshnessInvocationStateStore.get() to derive
+  // RuntimeCapabilityDescriptor — closing the producer/consumer chain.
+  const carrierTier = (service as unknown as { _carrierTier?: string })._carrierTier;
+  if (deps.freshnessStateStore && carrierTier) {
+    deps.freshnessStateStore.setCarrierTier(invocationId, carrierTier).catch(() => {
+      // Fail-open: Redis write failure must not block invocation.
+    });
+  }
 
   const auditLog = getEventAuditLog();
   const promptDigest = createPromptDigest(prompt);
@@ -1014,6 +1205,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // The PATCH bind endpoint writes to sessionChainStore but not sessionManager,
     // so a freshly-bound session would be missed if we gate on sessionId being truthy.
     const sessionChainActive = isSessionChainEnabled(catId);
+    let activeSessionRecordForResume: SessionRecord | null = null;
     if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
       // F198 Bug #3: bg resolves its resume target via the chainKey record's
       // latestResumeSessionId (the daemon's previous fork UUID). bg reuses one
@@ -1053,6 +1245,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             // Chain exists but no active session → previous was sealed; don't resume
             sessionId = undefined;
           } else if (activeRec.cliSessionId) {
+            activeSessionRecordForResume = activeRec;
             // F118 AC-C6: Overflow circuit breaker — too many consecutive restore failures (#86)
             // Note: time-based "stale" check removed — idle sessions are healthy,
             // only repeated restore failures indicate a toxic session.
@@ -1124,15 +1317,31 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    const catConfig = catRegistry.tryGet(catId as string)?.config;
+    const provider = catConfig?.clientId;
+    const requiresThreadWorkspace = providerRequiresThreadWorkspace(provider);
+
     // Resolve workingDirectory from thread's projectPath
     let invocationThread: Thread | null = null;
     let workingDirectory: string | undefined;
+    let threadProjectPath: string | undefined;
     let bootcampWorkspaceError: Error | undefined;
+    let workspaceResolutionError: Error | undefined;
+    let workspaceResolutionFailureMessage: string | undefined;
     if (threadStore) {
+      let thread: Awaited<ReturnType<IThreadStore['get']>> | null | undefined;
       try {
-        const thread = await preflightRace(Promise.resolve(threadStore.get(threadId)), 'threadStore.get', signal);
-        invocationThread = thread ?? null;
-        if (thread?.createdAt) threadCreatedAt = thread.createdAt;
+        thread = await preflightRace(Promise.resolve(threadStore.get(threadId)), 'threadStore.get', signal);
+      } catch (err) {
+        workspaceResolutionFailureMessage = `Unable to resolve thread workspace for ${threadId}: ${err instanceof Error ? err.message : String(err)}`;
+        log.warn(
+          { catId, threadId, err },
+          'threadStore.get failed during workspace resolution — proceeding without workingDirectory',
+        );
+      }
+      if (thread) {
+        if (thread.createdAt) threadCreatedAt = thread.createdAt;
+        if (thread.projectPath) threadProjectPath = thread.projectPath;
         // #836: Reborn session strategy — force new session every invocation.
         // Uses store lookup (isRebornSession) instead of thread field because
         // Redis stores strategy in separate hash fields not hydrated by get().
@@ -1162,8 +1371,28 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           // F101: Game threads use virtual projectPaths (e.g. 'games/werewolf') for
           // categorization only — they are not real filesystem directories. Skip them
           // to avoid triggering the F070 governance gate on a non-existent path.
-          if (!thread.projectPath.startsWith('games/') && isUnderAllowedRoot(thread.projectPath)) {
-            workingDirectory = thread.projectPath;
+          if (thread.projectPath.startsWith('games/')) {
+            workspaceResolutionFailureMessage = `OpenCode requires a filesystem thread projectPath for ${threadId}; virtual game projectPath ${thread.projectPath} cannot be used as a working directory.`;
+          } else {
+            const validatedProjectPath = await validateProjectPathDetailed(thread.projectPath);
+            if (!validatedProjectPath.ok) {
+              const isTransient = validatedProjectPath.reason === 'io_error';
+              workspaceResolutionFailureMessage = isTransient
+                ? `Unable to validate thread projectPath for ${threadId}: ${thread.projectPath}. ${validatedProjectPath.message ?? 'Transient filesystem error.'} Retry; if it persists, re-bind the thread's project workspace.`
+                : `Invalid thread projectPath for ${threadId}: ${thread.projectPath}. Expected an existing directory under allowed roots.`;
+              log.warn(
+                {
+                  catId,
+                  threadId,
+                  projectPath: thread.projectPath,
+                  reason: validatedProjectPath.reason,
+                  message: validatedProjectPath.message,
+                },
+                'thread projectPath failed validation during workspace resolution',
+              );
+            } else {
+              workingDirectory = validatedProjectPath.path;
+            }
           }
         } else if (thread?.bootcampState) {
           const bootcampWorkspace = await resolveBootcampWorkspaceRoot();
@@ -1172,15 +1401,74 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           } else {
             bootcampWorkspaceError = new Error(bootcampWorkspace.error);
           }
+        } else if (requiresThreadWorkspace) {
+          workspaceResolutionFailureMessage = `OpenCode requires a thread projectPath for ${threadId}. Bind the thread to a project workspace before spawning OpenCode.`;
         }
-      } catch {
-        // Thread store timeout or error — proceed without workingDirectory
       }
+    }
+    if (requiresThreadWorkspace && threadStore && !workingDirectory && !bootcampWorkspaceError) {
+      workspaceResolutionError = new Error(
+        workspaceResolutionFailureMessage ??
+          `OpenCode requires a thread projectPath for ${threadId}. Bind the thread to a project workspace before spawning OpenCode.`,
+      );
     }
     if (bootcampWorkspaceError) {
       throw bootcampWorkspaceError;
     }
+    if (workspaceResolutionError) {
+      throw workspaceResolutionError;
+    }
     const workingProjectRoot = workingDirectory ? findMonorepoRoot(workingDirectory) : undefined;
+    const sessionWorkspaceBinding =
+      provider === 'opencode' && workingDirectory
+        ? {
+            workingDirectory: normalizeSessionWorkspacePath(workingDirectory),
+            workspaceFingerprint: buildSessionWorkspaceFingerprint(workingDirectory),
+          }
+        : {};
+    const hasSessionWorkspaceBinding = 'workspaceFingerprint' in sessionWorkspaceBinding;
+    if (provider === 'opencode' && sessionId && workingDirectory) {
+      const requestedSessionId = sessionId;
+      const storedWorkspaceFingerprint = getStoredSessionWorkspaceFingerprint(activeSessionRecordForResume);
+      const currentWorkspaceFingerprint = buildSessionWorkspaceFingerprint(workingDirectory);
+      if (!storedWorkspaceFingerprint || !pathsEqual(storedWorkspaceFingerprint, currentWorkspaceFingerprint)) {
+        const reason = storedWorkspaceFingerprint ? 'workspace_mismatch' : 'workspace_unknown';
+        log.warn(
+          {
+            catId,
+            threadId,
+            invocationId,
+            reason,
+            threadProjectPath: threadProjectPath ?? null,
+            workingDirectory,
+            requestedSessionId,
+            storedWorkingDirectory: activeSessionRecordForResume?.workingDirectory ?? null,
+            storedWorkspaceFingerprint: activeSessionRecordForResume?.workspaceFingerprint ?? null,
+            currentWorkspaceFingerprint,
+          },
+          'OpenCode resume workspace guard dropped stale session',
+        );
+        sessionId = undefined;
+        sessionManager.delete(userId, catId, threadId).catch(() => {});
+        yield {
+          type: 'system_info' as const,
+          catId,
+          content: JSON.stringify({
+            type: 'opencode_resume_workspace_guard',
+            action: 'start_fresh',
+            reason,
+            threadId,
+            threadProjectPath: threadProjectPath ?? null,
+            workingDirectory,
+            requestedSessionId,
+            storedWorkingDirectory: activeSessionRecordForResume?.workingDirectory ?? null,
+            storedWorkspaceFingerprint: activeSessionRecordForResume?.workspaceFingerprint ?? null,
+            currentWorkspaceFingerprint,
+          }),
+          timestamp: Date.now(),
+        };
+      }
+    }
 
     // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
     // Three-layer defense model (shared-rules §14):
@@ -1238,10 +1526,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     // F070: Governance gate for external project dispatch
+    // Bootstrap is handled by Console's explicit init button (projects-setup.ts).
+    // invokeCat only gates — checkGovernancePreflight is the real guard.
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
       const catCafeRoot = hostProjectRoot;
-      const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
-      await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
       const catEntry = catRegistry.tryGet(catId as string);
       const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.clientId);
@@ -1287,16 +1575,24 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           'threadStore.get:mission',
           signal,
         );
+        /* @segment M1 — Dispatch Mission Context */
         if (thread) {
           const { buildMissionPack, formatMissionPackPrompt } = await import(
             '../../../../../config/governance/mission-pack.js'
           );
-          capturedMissionPack = buildMissionPack({
+          // clowder-ai#1037: buildMissionPack returns null when the thread has
+          // no concrete mission anchor (title/phase/backlogItemId all empty).
+          // Skip M1 injection in that case so the model is not handed an empty
+          // dispatch marker on a chat-only thread.
+          const pack = buildMissionPack({
             title: thread.title ?? undefined,
             phase: thread.phase ?? undefined,
             backlogItemId: thread.backlogItemId ?? undefined,
           });
-          missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+          if (pack) {
+            capturedMissionPack = pack;
+            missionPrefix = formatMissionPackPrompt(pack);
+          }
         }
       } catch {
         // Thread store timeout — proceed without mission context
@@ -1305,8 +1601,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F127 account injection:
     // Members bind to a concrete accountRef (builtin oauth account or generic api_key account).
-    const catConfig = catRegistry.tryGet(catId as string)?.config;
-    const provider = catConfig?.clientId;
     const builtinClient = provider ? resolveBuiltinClientForProvider(provider) : null;
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
     // Account resolution, proxy registration, and runtime config always use the
@@ -1374,7 +1668,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       openai: 'openai',
       google: 'google',
       kimi: 'kimi',
-      dare: 'openai',
       opencode: 'anthropic',
       openrouter: 'openai',
     };
@@ -1406,7 +1699,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // ── F161: Data-driven env var injection via resolveEnvMap ──────────────
     // Standard provider credential env vars (OPENAI_API_KEY, GEMINI_API_KEY, etc.)
-    // are resolved from BUILTIN_ENV_MAPS templates. Cat Cafe internal routing vars
+    // are resolved from BUILTIN_ENV_MAPS templates. Clowder AI internal routing vars
     // (CAT_CAFE_*_PROFILE_MODE, CODEX_AUTH_MODE, proxy) remain explicit below.
     const userEnvTemplates = resolvedAccount?.envVars ? extractUserEnvTemplates(resolvedAccount.envVars) : undefined;
 
@@ -1423,14 +1716,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const envFromMap = resolveEnvMap(protocolKey, undefined, credentialAccount, userEnvTemplates);
         Object.assign(callbackEnv, envFromMap);
       }
-      // Dare has its own env vars regardless of effectiveProtocol (dare's protocol = 'openai')
-      if (provider === 'dare') {
-        const dareEnv = resolveEnvMap('dare', undefined, credentialAccount);
-        Object.assign(callbackEnv, dareEnv);
-      }
     }
 
-    // ── Cat Cafe internal routing vars (not in BUILTIN_ENV_MAPS) ──────────
+    // ── Clowder AI internal routing vars (not in BUILTIN_ENV_MAPS) ──────────
     if (effectiveProtocol === 'anthropic') {
       if (resolvedAccount?.authType === 'api_key') {
         callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'api_key';
@@ -1487,7 +1775,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Fallback for unresolved accounts on anthropic/opencode providers
       callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
     }
-    // Note: google and dare protocol branches no longer need explicit credential injection
+    // Note: google protocol branch no longer needs explicit credential injection
     // — fully handled by resolveEnvMap above.
 
     // F171: User-defined env vars from account config.
@@ -1623,9 +1911,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     const openCodeExternalDirs: string[] = [];
+    const openCodeAllowedWorkspaceDirs = workingDirectory ? resolve(workingDirectory) : undefined;
     if (provider === 'opencode') {
       if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
-        // External project — grant access to Cat Cafe host root (configs, MCP, etc.)
+        // External project — grant access to Clowder AI host root (configs, MCP, etc.)
         openCodeExternalDirs.push(hostProjectRoot);
       }
       if (workingProjectRoot && workingProjectRoot !== workingDirectory) {
@@ -1647,7 +1936,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Remap model prefix when provider name collides with OpenCode builtins
       // (e.g. 'openai/gpt-4o' → 'openai-compat/gpt-4o') so the CLI -m arg
       // matches the remapped provider key in opencode.json.
-      const safeProvider = safeProviderName(effectiveProviderName);
+      // Only remap for api_key — OAuth uses native providers, no custom entry
+      // in opencode.json, so remapping to 'openai-compat/...' would reference a nonexistent provider.
+      const safeProvider = isApiKey ? safeProviderName(effectiveProviderName) : effectiveProviderName;
       const safeModel =
         safeProvider !== effectiveProviderName && effectiveModel.startsWith(`${effectiveProviderName}/`)
           ? `${safeProvider}/${effectiveModel.slice(effectiveProviderName.length + 1)}`
@@ -1663,16 +1954,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
         omitProviderAuth: !isApiKey,
         mcpServerPath,
+        ...(openCodeAllowedWorkspaceDirs ? { allowedWorkspaceDirs: openCodeAllowedWorkspaceDirs } : {}),
         // F203 Phase I: inject compiled L0 + OPENCODE.md into instructions.
         instructions: openCodeL0InstructionPaths,
         // #935: External directory permissions for Windows/cross-project access.
         ...(openCodeExternalDirs.length > 0 ? { externalDirectories: openCodeExternalDirs } : {}),
+        // OAuth: MCP-only config — no custom provider entry, so OpenCode uses its
+        // native auth handler instead of an empty apiKey placeholder.
+        mcpOnly: !isApiKey,
       } as const;
-      openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
+      openCodeRuntimeConfigPath = await writeOpenCodeRuntimeConfig(
         projectRoot,
         catId as string,
         invocationId,
         runtimeConfigOptions,
+        workingDirectory,
       );
       callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
       // Credentials: only for api_key auth.
@@ -1691,6 +1987,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           invocationId,
           openCodeConfigPath: openCodeRuntimeConfigPath,
           apiType,
+          authType: resolvedAccount.authType,
+          mcpOnly: !isApiKey,
           callbackEnvSummary: {
             opencodeConfig: callbackEnv.OPENCODE_CONFIG,
             ocBaseUrl: callbackEnv[OC_BASE_URL_ENV] ?? null,
@@ -1786,6 +2084,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       effectivePrompt = `${stagingPrepend}\n\n---\n\n${effectivePrompt}`;
     }
 
+    /* @segment M2 — Transcript Path Hints */
     effectivePrompt = appendTranscriptPathHints(effectivePrompt, TRANSCRIPT_DIR, threadId);
 
     capturePromptIfEnabled({
@@ -2394,6 +2693,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   // This is normal — NOT a "session replaced" event. Just update the tracked ID.
                   await deps.sessionChainStore.update(existing.id, {
                     cliSessionId: msg.sessionId,
+                    ...sessionWorkspaceBinding,
                     ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
                     updatedAt: Date.now(),
                   });
@@ -2468,6 +2768,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                     const inheritedFailures = existing.consecutiveRestoreFailures ?? 0;
                     const newRec = await deps.sessionChainStore.create({
                       cliSessionId: msg.sessionId,
+                      ...sessionWorkspaceBinding,
                       threadId,
                       catId,
                       userId,
@@ -2475,17 +2776,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                     if (inheritedFailures > 0) {
                       await deps.sessionChainStore.update(newRec.id, {
                         consecutiveRestoreFailures: inheritedFailures,
+                        ...sessionWorkspaceBinding,
                         ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
                       });
                     } else if (params.continuityCapsule) {
                       await deps.sessionChainStore.update(newRec.id, {
+                        ...sessionWorkspaceBinding,
                         continuityCapsule: params.continuityCapsule,
                       });
                     }
                   }
                 }
-              } else if (params.continuityCapsule) {
+              } else if (params.continuityCapsule || hasSessionWorkspaceBinding) {
                 await deps.sessionChainStore.update(existing.id, {
+                  ...sessionWorkspaceBinding,
                   continuityCapsule: params.continuityCapsule,
                 });
               }
@@ -2493,6 +2797,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               // No active session (first invocation or previous was sealed)
               const newRec = await deps.sessionChainStore.create({
                 cliSessionId: msg.sessionId,
+                ...sessionWorkspaceBinding,
                 threadId,
                 catId,
                 userId,
@@ -2899,6 +3204,32 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               ...(parentSid ? { parentSpanId: parentSid } : {}),
             };
           }
+          // F254 B3/B4: Check for freshness re-invoke after terminal event.
+          // Fail-open: errors here never block the done signal.
+          if (deps.freshnessReinvokeCheck && !hadError && !signal?.aborted) {
+            try {
+              const decision = await deps.freshnessReinvokeCheck({
+                invocationId,
+                threadId,
+                catId,
+                userId: params.userId,
+              });
+              if (decision) {
+                // Attach decision to done metadata for routing layer.
+                // Initialize metadata if missing (some provider paths emit done without it).
+                if (!out.metadata) {
+                  (out as unknown as Record<string, unknown>).metadata = {};
+                }
+                (out.metadata as unknown as Record<string, unknown>).freshnessReinvoke = decision;
+                log.info(
+                  { catId, threadId, invocationId, shouldReinvoke: decision.shouldReinvoke, reason: decision.reason },
+                  '[F254-B3] freshness re-invoke decision',
+                );
+              }
+            } catch (err) {
+              log.warn({ catId, threadId, invocationId, err }, '[F254-B3] freshness re-invoke check failed, fail-open');
+            }
+          }
         }
         yield out;
       }
@@ -2991,7 +3322,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           }
         }
 
-        if (allowSessionRetry && msg.type === 'error' && isMissingClaudeSessionError(msg.error)) {
+        if (
+          allowSessionRetry &&
+          msg.type === 'error' &&
+          (isMissingClaudeSessionError(msg.error) || isSessionNotFoundDiagnostic(msg.metadata))
+        ) {
           suppressedMissingSessionError = msg;
           continue;
         }

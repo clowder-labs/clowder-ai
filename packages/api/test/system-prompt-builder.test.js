@@ -6,13 +6,13 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
-import { describe, test } from 'node:test';
+import { describe, mock, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { catRegistry } from '@cat-cafe/shared';
 
 const REPO_ROOT_TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
 const CAT_TEMPLATE_PATH = REPO_ROOT_TEMPLATE;
-const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6900; // 6700→6900: kitten/catagent breed adds ~94 chars to roster (F159 G2 follow-up)
+const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6900; // 6500→6700→6900: kitten/catagent breed + gemini35 + gpt-pro roster growth
 
 function assertWithinFullRuntimePromptBudget(prompt) {
   assert.ok(
@@ -622,6 +622,36 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
+  test('F208 R2-P2: runtime cat in roster does not trigger KD-9 false-positive warning', async () => {
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    const warnFn = mock.method(console, 'warn');
+    try {
+      catRegistry.register('runtime-spark', {
+        ...originalConfigs.codex,
+        displayName: '火花猫',
+        nickname: '小火花',
+        mentionPatterns: ['@runtime-spark', '@火花猫'],
+        defaultModel: 'gpt-5.4-mini',
+        roleDescription: '快速执行',
+        teamStrengths: '精确点改',
+      });
+
+      buildStaticIdentity('opus');
+      // No KD-9 warning should fire for runtime-spark (no dossier entry = expected fallback)
+      const kd9Calls = warnFn.mock.calls.filter(
+        (c) => typeof c.arguments[0] === 'string' && c.arguments[0].includes('[F208 KD-9]'),
+      );
+      assert.equal(kd9Calls.length, 0, 'runtime cat must not trigger KD-9 dossier drift warning');
+    } finally {
+      warnFn.mock.restore();
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
   test('buildStaticIdentity roster excludes self', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const opusRoster = buildStaticIdentity('opus');
@@ -781,6 +811,22 @@ describe('SystemPromptBuilder', () => {
     // F064 球权模型: A2A 出口检查 → A2A 球权检查
     assert.ok(ctx.includes('A2A 球权检查'), 'Should include A2A ball-ownership check hint');
     assert.ok(ctx.includes('句中无效'), 'Should teach inline @ is invalid for routing');
+  });
+
+  test('buildInvocationContext omits repeated A2A long anchors when native L0 is injected', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+      nativeL0Injected: true,
+    });
+    assert.ok(!ctx.includes('A2A 球权检查'), 'native L0 already carries A2A ball-ownership rules');
+    assert.ok(!ctx.includes('下一棒传球决策树'), 'native L0 already carries the full baton decision tree');
+    assert.ok(ctx.includes('当前模式：独立回答'), 'dynamic invocation mode should still be injected');
+    assert.ok(ctx.includes('你的队友'), 'dynamic teammate context should still be injected');
   });
 
   test('F167-F AC-F1: teammate roster surfaces resolved model per cat (handle/model 解绑)', async () => {
@@ -1713,7 +1759,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    // 6200→6500→6700→6900: decision funnel §17 + gemini35 standalone breed + kitten/catagent breed roster growth
+    // 6200→6500→6700→6900: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
     assert.ok(prompt.length < 6900, `Prompt with SOP hint is ${prompt.length} chars, expected < 6900`);
   });
 
@@ -1761,7 +1807,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    // 6200→6500→6700→6900: decision funnel §17 + gemini35 standalone breed + kitten/catagent breed roster growth
+    // 6200→6500→6700→6900: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
     assert.ok(prompt.length < 6900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 6900`);
   });
 
@@ -2126,7 +2172,9 @@ describe('SystemPromptBuilder', () => {
   });
 
   // KD-17: marker-based instructions replace old Rule #3 (actions array output)
-  test('F229 KD-17: concierge prompt has marker instructions [跳过去 R] [原地看 R], not actions array', async () => {
+  // BUG-UX-12: prompt teaches only [跳过去 R] (teleport). [原地看 R] removed — all
+  // concierge actions are semantically thread jumps, no inline peek.
+  test('F229 KD-17: concierge prompt has [跳过去 R] marker, no [原地看 R] (BUG-UX-12)', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const result = buildInvocationContext({
       catId: 'sonnet',
@@ -2146,9 +2194,10 @@ describe('SystemPromptBuilder', () => {
       },
     });
 
-    // New marker instructions must be present
+    // [跳过去 R] marker instruction must be present (only navigation verb)
     assert.ok(result.includes('[跳过去 R'), 'should contain [跳过去 R] marker instruction');
-    assert.ok(result.includes('[原地看 R'), 'should contain [原地看 R] marker instruction');
+    // BUG-UX-12: [原地看 R] removed from prompt — no longer a taught verb
+    assert.ok(!result.includes('[原地看 R'), 'should NOT contain [原地看 R] — peek removed (BUG-UX-12)');
 
     // Old Rule #3 (actions array literal) must be gone
     assert.ok(!result.includes('{ actions: [{ action:'), 'old Rule #3 actions array literal must be removed');

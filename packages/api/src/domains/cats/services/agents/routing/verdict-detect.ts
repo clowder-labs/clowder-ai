@@ -13,7 +13,12 @@
  * shared-rules §10 已落地，本模块是不依赖猫配合的兜底信号。
  */
 
-import { finalRoutingSlot, hasEventDrivenExternalWaitExit, stripTrailingCatSignatures } from './final-routing-slot.js';
+import { stripTrailingCatSignatures } from './cat-signature-strip.js';
+import { finalRoutingSlot } from './final-routing-slot.js';
+
+// 2026-06-20 verdict eval:a2a C2 void-hold English fix: signature stripping
+// extracted to `cat-signature-strip.ts` so void-hold-detect.ts can share the
+// same source of truth. See that module for the regex + helper.
 
 /**
  * Review verdict 关键词。保守集，避免常见日常用语误报：

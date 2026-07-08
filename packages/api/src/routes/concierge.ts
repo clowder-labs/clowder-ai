@@ -46,7 +46,7 @@ const log = createModuleLogger('concierge-routes');
 const patchConciergeConfigSchema = z
   .object({
     enabled: z.boolean(),
-    skin: z.enum(['yarn-ball', 'ragdoll-v1']),
+    skin: z.enum(['yarn-ball', 'ragdoll-v1', 'yanyan-codex', 'xianxian-codex']),
     // No newlines/CR allowed: both fields are interpolated verbatim into the concierge
     // system prompt. Embedded newlines would inject prompt directives (P1 prompt injection).
     displayName: z
@@ -66,6 +66,10 @@ const patchConciergeConfigSchema = z
     muted: z.boolean(),
     /** PR-A3b: ball position persistence (INV-P3) */
     ballPosition: z.object({ x: z.number().finite(), y: z.number().finite() }).nullable(),
+    /** E3: ball size persistence (48-192px, see BALL_SIZE_MIN/MAX) */
+    ballSize: z.number().int().min(48).max(192),
+    /** E4: autonomous behavior engine toggle */
+    behaviorEnabled: z.boolean(),
   })
   .partial()
   .strict();
