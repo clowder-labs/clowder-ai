@@ -157,7 +157,7 @@ import {
   ReviewFeedbackRouter,
 } from './infrastructure/email/index.js';
 import { fetchLatestIssueCommentCursor, maxGithubId } from './infrastructure/github/comment-cursors.js';
-import { buildGhCliEnv, resolveGhCliToken } from './infrastructure/github/gh-cli-env.js';
+import { buildGhCliEnv, resolveGhCliToken, withHiddenGhCliWindow } from './infrastructure/github/gh-cli-env.js';
 import type { EvalDomainId } from './infrastructure/harness-eval/domain/eval-domain-registry.js';
 import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
 import { securityHeadersPlugin } from './infrastructure/security-headers.js';
@@ -228,6 +228,7 @@ import {
   projectSetupRoute,
   projectsBootstrapRoutes,
   projectsRoutes,
+  promptInjectionManifestRoutes,
   promptInjectionPreviewRoutes,
   promptInjectionRoutes,
   proposalRoutes,
@@ -1595,6 +1596,10 @@ async function main(): Promise<void> {
   // Shared instance — lightweight (just holds a Redis ref, no state).
   const freshnessStateStore = redis ? new FreshnessInvocationStateStore(redis) : undefined;
 
+  // F237 Phase 2: InjectionTraceStore — prompt injection trace persistence
+  const { InjectionTraceStore: _ITSEarly } = await import('./domains/prompt-hooks/InjectionTraceStore.js');
+  const injectionTraceStore = redis ? new _ITSEarly(redis) : undefined;
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1635,6 +1640,7 @@ async function main(): Promise<void> {
     cloudInvokeBridge,
     ...(freshnessReinvokeCheck ? { freshnessReinvokeCheck } : {}),
     ...(freshnessStateStore ? { freshnessStateStore } : {}),
+    ...(injectionTraceStore ? { injectionTraceStore } : {}),
   });
 
   // F39: Message queue delivery
@@ -2242,11 +2248,11 @@ async function main(): Promise<void> {
   const getGitHubToken = (): string | undefined => {
     return resolveGhCliToken({ pluginEnv: getGitHubPluginEnv() });
   };
-  const getGitHubExecOptions = (timeout: number): { timeout: number; env?: NodeJS.ProcessEnv } => {
-    return {
+  const getGitHubExecOptions = (timeout: number): { timeout: number; env?: NodeJS.ProcessEnv; windowsHide: true } => {
+    return withHiddenGhCliWindow({
       timeout,
       env: buildGhCliEnv({ token: getGitHubToken() }),
-    };
+    });
   };
   const { createRepoActivityTemplate } = await import('./infrastructure/scheduler/templates/repo-activity.js');
   templateRegistry.register(createRepoActivityTemplate({ getGitHubToken }));
@@ -2883,7 +2889,7 @@ async function main(): Promise<void> {
         '-f',
         'per_page=100',
       ],
-      { timeout: 60_000 },
+      getGitHubExecOptions(60_000),
     );
     if (!stdout.trim()) return [];
     return stdout
@@ -2910,7 +2916,7 @@ async function main(): Promise<void> {
         '-f',
         'per_page=100',
       ],
-      { timeout: 60_000 },
+      getGitHubExecOptions(60_000),
     );
     if (!stdout.trim()) return [];
     return stdout
@@ -2933,7 +2939,7 @@ async function main(): Promise<void> {
         '--jq',
         '.[] | {user: .user.login, state, commit_id}',
       ],
-      { timeout: 30_000 },
+      getGitHubExecOptions(30_000),
     );
     if (!stdout.trim()) return [];
     return stdout
@@ -3174,6 +3180,7 @@ async function main(): Promise<void> {
   await app.register(configSecretsRoutes);
   await app.register(rulesRoutes);
   await app.register(promptInjectionRoutes);
+  await app.register(promptInjectionManifestRoutes);
   await app.register(promptInjectionPreviewRoutes);
   await app.register(servicesRoutes, {
     lifecycle: {
