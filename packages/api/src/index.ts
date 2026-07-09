@@ -3,6 +3,10 @@
  * 后端 API 入口
  */
 
+// Side-effect import: must be FIRST — installs global fetch proxy dispatcher
+// before any code calls fetch(). See proxy-dispatcher.ts for rationale.
+import './infrastructure/proxy-dispatcher.js';
+
 import { join } from 'node:path';
 import {
   type CatConfig,
