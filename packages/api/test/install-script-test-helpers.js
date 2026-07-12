@@ -19,6 +19,23 @@ const repoRoot = resolve(testDir, '..', '..', '..');
 
 export const installScript = resolve(repoRoot, 'scripts', 'install.sh');
 
+const INSTALL_TEST_ENV_KEYS = [
+  'CAT_CAFE_GLOBAL_CONFIG_ROOT',
+  'CAT_CAFE_RUNTIME_BRANCH',
+  'CAT_CAFE_RUNTIME_DIR',
+  'CAT_CAFE_RUNTIME_REMOTE',
+  'CAT_CAFE_RUNTIME_ROOT',
+  'CAT_CAFE_WORKSPACE_ROOT',
+];
+
+function withInstallTestEnv(overrides = {}) {
+  const env = { ...process.env };
+  for (const key of INSTALL_TEST_ENV_KEYS) {
+    delete env[key];
+  }
+  return { ...env, ...overrides };
+}
+
 export {
   assert,
   basename,
@@ -39,7 +56,7 @@ export function runSourceOnlySnippet(snippet) {
   const result = spawnSync(
     'bash',
     ['-lc', `set -e\nsource "${installScript}" --source-only >/dev/null 2>&1\n${snippet}`],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: withInstallTestEnv() },
   );
 
   assert.equal(
