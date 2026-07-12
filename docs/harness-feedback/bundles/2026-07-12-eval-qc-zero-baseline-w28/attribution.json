@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-07-12-eval-qc-zero-baseline-w28",
+  "featureId": "F253",
+  "evalSnapshotId": "qc-snapshot-2026-07-12-eval-qc-zero-baseline-w28",
+  "generatedAt": "2026-07-12T03:07:54.524Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "Zero-baseline bootstrap (Phase C) — no live QC data sources wired",
+    "evidence": "All QC metrics are zero (prCount=0). Eval:qc data pipeline not yet active."
+  }
+}
