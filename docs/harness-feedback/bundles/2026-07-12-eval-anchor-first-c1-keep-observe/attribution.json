@@ -1,0 +1,47 @@
+{
+  "verdictId": "2026-07-12-eval-anchor-first-c1-keep-observe",
+  "featureId": "F236",
+  "evalSnapshotId": "eval-F236-2026-07-12",
+  "generatedAt": "2026-07-12T03:16:06.684Z",
+  "findings": [
+    {
+      "id": "AF-2026-07-12-thread-context",
+      "relatedFeature": "F236",
+      "sunsetSignals": {
+        "anchorTax": false,
+        "highOpenRate": false,
+        "netNegative": false
+      },
+      "frictionSignal": {
+        "type": "anchor.open_rate.thread-context",
+        "severity": "low",
+        "confidence": 0.8,
+        "detectedAt": "2026-07-12T03:16:06.684Z"
+      },
+      "attribution": {
+        "primaryLayer": "needs_investigation",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "anchor-telemetry-rollup/thread-context_drilled_unique_items",
+            "excerpt": "thread-context: 1/110 items drilled (0.9% open rate), charsSaved=280650, drillChars=1453, netBenefit=279197"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "keep-observe",
+          "target": "anchor-telemetry-rollup/thread-context",
+          "rationale": "Open rate 0.9%: 1/110 items drilled, net benefit 279197 chars"
+        }
+      ]
+    }
+  ],
+  "sunsetAssessment": {
+    "toolCount": 1,
+    "toolsWithAnchorTax": 0,
+    "toolsNetNegative": 0,
+    "toolsHighOpenRate": 0,
+    "lowSampleToolCount": 0
+  }
+}
