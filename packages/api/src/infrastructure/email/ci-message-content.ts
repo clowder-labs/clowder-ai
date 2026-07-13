@@ -4,7 +4,11 @@
  */
 import type { CiPollResult } from './CiCdRouter.js';
 
-export function buildCiMessageContent(poll: CiPollResult, trackingInstructions?: string): string {
+export function buildCiMessageContent(
+  poll: CiPollResult,
+  trackingInstructions?: string,
+  trackingInstructionsHeadSha?: string,
+): string {
   const bucketEmoji = poll.aggregateBucket === 'pass' ? '✅' : '❌';
   const bucketLabel = poll.aggregateBucket === 'pass' ? 'CI 通过' : 'CI 失败';
 
@@ -30,11 +34,22 @@ export function buildCiMessageContent(poll: CiPollResult, trackingInstructions?:
   }
 
   // F202 Phase 2C (AC-C2): append user-provided tracking instructions
-  if (trackingInstructions) {
+  if (shouldAppendTrackingInstructions(trackingInstructions, poll.headSha, trackingInstructionsHeadSha)) {
     lines.push('', '📌 **Tracking Instructions**', trackingInstructions);
   }
 
   return lines.join('\n');
+}
+
+function shouldAppendTrackingInstructions(
+  trackingInstructions: string | undefined,
+  currentHeadSha: string | undefined,
+  instructionsHeadSha: string | undefined,
+): trackingInstructions is string {
+  if (!trackingInstructions) return false;
+  if (!instructionsHeadSha) return true;
+  if (!currentHeadSha) return false;
+  return instructionsHeadSha === currentHeadSha;
 }
 
 /** Terminal lifecycle (merged/closed) notification. */
