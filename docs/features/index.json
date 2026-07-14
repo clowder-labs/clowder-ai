@@ -1523,6 +1523,12 @@
       "name": "Memory Search Strategy Evolution — 从被动召回到主动探索",
       "status": "active | **Owner**: Ragdoll (opus-4.6) | **Priority**: P1",
       "file": "F256-memory-search-strategy-evolution.md"
+    },
+    {
+      "id": "F258",
+      "name": "BLE Physical Event Limb — 可审计的物理事件总线",
+      "status": "in-progress (Phase A implementation reviewed; hardware acceptance pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1",
+      "file": "F258-ble-physical-event-limb.md"
     }
   ]
 }
