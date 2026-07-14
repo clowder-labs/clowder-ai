@@ -13,16 +13,20 @@ export interface BleHelperProcess extends EventEmitter {
   kill(signal?: NodeJS.Signals): boolean;
 }
 
-export function resolveBleHelperExecutable(arch = process.arch): string {
+export function resolveBleHelperExecutable(
+  arch = process.arch,
+  fileExists: (path: string) => boolean = existsSync,
+): string {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   const apiRoot = resolve(moduleDir, '../../../..');
-  const architecture = arch === 'arm64' ? 'arm64' : 'x64';
+  const packagedArchitecture = arch === 'arm64' ? 'arm64' : 'x64';
+  const localBuildArchitecture = arch === 'x64' ? 'x86_64' : packagedArchitecture;
   const candidates = [
     resolve(apiRoot, 'ble-helper', 'ble-helper'),
-    resolve(apiRoot, '..', '..', 'bundled', `ble-helper-darwin-${architecture}`, 'ble-helper'),
-    resolve(apiRoot, '..', '..', 'native', 'ble-helper', 'macos', '.build', architecture, 'ble-helper'),
+    resolve(apiRoot, '..', '..', 'bundled', `ble-helper-darwin-${packagedArchitecture}`, 'ble-helper'),
+    resolve(apiRoot, '..', '..', 'native', 'ble-helper', 'macos', '.build', localBuildArchitecture, 'ble-helper'),
   ];
-  const executable = candidates.find((candidate) => existsSync(candidate));
+  const executable = candidates.find(fileExists);
   if (!executable) {
     throw new Error('BLE helper executable not found');
   }
