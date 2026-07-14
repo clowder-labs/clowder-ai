@@ -137,6 +137,7 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
   private readonly logger: LoggerLike;
   private readonly scan: BleScanSession;
   private readonly bindings = new Map<string, BleBinding>();
+  private readonly bindingDeviceIds = new Set<string>();
   private readonly subscriptions = new Map<string, NotificationSubscription>();
 
   constructor(options: BleDeviceManagerOptions) {
@@ -199,39 +200,48 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
   async bind(input: BindInput): Promise<BleBindingView> {
     const discovery = this.scan.resolveDiscovery(input.sessionId, input.discoveryId);
     if (!discovery) throw new Error('BLE discovery is not available in the active scan session');
-    if ([...this.bindings.values()].some((binding) => binding.platformDeviceId === discovery.platformDeviceId)) {
-      throw new Error('BLE device is already bound');
+    const deviceId = discovery.platformDeviceId;
+    if (
+      this.bindingDeviceIds.has(deviceId) ||
+      [...this.bindings.values()].some((binding) => binding.platformDeviceId === deviceId)
+    ) {
+      throw new Error('BLE device is already bound or binding is already in progress');
     }
+    this.bindingDeviceIds.add(deviceId);
 
-    const inspection = await this.helper.request('device.inspect', { deviceId: discovery.platformDeviceId });
-    const services = parseGattServices(inspection);
-    const adapter = selectBleAdapter(services);
-    if (!adapter) throw new Error('BLE device does not expose a supported adapter profile');
-    const commands = availableBleCommands(adapter, services).map((command) => command.command);
-    if (commands.length === 0) throw new Error('BLE device has no supported readable or notifiable characteristics');
-
-    const bindingId = randomUUID();
-    const now = Date.now();
-    const binding: BleBinding = {
-      bindingId,
-      scopeId: BLE_BINDING_SCOPE,
-      platformDeviceId: discovery.platformDeviceId,
-      displayName: discovery.name?.trim().slice(0, 128) || `BLE ${bindingId.slice(0, 8)}`,
-      adapterId: adapter.id,
-      commands,
-      nodeId: `ble:${bindingId}`,
-      createdAt: now,
-      lastConnectedAt: now,
-    };
-
-    await this.store.put(binding);
     try {
-      await this.registerBinding(binding);
-    } catch (error) {
-      await this.store.delete(binding.scopeId, binding.bindingId);
-      throw error;
+      const inspection = await this.helper.request('device.inspect', { deviceId });
+      const services = parseGattServices(inspection);
+      const adapter = selectBleAdapter(services);
+      if (!adapter) throw new Error('BLE device does not expose a supported adapter profile');
+      const commands = availableBleCommands(adapter, services).map((command) => command.command);
+      if (commands.length === 0) throw new Error('BLE device has no supported readable or notifiable characteristics');
+
+      const bindingId = randomUUID();
+      const now = Date.now();
+      const binding: BleBinding = {
+        bindingId,
+        scopeId: BLE_BINDING_SCOPE,
+        platformDeviceId: deviceId,
+        displayName: discovery.name?.trim().slice(0, 128) || `BLE ${bindingId.slice(0, 8)}`,
+        adapterId: adapter.id,
+        commands,
+        nodeId: `ble:${bindingId}`,
+        createdAt: now,
+        lastConnectedAt: now,
+      };
+
+      await this.store.put(binding);
+      try {
+        await this.registerBinding(binding);
+      } catch (error) {
+        await this.store.delete(binding.scopeId, binding.bindingId);
+        throw error;
+      }
+      return toBindingView(binding);
+    } finally {
+      this.bindingDeviceIds.delete(deviceId);
     }
-    return toBindingView(binding);
   }
 
   async unbind(bindingId: string): Promise<boolean> {

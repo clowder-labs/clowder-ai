@@ -174,13 +174,32 @@ describe('BleHelperClient', () => {
   it('times out a request without exiting the process', async () => {
     const process = new FakeProcess();
     queueMicrotask(() => process.sendHello());
+    let fireRequestTimeout;
+    let unrefCalled = false;
+    const requestTimer = {
+      unref: () => {
+        unrefCalled = true;
+      },
+    };
     const client = new BleHelperClient({
       platform: 'darwin',
       spawnProcess: () => process,
       requestTimeoutMs: 5,
+      setRequestTimer: (callback, ms) => {
+        assert.equal(ms, 5);
+        fireRequestTimeout = callback;
+        return requestTimer;
+      },
     });
 
-    await assert.rejects(client.request('scan.start', { sessionId: 'scan-timeout', timeoutMs: 30_000 }), /timed out/);
+    await client.start();
+    const request = client.request('scan.start', { sessionId: 'scan-timeout', timeoutMs: 30_000 });
+    await Promise.resolve();
+    assert.equal(typeof fireRequestTimeout, 'function');
+    assert.equal(unrefCalled, true);
+    fireRequestTimeout();
+
+    await assert.rejects(request, /timed out/);
     assert.equal(client.status.state, 'ready');
   });
 

@@ -19,6 +19,8 @@ export interface BleHelperClientOptions {
   helperPath?: string;
   handshakeTimeoutMs?: number;
   requestTimeoutMs?: number;
+  setRequestTimer?: (callback: () => void, ms: number) => NodeJS.Timeout;
+  clearRequestTimer?: (timer: NodeJS.Timeout) => void;
   sleep?: (ms: number) => Promise<void>;
   logger?: BleHelperLogger;
 }

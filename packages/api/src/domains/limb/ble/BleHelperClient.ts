@@ -7,6 +7,7 @@ import type {
   BleHelperClientStatus,
   BleHelperLogger,
 } from './BleHelperClientTypes.js';
+import { asError, BleHelperCompatibilityError, isCompatibilityError } from './BleHelperErrors.js';
 import { type BleHelperProcess, spawnBleHelperProcess } from './BleHelperProcess.js';
 import { type BleHelperEvent, type BleHelperInboundMessage, encodeBleHelperRequest } from './BleHelperProtocol.js';
 import { frameBleHelperChunk, tryParseBleHelperMessage } from './BleHelperStream.js';
@@ -19,25 +20,13 @@ interface PendingRequest {
 
 const RESTART_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 
-class BleHelperCompatibilityError extends Error {}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-function isCompatibilityError(error: Error): boolean {
-  return (
-    error instanceof BleHelperCompatibilityError ||
-    error.message.startsWith('Unsupported BLE helper protocol') ||
-    error.message.startsWith('BLE helper message exceeds')
-  );
-}
-
 export class BleHelperClient extends EventEmitter {
   private readonly platform: string;
   private readonly spawnProcess: () => BleHelperProcess;
   private readonly handshakeTimeoutMs: number;
   private readonly requestTimeoutMs: number;
+  private readonly setRequestTimer: (callback: () => void, ms: number) => NodeJS.Timeout;
+  private readonly clearRequestTimer: (timer: NodeJS.Timeout) => void;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly logger: BleHelperLogger;
   private process: BleHelperProcess | null = null;
@@ -55,6 +44,8 @@ export class BleHelperClient extends EventEmitter {
     this.spawnProcess = options.spawnProcess ?? (() => spawnBleHelperProcess(options.helperPath));
     this.handshakeTimeoutMs = options.handshakeTimeoutMs ?? 3_000;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
+    this.setRequestTimer = options.setRequestTimer ?? ((callback, ms) => setTimeout(callback, ms));
+    this.clearRequestTimer = options.clearRequestTimer ?? ((timer) => clearTimeout(timer));
     this.sleep = options.sleep ?? ((ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)));
     this.logger = options.logger ?? console;
     this.state = this.platform === 'darwin' ? 'idle' : 'unsupported';
@@ -88,7 +79,7 @@ export class BleHelperClient extends EventEmitter {
     const requestId = randomUUID();
     const line = encodeBleHelperRequest(command, params, requestId);
     return new Promise<unknown>((resolveRequest, rejectRequest) => {
-      const timer = setTimeout(() => {
+      const timer = this.setRequestTimer(() => {
         this.pending.delete(requestId);
         rejectRequest(new Error(`BLE helper request timed out: ${command}`));
       }, this.requestTimeoutMs);
@@ -99,12 +90,12 @@ export class BleHelperClient extends EventEmitter {
           if (!error) return;
           const pending = this.pending.get(requestId);
           if (!pending) return;
-          clearTimeout(pending.timer);
+          this.clearRequestTimer(pending.timer);
           this.pending.delete(requestId);
           pending.reject(asError(error));
         });
       } catch (error) {
-        clearTimeout(timer);
+        this.clearRequestTimer(timer);
         this.pending.delete(requestId);
         rejectRequest(asError(error));
       }
@@ -315,7 +306,7 @@ export class BleHelperClient extends EventEmitter {
       this.logger.warn(`Ignoring BLE helper response for unknown request: ${message.requestId}`);
       return;
     }
-    clearTimeout(pending.timer);
+    this.clearRequestTimer(pending.timer);
     this.pending.delete(message.requestId);
     if (message.ok) pending.resolve(message.data);
     else pending.reject(new Error(message.error ?? 'BLE helper request failed'));
@@ -336,7 +327,7 @@ export class BleHelperClient extends EventEmitter {
 
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
-      clearTimeout(pending.timer);
+      this.clearRequestTimer(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();

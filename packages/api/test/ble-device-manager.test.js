@@ -102,6 +102,67 @@ describe('BleDeviceManager + BleLimbNode', () => {
     assert.equal((await store.list('instance')).length, 1);
   });
 
+  it('serializes concurrent bind attempts for the same discovered device', async () => {
+    const session = await manager.startScan();
+    helper.emit('event', discoveryEvent(session.sessionId));
+    const discovery = manager.scanSnapshot().discoveries[0];
+    const originalRequest = helper.request.bind(helper);
+    let releaseInspection;
+    let markInspectionStarted;
+    const inspectionGate = new Promise((resolve) => {
+      releaseInspection = resolve;
+    });
+    const inspectionStarted = new Promise((resolve) => {
+      markInspectionStarted = resolve;
+    });
+    let inspectionCount = 0;
+    helper.request = async (command, params) => {
+      if (command === 'device.inspect') {
+        inspectionCount += 1;
+        markInspectionStarted();
+        await inspectionGate;
+      }
+      return originalRequest(command, params);
+    };
+
+    const firstBind = manager.bind({ sessionId: session.sessionId, discoveryId: discovery.discoveryId });
+    await inspectionStarted;
+    const secondBind = manager.bind({ sessionId: session.sessionId, discoveryId: discovery.discoveryId });
+    await Promise.resolve();
+    releaseInspection();
+
+    const [first, second] = await Promise.allSettled([firstBind, secondBind]);
+    assert.equal(first.status, 'fulfilled');
+    assert.equal(second.status, 'rejected');
+    assert.match(second.reason.message, /already bound|binding is already in progress/);
+    assert.equal(inspectionCount, 1);
+    assert.equal((await store.list('instance')).length, 1);
+  });
+
+  it('releases the bind reservation after inspection fails', async () => {
+    const session = await manager.startScan();
+    helper.emit('event', discoveryEvent(session.sessionId));
+    const discovery = manager.scanSnapshot().discoveries[0];
+    const originalRequest = helper.request.bind(helper);
+    let failInspection = true;
+    helper.request = async (command, params) => {
+      if (command === 'device.inspect' && failInspection) {
+        failInspection = false;
+        throw new Error('inspection failed');
+      }
+      return originalRequest(command, params);
+    };
+
+    await assert.rejects(
+      manager.bind({ sessionId: session.sessionId, discoveryId: discovery.discoveryId }),
+      /inspection failed/,
+    );
+    const binding = await manager.bind({ sessionId: session.sessionId, discoveryId: discovery.discoveryId });
+
+    assert.equal(binding.adapterId, 'standard.environmental');
+    assert.equal((await store.list('instance')).length, 1);
+  });
+
   it('rejects stale or unknown discoveries without persistence', async () => {
     await assert.rejects(manager.bind({ sessionId: 'stale', discoveryId: 'unknown' }), /not available/);
     assert.deepEqual(await store.list('instance'), []);
