@@ -1527,7 +1527,7 @@
     {
       "id": "F258",
       "name": "BLE Physical Event Limb — 可审计的物理事件总线",
-      "status": "in-progress (Phase A implementation complete; hardware acceptance and implementation review pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1",
+      "status": "in-progress (Phase A implementation reviewed; hardware acceptance pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1",
       "file": "F258-ble-physical-event-limb.md"
     }
   ]

@@ -216,7 +216,9 @@ build_ble_helper() {
     -Xlinker __info_plist \
     -Xlinker "${source_dir}/Info.plist" \
     "${source_dir}/Protocol.swift" \
+    "${source_dir}/BleSupport.swift" \
     "${source_dir}/BleController.swift" \
+    "${source_dir}/BleController+Delegates.swift" \
     "${source_dir}/main.swift" \
     -o "${out_dir}/ble-helper" \
     || die "BLE helper ${arch} build failed"

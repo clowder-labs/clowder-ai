@@ -2,36 +2,14 @@ import CoreBluetooth
 import Darwin
 import Foundation
 
-private enum OperationKind {
-    case inspect
-    case read
-    case subscribe
-}
-
-private final class DeviceOperation {
-    let request: BleRequest
-    let kind: OperationKind
-    let serviceUuid: CBUUID?
-    let characteristicUuid: CBUUID?
-    var pendingServiceCount = 0
-    var timeout: DispatchWorkItem?
-
-    init(request: BleRequest, kind: OperationKind, serviceUuid: CBUUID? = nil, characteristicUuid: CBUUID? = nil) {
-        self.request = request
-        self.kind = kind
-        self.serviceUuid = serviceUuid
-        self.characteristicUuid = characteristicUuid
-    }
-}
-
 final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegate, CBPeripheralDelegate {
-    private let writer: ProtocolWriter
-    private var central: CBCentralManager!
-    private var devices: [UUID: CBPeripheral] = [:]
-    private var activeScanSessionId: String?
-    private var scanTimeout: DispatchWorkItem?
-    private var operations: [UUID: DeviceOperation] = [:]
-    private var subscriptions: [String: String] = [:]
+    let writer: ProtocolWriter
+    var central: CBCentralManager!
+    var devices: [UUID: CBPeripheral] = [:]
+    var activeScanSessionId: String?
+    var scanTimeout: DispatchWorkItem?
+    var operations: [UUID: DeviceOperation] = [:]
+    var subscriptions: [String: String] = [:]
 
     init(writer: ProtocolWriter) {
         self.writer = writer
@@ -54,167 +32,6 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         case "helper.shutdown": shutdown(request)
         default: writer.error(requestId: request.requestId, code: "unsupported_command")
         }
-    }
-
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        let state: String
-        switch central.state {
-        case .poweredOn: state = "poweredOn"
-        case .poweredOff: state = "poweredOff"
-        case .unauthorized: state = "unauthorized"
-        case .unsupported: state = "unsupported"
-        case .resetting: state = "resetting"
-        default: state = "unknown"
-        }
-        writer.event(name: "adapter.state", data: ["state": state])
-        if central.state != .poweredOn, activeScanSessionId != nil {
-            finishScan(state: "stopped")
-        }
-    }
-
-    func centralManager(
-        _ central: CBCentralManager,
-        didDiscover peripheral: CBPeripheral,
-        advertisementData: [String: Any],
-        rssi RSSI: NSNumber
-    ) {
-        guard let sessionId = activeScanSessionId else { return }
-        devices[peripheral.identifier] = peripheral
-        peripheral.delegate = self
-        let advertisedServices = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID]) ?? []
-        let rawName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name
-        let name = rawName.map { String($0.prefix(128)) }
-        let rssi = min(20, max(-127, RSSI.intValue))
-        writer.event(name: "scan.discovered", data: [
-            "sessionId": sessionId,
-            "deviceId": peripheral.identifier.uuidString,
-            "name": name ?? NSNull(),
-            "rssi": rssi,
-            "serviceUuids": advertisedServices.prefix(64).map(\.uuidString),
-        ])
-    }
-
-    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        startDiscovery(for: peripheral)
-    }
-
-    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        failOperation(peripheral.identifier, code: "connect_failed")
-    }
-
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        if operations[peripheral.identifier] != nil {
-            failOperation(peripheral.identifier, code: "device_disconnected")
-        }
-        subscriptions = subscriptions.filter { !$0.key.hasPrefix("\(peripheral.identifier.uuidString.lowercased()):") }
-        devices.removeValue(forKey: peripheral.identifier)
-        writer.event(name: "device.disconnected", data: [
-            "deviceId": peripheral.identifier.uuidString,
-            "reason": error.map { String($0.localizedDescription.prefix(256)) } ?? NSNull(),
-        ])
-    }
-
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let operation = operations[peripheral.identifier] else { return }
-        guard error == nil, let services = peripheral.services, services.count <= 64 else {
-            failOperation(peripheral.identifier, code: "service_discovery_failed")
-            return
-        }
-        switch operation.kind {
-        case .inspect:
-            operation.pendingServiceCount = services.count
-            if services.isEmpty {
-                completeInspection(peripheral)
-                return
-            }
-            for service in services {
-                peripheral.discoverCharacteristics(nil, for: service)
-            }
-        case .read, .subscribe:
-            guard let target = operation.serviceUuid,
-                  let service = services.first(where: { $0.uuid == target })
-            else {
-                failOperation(peripheral.identifier, code: "service_not_found")
-                return
-            }
-            peripheral.discoverCharacteristics(operation.characteristicUuid.map { [$0] }, for: service)
-        }
-    }
-
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard let operation = operations[peripheral.identifier] else { return }
-        guard error == nil, let characteristics = service.characteristics, characteristics.count <= 128 else {
-            failOperation(peripheral.identifier, code: "characteristic_discovery_failed")
-            return
-        }
-        if operation.kind == .inspect {
-            operation.pendingServiceCount -= 1
-            if operation.pendingServiceCount == 0 {
-                completeInspection(peripheral)
-            }
-            return
-        }
-        guard let target = operation.characteristicUuid,
-              let characteristic = characteristics.first(where: { $0.uuid == target })
-        else {
-            failOperation(peripheral.identifier, code: "characteristic_not_found")
-            return
-        }
-        if operation.kind == .read {
-            guard characteristic.properties.contains(.read) else {
-                failOperation(peripheral.identifier, code: "characteristic_not_readable")
-                return
-            }
-            peripheral.readValue(for: characteristic)
-        } else {
-            guard characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) else {
-                failOperation(peripheral.identifier, code: "characteristic_not_notifiable")
-                return
-            }
-            peripheral.setNotifyValue(true, for: characteristic)
-        }
-    }
-
-    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        if let operation = operations[peripheral.identifier], operation.kind == .read,
-           characteristic.uuid == operation.characteristicUuid {
-            guard error == nil, let value = characteristic.value, value.count <= bleMaxValueBytes else {
-                failOperation(peripheral.identifier, code: "characteristic_read_failed")
-                return
-            }
-            writer.response(requestId: operation.request.requestId, data: ["valueBase64": value.base64EncodedString()])
-            clearOperation(peripheral.identifier)
-            releasePeripheralUnlessSubscribed(peripheral)
-            return
-        }
-        let key = subscriptionKey(peripheral: peripheral, characteristic: characteristic)
-        guard subscriptions[key] != nil, error == nil, let value = characteristic.value, value.count <= bleMaxValueBytes,
-              let service = characteristic.service
-        else { return }
-        writer.event(name: "gatt.notification", data: [
-            "deviceId": peripheral.identifier.uuidString,
-            "serviceUuid": service.uuid.uuidString,
-            "characteristicUuid": characteristic.uuid.uuidString,
-            "valueBase64": value.base64EncodedString(),
-            "observedAt": Int(Date().timeIntervalSince1970 * 1000),
-        ])
-    }
-
-    func peripheral(
-        _ peripheral: CBPeripheral,
-        didUpdateNotificationStateFor characteristic: CBCharacteristic,
-        error: Error?
-    ) {
-        guard let operation = operations[peripheral.identifier], operation.kind == .subscribe,
-              characteristic.uuid == operation.characteristicUuid
-        else { return }
-        guard error == nil, characteristic.isNotifying else {
-            failOperation(peripheral.identifier, code: "subscription_failed")
-            return
-        }
-        subscriptions[subscriptionKey(peripheral: peripheral, characteristic: characteristic)] = operation.request.requestId
-        writer.response(requestId: operation.request.requestId, data: ["subscribed": true])
-        clearOperation(peripheral.identifier)
     }
 
     private func startScan(_ request: BleRequest) {
@@ -252,7 +69,7 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         writer.response(requestId: request.requestId, data: ["stopped": true])
     }
 
-    private func finishScan(state: String) {
+    func finishScan(state: String) {
         guard let sessionId = activeScanSessionId else { return }
         central.stopScan()
         scanTimeout?.cancel()
@@ -318,7 +135,7 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         }
     }
 
-    private func startDiscovery(for peripheral: CBPeripheral) {
+    func startDiscovery(for peripheral: CBPeripheral) {
         guard let operation = operations[peripheral.identifier] else { return }
         if operation.kind == .inspect {
             peripheral.discoverServices(nil)
@@ -327,7 +144,7 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         }
     }
 
-    private func completeInspection(_ peripheral: CBPeripheral) {
+    func completeInspection(_ peripheral: CBPeripheral) {
         guard let operation = operations[peripheral.identifier] else { return }
         let services = (peripheral.services ?? []).prefix(64).map { service -> [String: Any] in
             let characteristics = (service.characteristics ?? []).prefix(128).map { characteristic in
@@ -380,7 +197,7 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         return retrieved
     }
 
-    private func failOperation(_ identifier: UUID, code: String) {
+    func failOperation(_ identifier: UUID, code: String) {
         guard let operation = operations[identifier] else { return }
         writer.error(requestId: operation.request.requestId, code: code)
         clearOperation(identifier)
@@ -389,12 +206,12 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         }
     }
 
-    private func clearOperation(_ identifier: UUID) {
+    func clearOperation(_ identifier: UUID) {
         operations[identifier]?.timeout?.cancel()
         operations.removeValue(forKey: identifier)
     }
 
-    private func subscriptionKey(peripheral: CBPeripheral, characteristic: CBCharacteristic) -> String {
+    func subscriptionKey(peripheral: CBPeripheral, characteristic: CBCharacteristic) -> String {
         let service = characteristic.service?.uuid.uuidString.lowercased() ?? "unknown"
         return "\(peripheral.identifier.uuidString.lowercased()):\(service):\(characteristic.uuid.uuidString.lowercased())"
     }
@@ -404,35 +221,11 @@ final class BleController: NSObject, BleCommandHandling, CBCentralManagerDelegat
         return subscriptions.keys.contains { $0.hasPrefix(prefix) }
     }
 
-    private func releasePeripheralUnlessSubscribed(_ peripheral: CBPeripheral) {
+    func releasePeripheralUnlessSubscribed(_ peripheral: CBPeripheral) {
         guard !hasSubscription(peripheral.identifier) else { return }
         if peripheral.state == .connected || peripheral.state == .connecting {
             central.cancelPeripheralConnection(peripheral)
         }
         devices.removeValue(forKey: peripheral.identifier)
     }
-}
-
-private func boundedString(_ value: Any?, max: Int) -> String? {
-    guard let string = value as? String, !string.isEmpty, string.utf8.count <= max else { return nil }
-    return string
-}
-
-private func boundedInt(_ value: Any?, min: Int, max: Int) -> Int? {
-    guard let number = value as? NSNumber,
-          CFGetTypeID(number) != CFBooleanGetTypeID(),
-          number.doubleValue.rounded(.towardZero) == number.doubleValue
-    else { return nil }
-    let intValue = number.intValue
-    return intValue >= min && intValue <= max ? intValue : nil
-}
-
-private func propertyNames(_ properties: CBCharacteristicProperties) -> [String] {
-    var names: [String] = []
-    if properties.contains(.read) { names.append("read") }
-    if properties.contains(.notify) { names.append("notify") }
-    if properties.contains(.indicate) { names.append("indicate") }
-    if properties.contains(.write) { names.append("write") }
-    if properties.contains(.writeWithoutResponse) { names.append("writeWithoutResponse") }
-    return names
 }

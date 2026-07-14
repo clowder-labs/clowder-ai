@@ -13,7 +13,9 @@ swiftc \
   -Xlinker __info_plist \
   -Xlinker "${SCRIPT_DIR}/Info.plist" \
   "${SCRIPT_DIR}/Protocol.swift" \
+  "${SCRIPT_DIR}/BleSupport.swift" \
   "${SCRIPT_DIR}/BleController.swift" \
+  "${SCRIPT_DIR}/BleController+Delegates.swift" \
   "${SCRIPT_DIR}/main.swift" \
   -o "$OUTPUT"
 

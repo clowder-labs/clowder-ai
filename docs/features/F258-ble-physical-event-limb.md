@@ -8,7 +8,7 @@ created: 2026-07-14
 
 # F258: BLE Physical Event Limb — 可审计的物理事件总线
 
-> **Status**: in-progress (Phase A implementation complete; hardware acceptance and implementation review pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1
+> **Status**: in-progress (Phase A implementation reviewed; hardware acceptance pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1
 
 ## Why
 
@@ -80,6 +80,8 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 
 提供 GATT Explorer，展示已授权设备的服务与特征值，并生成 adapter 草稿。adapter manifest 明确列出允许读取或订阅的 characteristic、解码规则、单位和输出 schema；草稿必须经过用户确认后才能启用。Explorer 不提供任意写入入口。
 
+Phase A 每个绑定只选择一个主 adapter。Phase B 改为组合匹配，同一设备同时暴露 Environmental Sensing 与 Battery Service 时，两组类型化能力都必须保留。订阅协议同时增加显式 `unsubscribe`，解绑、断连和 helper 关闭后不得残留通知订阅或连接。新增事件路由前，先把 `BleHelperClient` 的恢复状态机拆为独立模块，避免事件职责继续进入进程生命周期文件。
+
 ### Phase C: 工作流接入、跨平台与受控写入
 
 将类型化 BLE 事件接入 Cat Café 工作流。工作流绑定是用户可见、可恢复的数据，默认 TTL 为 0；消费端按幂等键去重，并保留来源设备、adapter 与原始事件 ID。
@@ -118,6 +120,8 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 - [ ] AC-B4: GATT Explorer 只显示已授权设备，能生成 adapter 草稿，但不能执行任意写入。
 - [ ] AC-B5: adapter manifest 对 characteristic allowlist、解码规则、单位和输出 schema 进行校验；未声明 characteristic 不可访问。
 - [ ] AC-B6: 至少一台真实 BLE 按钮可产生类型化事件，重复通知按幂等规则只形成一个逻辑事件。
+- [ ] AC-B7: 同一设备匹配多个 adapter 时组合暴露全部类型化能力；Environmental Sensing 与 Battery Service 同时存在时不丢失电量能力。
+- [ ] AC-B8: 订阅支持显式 `unsubscribe`；解绑、断连和 helper 关闭后，自动化测试确认不存在残留通知订阅或连接。
 
 ### Phase C（工作流接入、跨平台与受控写入）
 
@@ -195,6 +199,7 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 | 2026-07-14 | 分配 F258，完成查重、产品边界和首版 Phase 设计 |
 | 2026-07-14 | Opus 4.6 跨 family Design Gate 放行；补齐事件归属、队列参数、helper 生命周期和扫描会话定义 |
 | 2026-07-15 | Phase A 代码与自动化证据完成：API 41 项、Console 16 项、Swift 协议 smoke 全绿；AC-A8 等待真实 BLE 传感器验收，代码等待跨个体 review |
+| 2026-07-15 | Opus 4.6 完成跨个体实现审查并放行；P2 文件尺寸当场拆分，三个 P3 进入 Phase B 明确范围 |
 
 ## Review Gate
 
