@@ -2578,7 +2578,19 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'missing_session',
     );
     assert.equal(classifyResumeFailure('ACP error -32603: os.getcwd() failed'), 'missing_session');
+    // Session interrupt: our stall auto-kill (SIGTERM) causes the daemon to mark the session
+    // as "interrupted". Without this classifier, resume fails cascade (no self-heal, no retry).
+    assert.equal(classifyResumeFailure('session was interrupted'), 'missing_session');
+    assert.equal(classifyResumeFailure('already interrupted'), 'missing_session');
+    assert.equal(classifyResumeFailure('session interrupted'), 'missing_session');
+    assert.equal(classifyResumeFailure('session-interrupted'), 'missing_session');
+    assert.equal(classifyResumeFailure('session terminated'), 'missing_session');
+    // Must NOT match generic messages that happen to contain "interrupt" as a substring
+    // in non-session context (e.g. developer instructions mentioning keyboard interrupts)
     assert.equal(classifyResumeFailure('upstream timeout'), null);
+    assert.equal(classifyResumeFailure('keyboard interrupt'), null);
+    assert.equal(classifyResumeFailure('process was interrupted by user'), null);
+    assert.equal(classifyResumeFailure('interrupted system call'), null);
   });
 
   it('isTransientCliExitCode1: context-overflow messages must NOT be treated as transient (bug: Codex duplicate user turn in rollout)', async () => {
@@ -6924,12 +6936,38 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       msgs.some((m) => m.type === 'done'),
       'service should be invoked',
     );
-    assert.equal(optionsSeen[0]?.livenessProbe?.stallAutoKill, true, 'cat invocations still opt into stall cleanup');
+    assert.equal(
+      optionsSeen[0]?.livenessProbe?.stallAutoKill,
+      true,
+      'cat invocations still opt into stall cleanup (default CLI_TIMEOUT_MS)',
+    );
+    // #1145: stallWarningMs tracks resolved CLI_TIMEOUT_MS (default 30 min).
+    // buildStallAutoKillConfig(cliTimeoutMs) uses resolved value, not a hardcoded constant.
     assert.equal(
       optionsSeen[0]?.livenessProbe?.stallWarningMs,
-      7 * 60_000,
-      'stall auto-kill must leave async sampling and deferred-kill margin before the 10m stale-processing window',
+      30 * 60_000,
+      'default: stall threshold must equal DEFAULT_CLI_TIMEOUT_MS (30 min)',
     );
+  });
+
+  it('#1145: buildStallAutoKillConfig tracks custom CLI_TIMEOUT_MS and disables on 0', async () => {
+    const { buildStallAutoKillConfig } = await import(
+      '../dist/domains/cats/services/agents/invocation/invoke-single-cat.js'
+    );
+    // Custom CLI_TIMEOUT_MS (e.g. 60 min)
+    const custom = buildStallAutoKillConfig(60 * 60_000);
+    assert.equal(custom.stallAutoKill, true, 'custom: stallAutoKill enabled');
+    assert.equal(custom.stallWarningMs, 60 * 60_000, 'custom: threshold tracks custom value');
+
+    // CLI_TIMEOUT_MS=0 (disabled) → stallAutoKill off
+    const disabled = buildStallAutoKillConfig(0);
+    assert.equal(disabled.stallAutoKill, false, 'disabled: stallAutoKill off when CLI_TIMEOUT_MS=0');
+    assert.equal(disabled.stallWarningMs, undefined, 'disabled: no stallWarningMs when off');
+
+    // Default fallback (negative → uses DEFAULT_CLI_TIMEOUT_MS internally)
+    const fallback = buildStallAutoKillConfig(-1);
+    assert.equal(fallback.stallAutoKill, true, 'fallback: stallAutoKill enabled');
+    assert.equal(fallback.stallWarningMs, 30 * 60_000, 'fallback: uses DEFAULT_CLI_TIMEOUT_MS');
   });
 
   it('F101: game thread projectPath (games/*) does not trigger governance gate', async () => {
@@ -7045,6 +7083,57 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     );
     assert.equal(optionsSeen.length, 1, `service should be invoked once, got messages: ${JSON.stringify(msgs)}`);
     assert.equal(optionsSeen[0]?.workingDirectory, projectRoot);
+  });
+
+  it('migrates a legacy runtime-root thread before invoking the agent', async () => {
+    const workspaceRoot = await realpath(join(__dirname, '..', '..', '..'));
+    const runtimeRoot = await realpath(await mkdtemp(join(tmpdir(), 'legacy-thread-runtime-root-')));
+    const previousRuntimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT;
+    const previousWorkspaceRoot = process.env.CAT_CAFE_WORKSPACE_ROOT;
+    process.env.CAT_CAFE_RUNTIME_ROOT = runtimeRoot;
+    process.env.CAT_CAFE_WORKSPACE_ROOT = workspaceRoot;
+
+    const optionsSeen = [];
+    const migrations = [];
+    const service = {
+      l0CompilerFn: dummyL0CompilerFn,
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+    const threadId = 'thread-legacy-runtime-root';
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: runtimeRoot, createdBy: 'user1' }),
+        updateProjectPath: async (...args) => migrations.push(args),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    try {
+      const msgs = await collect(
+        invokeSingleCat(deps, {
+          catId: 'opencode',
+          service,
+          prompt: 'test legacy runtime cwd migration',
+          userId: 'user1',
+          threadId,
+          isLastCat: true,
+        }),
+      );
+
+      assert.ok(msgs.some((m) => m.type === 'done'));
+      assert.equal(optionsSeen[0]?.workingDirectory, workspaceRoot);
+      assert.deepEqual(migrations, [[threadId, workspaceRoot]]);
+    } finally {
+      if (previousRuntimeRoot === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = previousRuntimeRoot;
+      if (previousWorkspaceRoot === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = previousWorkspaceRoot;
+      await rmWithRetry(runtimeRoot);
+    }
   });
 
   it('drops OpenCode resume when the stored session workspace differs from the current thread workspace', async () => {
