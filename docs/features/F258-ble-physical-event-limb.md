@@ -8,7 +8,7 @@ created: 2026-07-14
 
 # F258: BLE Physical Event Limb — 可审计的物理事件总线
 
-> **Status**: spec | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1
+> **Status**: in-progress (Phase A implementation complete; hardware acceptance and implementation review pending) | **Owner**: Maine Coon Sol (GPT-5.6 Sol) | **Priority**: P1
 
 ## Why
 
@@ -101,13 +101,13 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 
 ### Phase A（macOS 真实垂直切片）
 
-- [ ] AC-A1: `BleLimbNode` 复用 F126 Registry、Policy、Lease 和 Action Log，不创建平行控制面。
-- [ ] AC-A2: Core 与 helper 使用版本化、可校验的 NDJSON 协议；测试覆盖未知版本、无效消息、请求超时、helper crash、1 秒/2 秒/4 秒退避重启与超过 3 次后标记 `degraded`，以上情况均不会导致 API 进程退出。
-- [ ] AC-A3: macOS CoreBluetooth helper 可完成扫描、显式绑定、连接、标准特征值读取和通知订阅。
-- [ ] AC-A4: 未绑定设备不能被猫猫调用；扫描会话由 `stopScan()` 或 30 秒超时结束，以先发生者为准；结束后扫描结果、RSSI 样本和未绑定设备信息不保留。
-- [ ] AC-A5: 设备绑定使用生产级持久存储，默认 TTL 为 0；仅内存实现只允许用于测试。
-- [ ] AC-A6: Battery Service 与 Environmental Sensing Service 映射为类型化 Limb capability，包含单位、范围校验和解码错误处理。
-- [ ] AC-A7: 任意 GATT `write` 在默认配置下被 Core、adapter 和 helper 一致拒绝，并产生可审计的拒绝结果。
+- [x] AC-A1: `BleLimbNode` 复用 F126 Registry、Policy、Lease 和 Action Log，不创建平行控制面。
+- [x] AC-A2: Core 与 helper 使用版本化、可校验的 NDJSON 协议；测试覆盖未知版本、无效消息、请求超时、helper crash、1 秒/2 秒/4 秒退避重启与超过 3 次后标记 `degraded`，以上情况均不会导致 API 进程退出。
+- [x] AC-A3: macOS CoreBluetooth helper 可完成扫描、显式绑定、连接、标准特征值读取和通知订阅。
+- [x] AC-A4: 未绑定设备不能被猫猫调用；扫描会话由 `stopScan()` 或 30 秒超时结束，以先发生者为准；结束后扫描结果、RSSI 样本和未绑定设备信息不保留。
+- [x] AC-A5: 设备绑定使用生产级持久存储，默认 TTL 为 0；仅内存实现只允许用于测试。
+- [x] AC-A6: Battery Service 与 Environmental Sensing Service 映射为类型化 Limb capability，包含单位、范围校验和解码错误处理。
+- [x] AC-A7: 任意 GATT `write` 在默认配置下被 Core、adapter 和 helper 一致拒绝，并产生可审计的拒绝结果。
 - [ ] AC-A8: 至少一台真实 BLE 传感器完成端到端验收，证据包含设备绑定、读取结果、断连恢复和 Action Log。
 
 ### Phase B（类型化事件与 Adapter 工具）
@@ -130,8 +130,8 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 
 ## Tips Contribution（F244）
 
-- [ ] 新增「绑定 BLE 设备前核对权限」提示。
-- [ ] 新增「BLE proximity 不能作为敏感操作认证」提示。
+- [x] 新增「绑定 BLE 设备前核对权限」提示。
+- [x] 新增「BLE proximity 不能作为敏感操作认证」提示。
 
 ## Dependencies
 
@@ -167,7 +167,7 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | macOS 最低支持版本与 helper 的签名、权限声明如何进入桌面分发流程 | ⬜ Phase A 设计时确认 |
+| OQ-1 | macOS 最低支持版本与 helper 的签名、权限声明如何进入桌面分发流程 | ✅ macOS 13+；Desktop 与 helper 均嵌入蓝牙权限文案，helper 随 `extraResources` 打包并沿用 Desktop ad-hoc codesign 流程 |
 | OQ-2 | 首套硬件验收设备选型：标准 Environmental Sensing 设备与按钮型号 | ⬜ 需要真实硬件确认 |
 | OQ-3 | 第一条按钮工作流使用现有哪一种触发目标作为稳定演示 | ⬜ Phase B Design Gate 确认 |
 | OQ-4 | adapter manifest 在 F202 plugin resource 中的长期类型名与版本策略 | ⬜ Phase B 前确认 |
@@ -194,6 +194,7 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 | 2026-07-14 | 三猫讨论 BLE 能力方向；operator 批准立项 |
 | 2026-07-14 | 分配 F258，完成查重、产品边界和首版 Phase 设计 |
 | 2026-07-14 | Opus 4.6 跨 family Design Gate 放行；补齐事件归属、队列参数、helper 生命周期和扫描会话定义 |
+| 2026-07-15 | Phase A 代码与自动化证据完成：API 41 项、Console 16 项、Swift 协议 smoke 全绿；AC-A8 等待真实 BLE 传感器验收，代码等待跨个体 review |
 
 ## Review Gate
 
@@ -208,4 +209,5 @@ F258 不复制 F126 的 Registry、Policy、Lease 或 Action Log。`BleLimbNode`
 | **Feature** | `docs/features/F126-limb-control-plane.md` | Limb Registry、Policy、Lease、Action Log 真相源 |
 | **Feature** | `docs/features/F124-apple-ecosystem-voice-interaction.md` | Apple 设备长期接入方向 |
 | **Feature** | `docs/features/F202-plugin-framework.md` | adapter plugin resource 的潜在承载面 |
+| **Implementation plan** | `docs/features/assets/F258/phase-a-implementation-plan.md` | Phase A 作用域决策、模块设计与测试矩阵 |
 | **Source thread** | `thread_mrkr4fwxxhjktmdz` | 立项讨论与 operator 批准 |

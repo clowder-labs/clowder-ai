@@ -777,5 +777,55 @@
       "sourceRef": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Friction Signal Eval" }
     },
     "owner": "gpt52"
+  },
+  {
+    "id": "feature-f258-ble-binding-permission",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F258-ble-physical-event-limb.md", "anchor": "BLE Physical Event Limb" },
+    "structureSource": {
+      "path": "docs/features/F258-ble-physical-event-limb.md",
+      "anchor": "Tips Contribution（F244）"
+    },
+    "bodySource": {
+      "path": "docs/features/F258-ble-physical-event-limb.md",
+      "anchor": "扫描会话最长 30 秒"
+    },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "绑定 BLE 设备前先确认 macOS 蓝牙权限；未绑定的扫描结果会在 30 秒内清除。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 F258",
+      "sourceRef": {
+        "path": "docs/features/F258-ble-physical-event-limb.md",
+        "anchor": "Security and Privacy Invariants"
+      }
+    },
+    "owner": "sol"
+  },
+  {
+    "id": "feature-f258-ble-proximity-not-auth",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F258-ble-physical-event-limb.md", "anchor": "BLE Physical Event Limb" },
+    "structureSource": {
+      "path": "docs/features/F258-ble-physical-event-limb.md",
+      "anchor": "Tips Contribution（F244）"
+    },
+    "bodySource": {
+      "path": "docs/features/F258-ble-physical-event-limb.md",
+      "anchor": "BLE proximity 不作为敏感操作认证"
+    },
+    "contexts": ["thinking", "review"],
+    "audience": ["all"],
+    "body": "BLE 设备在附近只适合作为辅助信号，不能单独授权删除或 force push 等敏感操作。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 F258",
+      "sourceRef": {
+        "path": "docs/features/F258-ble-physical-event-limb.md",
+        "anchor": "BLE proximity 不作为敏感操作认证"
+      }
+    },
+    "owner": "sol"
   }
 ]
