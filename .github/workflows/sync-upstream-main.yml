@@ -56,13 +56,26 @@ jobs:
 
       - name: Merge upstream into main
         id: main
+        # Auto-conflict resolution: when upstream/main conflicts with fork/main,
+        # upstream wins (-X theirs). fork/main's job is to track upstream; any
+        # fork-specific code belongs on develop. Verdict/eval commits on main
+        # add new files and rarely conflict with upstream code changes.
+        # The gate step below still validates the merged result before pushing.
         run: |
           set -euo pipefail
           git switch -C main origin/main
           git reset --hard origin/main
 
           before="$(git rev-parse HEAD)"
-          git merge --no-edit upstream/main
+
+          if git merge --no-edit upstream/main; then
+            echo "Clean merge (no conflicts)"
+          else
+            echo "::warning::upstream→main merge conflict detected — auto-resolving (upstream wins: -X theirs)"
+            git merge --abort
+            git merge -X theirs --no-edit upstream/main
+          fi
+
           after="$(git rev-parse HEAD)"
 
           if [ "$before" = "$after" ]; then
@@ -123,6 +136,11 @@ jobs:
 
       - name: Prepare develop sync branch
         id: develop
+        # Auto-conflict resolution: when main conflicts with develop, develop
+        # wins (-X ours). develop is the active fork branch with feature work;
+        # upstream changes that conflict with fork code should not silently
+        # overwrite them. Non-conflicting upstream changes still merge in
+        # normally. The PR gives reviewers a chance to inspect the result.
         run: |
           set -euo pipefail
           git switch -C "$SYNC_BRANCH" origin/develop
@@ -133,7 +151,13 @@ jobs:
             exit 0
           fi
 
-          git merge --no-edit main
+          if git merge --no-edit main; then
+            echo "Clean merge (no conflicts)"
+          else
+            echo "::warning::main→develop merge conflict detected — auto-resolving (develop wins: -X ours)"
+            git merge --abort
+            git merge -X ours --no-edit main
+          fi
 
           if git diff --quiet origin/develop HEAD; then
             echo "needs_pr=false" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-07-09-eval-friction-timeout-singleton-with-recurring-reference-only",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-07-09",
+  "generatedAt": "2026-07-09T03:09:18.602Z",
+  "findings": [
+    {
+      "id": "FR-2026-07-09-d981127d413a",
+      "relatedFeature": "F245",
+      "frictionSignal": {
+        "type": "friction.cluster_d981127d413a",
+        "severity": "high",
+        "confidence": 0.7,
+        "detectedAt": "2026-07-09T03:09:18.602Z"
+      },
+      "attribution": {
+        "primaryLayer": "needs_investigation",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "friction-rollup/cluster_d981127d413a",
+            "excerpt": "cluster 'a2a_timeout: codex' count=1 severity=high sensorForms=[reason]"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "triage-top-friction-cluster",
+          "target": "F245/friction-rollup",
+          "rationale": "Highest-ranked friction cluster in the window — eval cat assigns the 7-class root cause in the verdict before handoff."
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

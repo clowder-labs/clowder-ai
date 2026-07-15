@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-09-eval-friction-timeout-singleton-with-recurring-reference-only",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-07-09-eval-friction-timeout-singleton-with-recurring-reference-only/raw/rollup-report.json",
+      "sha256": "2152e3490b03474074c42fc4d3433908f52dc8aeddc04de378b228bb21c0a25e"
+    }
+  ],
+  "generatedAt": "2026-07-09T03:09:18.602Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}
