@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-15-eval-friction-empty-window-after-singleton-recovery",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-07-15-eval-friction-empty-window-after-singleton-recovery/raw/rollup-report.json",
+      "sha256": "329b4f77122ad1f64847c97a6de07c1fc550368fdab05c72c317c456ab5d64b4"
+    }
+  ],
+  "generatedAt": "2026-07-15T03:01:28.912Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}
