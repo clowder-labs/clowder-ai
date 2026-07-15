@@ -1,0 +1,88 @@
+{
+  "verdictId": "2026-07-15-eval-a2a-subthreshold-multi-signal-drift-keep-observe",
+  "evalSnapshotId": "eval-F167-2026-07-15",
+  "featureId": "F167",
+  "generatedAt": "2026-07-15T03:02:44.536Z",
+  "window": {
+    "startMs": 1783998274801,
+    "endMs": 1784084501444,
+    "durationHours": 23.951845277777778
+  },
+  "counterWindow": {
+    "startMs": 1783781682522,
+    "endMs": 1784084564476,
+    "durationHours": 84.13387620856473
+  },
+  "components": [
+    {
+      "id": "L1",
+      "name": "WorklistRegistry (ping-pong breaker)",
+      "confidence": "medium",
+      "activationCounts": {
+        "l1.streak_break_count": 0,
+        "l1.streak_warn_count": 0
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "c1.hold_replacement_count": 0,
+        "hold_ball_calls": 0
+      },
+      "frictionCounts": {
+        "c1.hold_cancel_count": 0,
+        "c1.hold_zombie_count": 1
+      }
+    },
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "c2.checked": 529,
+        "c2.verdict_hint_emitted": 7,
+        "c2.void_hold_checked": 530,
+        "hint_emitted (mixed routing+verdict)": 7
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 7,
+        "c2.void_hold_hint_emitted": 10
+      }
+    },
+    {
+      "id": "route-serial",
+      "name": "route-serial (A2A handoff routing)",
+      "confidence": "high",
+      "activationCounts": {
+        "inline_action.checked": 530,
+        "inline_action.detected": 8,
+        "line_start.detected": 193
+      },
+      "frictionCounts": {
+        "inline_action.feedback_written": 8,
+        "inline_action.hint_emitted": 7,
+        "inline_action.routed_set_skip": 4,
+        "inline_action.shadow_miss": 2
+      }
+    },
+    {
+      "id": "grounding-phase-o",
+      "name": "claim grounding (Phase O shadow)",
+      "confidence": "medium",
+      "activationCounts": {
+        "grounding.cache_hit_total": 0,
+        "grounding.check_total": 48,
+        "grounding.mismatch_sample_count": 0,
+        "grounding.resolver_total": 0,
+        "grounding.sample_count": 50,
+        "grounding.verdict_total": 48
+      },
+      "frictionCounts": {
+        "grounding.budget_exhausted_total": 0
+      }
+    }
+  ]
+}
