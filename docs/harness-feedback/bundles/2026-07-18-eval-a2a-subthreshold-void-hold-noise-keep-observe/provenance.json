@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-18-eval-a2a-subthreshold-void-hold-noise-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-18-eval-F167-runtime.yaml",
+      "sha256": "34735794b58b5bb9d8ec0a737e2b813532ad28ed29185e814e6266d045209a9b"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-18-eval-F167-attribution.yaml",
+      "sha256": "1e7344921ede1a5cc6c68f1c9c6484501aecdab47bc9cf31e416d955878291bf"
+    }
+  ],
+  "generatedAt": "2026-07-18T03:01:12.923Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
