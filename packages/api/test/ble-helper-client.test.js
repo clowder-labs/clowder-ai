@@ -28,6 +28,10 @@ class FakeProcess extends EventEmitter {
     this.send({ protocol: 'ble-helper', version, kind: 'hello' });
   }
 
+  sendAdapterState(state = 'poweredOn') {
+    this.send({ protocol: 'ble-helper', version: 1, kind: 'event', event: 'adapter.state', data: { state } });
+  }
+
   crash(code = 1) {
     this.emit('exit', code, null);
   }
@@ -52,7 +56,10 @@ function respondingProcess() {
       }),
     );
   };
-  queueMicrotask(() => process.sendHello());
+  queueMicrotask(() => {
+    process.sendHello();
+    process.sendAdapterState();
+  });
   return process;
 }
 
@@ -74,6 +81,50 @@ describe('BleHelperClient', () => {
     assert.deepEqual(result, { accepted: 'scan.start' });
     assert.equal(spawnCount, 1);
     assert.equal(client.status.state, 'ready');
+  });
+
+  it('waits for CoreBluetooth poweredOn before sending the first operational request', async () => {
+    const process = new FakeProcess();
+    process.onWrite = (request) => {
+      queueMicrotask(() =>
+        process.send({
+          protocol: 'ble-helper',
+          version: 1,
+          kind: 'response',
+          requestId: request.requestId,
+          ok: true,
+          data: { accepted: request.command },
+        }),
+      );
+    };
+    queueMicrotask(() => process.sendHello());
+    const client = new BleHelperClient({ platform: 'darwin', spawnProcess: () => process });
+
+    const request = client.request('scan.start', { sessionId: 'scan-powered-on', timeoutMs: 30_000 });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(process.writes.length, 0);
+    process.sendAdapterState('resetting');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(process.writes.length, 0);
+    process.sendAdapterState('poweredOn');
+
+    assert.deepEqual(await request, { accepted: 'scan.start' });
+    assert.equal(process.writes.length, 1);
+  });
+
+  it('fails an operational request without writing when Bluetooth is powered off', async () => {
+    const process = new FakeProcess();
+    queueMicrotask(() => {
+      process.sendHello();
+      process.sendAdapterState('poweredOff');
+    });
+    const client = new BleHelperClient({ platform: 'darwin', spawnProcess: () => process });
+
+    await assert.rejects(
+      client.request('scan.start', { sessionId: 'scan-powered-off', timeoutMs: 30_000 }),
+      /not powered on: poweredOff/,
+    );
+    assert.equal(process.writes.length, 0);
   });
 
   it('rejects an unknown handshake version without retrying', async () => {
@@ -173,7 +224,10 @@ describe('BleHelperClient', () => {
 
   it('times out a request without exiting the process', async () => {
     const process = new FakeProcess();
-    queueMicrotask(() => process.sendHello());
+    queueMicrotask(() => {
+      process.sendHello();
+      process.sendAdapterState();
+    });
     let fireRequestTimeout;
     let unrefCalled = false;
     const requestTimer = {
@@ -194,7 +248,7 @@ describe('BleHelperClient', () => {
 
     await client.start();
     const request = client.request('scan.start', { sessionId: 'scan-timeout', timeoutMs: 30_000 });
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     assert.equal(typeof fireRequestTimeout, 'function');
     assert.equal(unrefCalled, true);
     fireRequestTimeout();
@@ -219,7 +273,10 @@ describe('BleHelperClient', () => {
         });
       });
     };
-    queueMicrotask(() => process.sendHello());
+    queueMicrotask(() => {
+      process.sendHello();
+      process.sendAdapterState();
+    });
     const client = new BleHelperClient({
       platform: 'darwin',
       spawnProcess: () => process,

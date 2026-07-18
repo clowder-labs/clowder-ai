@@ -1,6 +1,6 @@
 import { HubIcon } from '../hub-icons';
 import { BleBindingCard, BleDiscoveryCard, bleStatusBadge } from './BleDeviceCards';
-import type { BleBindingView, BleScanSnapshot, BleStatus } from './ble-device-types';
+import type { BleBindingCheckView, BleBindingView, BleScanSnapshot, BleStatus } from './ble-device-types';
 import {
   SettingsBadge,
   SettingsEmptyState,
@@ -17,9 +17,15 @@ interface BleDeviceViewProps {
   scan: BleScanSnapshot;
   busyKey: string | null;
   error: string | null;
+  bindingChecks: Record<string, BleBindingCheckView>;
+  rebindTarget: BleBindingView | null;
   onStartScan: () => void;
   onStopScan: () => void;
   onBind: (discoveryId: string) => void;
+  onProbe: (binding: BleBindingView) => void;
+  onBeginRebind: (binding: BleBindingView) => void;
+  onCancelRebind: () => void;
+  onRebind: (discoveryId: string, discoveryName: string | null) => void;
   onUnbind: (binding: BleBindingView) => void;
 }
 
@@ -80,7 +86,9 @@ function BleDiscoveryList({
   scan,
   busyKey,
   onBind,
-}: Pick<BleDeviceViewProps, 'status' | 'scan' | 'busyKey' | 'onBind'>) {
+  rebindTarget,
+  onRebind,
+}: Pick<BleDeviceViewProps, 'status' | 'scan' | 'busyKey' | 'onBind' | 'rebindTarget' | 'onRebind'>) {
   if (!status.available) return null;
   if (scan.discoveries.length === 0) {
     return (
@@ -98,7 +106,10 @@ function BleDiscoveryList({
           key={discovery.discoveryId}
           discovery={discovery}
           disabled={busyKey !== null}
-          onBind={() => onBind(discovery.discoveryId)}
+          onBind={() =>
+            rebindTarget ? onRebind(discovery.discoveryId, discovery.name) : onBind(discovery.discoveryId)
+          }
+          actionLabel={rebindTarget ? '重新关联到此设备' : '绑定设备'}
         />
       ))}
     </div>
@@ -108,8 +119,11 @@ function BleDiscoveryList({
 function BleBindingsSection({
   bindings,
   busyKey,
+  bindingChecks,
+  onProbe,
+  onBeginRebind,
   onUnbind,
-}: Pick<BleDeviceViewProps, 'bindings' | 'busyKey' | 'onUnbind'>) {
+}: Pick<BleDeviceViewProps, 'bindings' | 'busyKey' | 'bindingChecks' | 'onProbe' | 'onBeginRebind' | 'onUnbind'>) {
   return (
     <SettingsSection title="已绑定设备" description="猫猫只能调用 adapter 声明的类型化能力，不能执行任意 GATT 写入。">
       {bindings.length === 0 ? (
@@ -120,7 +134,11 @@ function BleBindingsSection({
             <BleBindingCard
               key={binding.bindingId}
               binding={binding}
+              check={bindingChecks[binding.bindingId]}
               disabled={busyKey !== null}
+              probing={busyKey === `probe:${binding.bindingId}`}
+              onProbe={() => onProbe(binding)}
+              onBeginRebind={() => onBeginRebind(binding)}
               onUnbind={() => onUnbind(binding)}
             />
           ))}
@@ -140,6 +158,14 @@ export function BleDeviceSections(props: BleDeviceViewProps) {
         description="扫描结果只保留到停止扫描或 30 秒超时。只有显式绑定的设备会持久保存。"
         badge={<SettingsBadge tone={badge.tone}>{badge.label}</SettingsBadge>}
       >
+        {props.rebindTarget && (
+          <SettingsStatusStrip
+            tone="warn"
+            actions={<SettingsSecondaryButton onClick={props.onCancelRebind}>取消重新关联</SettingsSecondaryButton>}
+          >
+            正在为「{props.rebindTarget.displayName}」选择新的广播身份。请确认目标设备后再重新关联。
+          </SettingsStatusStrip>
+        )}
         <div className="mb-3 flex flex-wrap gap-2">
           <BleScanControls
             status={props.status}
@@ -149,9 +175,23 @@ export function BleDeviceSections(props: BleDeviceViewProps) {
             onStopScan={props.onStopScan}
           />
         </div>
-        <BleDiscoveryList status={props.status} scan={props.scan} busyKey={props.busyKey} onBind={props.onBind} />
+        <BleDiscoveryList
+          status={props.status}
+          scan={props.scan}
+          busyKey={props.busyKey}
+          onBind={props.onBind}
+          rebindTarget={props.rebindTarget}
+          onRebind={props.onRebind}
+        />
       </SettingsSection>
-      <BleBindingsSection bindings={props.bindings} busyKey={props.busyKey} onUnbind={props.onUnbind} />
+      <BleBindingsSection
+        bindings={props.bindings}
+        busyKey={props.busyKey}
+        bindingChecks={props.bindingChecks}
+        onProbe={props.onProbe}
+        onBeginRebind={props.onBeginRebind}
+        onUnbind={props.onUnbind}
+      />
     </div>
   );
 }

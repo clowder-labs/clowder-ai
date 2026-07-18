@@ -6,6 +6,7 @@ import { useConfirm } from '../useConfirm';
 import { BleDeviceSections } from './BleDeviceSections';
 import { type BleBindingView, type BleScanSnapshot, type BleStatus, EMPTY_BLE_SCAN } from './ble-device-types';
 import { SettingsStatusStrip } from './primitives';
+import { useBleBindingRecovery } from './useBleBindingRecovery';
 
 async function responseError(response: Response, fallback: string): Promise<string> {
   const payload = (await response.json().catch(() => ({}))) as { error?: string };
@@ -144,6 +145,14 @@ export function BleDevicesContent() {
     [confirm, refreshBindings],
   );
 
+  const recovery = useBleBindingRecovery({
+    scan,
+    startScan,
+    refreshBindings,
+    setBusyKey,
+    setError,
+  });
+
   if (loading) {
     return <SettingsStatusStrip tone="muted">正在加载 BLE 状态...</SettingsStatusStrip>;
   }
@@ -158,9 +167,15 @@ export function BleDevicesContent() {
       scan={scan}
       busyKey={busyKey}
       error={error}
+      bindingChecks={recovery.checks}
+      rebindTarget={recovery.rebindTarget}
       onStartScan={() => void startScan()}
       onStopScan={() => void stopScan()}
       onBind={(discoveryId) => void bind(discoveryId)}
+      onProbe={(binding) => void recovery.probeBinding(binding)}
+      onBeginRebind={(binding) => void recovery.beginRebind(binding)}
+      onCancelRebind={recovery.cancelRebind}
+      onRebind={(discoveryId, discoveryName) => void recovery.rebindDiscovery(discoveryId, discoveryName)}
       onUnbind={(binding) => void unbind(binding)}
     />
   );

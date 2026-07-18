@@ -3,16 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { LimbNodeStatus } from '@cat-cafe/shared';
 import type { LimbRegistry } from '../LimbRegistry.js';
-import {
-  availableBleCommands,
-  type BleDecodedValue,
-  type BleGattService,
-  decodeBleCommandValue,
-  findBleAdapterCommand,
-  getBleAdapter,
-  selectBleAdapter,
-} from './BleAdapters.js';
+import { type BleDecodedValue, decodeBleCommandValue, findBleAdapterCommand, getBleAdapter } from './BleAdapters.js';
+import { type BleBindingProbeResult, BleBindingRecovery } from './BleBindingRecovery.js';
 import { BLE_BINDING_SCOPE, type BleBinding, type IBleBindingStore } from './BleBindingStore.js';
+import { inspectBleDevice } from './BleDeviceInspection.js';
 import type { BleHelperClientStatus } from './BleHelperClientTypes.js';
 import type { BleHelperEvent } from './BleHelperProtocol.js';
 import { BleLimbNode, type BleLimbNodeExecutor } from './BleLimbNode.js';
@@ -58,7 +52,7 @@ export interface BleManagerStatus {
   bindingCount: number;
 }
 
-interface BindInput {
+export interface BleBindingDiscoveryInput {
   sessionId: string;
   discoveryId: string;
 }
@@ -80,41 +74,15 @@ function toBindingView(binding: BleBinding): BleBindingView {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseGattServices(value: unknown): BleGattService[] {
-  if (!isRecord(value) || !Array.isArray(value.services) || value.services.length > 64) {
-    throw new Error('BLE helper returned an invalid GATT inspection');
-  }
-  return value.services.map((service): BleGattService => {
-    if (!isRecord(service) || typeof service.uuid !== 'string' || service.uuid.length > 64) {
-      throw new Error('BLE helper returned an invalid GATT service');
-    }
-    if (!Array.isArray(service.characteristics) || service.characteristics.length > 128) {
-      throw new Error('BLE helper returned an invalid characteristic list');
-    }
-    return {
-      uuid: service.uuid,
-      characteristics: service.characteristics.map((characteristic) => {
-        if (
-          !isRecord(characteristic) ||
-          typeof characteristic.uuid !== 'string' ||
-          characteristic.uuid.length > 64 ||
-          !Array.isArray(characteristic.properties) ||
-          !characteristic.properties.every((property) => typeof property === 'string' && property.length <= 32)
-        ) {
-          throw new Error('BLE helper returned an invalid GATT characteristic');
-        }
-        return { uuid: characteristic.uuid, properties: [...characteristic.properties] as string[] };
-      }),
-    };
-  });
-}
-
 function decodeBase64Value(value: unknown): Buffer {
-  if (!isRecord(value) || typeof value.valueBase64 !== 'string' || value.valueBase64.length > 5_464) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    !('valueBase64' in value) ||
+    typeof value.valueBase64 !== 'string' ||
+    value.valueBase64.length > 5_464
+  ) {
     throw new Error('BLE helper returned an invalid characteristic value');
   }
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value.valueBase64)) {
@@ -136,8 +104,10 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
   private readonly platform: string;
   private readonly logger: LoggerLike;
   private readonly scan: BleScanSession;
+  private readonly recovery: BleBindingRecovery;
   private readonly bindings = new Map<string, BleBinding>();
   private readonly bindingDeviceIds = new Set<string>();
+  private readonly bindingOperations = new Set<string>();
   private readonly subscriptions = new Map<string, NotificationSubscription>();
 
   constructor(options: BleDeviceManagerOptions) {
@@ -148,6 +118,16 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
     this.platform = options.platform ?? process.platform;
     this.logger = options.logger ?? console;
     this.scan = new BleScanSession(this.helper);
+    this.recovery = new BleBindingRecovery({
+      helper: this.helper,
+      store: this.store,
+      scan: this.scan,
+      bindings: this.bindings,
+      reservedDeviceIds: this.bindingDeviceIds,
+      acquireBindingOperation: (bindingId) => this.acquireBindingOperation(bindingId),
+      clearSubscriptions: (bindingId) => this.clearSubscriptions(bindingId),
+      logger: this.logger,
+    });
     this.helper.on('state', this.handleHelperState);
     this.helper.on('event', this.handleHelperEvent);
   }
@@ -197,7 +177,7 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
     return this.scan.snapshot();
   }
 
-  async bind(input: BindInput): Promise<BleBindingView> {
+  async bind(input: BleBindingDiscoveryInput): Promise<BleBindingView> {
     const discovery = this.scan.resolveDiscovery(input.sessionId, input.discoveryId);
     if (!discovery) throw new Error('BLE discovery is not available in the active scan session');
     const deviceId = discovery.platformDeviceId;
@@ -210,12 +190,7 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
     this.bindingDeviceIds.add(deviceId);
 
     try {
-      const inspection = await this.helper.request('device.inspect', { deviceId });
-      const services = parseGattServices(inspection);
-      const adapter = selectBleAdapter(services);
-      if (!adapter) throw new Error('BLE device does not expose a supported adapter profile');
-      const commands = availableBleCommands(adapter, services).map((command) => command.command);
-      if (commands.length === 0) throw new Error('BLE device has no supported readable or notifiable characteristics');
+      const contract = await inspectBleDevice(this.helper, deviceId);
 
       const bindingId = randomUUID();
       const now = Date.now();
@@ -224,8 +199,8 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
         scopeId: BLE_BINDING_SCOPE,
         platformDeviceId: deviceId,
         displayName: discovery.name?.trim().slice(0, 128) || `BLE ${bindingId.slice(0, 8)}`,
-        adapterId: adapter.id,
-        commands,
+        adapterId: contract.adapterId,
+        commands: contract.commands,
         nodeId: `ble:${bindingId}`,
         createdAt: now,
         lastConnectedAt: now,
@@ -244,43 +219,61 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
     }
   }
 
+  probeBinding(bindingId: string): Promise<BleBindingProbeResult | null> {
+    return this.recovery.probe(bindingId);
+  }
+
+  async rebindBinding(bindingId: string, input: BleBindingDiscoveryInput): Promise<BleBindingView | null> {
+    const binding = await this.recovery.rebind(bindingId, input);
+    return binding ? toBindingView(binding) : null;
+  }
+
   async unbind(bindingId: string): Promise<boolean> {
     const binding = this.bindings.get(bindingId);
     if (!binding) return false;
-    await this.store.delete(binding.scopeId, binding.bindingId);
-    this.bindings.delete(bindingId);
-    this.registry.deregister(binding.nodeId);
-    for (const [key, subscription] of this.subscriptions) {
-      if (subscription.binding.bindingId === bindingId) this.subscriptions.delete(key);
-    }
+    const releaseBinding = this.acquireBindingOperation(bindingId);
     try {
-      await this.helper.request('device.disconnect', { deviceId: binding.platformDeviceId });
-    } catch (error) {
-      this.logger.warn(`BLE device disconnect after unbind failed: ${String(error)}`);
+      await this.store.delete(binding.scopeId, binding.bindingId);
+      this.bindings.delete(bindingId);
+      this.registry.deregister(binding.nodeId);
+      this.clearSubscriptions(bindingId);
+      try {
+        await this.helper.request('device.disconnect', { deviceId: binding.platformDeviceId });
+      } catch (error) {
+        this.logger.warn(`BLE device disconnect after unbind failed: ${String(error)}`);
+      }
+      return true;
+    } finally {
+      releaseBinding();
     }
-    return true;
   }
 
   async execute(binding: BleBinding, commandName: string): Promise<unknown> {
-    const liveBinding = this.bindings.get(binding.bindingId);
-    if (!liveBinding || !liveBinding.commands.includes(commandName)) throw new Error('BLE binding is no longer active');
-    const command = findBleAdapterCommand(liveBinding.adapterId, commandName);
-    if (!command) throw new Error(`BLE adapter does not declare command: ${commandName}`);
-    const params = {
-      deviceId: liveBinding.platformDeviceId,
-      serviceUuid: command.serviceUuid,
-      characteristicUuid: command.characteristicUuid,
-    };
-    if (command.mode === 'notify') {
-      await this.helper.request('gatt.subscribe', params);
-      this.subscriptions.set(
-        notificationKey(liveBinding.platformDeviceId, command.serviceUuid, command.characteristicUuid),
-        { binding: liveBinding, command: commandName },
-      );
-      return { subscribed: true };
+    const releaseBinding = this.acquireBindingOperation(binding.bindingId);
+    try {
+      const liveBinding = this.bindings.get(binding.bindingId);
+      if (!liveBinding || !liveBinding.commands.includes(commandName))
+        throw new Error('BLE binding is no longer active');
+      const command = findBleAdapterCommand(liveBinding.adapterId, commandName);
+      if (!command) throw new Error(`BLE adapter does not declare command: ${commandName}`);
+      const params = {
+        deviceId: liveBinding.platformDeviceId,
+        serviceUuid: command.serviceUuid,
+        characteristicUuid: command.characteristicUuid,
+      };
+      if (command.mode === 'notify') {
+        await this.helper.request('gatt.subscribe', params);
+        this.subscriptions.set(
+          notificationKey(liveBinding.platformDeviceId, command.serviceUuid, command.characteristicUuid),
+          { binding: liveBinding, command: commandName },
+        );
+        return { subscribed: true };
+      }
+      const result = await this.helper.request('gatt.read', params);
+      return decodeBleCommandValue(liveBinding.adapterId, commandName, decodeBase64Value(result));
+    } finally {
+      releaseBinding();
     }
-    const result = await this.helper.request('gatt.read', params);
-    return decodeBleCommandValue(liveBinding.adapterId, commandName, decodeBase64Value(result));
   }
 
   nodeHealth(): LimbNodeStatus {
@@ -299,6 +292,18 @@ export class BleDeviceManager extends EventEmitter implements BleLimbNodeExecuto
     if (this.registry.getNode(binding.nodeId)) throw new Error(`Limb node already registered: ${binding.nodeId}`);
     await this.registry.register(new BleLimbNode(binding, this));
     this.bindings.set(binding.bindingId, { ...binding, commands: [...binding.commands] });
+  }
+
+  private clearSubscriptions(bindingId: string): void {
+    for (const [key, subscription] of this.subscriptions) {
+      if (subscription.binding.bindingId === bindingId) this.subscriptions.delete(key);
+    }
+  }
+
+  private acquireBindingOperation(bindingId: string): () => void {
+    if (this.bindingOperations.has(bindingId)) throw new Error('BLE binding operation is already in progress');
+    this.bindingOperations.add(bindingId);
+    return () => this.bindingOperations.delete(bindingId);
   }
 
   private readonly handleHelperState = (status: BleHelperClientStatus): void => {

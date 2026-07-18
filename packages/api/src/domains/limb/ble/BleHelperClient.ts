@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { StringDecoder } from 'node:string_decoder';
+import { BleAdapterReadiness } from './BleAdapterReadiness.js';
 import type {
   BleHelperClientOptions,
   BleHelperClientState,
@@ -35,6 +36,7 @@ export class BleHelperClient extends EventEmitter {
   private restartAttempts = 0;
   private recoveryPromise: Promise<void> | null = null;
   private readonly pending = new Map<string, PendingRequest>();
+  private readonly adapterReadiness: BleAdapterReadiness;
   private stopping = false;
   private lastError: Error | null = null;
 
@@ -48,6 +50,7 @@ export class BleHelperClient extends EventEmitter {
     this.clearRequestTimer = options.clearRequestTimer ?? ((timer) => clearTimeout(timer));
     this.sleep = options.sleep ?? ((ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)));
     this.logger = options.logger ?? console;
+    this.adapterReadiness = new BleAdapterReadiness(this, this.handshakeTimeoutMs);
     this.state = this.platform === 'darwin' ? 'idle' : 'unsupported';
     if (this.state === 'unsupported') this.reason = 'BLE helper is only available on macOS in Phase A';
   }
@@ -73,6 +76,7 @@ export class BleHelperClient extends EventEmitter {
 
   async request(command: string, params: Record<string, unknown>): Promise<unknown> {
     await this.start();
+    if (command !== 'helper.shutdown') await this.adapterReadiness.waitForPoweredOn();
     const child = this.process;
     if (!child || this.state !== 'ready') throw new Error('BLE helper is not ready');
 
@@ -116,6 +120,7 @@ export class BleHelperClient extends EventEmitter {
     this.rejectPending(new Error('BLE helper is shutting down'));
     child?.kill('SIGTERM');
     this.process = null;
+    this.adapterReadiness.reset();
     this.setState(this.platform === 'darwin' ? 'idle' : 'unsupported', null);
     if (activeRecovery) {
       // Keep the stop barrier raised until an in-flight backoff wakes and
@@ -169,6 +174,7 @@ export class BleHelperClient extends EventEmitter {
 
   private spawnAndHandshake(): Promise<void> {
     this.setState('starting', null);
+    this.adapterReadiness.reset();
     let child: BleHelperProcess;
     try {
       child = this.spawnProcess();
@@ -294,6 +300,7 @@ export class BleHelperClient extends EventEmitter {
 
   private dispatchMessage(message: BleHelperInboundMessage): void {
     if (message.kind === 'event') {
+      this.adapterReadiness.observe(message as BleHelperEvent);
       this.emit('event', message as BleHelperEvent);
       return;
     }
@@ -315,6 +322,7 @@ export class BleHelperClient extends EventEmitter {
   private handleUnexpectedExit(child: BleHelperProcess, error: Error): void {
     if (this.process !== child) return;
     this.process = null;
+    this.adapterReadiness.reset();
     this.lastError = error;
     this.rejectPending(error);
     if (this.stopping) {

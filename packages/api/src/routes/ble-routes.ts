@@ -60,8 +60,18 @@ function unavailable(reply: FastifyReply): void {
 }
 
 function errorStatus(error: Error): number {
-  if (error.message.includes('already active') || error.message.includes('already bound')) return 409;
-  if (error.message.includes('not available') || error.message.includes('not expose')) return 422;
+  if (
+    error.message.includes('already active') ||
+    error.message.includes('already bound') ||
+    error.message.includes('already in progress')
+  )
+    return 409;
+  if (
+    error.message.includes('not available') ||
+    error.message.includes('not expose') ||
+    error.message.includes('not compatible')
+  )
+    return 422;
   if (error.message.includes('timed out')) return 504;
   if (error.message.includes('unsupported') || error.message.includes('unavailable')) return 503;
   return 502;
@@ -130,6 +140,38 @@ export function registerBleRoutes(app: FastifyInstance, options: BleRoutesOption
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
     try {
       return reply.status(201).send(await options.manager.bind(parsed.data));
+    } catch (error) {
+      const message = safeError(error);
+      return reply.status(errorStatus(new Error(message))).send({ error: message });
+    }
+  });
+
+  app.post('/api/limb/ble/bindings/:bindingId/probe', async (request, reply) => {
+    if (!requireWriteIdentity(request, reply)) return;
+    if (!options.manager) return unavailable(reply);
+    const params = bindingParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.status(400).send({ error: params.error.message });
+    try {
+      const result = await options.manager.probeBinding(params.data.bindingId);
+      if (!result) return reply.status(404).send({ error: 'BLE binding not found' });
+      return reply.send(result);
+    } catch (error) {
+      const message = safeError(error);
+      return reply.status(errorStatus(new Error(message))).send({ error: message });
+    }
+  });
+
+  app.post('/api/limb/ble/bindings/:bindingId/rebind', async (request, reply) => {
+    if (!requireWriteIdentity(request, reply)) return;
+    if (!options.manager) return unavailable(reply);
+    const params = bindingParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.status(400).send({ error: params.error.message });
+    const body = bindSchema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.message });
+    try {
+      const binding = await options.manager.rebindBinding(params.data.bindingId, body.data);
+      if (!binding) return reply.status(404).send({ error: 'BLE binding not found' });
+      return reply.send(binding);
     } catch (error) {
       const message = safeError(error);
       return reply.status(errorStatus(new Error(message))).send({ error: message });

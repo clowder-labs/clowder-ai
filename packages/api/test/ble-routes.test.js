@@ -32,6 +32,20 @@ function managerStub() {
       createdAt: 100,
       lastConnectedAt: 100,
     }),
+    probeBinding: async (bindingId) =>
+      bindingId === 'binding-1' ? { bindingId, state: 'reachable', checkedAt: 200 } : null,
+    rebindBinding: async (bindingId) =>
+      bindingId === 'binding-1'
+        ? {
+            bindingId,
+            displayName: 'Sensor',
+            adapterId: 'standard.environmental',
+            commands: ['ble.temperature.read'],
+            nodeId: 'ble:binding-1',
+            createdAt: 100,
+            lastConnectedAt: 200,
+          }
+        : null,
     unbind: async (bindingId) => bindingId === 'binding-1',
   };
 }
@@ -53,6 +67,14 @@ describe('BLE operator routes', () => {
     const app = await createApp({ authenticated: false });
     const response = await app.inject({ method: 'GET', url: '/api/limb/ble/status' });
     assert.equal(response.statusCode, 401);
+    const probe = await app.inject({ method: 'POST', url: '/api/limb/ble/bindings/binding-1/probe' });
+    assert.equal(probe.statusCode, 401);
+    const rebind = await app.inject({
+      method: 'POST',
+      url: '/api/limb/ble/bindings/binding-1/rebind',
+      payload: { sessionId: 'scan-1', discoveryId: 'discovery-1' },
+    });
+    assert.equal(rebind.statusCode, 401);
   });
 
   it('returns status and never exposes a platform device ID', async () => {
@@ -95,6 +117,32 @@ describe('BLE operator routes', () => {
     assert.equal(missing.statusCode, 404);
   });
 
+  it('probes and explicitly rebinds without exposing a platform device ID', async () => {
+    const app = await createApp();
+    const probe = await app.inject({ method: 'POST', url: '/api/limb/ble/bindings/binding-1/probe' });
+    assert.equal(probe.statusCode, 200);
+    assert.equal(probe.json().state, 'reachable');
+    assert.equal(probe.payload.includes('platformDeviceId'), false);
+
+    const rebound = await app.inject({
+      method: 'POST',
+      url: '/api/limb/ble/bindings/binding-1/rebind',
+      payload: { sessionId: 'scan-1', discoveryId: 'discovery-1' },
+    });
+    assert.equal(rebound.statusCode, 200);
+    assert.equal(rebound.json().nodeId, 'ble:binding-1');
+    assert.equal(rebound.payload.includes('platformDeviceId'), false);
+
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/api/limb/ble/bindings/binding-1/rebind',
+      payload: { sessionId: 'scan-1', discoveryId: 'discovery-1', deviceId: 'private' },
+    });
+    assert.equal(invalid.statusCode, 400);
+    const missing = await app.inject({ method: 'POST', url: '/api/limb/ble/bindings/missing/probe' });
+    assert.equal(missing.statusCode, 404);
+  });
+
   it('fails closed for mutating routes when persistent storage is unavailable', async () => {
     const app = await createApp({ manager: null });
     const status = await app.inject({ method: 'GET', url: '/api/limb/ble/status' });
@@ -115,5 +163,20 @@ describe('BLE operator routes', () => {
     const response = await app.inject({ method: 'POST', url: '/api/limb/ble/scan', payload: {} });
     assert.equal(response.statusCode, 409);
     assert.match(response.json().error, /already active/);
+  });
+
+  it('maps an incompatible explicit rebind to an actionable client error', async () => {
+    const manager = managerStub();
+    manager.rebindBinding = async () => {
+      throw new Error('BLE rebind target is not compatible with the existing binding');
+    };
+    const app = await createApp({ manager });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/limb/ble/bindings/binding-1/rebind',
+      payload: { sessionId: 'scan-1', discoveryId: 'discovery-1' },
+    });
+    assert.equal(response.statusCode, 422);
+    assert.match(response.json().error, /not compatible/);
   });
 });

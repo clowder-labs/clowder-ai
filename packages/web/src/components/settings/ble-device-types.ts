@@ -17,6 +17,13 @@ export interface BleBindingView {
   lastConnectedAt: number | null;
 }
 
+export interface BleBindingCheckView {
+  bindingId: string;
+  state: 'reachable' | 'unreachable' | 'profile_mismatch';
+  checkedAt: number;
+  reason?: 'busy' | 'connection_failed' | 'disconnected' | 'inspection_failed' | 'timeout' | 'unavailable';
+}
+
 export interface BleDiscoveryView {
   discoveryId: string;
   name: string | null;

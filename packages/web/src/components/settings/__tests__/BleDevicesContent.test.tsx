@@ -2,9 +2,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { apiFetch } = vi.hoisted(() => ({ apiFetch: vi.fn() }));
+const { apiFetch, confirm } = vi.hoisted(() => ({ apiFetch: vi.fn(), confirm: vi.fn() }));
 vi.mock('@/utils/api-client', () => ({ apiFetch }));
-vi.mock('../../useConfirm', () => ({ useConfirm: () => vi.fn(async () => true) }));
+vi.mock('../../useConfirm', () => ({ useConfirm: () => confirm }));
 
 import { BleDevicesContent } from '../BleDevicesContent';
 
@@ -25,6 +25,8 @@ describe('BleDevicesContent', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     apiFetch.mockReset();
+    confirm.mockReset();
+    confirm.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -168,5 +170,103 @@ describe('BleDevicesContent', () => {
       Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('重试并扫描'))
         ?.disabled,
     ).toBe(false);
+  });
+
+  it('tests an unreachable binding and explicitly rebinds it using opaque discovery IDs', async () => {
+    const binding = {
+      bindingId: 'binding-1',
+      displayName: 'Desk Sensor',
+      adapterId: 'standard.environmental',
+      commands: ['ble.temperature.read'],
+      nodeId: 'ble:binding-1',
+      createdAt: 100,
+      lastConnectedAt: 100,
+    };
+    apiFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+      const requestKey = `${init?.method ?? 'GET'} ${path}`;
+      switch (requestKey) {
+        case 'GET /api/limb/ble/status':
+          return jsonResponse({
+            platform: 'darwin',
+            available: true,
+            state: 'ready',
+            reason: null,
+            restartAttempts: 0,
+            bindingCount: 1,
+          });
+        case 'GET /api/limb/ble/bindings':
+          return jsonResponse({ bindings: [binding] });
+        case 'GET /api/limb/ble/scan':
+          return jsonResponse({
+            active: true,
+            sessionId: 'scan-rotated',
+            startedAt: Date.now(),
+            expiresAt: Date.now() + 30_000,
+            discoveries: [
+              {
+                discoveryId: 'discovery-rotated',
+                name: 'Desk Sensor',
+                rssi: -45,
+                serviceUuids: ['181a'],
+              },
+            ],
+          });
+        case 'POST /api/limb/ble/bindings/binding-1/probe':
+          return jsonResponse({
+            bindingId: 'binding-1',
+            state: 'unreachable',
+            reason: 'timeout',
+            checkedAt: 200,
+          });
+        case 'POST /api/limb/ble/bindings/binding-1/rebind':
+          return jsonResponse({ ...binding, lastConnectedAt: 300 });
+        default:
+          throw new Error(`Unexpected request: ${requestKey}`);
+      }
+    });
+
+    await act(async () => root.render(<BleDevicesContent />));
+    await act(async () => Promise.resolve());
+    const probeButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('测试绑定状态'),
+    );
+    expect(probeButton).toBeTruthy();
+    await act(async () => probeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.textContent).toContain('不可连接');
+
+    const beginRebindButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('重新关联'),
+    );
+    expect(beginRebindButton).toBeTruthy();
+    await act(async () => beginRebindButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const candidateButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '重新关联到此设备',
+    );
+    expect(candidateButton).toBeTruthy();
+    confirm.mockResolvedValueOnce(false);
+    await act(async () => candidateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(
+      apiFetch.mock.calls.some(
+        ([path, init]) => path === '/api/limb/ble/bindings/binding-1/rebind' && init?.method === 'POST',
+      ),
+    ).toBe(false);
+    confirm.mockResolvedValueOnce(true);
+    await act(async () => candidateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+    const rebindCall = apiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/limb/ble/bindings/binding-1/rebind' && init?.method === 'POST',
+    );
+    expect(JSON.parse(rebindCall?.[1]?.body as string)).toEqual({
+      sessionId: 'scan-rotated',
+      discoveryId: 'discovery-rotated',
+    });
+    expect(rebindCall?.[1]?.body).not.toContain('deviceId');
+    expect(confirm).toHaveBeenCalledWith({
+      title: '重新关联 BLE 设备',
+      message: '把「Desk Sensor」重新关联到「Desk Sensor」？原节点和审计关联会保留。',
+      confirmLabel: '确认重新关联',
+    });
+    expect(container.textContent).toContain('可连接');
+    expect(container.textContent).toContain('最近测试');
   });
 });

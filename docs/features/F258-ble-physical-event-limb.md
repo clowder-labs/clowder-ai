@@ -111,6 +111,7 @@ Phase A 每个绑定只选择一个主 adapter。Phase B 改为组合匹配，�
 - [x] AC-A6: Battery Service 与 Environmental Sensing Service 映射为类型化 Limb capability，包含单位、范围校验和解码错误处理。
 - [x] AC-A7: 任意 GATT `write` 在默认配置下被 Core、adapter 和 helper 一致拒绝，并产生可审计的拒绝结果。
 - [ ] AC-A8: 至少一台真实 BLE 传感器完成端到端验收，证据包含设备绑定、读取结果、断连恢复和 Action Log。
+- [ ] AC-A9: 平台设备标识轮换后，operator 可测试绑定可达性，并通过当前扫描结果显式重新关联；恢复过程保留 `bindingId`、`nodeId` 和审计关联，不按名称、RSSI 或广播地址自动认领设备。
 
 ### Phase B（类型化事件与 Adapter 工具）
 
@@ -190,6 +191,8 @@ Phase A 每个绑定只选择一个主 adapter。Phase B 改为组合匹配，�
 | KD-8 | 每个平台一个 helper，首次 BLE 请求时按需启动；握手版本固定为 1，crash 最多按 1 秒/2 秒/4 秒退避重启 3 次 | 无 BLE 请求时保持零运行开销；失败隔离在 helper，不影响 API 主进程 | 2026-07-14 |
 | KD-9 | 扫描会话最长 30 秒，可由 `stopScan()` 提前结束；结束时清空未绑定设备 | 为扫描隐私数据定义可验证的内存生命周期 | 2026-07-14 |
 | KD-10 | 单设备事件队列上限 256 条、去重窗口 5 秒、满队列时 `drop-oldest` 并记录 warning | 传感器流优先保留最新值，同时为内存占用与重复通知建立确定边界 | 2026-07-14 |
+| KD-11 | CoreBluetooth 标识失效时只允许 operator 基于当前扫描结果显式重新关联，保留既有 binding/node 身份；禁止按名称或 RSSI 自动匹配 | Android 外设可能在重新广播后呈现新平台标识，而广播元数据不足以证明设备身份 | 2026-07-18 |
+| KD-12 | helper 协议握手后等待 `adapter.state=poweredOn` 再发送首个操作请求；关闭、未授权或不支持时直接失败 | 协议已就绪不代表 CoreBluetooth 已完成异步初始化，盲目重试会掩盖真实适配器状态 | 2026-07-18 |
 
 ## Timeline
 
@@ -200,6 +203,7 @@ Phase A 每个绑定只选择一个主 adapter。Phase B 改为组合匹配，�
 | 2026-07-14 | Opus 4.6 跨 family Design Gate 放行；补齐事件归属、队列参数、helper 生命周期和扫描会话定义 |
 | 2026-07-15 | Phase A 代码与自动化证据完成：API 41 项、Console 16 项、Swift 协议 smoke 全绿；AC-A8 等待真实 BLE 传感器验收，代码等待跨个体 review |
 | 2026-07-15 | Opus 4.6 完成跨个体实现审查并放行；P2 文件尺寸当场拆分，三个 P3 进入 Phase B 明确范围 |
+| 2026-07-18 | Mate 40 / Mate 70 实机验收确认 Android 重新广播后 CoreBluetooth 标识会变化；启动 Phase A 绑定探测与显式重新关联加固 |
 
 ## Review Gate
 
@@ -215,4 +219,5 @@ Phase A 每个绑定只选择一个主 adapter。Phase B 改为组合匹配，�
 | **Feature** | `docs/features/F124-apple-ecosystem-voice-interaction.md` | Apple 设备长期接入方向 |
 | **Feature** | `docs/features/F202-plugin-framework.md` | adapter plugin resource 的潜在承载面 |
 | **Implementation plan** | `docs/features/assets/F258/phase-a-implementation-plan.md` | Phase A 作用域决策、模块设计与测试矩阵 |
+| **Recovery plan** | `docs/features/assets/F258/phase-a-binding-recovery-plan.md` | 平台标识轮换后的绑定探测、显式重新关联与 Console 状态矩阵 |
 | **Source thread** | `thread_mrkr4fwxxhjktmdz` | 立项讨论与 operator 批准 |
