@@ -1,0 +1,39 @@
+{
+  "verdictId": "2026-07-18-eval-friction-second-empty-window-stable-recovery-watch",
+  "selector": {
+    "kind": "friction-rollup-snapshot",
+    "windowStartMs": 1784084400000,
+    "windowEndMs": 1784343600000,
+    "topN": 10,
+    "tokenCap": 4000
+  },
+  "window": {
+    "sinceMs": 1784084400000,
+    "untilMs": 1784343600000
+  },
+  "signalCount": 0,
+  "clusterCount": 0,
+  "degraded": false,
+  "droppedChannels": [],
+  "report": {
+    "window": {
+      "sinceMs": 1784084400000,
+      "untilMs": 1784343600000
+    },
+    "generatedAt": "2026-07-18T03:01:47.175Z",
+    "topClusters": [],
+    "actionableCandidates": [],
+    "referenceOnly": [],
+    "tailSummary": {
+      "clusterCount": 0,
+      "signalCount": 0,
+      "byChannel": {}
+    },
+    "degraded": false,
+    "droppedChannels": [],
+    "tokenBudget": {
+      "cap": 4000,
+      "estimated": 78
+    }
+  }
+}
