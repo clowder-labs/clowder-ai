@@ -1067,36 +1067,63 @@ function loadClaudeCredentials(envPath?: string): OAuthCredentials | null {
   }
 }
 
-function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
-  const credPath = envPath || join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'auth.json');
+interface LoadedCodexCredentials {
+  credentials: CodexOAuthCredentials | null;
+  format: 'native' | 'legacy' | 'invalid';
+}
+
+function readCodexCredentialsFile(credPath: string): LoadedCodexCredentials | null {
   try {
     const raw = readFileSync(credPath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const tokens = asRecord(parsed.tokens);
-    const nativeAccessToken = readNonEmptyString(tokens?.access_token);
-    const nativeRefreshToken = readNonEmptyString(tokens?.refresh_token);
-    if (nativeAccessToken && nativeRefreshToken) {
-      const accountId = readNonEmptyString(tokens?.account_id);
+    if (tokens) {
+      const accessToken = readNonEmptyString(tokens.access_token);
+      const refreshToken = readNonEmptyString(tokens.refresh_token);
+      if (!accessToken || !refreshToken) return { credentials: null, format: 'invalid' };
+      const accountId = readNonEmptyString(tokens.account_id);
       return {
-        accessToken: nativeAccessToken,
-        refreshToken: nativeRefreshToken,
-        ...(accountId ? { accountId } : {}),
+        credentials: {
+          accessToken,
+          refreshToken,
+          ...(accountId ? { accountId } : {}),
+        },
+        format: 'native',
       };
     }
 
-    // Backward compatibility for manually maintained quota-only credential files.
-    const legacyAccessToken = readNonEmptyString(parsed.accessToken);
-    const legacyRefreshToken = readNonEmptyString(parsed.refreshToken);
-    if (!legacyAccessToken || !legacyRefreshToken) return null;
-    const legacyAccountId = readNonEmptyString(parsed.accountId);
+    const accessToken = readNonEmptyString(parsed.accessToken);
+    const refreshToken = readNonEmptyString(parsed.refreshToken);
+    if (!accessToken || !refreshToken) return { credentials: null, format: 'invalid' };
+    const accountId = readNonEmptyString(parsed.accountId);
     return {
-      accessToken: legacyAccessToken,
-      refreshToken: legacyRefreshToken,
-      ...(legacyAccountId ? { accountId: legacyAccountId } : {}),
+      credentials: {
+        accessToken,
+        refreshToken,
+        ...(accountId ? { accountId } : {}),
+      },
+      format: 'legacy',
     };
   } catch {
     return null;
   }
+}
+
+function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
+  const explicitPath = envPath?.trim();
+  const nativePath = join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'auth.json');
+  const explicit = explicitPath ? readCodexCredentialsFile(explicitPath) : null;
+
+  // An explicit native auth.json is authoritative. An explicit legacy flat file,
+  // however, is commonly an installer-generated snapshot that the Codex CLI never
+  // updates. Prefer the live CLI-managed native store when it is available, while
+  // retaining the flat file as a compatibility fallback.
+  if (explicit?.format === 'native' || explicit?.format === 'invalid') return explicit.credentials;
+
+  const native = explicitPath === nativePath ? explicit : readCodexCredentialsFile(nativePath);
+  if (native?.format === 'native' && native.credentials) return native.credentials;
+  if (explicit?.format === 'legacy' && explicit.credentials) return explicit.credentials;
+  return native?.credentials ?? null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -1510,7 +1537,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // POST: refresh official quota via OAuth APIs (v3, ClaudeBar-compatible)
-  app.post('/api/quota/refresh/official', async (_request, reply) => {
+  app.post('/api/quota/refresh/official', async (request, reply) => {
     if (!isTruthyFlag(process.env[OFFICIAL_REFRESH_ENABLED_ENV])) {
       const message = `Official quota refresh is temporarily disabled. Set ${OFFICIAL_REFRESH_ENABLED_ENV}=1 to enable it.`;
       const checkedAt = new Date().toISOString();
@@ -1527,9 +1554,29 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(503).send({ error: message });
     }
 
-    // Load credentials from files
-    const claudeCredentials = loadClaudeCredentials(process.env[CLAUDE_CREDENTIALS_PATH_ENV]);
-    const codexCredentials = loadCodexCredentials(process.env[CODEX_CREDENTIALS_PATH_ENV]);
+    const parsedRequest = z
+      .object({
+        interactive: z.boolean().optional(),
+        providers: z
+          .array(z.enum(['claude', 'codex']))
+          .min(1)
+          .optional(),
+      })
+      .safeParse(request.body ?? {});
+    if (!parsedRequest.success) {
+      return reply.status(400).send({ error: 'Invalid official quota refresh request' });
+    }
+    const requestedProviders = new Set(parsedRequest.data.providers ?? ['claude', 'codex']);
+
+    // Load only credentials represented by the caller's configured subscription
+    // accounts. Omitted providers are intentionally not probed and cannot create
+    // unrelated errors in the quota board.
+    const claudeCredentials = requestedProviders.has('claude')
+      ? loadClaudeCredentials(process.env[CLAUDE_CREDENTIALS_PATH_ENV])
+      : null;
+    const codexCredentials = requestedProviders.has('codex')
+      ? loadCodexCredentials(process.env[CODEX_CREDENTIALS_PATH_ENV])
+      : null;
     if (!claudeCredentials && !codexCredentials) {
       const message = `No official quota credentials found. Claude: ~/.claude/.credentials.json, Codex: ${CODEX_CREDENTIALS_PATH_ENV} or CODEX_HOME/auth.json or ~/.codex/auth.json.`;
       const checkedAt = new Date().toISOString();

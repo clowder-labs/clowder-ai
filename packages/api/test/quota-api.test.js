@@ -6,7 +6,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -353,6 +353,75 @@ describe('GET /api/quota/summary', () => {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
       else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
       await app.close();
+    }
+  });
+});
+
+describe('POST /api/quota/refresh/official — provider selection', () => {
+  it('refreshes only the requested configured provider', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const oldCodexHome = process.env.CODEX_HOME;
+    const oldFetch = globalThis.fetch;
+    const dir = await mkdtemp(join(tmpdir(), 'quota-selected-provider-'));
+    const codexHome = join(dir, 'codex-home');
+    await mkdir(codexHome);
+    await writeFile(
+      join(dir, 'claude.json'),
+      JSON.stringify({ accessToken: 'claude-access', refreshToken: 'claude-refresh' }),
+      'utf-8',
+    );
+    await writeFile(
+      join(codexHome, 'auth.json'),
+      JSON.stringify({
+        tokens: {
+          access_token: 'codex-access',
+          refresh_token: 'codex-refresh',
+          account_id: 'codex-account',
+        },
+      }),
+      'utf-8',
+    );
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(dir, 'claude.json');
+    delete process.env.CODEX_CREDENTIALS_PATH;
+    process.env.CODEX_HOME = codexHome;
+    const requestedUrls = [];
+    globalThis.fetch = async (url) => {
+      requestedUrls.push(String(url));
+      return new Response(
+        JSON.stringify({
+          rate_limit: {
+            primary_window: { used_percent: 3, reset_at: '2026-07-18T07:00:00.000Z' },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    };
+
+    const app = await buildApp();
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['codex'] },
+      });
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual(requestedUrls, ['https://chatgpt.com/backend-api/wham/usage']);
+      assert.equal(res.json().codexItems, 1);
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+      else delete process.env.CODEX_HOME;
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });
@@ -780,6 +849,37 @@ describe('Codex OAuth credentials loader', () => {
         refreshToken: 'flat-refresh-token',
         accountId: 'flat-account-id',
       });
+    });
+  });
+
+  it('prefers the live CODEX_HOME auth.json over an explicit legacy snapshot', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const oldCodexHome = process.env.CODEX_HOME;
+      const legacyPath = join(dir, 'stale-flat-auth.json');
+      const codexHome = join(dir, 'codex-home');
+      await mkdir(codexHome);
+      await writeFile(
+        legacyPath,
+        JSON.stringify({
+          accessToken: 'stale-flat-access-token',
+          refreshToken: 'stale-flat-refresh-token',
+          accountId: 'stale-flat-account-id',
+        }),
+        'utf-8',
+      );
+      await writeFile(join(codexHome, 'auth.json'), JSON.stringify(nativeCodexAuth), 'utf-8');
+      process.env.CODEX_HOME = codexHome;
+      try {
+        assert.deepEqual(loadCodexCredentialsForTests(legacyPath), {
+          accessToken: 'native-access-token',
+          refreshToken: 'native-refresh-token',
+          accountId: 'native-account-id',
+        });
+      } finally {
+        if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+        else delete process.env.CODEX_HOME;
+      }
     });
   });
 
