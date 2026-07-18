@@ -425,6 +425,131 @@ describe('POST /api/quota/refresh/official — provider selection', () => {
     }
   });
 
+  it('surfaces a missing requested provider while refreshing the available provider', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const oldCodexHome = process.env.CODEX_HOME;
+    const oldFetch = globalThis.fetch;
+    const dir = await mkdtemp(join(tmpdir(), 'quota-partial-credentials-'));
+    const codexHome = join(dir, 'codex-home');
+    await mkdir(codexHome);
+    await writeFile(
+      join(codexHome, 'auth.json'),
+      JSON.stringify({
+        tokens: {
+          access_token: 'codex-access',
+          refresh_token: 'codex-refresh',
+          account_id: 'codex-account',
+        },
+      }),
+      'utf-8',
+    );
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(dir, 'missing-claude.json');
+    delete process.env.CODEX_CREDENTIALS_PATH;
+    process.env.CODEX_HOME = codexHome;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          rate_limit: {
+            primary_window: { used_percent: 3, reset_at: '2026-07-18T07:00:00.000Z' },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+
+    const app = await buildApp();
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['claude', 'codex'] },
+      });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.codexItems, 1);
+      assert.deepEqual(body.skipped, ['claude']);
+      assert.equal(body.warnings?.length, 1);
+      assert.match(body.warnings?.[0] ?? '', /Claude.*credentials/i);
+
+      const quota = (await app.inject({ method: 'GET', url: '/api/quota' })).json();
+      assert.match(quota.claude.officialError ?? '', /Claude.*credentials/i);
+      assert.match(quota.claude.error ?? '', /Claude.*credentials/i);
+      assert.equal(quota.codex.error, undefined);
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+      else delete process.env.CODEX_HOME;
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('surfaces a missing Codex credential while Claude refresh still succeeds', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const oldCodexHome = process.env.CODEX_HOME;
+    const oldFetch = globalThis.fetch;
+    const dir = await mkdtemp(join(tmpdir(), 'quota-partial-codex-credentials-'));
+    await writeFile(
+      join(dir, 'claude.json'),
+      JSON.stringify({ accessToken: 'claude-access', refreshToken: 'claude-refresh' }),
+      'utf-8',
+    );
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(dir, 'claude.json');
+    process.env.CODEX_CREDENTIALS_PATH = join(dir, 'missing-codex.json');
+    process.env.CODEX_HOME = join(dir, 'unused-codex-home');
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          five_hour: { used_percent: 7, reset_at: '2026-07-18T10:00:00.000Z' },
+          seven_day: { used_percent: 21, reset_at: '2026-07-25T10:00:00.000Z' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+
+    const app = await buildApp();
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['claude', 'codex'] },
+      });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.claudeItems, 2);
+      assert.deepEqual(body.skipped, ['codex']);
+      assert.equal(body.warnings?.length, 1);
+      assert.match(body.warnings?.[0] ?? '', /Codex.*credentials/i);
+
+      const quota = (await app.inject({ method: 'GET', url: '/api/quota' })).json();
+      assert.match(quota.codex.error ?? '', /Codex.*credentials/i);
+      assert.equal(quota.claude.officialError, undefined);
+      assert.equal(quota.claude.error, undefined);
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+      else delete process.env.CODEX_HOME;
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('keeps Claude cache unchanged when a Codex-only refresh has no credentials', async () => {
     const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
     const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;

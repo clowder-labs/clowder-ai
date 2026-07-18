@@ -1231,6 +1231,23 @@ function requestedCredentialHints(requestedProviders: ReadonlySet<OfficialQuotaP
   ].join(' ');
 }
 
+function markMissingRequestedCredentials(
+  requestedProviders: ReadonlySet<OfficialQuotaProvider>,
+  credentials: Readonly<Record<OfficialQuotaProvider, OAuthCredentials | null>>,
+  checkedAt: string,
+): string[] {
+  const errors: string[] = [];
+  for (const provider of requestedProviders) {
+    if (credentials[provider]) continue;
+    const providerSet = new Set<OfficialQuotaProvider>([provider]);
+    const providerLabel = provider === 'claude' ? 'Claude' : 'Codex';
+    const message = `${providerLabel} official quota credentials not found. ${requestedCredentialHints(providerSet)}`;
+    setRequestedOfficialCacheError(providerSet, message, checkedAt);
+    errors.push(message);
+  }
+  return errors;
+}
+
 interface RefreshOAuthOptions {
   claudeCredentials: OAuthCredentials | null;
   codexCredentials: CodexOAuthCredentials | null;
@@ -1647,8 +1664,20 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: message });
     }
 
+    const missingCredentialErrors = markMissingRequestedCredentials(
+      requestedProviders,
+      { claude: claudeCredentials, codex: codexCredentials },
+      new Date().toISOString(),
+    );
+
     const result = await refreshOfficialQuotaViaOAuth({ claudeCredentials, codexCredentials });
-    const errors = [result.claude?.error, result.codex?.error].filter(Boolean);
+    const errors = [...missingCredentialErrors, result.claude?.error, result.codex?.error].filter(
+      (error): error is string => Boolean(error),
+    );
+    const skippedRequestedProviders = (result.skipped ?? []).filter(
+      (provider): provider is OfficialQuotaProvider =>
+        (provider === 'claude' || provider === 'codex') && requestedProviders.has(provider),
+    );
     if (errors.length > 0 && (result.claude?.items ?? 0) === 0 && (result.codex?.items ?? 0) === 0) {
       return reply.status(502).send({ error: errors.join('; ') });
     }
@@ -1657,7 +1686,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       claudeItems: result.claude?.items ?? 0,
       codexItems: result.codex?.items ?? 0,
       ...(errors.length > 0 ? { warnings: errors } : {}),
-      ...(result.skipped && result.skipped.length > 0 ? { skipped: result.skipped } : {}),
+      ...(skippedRequestedProviders.length > 0 ? { skipped: skippedRequestedProviders } : {}),
     };
   });
 
