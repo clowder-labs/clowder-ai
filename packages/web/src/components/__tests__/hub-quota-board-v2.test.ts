@@ -456,6 +456,15 @@ describe('HubQuotaBoardTab — account pool grouping', () => {
       root.render(React.createElement(HubQuotaBoardTab));
     });
     await flushEffects();
+
+    const codexAccountLabel = Array.from(container.querySelectorAll('span')).find(
+      (node) => node.textContent?.trim() === 'my-codex-account',
+    );
+    const codexAccountCard = codexAccountLabel?.parentElement?.parentElement;
+    expect(codexAccountCard).toBeTruthy();
+    expect(codexAccountCard?.textContent).toContain('5小时使用限额');
+    expect(codexAccountCard?.textContent).toContain('100% 剩余');
+
     calls.length = 0;
 
     const refreshButton = Array.from(container.querySelectorAll('button')).find(
