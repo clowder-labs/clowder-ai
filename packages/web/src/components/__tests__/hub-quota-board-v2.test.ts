@@ -359,12 +359,15 @@ describe('HubQuotaBoardTab — account pool grouping', () => {
     expect(container.textContent).toContain('额度池成员归属可能不完整');
   });
 
-  it('refreshes both official providers and Kimi, with Kimi using its own refresh endpoint', async () => {
-    const calls: string[] = [];
-    mockApiFetch.mockImplementation((path: string) => {
-      calls.push(path);
+  it('refreshes official providers, Claude ccusage, and Kimi with explicit JSON bodies', async () => {
+    const calls: Array<{ path: string; init?: RequestInit }> = [];
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      calls.push({ path, init });
       if (path === '/api/quota/refresh/official') {
         return Promise.resolve(jsonResponse({ ok: true }));
+      }
+      if (path === '/api/quota/refresh/claude') {
+        return Promise.resolve(jsonResponse({ claude: { platform: 'claude' } }));
       }
       if (path === '/api/quota/refresh/kimi') {
         return Promise.resolve(jsonResponse({ kimi: { status: 'ok' }, source: 'cli', fallbackUsed: false }));
@@ -388,8 +391,13 @@ describe('HubQuotaBoardTab — account pool grouping', () => {
     });
     await flushEffects();
 
-    expect(calls).toContain('/api/quota/refresh/official');
-    expect(calls).toContain('/api/quota/refresh/kimi');
+    expect(calls.map((call) => call.path)).toContain('/api/quota/refresh/official');
+    expect(calls.map((call) => call.path)).toContain('/api/quota/refresh/claude');
+    expect(calls.map((call) => call.path)).toContain('/api/quota/refresh/kimi');
+    for (const call of calls.filter((entry) => entry.path.startsWith('/api/quota/refresh/'))) {
+      expect(call.init?.body).toBeTruthy();
+      expect(new Headers(call.init?.headers).get('content-type')).toBe('application/json');
+    }
   });
 });
 

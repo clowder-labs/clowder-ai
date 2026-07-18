@@ -928,7 +928,7 @@ export function parseClaudeOAuthUsageResponse(json: ClaudeOAuthUsageResponse): C
 
 interface CodexWhamRateLimitWindow {
   used_percent?: number;
-  reset_at?: string;
+  reset_at?: string | number;
   label?: string;
 }
 
@@ -943,10 +943,11 @@ interface CodexWhamUsageResponse {
   credits_balance?: number;
 }
 
-export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse): CodexUsageItem[] {
+type HeaderReader = Pick<Headers, 'get'> | Record<string, string | undefined> | null | undefined;
+
+export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, headers?: HeaderReader): CodexUsageItem[] {
   const items: CodexUsageItem[] = [];
   const rl = json.rate_limit;
-  if (!rl) return items;
 
   const defs: Array<{ key: keyof NonNullable<typeof rl>; label: string; poolId: string }> = [
     { key: 'primary_window', label: '5小时使用限额', poolId: 'codex-main' },
@@ -956,18 +957,21 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse): Codex
     { key: 'code_review', label: '代码审查', poolId: 'codex-review' },
   ];
 
-  for (const def of defs) {
-    const window = rl[def.key];
-    if (!window || typeof window !== 'object') continue;
-    const pct = window.used_percent;
-    if (pct == null || typeof pct !== 'number') continue;
-    items.push({
-      label: window.label ?? def.label,
-      usedPercent: Math.max(0, Math.min(100, pct)),
-      percentKind: 'used',
-      poolId: def.poolId,
-      ...(window.reset_at ? { resetsAt: window.reset_at } : {}),
-    });
+  if (rl) {
+    for (const def of defs) {
+      const window = rl[def.key];
+      if (!window || typeof window !== 'object') continue;
+      const pct = window.used_percent;
+      if (pct == null || typeof pct !== 'number') continue;
+      const resetsAt = normalizeCodexResetAt(window.reset_at);
+      items.push({
+        label: window.label ?? def.label,
+        usedPercent: Math.max(0, Math.min(100, pct)),
+        percentKind: 'used',
+        poolId: def.poolId,
+        ...(resetsAt ? { resetsAt } : {}),
+      });
+    }
   }
 
   // Overflow credits
@@ -980,7 +984,62 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse): Codex
     });
   }
 
+  const headerDefs: Array<{ header: string; label: string; poolId: string; percentKind: 'used' | 'remaining' }> = [
+    {
+      header: 'x-codex-primary-used-percent',
+      label: '5小时使用限额',
+      poolId: 'codex-main',
+      percentKind: 'used',
+    },
+    {
+      header: 'x-codex-secondary-used-percent',
+      label: '每周使用限额',
+      poolId: 'codex-main',
+      percentKind: 'used',
+    },
+    {
+      header: 'x-codex-credits-balance',
+      label: '溢出额度',
+      poolId: 'codex-overflow',
+      percentKind: 'remaining',
+    },
+  ];
+  for (const def of headerDefs) {
+    const pct = readPercentHeader(headers, def.header);
+    if (pct == null) continue;
+    const alreadyPresent = items.some((item) => item.poolId === def.poolId && item.label === def.label);
+    if (alreadyPresent) continue;
+    items.push({
+      label: def.label,
+      usedPercent: pct,
+      percentKind: def.percentKind,
+      poolId: def.poolId,
+    });
+  }
+
   return items;
+}
+
+function normalizeCodexResetAt(value: string | number | undefined): string | undefined {
+  if (typeof value === 'string') return value || undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  const milliseconds = value < 10_000_000_000 ? value * 1000 : value;
+  const date = new Date(milliseconds);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function readPercentHeader(headers: HeaderReader, name: string): number | undefined {
+  if (!headers) return undefined;
+  const maybeHeaders = headers as { get?: unknown };
+  const raw =
+    typeof maybeHeaders.get === 'function'
+      ? (maybeHeaders.get as Headers['get'])(name)
+      : ((headers as Record<string, string | undefined>)[name] ??
+        (headers as Record<string, string | undefined>)[name.toLowerCase()]);
+  if (raw == null || raw === '') return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.max(0, Math.min(100, parsed));
 }
 
 // ============================================================
@@ -1009,27 +1068,51 @@ function loadClaudeCredentials(envPath?: string): OAuthCredentials | null {
 }
 
 function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
-  if (!envPath) return null;
+  const credPath = envPath || join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'auth.json');
   try {
-    const raw = readFileSync(envPath, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (!parsed.accessToken || !parsed.refreshToken) return null;
+    const raw = readFileSync(credPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const tokens = asRecord(parsed.tokens);
+    const nativeAccessToken = readNonEmptyString(tokens?.access_token);
+    const nativeRefreshToken = readNonEmptyString(tokens?.refresh_token);
+    if (nativeAccessToken && nativeRefreshToken) {
+      const accountId = readNonEmptyString(tokens?.account_id);
+      return {
+        accessToken: nativeAccessToken,
+        refreshToken: nativeRefreshToken,
+        ...(accountId ? { accountId } : {}),
+      };
+    }
+
+    // Backward compatibility for manually maintained quota-only credential files.
+    const legacyAccessToken = readNonEmptyString(parsed.accessToken);
+    const legacyRefreshToken = readNonEmptyString(parsed.refreshToken);
+    if (!legacyAccessToken || !legacyRefreshToken) return null;
+    const legacyAccountId = readNonEmptyString(parsed.accountId);
     return {
-      accessToken: parsed.accessToken,
-      refreshToken: parsed.refreshToken,
-      accountId: parsed.accountId,
+      accessToken: legacyAccessToken,
+      refreshToken: legacyRefreshToken,
+      ...(legacyAccountId ? { accountId: legacyAccountId } : {}),
     };
   } catch {
     return null;
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+export const loadCodexCredentialsForTests = loadCodexCredentials;
+
 const ANTHROPIC_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const ANTHROPIC_TOKEN_REFRESH_URL = 'https://platform.claude.com/v1/oauth/token';
 const ANTHROPIC_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const OPENAI_WHAM_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
-const OPENAI_TOKEN_REFRESH_URL = 'https://auth.openai.com/oauth/token';
-const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
 interface OAuthCredentials {
   accessToken: string;
@@ -1059,7 +1142,7 @@ interface RefreshOAuthResult {
   skipped?: string[];
 }
 
-async function refreshAccessToken(
+async function refreshClaudeAccessToken(
   refreshUrl: string,
   clientId: string,
   refreshToken: string,
@@ -1096,7 +1179,7 @@ async function fetchProviderUsage(
   accessToken: string,
   extraHeaders: Record<string, string>,
   fetchFn: typeof globalThis.fetch,
-): Promise<{ json: unknown; status: number }> {
+): Promise<{ json: unknown; status: number; headers: Headers }> {
   const response = await fetchFn(url, {
     method: 'GET',
     headers: {
@@ -1112,7 +1195,7 @@ async function fetchProviderUsage(
     throw new Error(`API returned ${response.status}`);
   }
   const json = await response.json();
-  return { json, status: response.status };
+  return { json, status: response.status, headers: response.headers };
 }
 
 export async function refreshOfficialQuotaViaOAuth(options: RefreshOAuthOptions): Promise<RefreshOAuthResult> {
@@ -1133,7 +1216,7 @@ export async function refreshOfficialQuotaViaOAuth(options: RefreshOAuthOptions)
             ({ json } = await fetchProviderUsage(ANTHROPIC_USAGE_URL, token, {}, fetchFn));
           } catch (err) {
             if (err instanceof TokenExpiredError) {
-              const freshToken = await refreshAccessToken(
+              const freshToken = await refreshClaudeAccessToken(
                 ANTHROPIC_TOKEN_REFRESH_URL,
                 ANTHROPIC_CLIENT_ID,
                 creds.refreshToken,
@@ -1176,34 +1259,31 @@ export async function refreshOfficialQuotaViaOAuth(options: RefreshOAuthOptions)
     tasks.push(
       (async () => {
         const creds = options.codexCredentials!;
-        let token = creds.accessToken;
+        const token = creds.accessToken;
         const extraHeaders: Record<string, string> = {};
         if (creds.accountId) {
           extraHeaders['ChatGPT-Account-Id'] = creds.accountId;
         }
         try {
           let json: unknown;
+          let headers: Headers | undefined;
           try {
-            ({ json } = await fetchProviderUsage(OPENAI_WHAM_USAGE_URL, token, extraHeaders, fetchFn));
+            ({ json, headers } = await fetchProviderUsage(OPENAI_WHAM_USAGE_URL, token, extraHeaders, fetchFn));
           } catch (err) {
             if (err instanceof TokenExpiredError) {
-              const freshToken = await refreshAccessToken(
-                OPENAI_TOKEN_REFRESH_URL,
-                OPENAI_CLIENT_ID,
-                creds.refreshToken,
-                fetchFn,
-              );
-              if (freshToken) {
-                token = freshToken;
-                ({ json } = await fetchProviderUsage(OPENAI_WHAM_USAGE_URL, token, extraHeaders, fetchFn));
-              } else {
-                throw new Error('API returned 401; token refresh failed');
-              }
+              // Codex refresh tokens rotate. Refreshing here without atomically updating
+              // Codex's auth store would consume the token and break the CLI login. The
+              // Codex CLI owns that lifecycle; this read-only probe reloads auth.json on
+              // the next request after Codex refreshes it.
+              throw new Error('API returned 401; refresh the Codex CLI login and retry');
             } else {
               throw err;
             }
           }
-          const items = parseCodexWhamUsageResponse(json as Parameters<typeof parseCodexWhamUsageResponse>[0]);
+          const items = parseCodexWhamUsageResponse(json as Parameters<typeof parseCodexWhamUsageResponse>[0], headers);
+          if (items.length === 0) {
+            throw new Error('Codex Wham API returned no usage items');
+          }
           codexCache = {
             platform: 'codex',
             usageItems: items,
@@ -1360,6 +1440,22 @@ export async function refreshKimiQuota(options?: {
   }
 }
 
+export function mergeClaudeCliUsage(
+  current: ClaudeQuota,
+  blocks: CcusageBillingBlock[],
+  checkedAt: string,
+): ClaudeQuota {
+  const activeBlock = blocks.find((block) => block.isActive) ?? null;
+  const { error: _oldError, ...withoutError } = current;
+  return {
+    ...withoutError,
+    platform: 'claude',
+    activeBlock,
+    recentBlocks: blocks.slice(-5),
+    lastChecked: checkedAt,
+  };
+}
+
 // --- Route ---
 
 export async function quotaRoutes(app: FastifyInstance): Promise<void> {
@@ -1403,13 +1499,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       const { stdout } = await execFileAsync('npx', ['ccusage', 'blocks', '--json'], { timeout: 30_000 });
       const parsed = JSON.parse(stdout) as { blocks: CcusageBillingBlock[] };
       const blocks = parsed.blocks.filter((b) => !b.isGap);
-      const activeBlock = blocks.find((b) => b.isActive) ?? null;
-      claudeCache = {
-        platform: 'claude',
-        activeBlock,
-        recentBlocks: blocks.slice(-5),
-        lastChecked: new Date().toISOString(),
-      };
+      claudeCache = mergeClaudeCliUsage(claudeCache, blocks, new Date().toISOString());
     } catch (err) {
       claudeCache = {
         ...claudeCache,
@@ -1441,7 +1531,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
     const claudeCredentials = loadClaudeCredentials(process.env[CLAUDE_CREDENTIALS_PATH_ENV]);
     const codexCredentials = loadCodexCredentials(process.env[CODEX_CREDENTIALS_PATH_ENV]);
     if (!claudeCredentials && !codexCredentials) {
-      const message = `No official quota credentials found. Claude: ~/.claude/.credentials.json, Codex: set ${CODEX_CREDENTIALS_PATH_ENV}.`;
+      const message = `No official quota credentials found. Claude: ~/.claude/.credentials.json, Codex: ${CODEX_CREDENTIALS_PATH_ENV} or CODEX_HOME/auth.json or ~/.codex/auth.json.`;
       const checkedAt = new Date().toISOString();
       codexCache = { ...codexCache, error: message, lastChecked: checkedAt };
       claudeCache = { ...claudeCache, error: message, lastChecked: checkedAt };

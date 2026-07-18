@@ -149,15 +149,21 @@ export function HubQuotaBoardTab() {
     setRefreshing(true);
     setRefreshError(null);
     try {
-      const [officialRes, kimiRes] = await Promise.all([
+      const [officialRes, claudeRes, kimiRes] = await Promise.all([
         apiFetch('/api/quota/refresh/official', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ interactive: true }),
         }),
+        apiFetch('/api/quota/refresh/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }),
         apiFetch('/api/quota/refresh/kimi', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: '{}',
         }),
       ]);
 
@@ -165,6 +171,10 @@ export function HubQuotaBoardTab() {
       if (!officialRes.ok) {
         const body = (await officialRes.json().catch(() => ({}))) as { error?: string };
         errors.push(body.error ?? '获取官方额度失败');
+      }
+      if (!claudeRes.ok) {
+        const body = (await claudeRes.json().catch(() => ({}))) as { error?: string };
+        errors.push(body.error ?? '刷新 Claude 额度失败');
       }
       if (!kimiRes.ok) {
         const body = (await kimiRes.json().catch(() => ({}))) as { error?: string };

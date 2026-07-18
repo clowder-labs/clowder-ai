@@ -6,6 +6,9 @@
  */
 
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 async function buildApp() {
@@ -167,12 +170,23 @@ describe('GET /api/quota/probes', () => {
 
   it('marks official-browser probe status=error after official refresh failure', async () => {
     const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const oldCodexHome = process.env.CODEX_HOME;
+    const isolatedCodexHome = await mkdtemp(join(tmpdir(), 'quota-empty-codex-home-'));
     process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(isolatedCodexHome, 'missing-claude-credentials.json');
+    delete process.env.CODEX_CREDENTIALS_PATH;
+    process.env.CODEX_HOME = isolatedCodexHome;
     const app = await buildApp();
     try {
       // No credentials files → 400 with "No OAuth credentials" error
       const refreshRes = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
       assert.equal(refreshRes.statusCode, 400);
+      const refreshBody = refreshRes.json();
+      assert.match(refreshBody.error, /CODEX_CREDENTIALS_PATH/);
+      assert.match(refreshBody.error, /CODEX_HOME\/auth\.json/);
+      assert.match(refreshBody.error, /~\/\.codex\/auth\.json/);
 
       const probeRes = await app.inject({ method: 'GET', url: '/api/quota/probes' });
       assert.equal(probeRes.statusCode, 200);
@@ -184,6 +198,13 @@ describe('GET /api/quota/probes', () => {
     } finally {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
       else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+      else delete process.env.CODEX_HOME;
+      await rm(isolatedCodexHome, { recursive: true, force: true });
       await app.close();
     }
   });
@@ -654,6 +675,124 @@ describe('POST /api/quota/refresh/official', () => {
   });
 });
 
+describe('Claude local usage merge', () => {
+  it('preserves official OAuth quota pools when ccusage refreshes local billing blocks', async () => {
+    const { mergeClaudeCliUsage } = await import('../dist/routes/quota.js');
+    const usageItems = [{ label: 'Session 5h', usedPercent: 12, poolId: 'claude-session' }];
+    const activeBlock = {
+      id: 'block-1',
+      startTime: '2026-07-18T00:00:00.000Z',
+      endTime: '2026-07-18T05:00:00.000Z',
+      isActive: true,
+      isGap: false,
+      entries: 1,
+      totalTokens: 100,
+      costUSD: 0,
+      models: ['claude'],
+      burnRate: null,
+      projection: null,
+    };
+    const merged = mergeClaudeCliUsage(
+      {
+        platform: 'claude',
+        activeBlock: null,
+        recentBlocks: [],
+        usageItems,
+        error: 'stale error',
+        lastChecked: null,
+      },
+      [activeBlock],
+      '2026-07-18T01:00:00.000Z',
+    );
+    assert.deepEqual(merged.usageItems, usageItems);
+    assert.equal(merged.activeBlock?.id, 'block-1');
+    assert.equal(merged.error, undefined);
+    assert.equal(merged.lastChecked, '2026-07-18T01:00:00.000Z');
+  });
+});
+
+describe('Codex OAuth credentials loader', () => {
+  const nativeCodexAuth = {
+    auth_mode: 'chatgpt',
+    tokens: {
+      access_token: 'native-access-token',
+      refresh_token: 'native-refresh-token',
+      account_id: 'native-account-id',
+    },
+  };
+
+  async function withTempDir(fn) {
+    const dir = await mkdtemp(join(tmpdir(), 'quota-codex-auth-'));
+    try {
+      return await fn(dir);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('reads native Codex CLI auth.json from CODEX_HOME when CODEX_CREDENTIALS_PATH is unset', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const oldCodexHome = process.env.CODEX_HOME;
+      process.env.CODEX_HOME = dir;
+      await writeFile(join(dir, 'auth.json'), JSON.stringify(nativeCodexAuth), 'utf-8');
+      try {
+        assert.deepEqual(loadCodexCredentialsForTests(), {
+          accessToken: 'native-access-token',
+          refreshToken: 'native-refresh-token',
+          accountId: 'native-account-id',
+        });
+      } finally {
+        if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+        else delete process.env.CODEX_HOME;
+      }
+    });
+  });
+
+  it('reads native Codex CLI auth.json from explicit CODEX_CREDENTIALS_PATH', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const authPath = join(dir, 'codex-auth.json');
+      await writeFile(authPath, JSON.stringify(nativeCodexAuth), 'utf-8');
+      assert.deepEqual(loadCodexCredentialsForTests(authPath), {
+        accessToken: 'native-access-token',
+        refreshToken: 'native-refresh-token',
+        accountId: 'native-account-id',
+      });
+    });
+  });
+
+  it('keeps supporting the legacy flat Codex credential format', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const authPath = join(dir, 'flat-auth.json');
+      await writeFile(
+        authPath,
+        JSON.stringify({
+          accessToken: 'flat-access-token',
+          refreshToken: 'flat-refresh-token',
+          accountId: 'flat-account-id',
+        }),
+        'utf-8',
+      );
+      assert.deepEqual(loadCodexCredentialsForTests(authPath), {
+        accessToken: 'flat-access-token',
+        refreshToken: 'flat-refresh-token',
+        accountId: 'flat-account-id',
+      });
+    });
+  });
+
+  it('returns null for incomplete native Codex auth without throwing', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const authPath = join(dir, 'incomplete-auth.json');
+      await writeFile(authPath, JSON.stringify({ tokens: { access_token: 'missing-refresh' } }), 'utf-8');
+      assert.equal(loadCodexCredentialsForTests(authPath), null);
+    });
+  });
+});
+
 // ============================================================
 // v3 OAuth API parsers (replaces browser scraping)
 // ============================================================
@@ -802,6 +941,14 @@ describe('Codex Wham API parser (v3)', () => {
     assert.equal(main5h.resetsAt, '2026-03-05T07:10:00Z');
   });
 
+  it('normalizes current Wham epoch-second reset_at values to ISO timestamps', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse({
+      rate_limit: { primary_window: { used_percent: 8, reset_at: 1_784_400_000 } },
+    });
+    assert.equal(items[0]?.resetsAt, new Date(1_784_400_000 * 1000).toISOString());
+  });
+
   it('extracts credits_balance as overflow pool', async () => {
     const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
     const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
@@ -809,6 +956,26 @@ describe('Codex Wham API parser (v3)', () => {
     assert.ok(overflow);
     assert.equal(overflow.usedPercent, 0);
     assert.equal(overflow.percentKind, 'remaining');
+  });
+
+  it('uses Wham response headers when the body lacks rate_limit usage windows', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(
+      {},
+      new Headers({
+        'x-codex-primary-used-percent': '13',
+        'x-codex-secondary-used-percent': '21',
+        'x-codex-credits-balance': '0',
+      }),
+    );
+    assert.deepEqual(
+      items.map((x) => [x.label, x.usedPercent, x.poolId, x.percentKind]),
+      [
+        ['5小时使用限额', 13, 'codex-main', 'used'],
+        ['每周使用限额', 21, 'codex-main', 'used'],
+        ['溢出额度', 0, 'codex-overflow', 'remaining'],
+      ],
+    );
   });
 
   it('treats used_percent as utilization (not remaining)', async () => {
@@ -906,6 +1073,26 @@ describe('POST /api/quota/refresh/official — v3 OAuth flow', () => {
     assert.ok(!result.codex.error);
   });
 
+  it('reports Codex Wham success responses that contain no usage items', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: null,
+      codexCredentials: { accessToken: 'test-token', refreshToken: 'test-refresh', accountId: 'test-account' },
+      fetchLike: async (url) => {
+        if (String(url).includes('chatgpt.com')) {
+          return new Response(JSON.stringify({ rate_limit: {} }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 404 });
+      },
+    });
+    assert.equal(result.codex?.items, 0);
+    assert.match(result.codex?.error ?? '', /no usage items/i);
+  });
+
   it('reports error when API returns 401 and refresh also fails', async () => {
     const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
     resetQuotaCachesForTests?.();
@@ -949,32 +1136,31 @@ describe('POST /api/quota/refresh/official — v3 OAuth flow', () => {
     assert.ok(!result.claude.error, 'should not have error after successful retry');
   });
 
-  it('retries with refreshed token on 401 (Codex)', async () => {
+  it('does not consume Codex refresh-token rotation on 401', async () => {
     const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
     resetQuotaCachesForTests?.();
-    let callCount = 0;
+    let refreshCallCount = 0;
     const result = await refreshOfficialQuotaViaOAuth({
       claudeCredentials: null,
       codexCredentials: { accessToken: 'expired-token', refreshToken: 'valid-refresh', accountId: 'acct' },
       fetchLike: async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('auth.openai.com')) {
-          return new Response(JSON.stringify({ access_token: 'fresh-codex-token' }), { status: 200 });
+          refreshCallCount++;
+          return new Response(
+            JSON.stringify({ access_token: 'fresh-codex-token', refresh_token: 'rotated-refresh-token' }),
+            { status: 200 },
+          );
         }
         if (urlStr.includes('chatgpt.com')) {
-          callCount++;
-          if (callCount === 1) {
-            return new Response('{"error":"invalid_token"}', { status: 401 });
-          }
-          return new Response(JSON.stringify(MOCK_CODEX_WHAM_RESPONSE), { status: 200 });
+          return new Response('{"error":"invalid_token"}', { status: 401 });
         }
         return new Response('', { status: 404 });
       },
     });
-    assert.equal(callCount, 2);
-    assert.ok(result.codex);
-    assert.ok(result.codex.items > 0);
-    assert.ok(!result.codex.error);
+    assert.equal(refreshCallCount, 0, 'quota refresh must not consume and discard Codex refresh-token rotation');
+    assert.equal(result.codex?.items, 0);
+    assert.match(result.codex?.error ?? '', /Codex CLI.*refresh|refresh.*Codex CLI/i);
   });
 
   it('handles both providers in parallel', async () => {
@@ -1052,7 +1238,7 @@ describe('POST /api/quota/refresh/official — v3 OAuth flow', () => {
     assert.ok(result.skipped.includes('kimi'), 'kimi should be in skipped list');
   });
 
-  it('sends form-encoded OAuth refresh request (not JSON)', async () => {
+  it('sends Claude token refresh as form-encoded OAuth (not JSON)', async () => {
     const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
     resetQuotaCachesForTests?.();
     let refreshContentType = '';
