@@ -1090,12 +1090,7 @@ function loadClaudeCredentials(envPath?: string): OAuthCredentials | null {
   }
 }
 
-interface LoadedCodexCredentials {
-  credentials: CodexOAuthCredentials | null;
-  format: 'native' | 'legacy' | 'invalid';
-}
-
-function readCodexCredentialsFile(credPath: string): LoadedCodexCredentials | null {
+function readCodexCredentialsFile(credPath: string): CodexOAuthCredentials | null {
   try {
     const raw = readFileSync(credPath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -1103,30 +1098,16 @@ function readCodexCredentialsFile(credPath: string): LoadedCodexCredentials | nu
     if (tokens) {
       const accessToken = readNonEmptyString(tokens.access_token);
       const refreshToken = readNonEmptyString(tokens.refresh_token);
-      if (!accessToken || !refreshToken) return { credentials: null, format: 'invalid' };
+      if (!accessToken || !refreshToken) return null;
       const accountId = readNonEmptyString(tokens.account_id);
-      return {
-        credentials: {
-          accessToken,
-          refreshToken,
-          ...(accountId ? { accountId } : {}),
-        },
-        format: 'native',
-      };
+      return { accessToken, refreshToken, ...(accountId ? { accountId } : {}) };
     }
 
     const accessToken = readNonEmptyString(parsed.accessToken);
     const refreshToken = readNonEmptyString(parsed.refreshToken);
-    if (!accessToken || !refreshToken) return { credentials: null, format: 'invalid' };
+    if (!accessToken || !refreshToken) return null;
     const accountId = readNonEmptyString(parsed.accountId);
-    return {
-      credentials: {
-        accessToken,
-        refreshToken,
-        ...(accountId ? { accountId } : {}),
-      },
-      format: 'legacy',
-    };
+    return { accessToken, refreshToken, ...(accountId ? { accountId } : {}) };
   } catch {
     return null;
   }
@@ -1134,19 +1115,14 @@ function readCodexCredentialsFile(credPath: string): LoadedCodexCredentials | nu
 
 function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
   const explicitPath = envPath?.trim();
+  // CODEX_CREDENTIALS_PATH is an operator-selected account boundary. When it is
+  // present, its native or legacy file is the only allowed source; missing or
+  // malformed content fails closed instead of silently switching to an ambient
+  // CODEX_HOME account.
+  if (explicitPath) return readCodexCredentialsFile(explicitPath);
+
   const nativePath = join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'auth.json');
-  const explicit = explicitPath ? readCodexCredentialsFile(explicitPath) : null;
-
-  // An explicit native auth.json is authoritative. An explicit legacy flat file,
-  // however, is commonly an installer-generated snapshot that the Codex CLI never
-  // updates. Prefer the live CLI-managed native store when it is available, while
-  // retaining the flat file as a compatibility fallback.
-  if (explicit?.format === 'native' || explicit?.format === 'invalid') return explicit.credentials;
-
-  const native = explicitPath === nativePath ? explicit : readCodexCredentialsFile(nativePath);
-  if (native?.format === 'native' && native.credentials) return native.credentials;
-  if (explicit?.format === 'legacy' && explicit.credentials) return explicit.credentials;
-  return native?.credentials ?? null;
+  return readCodexCredentialsFile(nativePath);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -1171,6 +1147,30 @@ interface OAuthCredentials {
 
 interface CodexOAuthCredentials extends OAuthCredentials {
   accountId?: string;
+}
+
+type OfficialQuotaProvider = 'claude' | 'codex';
+
+function setRequestedOfficialCacheError(
+  requestedProviders: ReadonlySet<OfficialQuotaProvider>,
+  message: string,
+  checkedAt: string,
+): void {
+  if (requestedProviders.has('codex')) {
+    codexCache = { ...codexCache, error: message, lastChecked: checkedAt };
+  }
+  if (requestedProviders.has('claude')) {
+    claudeCache = { ...claudeCache, error: message, lastChecked: checkedAt };
+  }
+}
+
+function requestedCredentialHints(requestedProviders: ReadonlySet<OfficialQuotaProvider>): string {
+  return [
+    ...(requestedProviders.has('claude') ? ['Claude: ~/.claude/.credentials.json.'] : []),
+    ...(requestedProviders.has('codex')
+      ? [`Codex: ${CODEX_CREDENTIALS_PATH_ENV} or CODEX_HOME/auth.json or ~/.codex/auth.json.`]
+      : []),
+  ].join(' ');
 }
 
 interface RefreshOAuthOptions {
@@ -1561,22 +1561,6 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
 
   // POST: refresh official quota via OAuth APIs (v3, ClaudeBar-compatible)
   app.post('/api/quota/refresh/official', async (request, reply) => {
-    if (!isTruthyFlag(process.env[OFFICIAL_REFRESH_ENABLED_ENV])) {
-      const message = `Official quota refresh is temporarily disabled. Set ${OFFICIAL_REFRESH_ENABLED_ENV}=1 to enable it.`;
-      const checkedAt = new Date().toISOString();
-      codexCache = {
-        ...codexCache,
-        error: message,
-        lastChecked: checkedAt,
-      };
-      claudeCache = {
-        ...claudeCache,
-        error: message,
-        lastChecked: checkedAt,
-      };
-      return reply.status(503).send({ error: message });
-    }
-
     const parsedRequest = z
       .object({
         interactive: z.boolean().optional(),
@@ -1589,7 +1573,14 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
     if (!parsedRequest.success) {
       return reply.status(400).send({ error: 'Invalid official quota refresh request' });
     }
-    const requestedProviders = new Set(parsedRequest.data.providers ?? ['claude', 'codex']);
+    const requestedProviders = new Set<OfficialQuotaProvider>(parsedRequest.data.providers ?? ['claude', 'codex']);
+
+    if (!isTruthyFlag(process.env[OFFICIAL_REFRESH_ENABLED_ENV])) {
+      const message = `Official quota refresh is temporarily disabled. Set ${OFFICIAL_REFRESH_ENABLED_ENV}=1 to enable it.`;
+      const checkedAt = new Date().toISOString();
+      setRequestedOfficialCacheError(requestedProviders, message, checkedAt);
+      return reply.status(503).send({ error: message });
+    }
 
     // Load only credentials represented by the caller's configured subscription
     // accounts. Omitted providers are intentionally not probed and cannot create
@@ -1601,10 +1592,9 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       ? loadCodexCredentials(process.env[CODEX_CREDENTIALS_PATH_ENV])
       : null;
     if (!claudeCredentials && !codexCredentials) {
-      const message = `No official quota credentials found. Claude: ~/.claude/.credentials.json, Codex: ${CODEX_CREDENTIALS_PATH_ENV} or CODEX_HOME/auth.json or ~/.codex/auth.json.`;
+      const message = `No official quota credentials found for requested providers. ${requestedCredentialHints(requestedProviders)}`;
       const checkedAt = new Date().toISOString();
-      codexCache = { ...codexCache, error: message, lastChecked: checkedAt };
-      claudeCache = { ...claudeCache, error: message, lastChecked: checkedAt };
+      setRequestedOfficialCacheError(requestedProviders, message, checkedAt);
       return reply.status(400).send({ error: message });
     }
 

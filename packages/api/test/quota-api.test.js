@@ -424,6 +424,144 @@ describe('POST /api/quota/refresh/official — provider selection', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it('keeps Claude cache unchanged when a Codex-only refresh has no credentials', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const oldCodexHome = process.env.CODEX_HOME;
+    const oldFetch = globalThis.fetch;
+    const dir = await mkdtemp(join(tmpdir(), 'quota-codex-isolation-'));
+    const codexHome = join(dir, 'empty-codex-home');
+    await mkdir(codexHome);
+    await writeFile(
+      join(dir, 'claude.json'),
+      JSON.stringify({ accessToken: 'claude-access', refreshToken: 'claude-refresh' }),
+      'utf-8',
+    );
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(dir, 'claude.json');
+    delete process.env.CODEX_CREDENTIALS_PATH;
+    process.env.CODEX_HOME = codexHome;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          five_hour: { used_percent: 7, reset_at: '2026-07-18T10:00:00.000Z' },
+          seven_day: { used_percent: 21, reset_at: '2026-07-25T10:00:00.000Z' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+
+    const app = await buildApp();
+    try {
+      const seed = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['claude'] },
+      });
+      assert.equal(seed.statusCode, 200);
+      const before = (await app.inject({ method: 'GET', url: '/api/quota' })).json().claude;
+
+      const failed = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['codex'] },
+      });
+      assert.equal(failed.statusCode, 400);
+      assert.doesNotMatch(failed.json().error, /Claude/);
+      const after = (await app.inject({ method: 'GET', url: '/api/quota' })).json().claude;
+      assert.deepEqual(after, before);
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+      else delete process.env.CODEX_HOME;
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps Codex cache unchanged when a Claude-only refresh has no credentials', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldClaudeCredentialsPath = process.env.CLAUDE_CREDENTIALS_PATH;
+    const oldCodexCredentialsPath = process.env.CODEX_CREDENTIALS_PATH;
+    const dir = await mkdtemp(join(tmpdir(), 'quota-claude-isolation-'));
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.CLAUDE_CREDENTIALS_PATH = join(dir, 'missing-claude.json');
+    delete process.env.CODEX_CREDENTIALS_PATH;
+
+    const app = await buildApp();
+    try {
+      const seed = await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: {
+          usageItems: [
+            {
+              label: '每周使用限额',
+              usedPercent: 27,
+              percentKind: 'used',
+              poolId: 'codex-main',
+            },
+          ],
+        },
+      });
+      assert.equal(seed.statusCode, 200);
+      const before = (await app.inject({ method: 'GET', url: '/api/quota' })).json().codex;
+
+      const failed = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['claude'] },
+      });
+      assert.equal(failed.statusCode, 400);
+      assert.doesNotMatch(failed.json().error, /Codex/);
+      const after = (await app.inject({ method: 'GET', url: '/api/quota' })).json().codex;
+      assert.deepEqual(after, before);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldClaudeCredentialsPath != null) process.env.CLAUDE_CREDENTIALS_PATH = oldClaudeCredentialsPath;
+      else delete process.env.CLAUDE_CREDENTIALS_PATH;
+      if (oldCodexCredentialsPath != null) process.env.CODEX_CREDENTIALS_PATH = oldCodexCredentialsPath;
+      else delete process.env.CODEX_CREDENTIALS_PATH;
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps omitted provider caches unchanged when official refresh is disabled', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '0';
+    const app = await buildApp();
+    try {
+      const seed = await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: { usageItems: [{ label: '每周使用限额', usedPercent: 27 }] },
+      });
+      assert.equal(seed.statusCode, 200);
+      const before = (await app.inject({ method: 'GET', url: '/api/quota' })).json().codex;
+
+      const failed = await app.inject({
+        method: 'POST',
+        url: '/api/quota/refresh/official',
+        payload: { providers: ['claude'] },
+      });
+      assert.equal(failed.statusCode, 503);
+      const after = (await app.inject({ method: 'GET', url: '/api/quota' })).json().codex;
+      assert.deepEqual(after, before);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
 });
 
 describe('PATCH /api/quota/codex — validation', () => {
@@ -861,7 +999,7 @@ describe('Codex OAuth credentials loader', () => {
     });
   });
 
-  it('prefers the live CODEX_HOME auth.json over an explicit legacy snapshot', async () => {
+  it('keeps an explicit legacy credential path authoritative over CODEX_HOME auth.json', async () => {
     const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
     await withTempDir(async (dir) => {
       const oldCodexHome = process.env.CODEX_HOME;
@@ -881,10 +1019,29 @@ describe('Codex OAuth credentials loader', () => {
       process.env.CODEX_HOME = codexHome;
       try {
         assert.deepEqual(loadCodexCredentialsForTests(legacyPath), {
-          accessToken: 'native-access-token',
-          refreshToken: 'native-refresh-token',
-          accountId: 'native-account-id',
+          accessToken: 'stale-flat-access-token',
+          refreshToken: 'stale-flat-refresh-token',
+          accountId: 'stale-flat-account-id',
         });
+      } finally {
+        if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+        else delete process.env.CODEX_HOME;
+      }
+    });
+  });
+
+  it('fails closed when an explicit credential path is malformed even if CODEX_HOME is valid', async () => {
+    const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
+    await withTempDir(async (dir) => {
+      const oldCodexHome = process.env.CODEX_HOME;
+      const malformedPath = join(dir, 'malformed-auth.json');
+      const codexHome = join(dir, 'codex-home');
+      await mkdir(codexHome);
+      await writeFile(malformedPath, '{not-json', 'utf-8');
+      await writeFile(join(codexHome, 'auth.json'), JSON.stringify(nativeCodexAuth), 'utf-8');
+      process.env.CODEX_HOME = codexHome;
+      try {
+        assert.equal(loadCodexCredentialsForTests(malformedPath), null);
       } finally {
         if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
         else delete process.env.CODEX_HOME;

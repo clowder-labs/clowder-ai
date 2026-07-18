@@ -2,7 +2,22 @@
 
 Review-Target-ID: fix-1027-quota-codex-auth
 Branch: fix/1027-quota-codex-auth
-Implementation commit: `1af0318b28de3a50c8de17a5a8d63ae82c3df3c9`
+Original implementation commit: `1af0318b28de3a50c8de17a5a8d63ae82c3df3c9` (pre-rebase)
+
+## Review Status
+
+**CHANGES ADDRESSED — exact rebased HEAD review pending.**
+
+The earlier independent approval covered the pre-rebase branch through `429630b8` only. PR #1172 subsequently received two blocking authority/isolation findings, so that approval does not cover the corrected code recorded below and must not be cited as approval of the current HEAD.
+
+The correction commit containing this note:
+
+- keeps an explicit `CODEX_CREDENTIALS_PATH` authoritative for both native and legacy file shapes;
+- fails closed when that explicit file is missing, malformed, or incomplete instead of selecting an ambient account;
+- limits missing-credential and disabled-refresh cache/error writes to the requested providers;
+- adds symmetric regression coverage proving a Codex-only failure preserves Claude state and a Claude-only failure preserves Codex state.
+
+After this correction is pushed, the rebased exact diff still requires an independent verdict.
 
 ## What
 
@@ -72,7 +87,9 @@ Why: 只修正既有 parser 字段解释和既有展示口径，没有新增 Sto
 
 ### 测试结果
 
-- API build + `node --test test/quota-api.test.js`: 65 passed, 0 failed（isolated `CODEX_HOME`）。
+- 原始显示语义实现：API 65 passed，Web 21 passed；详见下列既有证据。
+- PR #1172 review 修正的 Red 阶段：API 64 passed, 5 failed；失败精确覆盖显式凭证权威/失败关闭、双向 provider cache 隔离及 disabled 分支隔离。
+- PR #1172 review 修正的 Green 阶段：API build + `node --test test/quota-api.test.js`: 69 passed, 0 failed（isolated `CODEX_HOME`）。
 - Web `vitest ...hub-quota-board-v2.test.ts`: 21 passed, 0 failed。
 - Web `tsc --noEmit`: passed。
 - Web production build: passed。
@@ -89,6 +106,7 @@ Why: 只修正既有 parser 字段解释和既有展示口径，没有新增 Sto
 ### 相关文档
 
 - Bug report: `docs/bug-report/quota-display-window-semantics/bug-report.md`
-- Commit: `1af0318b28de3a50c8de17a5a8d63ae82c3df3c9`
+- Original implementation commit: `1af0318b28de3a50c8de17a5a8d63ae82c3df3c9` (pre-rebase)
+- Review correction: the commit containing this updated note; independent exact-HEAD verdict pending
 
 [清明/gpt-5.6-sol🐾]
