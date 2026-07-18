@@ -225,15 +225,20 @@ export function HubQuotaBoardTab() {
       }
 
       const results = await Promise.all(requests.map(async (entry) => ({ ...entry, result: await entry.response })));
-      const errors: string[] = [];
+      const errors = new Set<string>();
       for (const { result, fallbackError } of results) {
+        const body = (await result.json().catch(() => ({}))) as { error?: unknown; warnings?: unknown };
         if (!result.ok) {
-          const body = (await result.json().catch(() => ({}))) as { error?: string };
-          errors.push(body.error ?? fallbackError);
+          errors.add(typeof body.error === 'string' && body.error.trim() ? body.error : fallbackError);
+        }
+        if (Array.isArray(body.warnings)) {
+          for (const warning of body.warnings) {
+            if (typeof warning === 'string' && warning.trim()) errors.add(warning);
+          }
         }
       }
-      if (errors.length > 0) {
-        setRefreshError(errors.join('；'));
+      if (errors.size > 0) {
+        setRefreshError([...errors].join('；'));
       }
       await fetchQuota();
     } catch {

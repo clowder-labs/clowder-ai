@@ -916,6 +916,86 @@ describe('Claude local usage merge', () => {
     assert.equal(merged.error, undefined);
     assert.equal(merged.lastChecked, '2026-07-18T01:00:00.000Z');
   });
+
+  it('preserves an official failure when ccusage success completes later', async () => {
+    const { mergeClaudeCliUsage, mergeClaudeOfficialFailure } = await import('../dist/routes/quota.js');
+    const officialError = 'Claude OAuth failed: upstream unavailable';
+    const initial = {
+      platform: 'claude',
+      activeBlock: null,
+      recentBlocks: [],
+      lastChecked: null,
+    };
+
+    const afterOfficialFailure = mergeClaudeOfficialFailure(initial, officialError, '2026-07-18T01:00:00.000Z');
+    const afterCliSuccess = mergeClaudeCliUsage(afterOfficialFailure, [], '2026-07-18T01:00:01.000Z');
+
+    assert.equal(afterCliSuccess.officialError, officialError);
+    assert.equal(afterCliSuccess.cliError, undefined);
+    assert.equal(afterCliSuccess.error, officialError);
+  });
+
+  it('records the same official failure when it completes after ccusage success', async () => {
+    const { mergeClaudeCliUsage, mergeClaudeOfficialFailure } = await import('../dist/routes/quota.js');
+    const officialError = 'Claude OAuth failed: upstream unavailable';
+    const initial = {
+      platform: 'claude',
+      activeBlock: null,
+      recentBlocks: [],
+      lastChecked: null,
+    };
+
+    const afterCliSuccess = mergeClaudeCliUsage(initial, [], '2026-07-18T01:00:00.000Z');
+    const afterOfficialFailure = mergeClaudeOfficialFailure(afterCliSuccess, officialError, '2026-07-18T01:00:01.000Z');
+
+    assert.equal(afterOfficialFailure.officialError, officialError);
+    assert.equal(afterOfficialFailure.cliError, undefined);
+    assert.equal(afterOfficialFailure.error, officialError);
+  });
+
+  it('preserves a ccusage failure when official success completes later', async () => {
+    const { mergeClaudeCliFailure, mergeClaudeOfficialUsage } = await import('../dist/routes/quota.js');
+    const cliError = 'ccusage failed: command unavailable';
+    const initial = {
+      platform: 'claude',
+      activeBlock: null,
+      recentBlocks: [],
+      lastChecked: null,
+    };
+
+    const afterCliFailure = mergeClaudeCliFailure(initial, cliError, '2026-07-18T01:00:00.000Z');
+    const afterOfficialSuccess = mergeClaudeOfficialUsage(
+      afterCliFailure,
+      [{ label: 'Weekly all models', usedPercent: 21, poolId: 'claude-weekly-all' }],
+      '2026-07-18T01:00:01.000Z',
+    );
+
+    assert.equal(afterOfficialSuccess.officialError, undefined);
+    assert.equal(afterOfficialSuccess.cliError, cliError);
+    assert.equal(afterOfficialSuccess.error, cliError);
+  });
+
+  it('records the same ccusage failure when it completes after official success', async () => {
+    const { mergeClaudeCliFailure, mergeClaudeOfficialUsage } = await import('../dist/routes/quota.js');
+    const cliError = 'ccusage failed: command unavailable';
+    const initial = {
+      platform: 'claude',
+      activeBlock: null,
+      recentBlocks: [],
+      lastChecked: null,
+    };
+
+    const afterOfficialSuccess = mergeClaudeOfficialUsage(
+      initial,
+      [{ label: 'Weekly all models', usedPercent: 21, poolId: 'claude-weekly-all' }],
+      '2026-07-18T01:00:00.000Z',
+    );
+    const afterCliFailure = mergeClaudeCliFailure(afterOfficialSuccess, cliError, '2026-07-18T01:00:01.000Z');
+
+    assert.equal(afterCliFailure.officialError, undefined);
+    assert.equal(afterCliFailure.cliError, cliError);
+    assert.equal(afterCliFailure.error, cliError);
+  });
 });
 
 describe('Codex OAuth credentials loader', () => {
@@ -1230,6 +1310,26 @@ describe('Codex Wham API parser (v3)', () => {
     assert.equal(items.length, 1);
     assert.equal(items[0]?.label, '每周使用限额');
     assert.equal(items[0]?.usedPercent, 28);
+  });
+
+  it('uses the body primary window once when matching fallback headers are also present', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(
+      {
+        rate_limit: {
+          primary_window: {
+            used_percent: 28,
+            limit_window_seconds: 7 * 24 * 60 * 60,
+          },
+        },
+      },
+      new Headers({ 'x-codex-primary-used-percent': '28' }),
+    );
+
+    assert.deepEqual(
+      items.map((item) => [item.label, item.usedPercent, item.poolId]),
+      [['每周使用限额', 28, 'codex-main']],
+    );
   });
 
   it('extracts credits_balance as overflow pool', async () => {

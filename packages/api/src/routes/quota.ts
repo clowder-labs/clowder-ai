@@ -49,6 +49,8 @@ export interface ClaudeQuota {
   activeBlock: CcusageBillingBlock | null;
   usageItems?: CodexUsageItem[];
   recentBlocks: CcusageBillingBlock[];
+  officialError?: string;
+  cliError?: string;
   error?: string;
   lastChecked: string | null;
 }
@@ -241,7 +243,9 @@ function isTruthyFlag(raw: string | undefined): boolean {
 }
 
 function hasOfficialProbeFailure(): boolean {
-  const messages = [codexCache.error, claudeCache.error].filter((message): message is string => Boolean(message));
+  const messages = [codexCache.error, claudeCache.officialError].filter((message): message is string =>
+    Boolean(message),
+  );
   return messages.some((message) => {
     if (/temporarily disabled/i.test(message)) return false;
     return /official fetch failed|OAuth failed|credentials/i.test(message);
@@ -270,7 +274,7 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
     : hasOfficialProbeFailure()
       ? 'error'
       : 'ok';
-  const claudeStatus: QuotaProbeRuntimeStatus = /ccusage failed/i.test(claudeCache.error ?? '') ? 'error' : 'ok';
+  const claudeStatus: QuotaProbeRuntimeStatus = claudeCache.cliError ? 'error' : 'ok';
   const kimiStatus = getKimiProbeStatus(env);
 
   return [
@@ -291,7 +295,7 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
       ],
       reason:
         claudeStatus === 'error'
-          ? (claudeCache.error ?? 'ccusage probe error')
+          ? (claudeCache.cliError ?? 'ccusage probe error')
           : 'Uses ccusage CLI output. No browser scraping.',
     },
     {
@@ -313,7 +317,7 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
         officialStatus === 'disabled'
           ? 'Disabled by default for risk control. Set QUOTA_OFFICIAL_REFRESH_ENABLED=1 to enable.'
           : officialStatus === 'error'
-            ? (codexCache.error ?? claudeCache.error ?? 'official OAuth probe error')
+            ? (codexCache.error ?? claudeCache.officialError ?? 'official OAuth probe error')
             : 'Enabled. Uses Claude/Codex OAuth APIs.',
     },
     {
@@ -961,6 +965,8 @@ function codexWindowLabel(window: CodexWhamRateLimitWindow, fallbackLabel: strin
 export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, headers?: HeaderReader): CodexUsageItem[] {
   const items: CodexUsageItem[] = [];
   const rl = json.rate_limit;
+  type BodySource = keyof NonNullable<typeof rl> | 'credits_balance';
+  const parsedBodySources = new Set<BodySource>();
 
   const defs: Array<{ key: keyof NonNullable<typeof rl>; label: string; poolId: string; prefix?: string }> = [
     { key: 'primary_window', label: '5小时使用限额', poolId: 'codex-main' },
@@ -987,6 +993,7 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, header
       const pct = window.used_percent;
       if (pct == null || typeof pct !== 'number') continue;
       const resetsAt = normalizeCodexResetAt(window.reset_at);
+      parsedBodySources.add(def.key);
       items.push({
         label: codexWindowLabel(window, def.label, def.prefix),
         usedPercent: Math.max(0, Math.min(100, pct)),
@@ -999,6 +1006,7 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, header
 
   // Overflow credits
   if ('credits_balance' in json && typeof json.credits_balance === 'number') {
+    parsedBodySources.add('credits_balance');
     items.push({
       label: '溢出额度',
       usedPercent: Math.max(0, Math.min(100, json.credits_balance)),
@@ -1007,31 +1015,39 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, header
     });
   }
 
-  const headerDefs: Array<{ header: string; label: string; poolId: string; percentKind: 'used' | 'remaining' }> = [
+  const headerDefs: Array<{
+    header: string;
+    bodySource: BodySource;
+    label: string;
+    poolId: string;
+    percentKind: 'used' | 'remaining';
+  }> = [
     {
       header: 'x-codex-primary-used-percent',
+      bodySource: 'primary_window',
       label: '5小时使用限额',
       poolId: 'codex-main',
       percentKind: 'used',
     },
     {
       header: 'x-codex-secondary-used-percent',
+      bodySource: 'secondary_window',
       label: '每周使用限额',
       poolId: 'codex-main',
       percentKind: 'used',
     },
     {
       header: 'x-codex-credits-balance',
+      bodySource: 'credits_balance',
       label: '溢出额度',
       poolId: 'codex-overflow',
       percentKind: 'remaining',
     },
   ];
   for (const def of headerDefs) {
+    if (parsedBodySources.has(def.bodySource)) continue;
     const pct = readPercentHeader(headers, def.header);
     if (pct == null) continue;
-    const alreadyPresent = items.some((item) => item.poolId === def.poolId && item.label === def.label);
-    if (alreadyPresent) continue;
     items.push({
       label: def.label,
       usedPercent: pct,
@@ -1151,6 +1167,48 @@ interface CodexOAuthCredentials extends OAuthCredentials {
 
 type OfficialQuotaProvider = 'claude' | 'codex';
 
+function reconcileClaudeErrors(current: ClaudeQuota): ClaudeQuota {
+  const { error: _aggregateError, officialError, cliError, ...base } = current;
+  const normalizedOfficialError = officialError?.trim() || undefined;
+  const normalizedCliError = cliError?.trim() || undefined;
+  const messages = [...new Set([normalizedOfficialError, normalizedCliError].filter(Boolean))] as string[];
+  return {
+    ...base,
+    ...(normalizedOfficialError ? { officialError: normalizedOfficialError } : {}),
+    ...(normalizedCliError ? { cliError: normalizedCliError } : {}),
+    ...(messages.length > 0 ? { error: messages.join('; ') } : {}),
+  };
+}
+
+export function mergeClaudeOfficialUsage(
+  current: ClaudeQuota,
+  usageItems: CodexUsageItem[],
+  checkedAt: string,
+): ClaudeQuota {
+  return reconcileClaudeErrors({
+    ...current,
+    usageItems,
+    officialError: undefined,
+    lastChecked: checkedAt,
+  });
+}
+
+export function mergeClaudeOfficialFailure(current: ClaudeQuota, message: string, checkedAt: string): ClaudeQuota {
+  return reconcileClaudeErrors({
+    ...current,
+    officialError: message,
+    lastChecked: checkedAt,
+  });
+}
+
+export function mergeClaudeCliFailure(current: ClaudeQuota, message: string, checkedAt: string): ClaudeQuota {
+  return reconcileClaudeErrors({
+    ...current,
+    cliError: message,
+    lastChecked: checkedAt,
+  });
+}
+
 function setRequestedOfficialCacheError(
   requestedProviders: ReadonlySet<OfficialQuotaProvider>,
   message: string,
@@ -1160,7 +1218,7 @@ function setRequestedOfficialCacheError(
     codexCache = { ...codexCache, error: message, lastChecked: checkedAt };
   }
   if (requestedProviders.has('claude')) {
-    claudeCache = { ...claudeCache, error: message, lastChecked: checkedAt };
+    claudeCache = mergeClaudeOfficialFailure(claudeCache, message, checkedAt);
   }
 }
 
@@ -1283,21 +1341,13 @@ export async function refreshOfficialQuotaViaOAuth(options: RefreshOAuthOptions)
             }
           }
           const items = parseClaudeOAuthUsageResponse(json as Parameters<typeof parseClaudeOAuthUsageResponse>[0]);
-          const { error: _oldError, ...claudeWithoutError } = claudeCache;
-          claudeCache = {
-            ...claudeWithoutError,
-            usageItems: items,
-            lastChecked: new Date().toISOString(),
-          };
+          claudeCache = mergeClaudeOfficialUsage(claudeCache, items, new Date().toISOString());
           result.claude = { items: items.length };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          claudeCache = {
-            ...claudeCache,
-            error: `Claude OAuth failed: ${message}`,
-            lastChecked: new Date().toISOString(),
-          };
-          result.claude = { items: 0, error: `Claude OAuth failed: ${message}` };
+          const error = `Claude OAuth failed: ${message}`;
+          claudeCache = mergeClaudeOfficialFailure(claudeCache, error, new Date().toISOString());
+          result.claude = { items: 0, error };
         }
       })(),
     );
@@ -1496,14 +1546,14 @@ export function mergeClaudeCliUsage(
   checkedAt: string,
 ): ClaudeQuota {
   const activeBlock = blocks.find((block) => block.isActive) ?? null;
-  const { error: _oldError, ...withoutError } = current;
-  return {
-    ...withoutError,
+  return reconcileClaudeErrors({
+    ...current,
     platform: 'claude',
     activeBlock,
     recentBlocks: blocks.slice(-5),
+    cliError: undefined,
     lastChecked: checkedAt,
-  };
+  });
 }
 
 // --- Route ---
@@ -1545,16 +1595,15 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
 
   // POST: refresh Claude quota via ccusage CLI
   app.post('/api/quota/refresh/claude', async () => {
+    const checkedAt = new Date().toISOString();
     try {
       const { stdout } = await execFileAsync('npx', ['ccusage', 'blocks', '--json'], { timeout: 30_000 });
       const parsed = JSON.parse(stdout) as { blocks: CcusageBillingBlock[] };
       const blocks = parsed.blocks.filter((b) => !b.isGap);
-      claudeCache = mergeClaudeCliUsage(claudeCache, blocks, new Date().toISOString());
+      claudeCache = mergeClaudeCliUsage(claudeCache, blocks, checkedAt);
     } catch (err) {
-      claudeCache = {
-        ...claudeCache,
-        error: `ccusage failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
+      const message = `ccusage failed: ${err instanceof Error ? err.message : String(err)}`;
+      claudeCache = mergeClaudeCliFailure(claudeCache, message, checkedAt);
     }
     return { claude: claudeCache };
   });

@@ -412,6 +412,34 @@ describe('HubQuotaBoardTab — account pool grouping', () => {
     }
   });
 
+  it('surfaces partial official warnings returned with HTTP 200', async () => {
+    const warning = 'Claude OAuth failed: upstream unavailable';
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/quota/refresh/official') {
+        return Promise.resolve(jsonResponse({ ok: true, codexItems: 1, claudeItems: 0, warnings: [warning] }));
+      }
+      if (path === '/api/quota/refresh/claude') {
+        return Promise.resolve(jsonResponse({ claude: { platform: 'claude' } }));
+      }
+      return defaultQuotaApiFetch(path);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubQuotaBoardTab));
+    });
+    await flushEffects();
+
+    const refreshButton = Array.from(container.querySelectorAll('button')).find(
+      (node) => node.textContent?.trim() === '刷新全部',
+    );
+    await act(async () => {
+      refreshButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain(warning);
+  });
+
   it('refreshes only Codex for the current Codex OAuth plus DeepSeek API-key configuration', async () => {
     const calls: Array<{ path: string; init?: RequestInit }> = [];
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
