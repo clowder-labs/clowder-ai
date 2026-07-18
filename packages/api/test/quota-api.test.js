@@ -834,7 +834,10 @@ describe('Codex OAuth credentials loader', () => {
   it('keeps supporting the legacy flat Codex credential format', async () => {
     const { loadCodexCredentialsForTests } = await import('../dist/routes/quota.js');
     await withTempDir(async (dir) => {
+      const oldCodexHome = process.env.CODEX_HOME;
+      const isolatedCodexHome = join(dir, 'codex-home');
       const authPath = join(dir, 'flat-auth.json');
+      await mkdir(isolatedCodexHome);
       await writeFile(
         authPath,
         JSON.stringify({
@@ -844,11 +847,17 @@ describe('Codex OAuth credentials loader', () => {
         }),
         'utf-8',
       );
-      assert.deepEqual(loadCodexCredentialsForTests(authPath), {
-        accessToken: 'flat-access-token',
-        refreshToken: 'flat-refresh-token',
-        accountId: 'flat-account-id',
-      });
+      process.env.CODEX_HOME = isolatedCodexHome;
+      try {
+        assert.deepEqual(loadCodexCredentialsForTests(authPath), {
+          accessToken: 'flat-access-token',
+          refreshToken: 'flat-refresh-token',
+          accountId: 'flat-account-id',
+        });
+      } finally {
+        if (oldCodexHome != null) process.env.CODEX_HOME = oldCodexHome;
+        else delete process.env.CODEX_HOME;
+      }
     });
   });
 
@@ -1047,6 +1056,23 @@ describe('Codex Wham API parser (v3)', () => {
       rate_limit: { primary_window: { used_percent: 8, reset_at: 1_784_400_000 } },
     });
     assert.equal(items[0]?.resetsAt, new Date(1_784_400_000 * 1000).toISOString());
+  });
+
+  it('labels the current seven-day primary window from its reported duration', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse({
+      rate_limit: {
+        primary_window: {
+          used_percent: 28,
+          limit_window_seconds: 7 * 24 * 60 * 60,
+          reset_at: 1_784_954_678,
+        },
+        secondary_window: null,
+      },
+    });
+    assert.equal(items.length, 1);
+    assert.equal(items[0]?.label, '每周使用限额');
+    assert.equal(items[0]?.usedPercent, 28);
   });
 
   it('extracts credits_balance as overflow pool', async () => {

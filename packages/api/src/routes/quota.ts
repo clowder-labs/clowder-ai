@@ -928,6 +928,7 @@ export function parseClaudeOAuthUsageResponse(json: ClaudeOAuthUsageResponse): C
 
 interface CodexWhamRateLimitWindow {
   used_percent?: number;
+  limit_window_seconds?: number;
   reset_at?: string | number;
   label?: string;
 }
@@ -945,15 +946,37 @@ interface CodexWhamUsageResponse {
 
 type HeaderReader = Pick<Headers, 'get'> | Record<string, string | undefined> | null | undefined;
 
+function codexWindowLabel(window: CodexWhamRateLimitWindow, fallbackLabel: string, prefix = ''): string {
+  const explicitLabel = window.label?.trim();
+  if (explicitLabel) return explicitLabel;
+
+  const seconds = window.limit_window_seconds;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return fallbackLabel;
+  if (seconds === 7 * 24 * 60 * 60) return `${prefix}每周使用限额`;
+  if (seconds % (24 * 60 * 60) === 0) return `${prefix}${seconds / (24 * 60 * 60)}天使用限额`;
+  if (seconds % (60 * 60) === 0) return `${prefix}${seconds / (60 * 60)}小时使用限额`;
+  return fallbackLabel;
+}
+
 export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, headers?: HeaderReader): CodexUsageItem[] {
   const items: CodexUsageItem[] = [];
   const rl = json.rate_limit;
 
-  const defs: Array<{ key: keyof NonNullable<typeof rl>; label: string; poolId: string }> = [
+  const defs: Array<{ key: keyof NonNullable<typeof rl>; label: string; poolId: string; prefix?: string }> = [
     { key: 'primary_window', label: '5小时使用限额', poolId: 'codex-main' },
     { key: 'secondary_window', label: '每周使用限额', poolId: 'codex-main' },
-    { key: 'spark_primary', label: 'GPT-5.3-Codex-Spark 5小时使用限额', poolId: 'codex-spark' },
-    { key: 'spark_secondary', label: 'GPT-5.3-Codex-Spark 每周使用限额', poolId: 'codex-spark' },
+    {
+      key: 'spark_primary',
+      label: 'GPT-5.3-Codex-Spark 5小时使用限额',
+      poolId: 'codex-spark',
+      prefix: 'GPT-5.3-Codex-Spark ',
+    },
+    {
+      key: 'spark_secondary',
+      label: 'GPT-5.3-Codex-Spark 每周使用限额',
+      poolId: 'codex-spark',
+      prefix: 'GPT-5.3-Codex-Spark ',
+    },
     { key: 'code_review', label: '代码审查', poolId: 'codex-review' },
   ];
 
@@ -965,7 +988,7 @@ export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse, header
       if (pct == null || typeof pct !== 'number') continue;
       const resetsAt = normalizeCodexResetAt(window.reset_at);
       items.push({
-        label: window.label ?? def.label,
+        label: codexWindowLabel(window, def.label, def.prefix),
         usedPercent: Math.max(0, Math.min(100, pct)),
         percentKind: 'used',
         poolId: def.poolId,

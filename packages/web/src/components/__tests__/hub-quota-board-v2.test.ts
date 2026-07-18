@@ -594,6 +594,17 @@ describe('quota-cards — pool grouping and row rendering', () => {
     expect(html).toContain('剩余');
   });
 
+  it('converts used percentages to remaining percentages for a consistent display', async () => {
+    const { QuotaPoolRow } = await import('@/components/quota-cards');
+    const html = renderToStaticMarkup(
+      React.createElement(QuotaPoolRow, {
+        item: { label: '每周使用限额', usedPercent: 27, percentKind: 'used', poolId: 'codex-main' },
+      }),
+    );
+    expect(html).toContain('73% 剩余');
+    expect(html).not.toContain('27% 已用');
+  });
+
   it('progress bar uses green for healthy remaining (97%), red for low remaining (10%)', async () => {
     const { QuotaPoolRow } = await import('@/components/quota-cards');
     // 97% remaining = 3% used = healthy → should be green

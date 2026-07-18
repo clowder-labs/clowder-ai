@@ -140,8 +140,7 @@ function barColor(utilization: number): string {
 }
 
 function formatPercent(item: CodexUsageItem): string {
-  if (item.percentKind === 'remaining') return `${item.usedPercent}% 剩余`;
-  return `${item.usedPercent}% 已用`;
+  return `${100 - toUtilization(item)}% 剩余`;
 }
 
 export function degradationHint(poolId: string | undefined, utilization: number): string | null {
@@ -199,10 +198,7 @@ export function QuotaPoolRow({ item }: { item: CodexUsageItem }) {
         </span>
       </div>
       <div className="mt-1 ml-5">
-        <ProgressBar
-          percent={item.percentKind === 'remaining' ? item.usedPercent : 100 - item.usedPercent}
-          utilization={utilization}
-        />
+        <ProgressBar percent={100 - utilization} utilization={utilization} />
       </div>
       {(item.resetsText || item.resetsAt) && (
         <div className="mt-0.5 ml-5 text-xs text-cafe-muted">
