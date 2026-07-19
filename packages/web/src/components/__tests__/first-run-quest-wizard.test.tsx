@@ -43,6 +43,13 @@ function WizardHost({ onCreated }: { onCreated?: (tid: string) => void }) {
   return <FirstRunQuestWizard open={open} onClose={() => setOpen(false)} onCreated={onCreated ?? (() => {})} />;
 }
 
+function requirePayload(payload: Record<string, unknown> | null, label: string): Record<string, unknown> {
+  if (!payload) {
+    throw new Error(`${label} was not captured`);
+  }
+  return payload;
+}
+
 describe('FirstRunQuestWizard', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -241,9 +248,9 @@ describe('FirstRunQuestWizard', () => {
     }
 
     // Assert: POST /api/cats must use clientId, not client
-    expect(catsPayload).not.toBeNull();
-    expect(catsPayload?.clientId).toBe('anthropic');
-    expect(catsPayload?.client).toBeUndefined();
+    const payload = requirePayload(catsPayload, 'POST /api/cats payload');
+    expect(payload.clientId).toBe('anthropic');
+    expect(payload.client).toBeUndefined();
   });
 
   // F159 G2 follow-up: kitten/catagent template must POST with clientId=catagent
@@ -372,20 +379,20 @@ describe('FirstRunQuestWizard', () => {
     }
 
     // Assert: template runtimeDefaults override.
-    expect(catsPayload).not.toBeNull();
-    expect(catsPayload?.clientId).toBe('catagent');
-    expect(catsPayload?.catAgentProtocol).toBe('openai-chat');
-    expect(catsPayload?.nativeToolLevel).toBe('L1');
+    const payload = requirePayload(catsPayload, 'POST /api/cats payload');
+    expect(payload.clientId).toBe('catagent');
+    expect(payload.catAgentProtocol).toBe('openai-chat');
+    expect(payload.nativeToolLevel).toBe('L1');
     // Family consistency: accountRef from openai-family ConfigStep filter.
     // OpenAIChatAdapter.clientFamily='openai' will match account.clientFamily='openai' at invoke time.
-    expect(catsPayload?.accountRef).toBe('codex');
+    expect(payload.accountRef).toBe('codex');
     // connectivity-test must use the codex CLI probe (template's effective family),
     // NOT the claude probe that user picked in ClientStep. Without this, probe runs
     // wrong CLI binary against right account → testResult.ok fails → create blocked.
-    expect(connectivityPayload).not.toBeNull();
-    expect(connectivityPayload?.client).toBe('codex');
+    const connectivityTestPayload = requirePayload(connectivityPayload, 'connectivity-test payload');
+    expect(connectivityTestPayload.client).toBe('codex');
     // clientId comes from selectedProfile.provider (account-binding), which is 'codex'
     // for the OAuth builtin; what matters is it's openai-family (not 'claude'/'anthropic').
-    expect(connectivityPayload?.clientId).toBe('codex');
+    expect(connectivityTestPayload.clientId).toBe('codex');
   });
 });
