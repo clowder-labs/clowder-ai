@@ -19,6 +19,18 @@ community_issue: "zts212653/clowder-ai#434"
 
 因此 F159 的目标不是“重启 #397”，而是把这条社区方向收敛成一个**受约束的 first-party provider feature**：CLI 仍是默认主路径，CatAgent 只作为 opt-in API path 存在，并且必须先满足宿主层安全边界和治理约束。
 
+## User Journey
+
+Scope unit: one CatAgent-backed cat configured by a maintainer for a single Cat Café workspace.
+
+Flow:
+
+1. Maintainer enables the CatAgent protocol for a cat and binds it to an approved provider account.
+2. Operator or another cat invokes that cat through the normal thread routing surface.
+3. The runtime builds the same identity, workspace, callback, and audit context used by CLI providers.
+4. CatAgent executes through the constrained native provider path and returns messages, tool events, and usage metadata through the existing invocation stream.
+5. Maintainer verifies that account binding, workspace boundary, and tool tier policy were preserved before enabling broader dogfood.
+
 ## What
 
 ### Phase A: RFC 收敛 + ADR 边界

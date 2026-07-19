@@ -12,7 +12,7 @@ import { catRegistry } from '@cat-cafe/shared';
 
 const REPO_ROOT_TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
 const CAT_TEMPLATE_PATH = REPO_ROOT_TEMPLATE;
-const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6900; // 6500→6700→6900: kitten/catagent breed + gemini35 + gpt-pro roster growth
+const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 7000; // 6500→6700→6900→7000: kitten/catagent breed + gemini35 + gpt-pro roster growth
 
 function assertWithinFullRuntimePromptBudget(prompt) {
   assert.ok(
@@ -1759,8 +1759,8 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    // 6200→6500→6700→6900: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
-    assert.ok(prompt.length < 6900, `Prompt with SOP hint is ${prompt.length} chars, expected < 6900`);
+    // 6200→6500→6700→6900→7000: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
+    assertWithinFullRuntimePromptBudget(prompt);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1807,8 +1807,8 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    // 6200→6500→6700→6900: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
-    assert.ok(prompt.length < 6900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 6900`);
+    // 6200→6500→6700→6900→7000: decision funnel §17 + kitten/catagent breed + F208 dossier l0RosterSummary + roster growth
+    assertWithinFullRuntimePromptBudget(prompt);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {

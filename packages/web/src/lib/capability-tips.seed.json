@@ -453,6 +453,76 @@
     "owner": "codex"
   },
   {
+    "id": "feature-f126-limb-control-plane",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "Cat Café Limb Control Plane" },
+    "structureSource": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "User Journey" },
+    "bodySource": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "typed limb action" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["developer", "maintainer"],
+    "body": "接入外部 limb 时走 F126 控制面：先看 capability、presence、policy，再发 typed action。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "Cat Café Limb Control Plane" }
+    },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f202-plugin-framework",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F202-plugin-framework.md", "anchor": "Plugin Framework" },
+    "structureSource": { "path": "docs/features/F202-plugin-framework.md", "anchor": "User Journey" },
+    "bodySource": { "path": "docs/features/F202-plugin-framework.md", "anchor": "plugin-owned configuration" },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "改插件资源前先对齐 F202：manifest、配置、激活和审计都必须留在 plugin framework 边界内。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F202-plugin-framework.md", "anchor": "Plugin Framework" }
+    },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f159-catagent-native-provider",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "CatAgent Native Provider" },
+    "structureSource": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "User Journey" },
+    "bodySource": {
+      "path": "docs/features/F159-catagent-native-provider.md",
+      "anchor": "constrained native provider path"
+    },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "接入 API 型 CatAgent 前，先看 F159：账号绑定、workspace 边界和工具分级都必须保留。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "CatAgent Native Provider" }
+    },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f207-finance-data-plane",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "AI Family Office" },
+    "structureSource": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "User Journey" },
+    "bodySource": {
+      "path": "docs/features/F207-personal-finance-infra.md",
+      "anchor": "read-only finance analysis request"
+    },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "查投资学习数据时走 F207 finance MCP：只读事实、带 source/asOf，不触发交易动作。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "AI Family Office" }
+    },
+    "owner": "codex"
+  },
+  {
     "id": "feature-f237-prompt-injection-visibility",
     "kind": "feature",
     "sourceRef": {

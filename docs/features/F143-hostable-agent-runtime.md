@@ -4,6 +4,8 @@ related_features: [F050, F002, F126, F127, F149, F241]
 topics: [architecture, agent-hosting, protocol-abstraction, transport, runtime-contract, a2a]
 doc_kind: spec
 created: 2026-03-27
+user_journey_exempt: "Host runtime contract infrastructure; user-facing provider flows are owned by concrete features such as F159 and F241."
+tips_exempt: "Host runtime contract infrastructure; user-facing provider flows are owned by concrete features such as F159 and F241."
 ---
 
 # F143: Hostable Agent Runtime — 统一宿主抽象

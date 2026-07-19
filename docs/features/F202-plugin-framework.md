@@ -37,6 +37,18 @@ What is still missing is a local plugin framework that lets a plugin declare own
 
 PR #686 is a concrete Phase 1 implementation proposal for that missing layer. It was originally labeled `F197`, but upstream `F197` is already occupied by ACP tool result event surfacing. This feature spec is the upstream anchor for the plugin framework work.
 
+## User Journey
+
+Scope unit: one local plugin installed into a Cat Café workspace.
+
+Flow:
+
+1. Operator or maintainer places a plugin package in the configured plugin location.
+2. Cat Café discovers the plugin manifest and shows the declared resources in Settings.
+3. Operator reviews plugin-owned configuration, grants only the required resource activation, and saves the settings.
+4. The runtime activates the plugin resource through the plugin framework boundary rather than ad hoc startup edits.
+5. Operator can disable, reconfigure, or remove the plugin while Cat Café keeps plugin state and owned resources traceable.
+
 ## What
 
 F202 establishes a local plugin framework for trusted, repository-local plugins.

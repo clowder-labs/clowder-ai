@@ -21,6 +21,18 @@ F207 owns the finance-data cell referenced by the architecture ownership map:
 provider adapters, normalized fact envelopes, source attribution, freshness,
 snapshot replay, and the split MCP server that exposes finance facts to cats.
 
+## User Journey
+
+Scope unit: one read-only finance analysis request in a Cat Café thread.
+
+Flow:
+
+1. Operator asks a finance learning or portfolio-analysis question.
+2. A cat calls the finance MCP server for normalized facts, source attribution, freshness, and snapshot metadata.
+3. The cat combines those facts with private notes or memory evidence without exposing provider credentials.
+4. The response cites source and `asOf` metadata, separates facts from interpretation, and keeps trade or transfer decisions outside the system.
+5. Operator records any decision manually; no account mutation or brokerage action is triggered by F207.
+
 ## What
 
 The intended end state is a five-layer personal investment learning foundation:
