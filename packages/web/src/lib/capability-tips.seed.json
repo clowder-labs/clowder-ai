@@ -453,6 +453,38 @@
     "owner": "codex"
   },
   {
+    "id": "feature-f126-limb-control-plane",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "Cat Café Limb Control Plane" },
+    "structureSource": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "User Journey" },
+    "bodySource": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "typed limb action" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["developer", "maintainer"],
+    "body": "接入外部 limb 时走 F126 控制面：先看 capability、presence、policy，再发 typed action。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F126-limb-control-plane.md", "anchor": "Cat Café Limb Control Plane" }
+    },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f202-plugin-framework",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F202-plugin-framework.md", "anchor": "Plugin Framework" },
+    "structureSource": { "path": "docs/features/F202-plugin-framework.md", "anchor": "User Journey" },
+    "bodySource": { "path": "docs/features/F202-plugin-framework.md", "anchor": "plugin-owned configuration" },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "改插件资源前先对齐 F202：manifest、配置、激活和审计都必须留在 plugin framework 边界内。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F202-plugin-framework.md", "anchor": "Plugin Framework" }
+    },
+    "owner": "codex"
+  },
+  {
     "id": "feature-f159-catagent-native-provider",
     "kind": "feature",
     "sourceRef": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "CatAgent Native Provider" },

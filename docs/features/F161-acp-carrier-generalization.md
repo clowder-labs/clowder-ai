@@ -5,6 +5,7 @@ topics: [acp, carrier, generalization, runtime, env-mapping, protocol, opencode]
 doc_kind: spec
 created: 2026-04-13
 user_journey_exempt: "ACP carrier infrastructure; user-facing setup and invocation flows are owned by consuming provider features."
+tips_exempt: "ACP carrier infrastructure; user-facing setup and invocation flows are owned by consuming provider features."
 ---
 
 # F161: ACP Carrier Generalization — 通用 ACP 传输 + 模板环境变量映射
