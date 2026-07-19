@@ -114,6 +114,14 @@ function writeCapabilitiesConfig(projectRoot, capabilities) {
   );
 }
 
+const CLAUDE_RESERVED_MCP_SERVER_NAMES = [
+  'workspace',
+  'claude-in-chrome',
+  'computer-use',
+  'Claude Preview',
+  'Claude Browser',
+];
+
 // --- Test cases ---
 
 test('F203 AC-C5: -p carrier passes --system-prompt-file with compiled L0 path', async () => {
@@ -1325,14 +1333,14 @@ test('Claude skips reserved MCP server names from capabilities', async () => {
   mkdirSync(mcpDistDir, { recursive: true });
   writeFileSync(join(mcpDistDir, 'index.js'), '// stub', 'utf8');
   writeCapabilitiesConfig(runtimeRoot, [
-    {
-      id: 'computer-use',
+    ...CLAUDE_RESERVED_MCP_SERVER_NAMES.map((serverName) => ({
+      id: serverName,
       type: 'mcp',
       enabled: true,
       globalEnabled: true,
       source: 'external',
       mcpServer: { command: 'echo', args: ['reserved-should-be-skipped'] },
-    },
+    })),
     {
       id: 'safe-tool',
       type: 'mcp',
@@ -1368,7 +1376,13 @@ test('Claude skips reserved MCP server names from capabilities', async () => {
 
     const args = spawnFn.mock.calls[0].arguments[1];
     const parsed = JSON.parse(args[args.indexOf('--mcp-config') + 1]);
-    assert.equal(parsed.mcpServers['computer-use'], undefined, 'Claude reserved MCP name must not be injected');
+    for (const serverName of CLAUDE_RESERVED_MCP_SERVER_NAMES) {
+      assert.equal(
+        parsed.mcpServers[serverName],
+        undefined,
+        `Claude reserved MCP name ${serverName} must not be injected`,
+      );
+    }
     assert.ok(parsed.mcpServers['safe-tool'], 'non-reserved external MCP should still be injected');
   } finally {
     rmSync(runtimeRoot, { recursive: true, force: true });
@@ -1387,7 +1401,12 @@ test('Claude skips reserved MCP server names from project .mcp.json', async () =
     join(projectDir, '.mcp.json'),
     JSON.stringify({
       mcpServers: {
-        'computer-use': { command: 'echo', args: ['reserved-should-be-skipped'] },
+        ...Object.fromEntries(
+          CLAUDE_RESERVED_MCP_SERVER_NAMES.map((serverName) => [
+            serverName,
+            { command: 'echo', args: ['reserved-should-be-skipped'] },
+          ]),
+        ),
         'my-tool': { command: 'echo', args: ['ok'] },
       },
     }),
@@ -1419,7 +1438,13 @@ test('Claude skips reserved MCP server names from project .mcp.json', async () =
 
     const args = spawnFn.mock.calls[0].arguments[1];
     const parsed = JSON.parse(args[args.indexOf('--mcp-config') + 1]);
-    assert.equal(parsed.mcpServers['computer-use'], undefined, 'Claude reserved user MCP must not be merged');
+    for (const serverName of CLAUDE_RESERVED_MCP_SERVER_NAMES) {
+      assert.equal(
+        parsed.mcpServers[serverName],
+        undefined,
+        `Claude reserved user MCP ${serverName} must not be merged`,
+      );
+    }
     assert.ok(parsed.mcpServers['my-tool'], 'non-reserved user MCP should still be merged');
   } finally {
     rmSync(runtimeRoot, { recursive: true, force: true });

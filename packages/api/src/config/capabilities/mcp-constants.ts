@@ -21,7 +21,13 @@ export function resolveCatCafeNodeCommand(): string {
 const LEGACY_CAT_CAFE_MCP_ID = 'cat-cafe';
 
 /** MCP server names reserved by Claude Code's own runtime integrations. */
-export const CLAUDE_RESERVED_MCP_SERVER_NAMES = new Set(['computer-use']);
+export const CLAUDE_RESERVED_MCP_SERVER_NAMES = new Set([
+  'workspace',
+  'claude-in-chrome',
+  'computer-use',
+  'claude preview',
+  'claude browser',
+]);
 
 export function isClaudeReservedMcpServerName(name: string): boolean {
   return CLAUDE_RESERVED_MCP_SERVER_NAMES.has(name.trim().toLowerCase());
