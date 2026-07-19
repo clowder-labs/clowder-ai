@@ -1318,6 +1318,115 @@ test('#712: Claude merge excludes disabled capability-managed user entries', asy
   }
 });
 
+test('Claude skips reserved MCP server names from capabilities', async () => {
+  const runtimeRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-claude-reserved-cap-runtime-'));
+  const mcpDistDir = join(runtimeRoot, 'packages', 'mcp-server', 'dist');
+  const projectDir = mkdtempSync(join(tmpdir(), 'cat-cafe-claude-reserved-cap-project-'));
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), '// stub', 'utf8');
+  writeCapabilitiesConfig(runtimeRoot, [
+    {
+      id: 'computer-use',
+      type: 'mcp',
+      enabled: true,
+      globalEnabled: true,
+      source: 'external',
+      mcpServer: { command: 'echo', args: ['reserved-should-be-skipped'] },
+    },
+    {
+      id: 'safe-tool',
+      type: 'mcp',
+      enabled: true,
+      globalEnabled: true,
+      source: 'external',
+      mcpServer: { command: 'echo', args: ['safe'] },
+    },
+  ]);
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = createClaudeAgentService({
+    spawnFn,
+    model: 'claude-test-model',
+    mcpServerPath: join(mcpDistDir, 'index.js'),
+  });
+
+  try {
+    const promise = collect(
+      service.invoke('hello', {
+        workingDirectory: projectDir,
+        callbackEnv: {
+          CAT_CAFE_API_URL: 'http://localhost:3004',
+          CAT_CAFE_INVOCATION_ID: 'inv-reserved-cap',
+          CAT_CAFE_CALLBACK_TOKEN: 'token-reserved-cap',
+          CAT_CAFE_CAT_ID: 'opus',
+        },
+      }),
+    );
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const parsed = JSON.parse(args[args.indexOf('--mcp-config') + 1]);
+    assert.equal(parsed.mcpServers['computer-use'], undefined, 'Claude reserved MCP name must not be injected');
+    assert.ok(parsed.mcpServers['safe-tool'], 'non-reserved external MCP should still be injected');
+  } finally {
+    rmSync(runtimeRoot, { recursive: true, force: true });
+    rmSync(projectDir, { recursive: true, force: true });
+  }
+});
+
+test('Claude skips reserved MCP server names from project .mcp.json', async () => {
+  const runtimeRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-claude-reserved-user-runtime-'));
+  const mcpDistDir = join(runtimeRoot, 'packages', 'mcp-server', 'dist');
+  const projectDir = mkdtempSync(join(tmpdir(), 'cat-cafe-claude-reserved-user-project-'));
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), '// stub', 'utf8');
+  writeCapabilitiesConfig(runtimeRoot, []);
+  writeFileSync(
+    join(projectDir, '.mcp.json'),
+    JSON.stringify({
+      mcpServers: {
+        'computer-use': { command: 'echo', args: ['reserved-should-be-skipped'] },
+        'my-tool': { command: 'echo', args: ['ok'] },
+      },
+    }),
+    'utf8',
+  );
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = createClaudeAgentService({
+    spawnFn,
+    model: 'claude-test-model',
+    mcpServerPath: join(mcpDistDir, 'index.js'),
+  });
+
+  try {
+    const promise = collect(
+      service.invoke('hello', {
+        workingDirectory: projectDir,
+        callbackEnv: {
+          CAT_CAFE_API_URL: 'http://localhost:3004',
+          CAT_CAFE_INVOCATION_ID: 'inv-reserved-user',
+          CAT_CAFE_CALLBACK_TOKEN: 'token-reserved-user',
+          CAT_CAFE_CAT_ID: 'opus',
+        },
+      }),
+    );
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const parsed = JSON.parse(args[args.indexOf('--mcp-config') + 1]);
+    assert.equal(parsed.mcpServers['computer-use'], undefined, 'Claude reserved user MCP must not be merged');
+    assert.ok(parsed.mcpServers['my-tool'], 'non-reserved user MCP should still be merged');
+  } finally {
+    rmSync(runtimeRoot, { recursive: true, force: true });
+    rmSync(projectDir, { recursive: true, force: true });
+  }
+});
+
 test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', async () => {
   const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-empty-env-'));
   const apiCwd = join(root, 'packages', 'api');

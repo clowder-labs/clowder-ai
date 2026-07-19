@@ -36,6 +36,7 @@ import { CAT_CAFE_SPLIT_ENTRYPOINTS } from './mcp-constants.js';
 export {
   CAT_CAFE_SPLIT_ENTRYPOINTS,
   expandManagedMcpNamesForUserMerge,
+  isClaudeReservedMcpServerName,
   MCP_CALLBACK_ENV_KEYS,
   resolveCatCafeNodeCommand,
   SENSITIVE_KEY_PATTERNS,

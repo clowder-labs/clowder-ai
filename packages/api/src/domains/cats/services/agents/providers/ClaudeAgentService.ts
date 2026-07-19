@@ -22,6 +22,7 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import {
   CAT_CAFE_SPLIT_ENTRYPOINTS,
   expandManagedMcpNamesForUserMerge,
+  isClaudeReservedMcpServerName,
   MCP_CALLBACK_ENV_KEYS,
   resolveCatCafeNodeCommand,
   resolvePencilCommand,
@@ -437,6 +438,12 @@ export class ClaudeAgentService implements AgentService {
         if (capConfig && catId) {
           for (const s of resolveServersForCat(capConfig, catId, { accessScope })) {
             managedMcpServerNames.add(s.name);
+            if (isClaudeReservedMcpServerName(s.name)) {
+              if (s.enabled) {
+                log.warn({ catId, serverName: s.name }, 'Skipping Claude reserved MCP server name from capabilities');
+              }
+              continue;
+            }
             if (!s.enabled) continue;
             if (s.source === 'cat-cafe' && CAT_CAFE_SPLIT_ENTRYPOINTS.has(s.name)) {
               const ep = CAT_CAFE_SPLIT_ENTRYPOINTS.get(s.name)!;
@@ -496,6 +503,10 @@ export class ClaudeAgentService implements AgentService {
                 ...Object.keys(mcpServers),
               ]);
               for (const [name, entry] of Object.entries(userMcp.mcpServers)) {
+                if (isClaudeReservedMcpServerName(name)) {
+                  log.warn({ catId, serverName: name }, 'Skipping user MCP server with Claude reserved name');
+                  continue;
+                }
                 if (!excludedMcpServerNames.has(name) && !(name in mcpServers) && entry && typeof entry === 'object') {
                   mcpServers[name] = entry as Record<string, unknown>;
                 }
