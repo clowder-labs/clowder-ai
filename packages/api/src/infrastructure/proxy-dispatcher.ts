@@ -23,8 +23,7 @@ import { createModuleLogger } from './logger.js';
 
 const log = createModuleLogger('proxy-dispatcher');
 
-const proxyUrl =
-  process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
 
 if (proxyUrl) {
   try {

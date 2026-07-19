@@ -277,10 +277,7 @@ const anchorTelemetrySourceRefsShape = z
 const qcMetricsSourceRefsShape = z
   .object({
     kind: z.literal('qc-metrics-rollup'),
-    windowStartMs: z
-      .number()
-      .finite()
-      .describe('Inclusive epoch ms window start for QC metrics aggregation.'),
+    windowStartMs: z.number().finite().describe('Inclusive epoch ms window start for QC metrics aggregation.'),
     windowEndMs: z
       .number()
       .finite()
