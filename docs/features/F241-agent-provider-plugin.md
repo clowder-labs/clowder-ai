@@ -4,11 +4,12 @@ related_features: [F143, F202, F161, F240, F050, F205, F211, F129, F146, F149]
 topics: [agent-provider, plugin, provider-extension, hostable-runtime, transport-registry, acp, a2a, identity-routing, security-boundary]
 doc_kind: spec
 created: 2026-06-18
+tips_exempt: "Closed feature status truth sync only; no new user-facing capability in this branch."
 ---
 
 # F241: Agent Provider Plugin / Hostable Provider Runtime
 
-> **Status**: shipped + closed 2026-06-29 (Phase A / B 2a / B 2b / C delivered; see § F241 close) | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1
+> **Status**: closed (shipped 2026-06-29; Phase A / B 2a / B 2b / C delivered; see § F241 close) | **Owner**: Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | **Priority**: P1
 > **Source**: operator request 2026-06-18 — "我有自己的 agent 需要接入进来"; community architecture discussion [clowder-ai#941](https://github.com/zts212653/clowder-ai/issues/941); maintainer decision [#941 comment 4739146327](https://github.com/zts212653/clowder-ai/issues/941#issuecomment-4739146327).
 > **Decision**: accepted as **F241: Agent Provider Plugin / Hostable Provider Runtime**. This is a new provider-extension feature anchor, **not** "F202 Phase 3" by default, and **not** a rename of F143. It is the F143 host-contract lineage plus the F202 plugin discovery/config surface, composed into a provider-as-plugin product capability.
 

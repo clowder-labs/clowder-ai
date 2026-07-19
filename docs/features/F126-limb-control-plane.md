@@ -33,6 +33,18 @@ operator 2026-03-16 在三猫 OpenClaw Node 研讨中指出：
 
 **商业价值**：华子看到苹果全家桶 + 多猫协作 + 跨设备管控 = 未来企业协作形态 → 找我们做 → 猫粮自由。
 
+## User Journey
+
+Scope unit: one external limb node registered and used from Cat Café.
+
+Flow:
+
+1. Operator registers or connects a limb node and reviews its declared capabilities, presence state, and access policy.
+2. Cat Café shows whether the limb is available, what actions it supports, and which cats may use it.
+3. A cat requests a typed limb action through the control plane instead of calling a device-specific script directly.
+4. The limb layer checks policy and lease state, executes the action, and writes an action log entry.
+5. Operator can inspect the action log and disable or reconfigure the limb without changing cat provider code.
+
 ## What
 
 ### 正确模型（operator定义）

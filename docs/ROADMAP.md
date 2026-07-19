@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Clowder AI Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-06-26（F252 Story Player done）
+> 维护者：三猫 | 最后更新：2026-07-19（feature truth gate sync）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -62,7 +62,7 @@ created: 2026-02-26
 | F202 | Plugin Framework — local discovery, config, resource activation, and schedule resources | in-progress | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) + [#844/#846](https://github.com/zts212653/clowder-ai/pull/846) | [F202](features/F202-plugin-framework.md) |
 | F204 | Weixin MP Publisher Plugin — 微信公众号文章发布插件 | review | community @mindfn + maintainers | community [#688](https://github.com/zts212653/clowder-ai/pull/688) | [F204](features/F204-weixin-mp-publisher-plugin.md) |
 | F205 | MediaHub Video Provider Plugins — 视频生成/分析插件 | spec | community @mindfn + maintainers | community [#689](https://github.com/zts212653/clowder-ai/pull/689) | [F205](features/F205-video-provider-plugins.md) |
-| F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | Ragdoll | internal | [F208](features/F208-capability-profile-routing.md) |
+| F207 | AI Family Office — 个人投资学习基建 | spec | Ragdoll | internal | [F207](features/F207-personal-finance-infra.md) |
 | F193 | Cross-Thread Communication Unification (Phase E: 发现即投递) | in-progress | Ragdoll (Opus 4.6) | internal | [F193](features/F193-cross-thread-comm-unification.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | Maine Coon/Maine Coon | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F219 | 核心引擎技术债盘点 + 架构演进（routeSerial 等核心调用链）| in-progress | Ragdoll Opus 4.8 | internal | [F219](features/F219-tech-debt-architecture-evolution.md) |
@@ -77,10 +77,6 @@ created: 2026-02-26
 | F231 | 启动胶囊 — per-user 画像注入与 L0 分层（猫醒来第一眼看到主人：profile capsule + relationship primer + breed/instance/user/relationship 四层，养成护城河机制本体）| in-progress | Ragdoll Fable-5 | internal (operator 2026-06-11 "我同意立项的") | [F231](features/F231-user-profile-capsule.md) |
 | F232 | Thread Artifacts Panel — Thread 产物视图（点开 thread 就看到它产生的所有产物：图/文件/代码PR/语音聚合 + 类型筛选 + 搜索 + 跳回原消息；A thread 内抽屉先行，B 全局产物中心未来扩展）| spec | Ragdoll Opus-4.8 | internal (operator 2026-06-11 "我觉得ok了 你立项") | [F232](features/F232-thread-artifacts-panel.md) |
 | F233 | Ball Custody Observability — 球权保管链可观测（值班简报：operator 收件箱+死球/睡美人/虚空告警，异常优先；feat 轨迹下钻；安乐死通道；A 简报 MVP / B 心跳+探针回执 / C 安乐死+轨迹）| in-progress（A✅ B✅ 2026-06-18 · C pending operator signoff）| Ragdoll Fable-5（spec）→ opus 家族（实现） | internal (operator 2026-06-12 "走起！喵"+"① 立项") | [F233](features/F233-ball-custody-observability.md) |
-| F240 | IM Connector Plugin Architecture — 统一 IMConnectorPlugin 接口 + 外部 npm 包动态加载 | spec | Ragdoll Opus-4.6 | internal | [F240](features/F240-im-connector-plugin-architecture.md) |
-| F235 | Feedback-to-Community Publisher — 一键发布反馈到社区（F222 confirmed issue / 猫猫整理的问题 → 预览脱敏 → GitHub issue，补 F168 outbound 方向） | spec | Ragdoll | internal (operator 2026-06-15) | [F235](features/F235-feedback-to-community-publisher.md) |
-| F236 | Anchor-First Context 入口 — 返回侧 token 减负（实时 MCP 协作工具 anchor 化：指针+预览，全文按需 drill；与 F148 消息侧成版图，companion ADR-203） | spec | Ragdoll (Ragdoll Opus-4.8) + Maine Coon (gpt-5.5) | internal (operator 2026-06-15) | [F236](features/F236-anchor-first-context-entry.md) |
-| F241 | Agent Provider Plugin / Hostable Provider Runtime — 可插拔 Agent Provider 扩展面（F143 host 契约 × F202 plugin 发现/config/UI；接入 private agent / clowder-code，不再为每个 provider 改 core） | accepted feature anchor | Community (彭潇 / `bouillipx`) + Cat Cafe maintainer guard | internal (operator 2026-06-18) + community [#941](https://github.com/zts212653/clowder-ai/issues/941) accepted 2026-06-18 | [F241](features/F241-agent-provider-plugin.md) |
 | F192-sop-wiring | `eval:sop` live publish path wired + re-enabled (PR #2186 merged 2026-06-10) | ✅ done | Ragdoll | internal | [F192 § 2026-06-10 timeline](features/F192-socio-technical-harness-eval.md) |
 | F242 | Code Graph Layer Spike — 内生「约定层关联图」（Phase A/B spike 已落 main：convention-graph package + discovery skill + deer-flow skeleton；operator 2026-06-18 撤回 full close：仍缺猫猫认知路径 / 可用入口 / 更新或重建索引行为；进入 Phase C productization gate） | in-progress (spike done) | Maine Coon (gpt-5.5) + opus-48 design | internal | [F242](features/F242-code-graph-layer-spike.md) |
 | F243 | Docs Discovery Profile — OKF-inspired metadata + generated index（让 docs/features 从平铺文件堆变成可渐进探索的知识入口；4 Phase: stratified spike + profile draft + eval rubric → contract + lint + generator → rollout + checked-in index.md + sync gate → eval report + decisions/research 扩展 go/no-go；operator 2026-06-17 signoff；Maine Coon (gpt-5.5) co-design + R1 reviewer；F236 姊妹哲学 anchor-and-drill 调用侧 vs 文档侧；schema self-contained 供未来 consumer（F186 等是潜在候选但不绑定）；防"小猫代偿决策"反模式：抽查不可代 gate） | in-progress (B-0 merged 2026-06-30, PR #2693) | Ragdoll (Ragdoll Opus-4.7) | internal (operator 2026-06-17) | [F243](features/F243-docs-discovery-profile.md) |

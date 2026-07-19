@@ -453,6 +453,44 @@
     "owner": "codex"
   },
   {
+    "id": "feature-f159-catagent-native-provider",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "CatAgent Native Provider" },
+    "structureSource": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "User Journey" },
+    "bodySource": {
+      "path": "docs/features/F159-catagent-native-provider.md",
+      "anchor": "constrained native provider path"
+    },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "接入 API 型 CatAgent 前，先看 F159：账号绑定、workspace 边界和工具分级都必须保留。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F159-catagent-native-provider.md", "anchor": "CatAgent Native Provider" }
+    },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f207-finance-data-plane",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "AI Family Office" },
+    "structureSource": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "User Journey" },
+    "bodySource": {
+      "path": "docs/features/F207-personal-finance-infra.md",
+      "anchor": "read-only finance analysis request"
+    },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "查投资学习数据时走 F207 finance MCP：只读事实、带 source/asOf，不触发交易动作。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F207-personal-finance-infra.md", "anchor": "AI Family Office" }
+    },
+    "owner": "codex"
+  },
+  {
     "id": "feature-f237-prompt-injection-visibility",
     "kind": "feature",
     "sourceRef": {
