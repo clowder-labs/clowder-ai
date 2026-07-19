@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-19-eval-anchor-first-c1-low-sample-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-07-19-eval-anchor-first-c1-low-sample-keep-observe/raw/rollup.json",
+      "sha256": "b3b8e4ed939b6e870ae2ec85d92bedcd32de21d93d05ce820d4012867409726d"
+    }
+  ],
+  "generatedAt": "2026-07-19T03:01:58.378Z",
+  "generator": {
+    "name": "eval-anchor-first-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f236-anchor-telemetry-v1"
+}
