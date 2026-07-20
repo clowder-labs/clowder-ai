@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-20-eval-a2a-subthreshold-void-hold-recurrence-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-20-eval-F167-runtime.yaml",
+      "sha256": "6a75328c33d24d208e19ccc418f554ff1eac5bc87006c02b7f2307157a432061"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-20-eval-F167-attribution.yaml",
+      "sha256": "a8f3dd71e21bc95bded62c145cb3c1784630fa0277b7f3fae89eef1539ad51ed"
+    }
+  ],
+  "generatedAt": "2026-07-20T03:01:07.777Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
