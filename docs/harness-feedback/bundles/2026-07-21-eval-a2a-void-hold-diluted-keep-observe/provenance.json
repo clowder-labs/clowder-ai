@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-21-eval-a2a-void-hold-diluted-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-21-eval-F167-runtime.yaml",
+      "sha256": "9ea814f0299b4c649312dd33e567c28395cfeb81456cbd14e22aee66c1ee4ad3"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-21-eval-F167-attribution.yaml",
+      "sha256": "e22e5019e955f2b9b31ab414f713fef4eb936f84a57c4e0b39698b6bb4d783e6"
+    }
+  ],
+  "generatedAt": "2026-07-21T03:01:32.599Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
