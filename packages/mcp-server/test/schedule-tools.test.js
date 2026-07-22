@@ -3,7 +3,7 @@
  * Tests for cat_cafe_list_schedule_templates, cat_cafe_register_scheduled_task, cat_cafe_remove_scheduled_task
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -109,6 +109,35 @@ describe('Schedule MCP Tools — module exports', () => {
     assert.ok(registerScheduledTaskInputSchema.trigger, 'trigger schema required');
     assert.match(tool.description, /Approval Hub proposal/);
     assert.match(tool.description, /not persisted or run until the operator approves/i);
+  });
+
+  test('register description distinguishes user confirmation from workflow-mandated registrations', async () => {
+    const { scheduleTools } = await import('../dist/tools/schedule-tools.js');
+    const previewTool = scheduleTools.find((t) => t.name === 'cat_cafe_preview_scheduled_task');
+    const registerTool = scheduleTools.find((t) => t.name === 'cat_cafe_register_scheduled_task');
+    assert.ok(previewTool, 'preview tool should exist');
+    assert.ok(registerTool, 'register tool should exist');
+
+    assert.match(previewTool.description, /workflow-mandated/i);
+    assert.match(registerTool.description, /workflow-mandated/i);
+    assert.match(registerTool.description, /no extra user confirmation/i);
+  });
+
+  test('schedule skills document the workflow-mandated registration exception', () => {
+    const scheduleSkill = readFileSync(
+      new URL('../../../cat-cafe-skills/schedule-tasks/SKILL.md', import.meta.url),
+      'utf8',
+    );
+    const mergeGateSkill = readFileSync(
+      new URL('../../../cat-cafe-skills/merge-gate/SKILL.md', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(scheduleSkill, /workflow-mandated/i);
+    assert.match(scheduleSkill, /no extra user confirmation/i);
+    assert.match(mergeGateSkill, /workflow-mandated/i);
+    assert.match(mergeGateSkill, /cat_cafe_preview_scheduled_task/);
+    assert.match(mergeGateSkill, /no extra user confirmation/i);
   });
 
   test('cat_cafe_remove_scheduled_task exposes task and verified-thread selectors', async () => {

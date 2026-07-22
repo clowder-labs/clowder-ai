@@ -269,7 +269,8 @@ export const scheduleTools = [
     name: 'cat_cafe_preview_scheduled_task',
     description:
       'Preview a scheduled task before submitting it for approval. ' +
-      'Use when the user asks to create a schedule and needs to confirm the resolved template, trigger, and params. ' +
+      'Use before register_scheduled_task to confirm the resolved template, trigger, params, delivery, and audit fields. ' +
+      'User-requested schedules need user confirmation before registration; workflow-mandated schedules from a trusted built-in workflow use the preview as audit evidence before registration. ' +
       'NOT for persisting or activating a task. ' +
       'Output: one non-persisted draft to show the user before calling register_scheduled_task. ' +
       'GOTCHA: shared persistent MCP callers pass agentKeyCatId.',
@@ -286,7 +287,7 @@ export const scheduleTools = [
     name: 'cat_cafe_register_scheduled_task',
     description:
       'Submit a new scheduled task from a template for operator approval. ' +
-      'Use after preview_scheduled_task when the user confirms the draft. ' +
+      'Use after preview_scheduled_task: user-requested schedules require user confirmation; workflow-mandated schedules from a trusted built-in workflow may register after verifying the preview, with no extra user confirmation. ' +
       'NOT for direct activation or unsupported ad-hoc task definitions. ' +
       'Output: one anchored Approval Hub proposal; the task is not persisted or run until the operator approves. ' +
       'Supports cron, interval, and once triggers. ' +
