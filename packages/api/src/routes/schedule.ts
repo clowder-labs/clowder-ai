@@ -211,6 +211,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       params?: Record<string, unknown>;
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
+      idempotencyKey?: string;
     };
 
     if (!body.templateId) {
@@ -285,6 +286,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         params,
         display,
         deliveryThreadId: resolution.deliveryThreadId,
+        ...(body.idempotencyKey ? { idempotencyKey: body.idempotencyKey } : {}),
         paramSchema: template.paramSchema,
       },
     };

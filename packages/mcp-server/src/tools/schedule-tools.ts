@@ -92,6 +92,12 @@ export const registerScheduledTaskInputSchema = {
   label: z.string().optional().describe('Human-readable task label (defaults to template label)'),
   category: z.string().optional().describe('Display category: pr | repo | thread | system | external'),
   description: z.string().optional().describe('Short description of this task instance'),
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Stable replay key for trusted workflow automation; retries with the same key return the existing task'),
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
@@ -104,6 +110,7 @@ export async function handleRegisterScheduledTask(input: {
   category?: string;
   description?: string;
   agentKeyCatId?: string | undefined;
+  idempotencyKey?: string;
 }): Promise<ToolResult> {
   let trigger: unknown;
   try {
@@ -147,6 +154,7 @@ export async function handleRegisterScheduledTask(input: {
   };
 
   if (input.deliveryThreadId) body.deliveryThreadId = input.deliveryThreadId;
+  if (input.idempotencyKey) body.idempotencyKey = input.idempotencyKey;
   if (currentCatId) body.createdBy = currentCatId;
 
   if (input.label || input.category || input.description) {
@@ -172,6 +180,15 @@ export const previewScheduledTaskInputSchema = {
     .describe(
       'Thread ID to deliver results to. If omitted on invocation-token callback requests, the current invocation thread is used. Required when agentKeyCatId is used because persistent MCP has no invocation thread.',
     ),
+  label: z.string().optional().describe('Human-readable task label (defaults to template label)'),
+  category: z.string().optional().describe('Display category: pr | repo | thread | system | external'),
+  description: z.string().optional().describe('Short description of this task instance'),
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Stable replay key to include in the draft for trusted workflow audit parity'),
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
@@ -180,6 +197,10 @@ export async function handlePreviewScheduledTask(input: {
   trigger: string;
   params?: string;
   deliveryThreadId?: string;
+  label?: string;
+  category?: string;
+  description?: string;
+  idempotencyKey?: string;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   let trigger: unknown;
@@ -211,6 +232,14 @@ export async function handlePreviewScheduledTask(input: {
     params,
   };
   if (input.deliveryThreadId) body.deliveryThreadId = input.deliveryThreadId;
+  if (input.idempotencyKey) body.idempotencyKey = input.idempotencyKey;
+  if (input.label || input.category || input.description) {
+    body.display = {
+      label: input.label ?? input.templateId,
+      category: input.category ?? 'system',
+      ...(input.description ? { description: input.description } : {}),
+    };
+  }
 
   return callbackPost('/api/schedule/tasks/preview', body, { agentKeyCatId: input.agentKeyCatId });
 }
@@ -270,7 +299,7 @@ export const scheduleTools = [
     description:
       'Preview a scheduled task before submitting it for approval. ' +
       'Use before register_scheduled_task to confirm the resolved template, trigger, params, delivery, and audit fields. ' +
-      'User-requested schedules need user confirmation before registration; workflow-mandated schedules from a trusted built-in workflow use the preview as audit evidence before registration. ' +
+      'User-requested schedules need user confirmation before registration; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may use the preview as audit evidence before registration without extra user confirmation. ' +
       'NOT for persisting or activating a task. ' +
       'Output: one non-persisted draft to show the user before calling register_scheduled_task. ' +
       'GOTCHA: shared persistent MCP callers pass agentKeyCatId.',
@@ -287,7 +316,8 @@ export const scheduleTools = [
     name: 'cat_cafe_register_scheduled_task',
     description:
       'Submit a new scheduled task from a template for operator approval. ' +
-      'Use after preview_scheduled_task: user-requested schedules require user confirmation; workflow-mandated schedules from a trusted built-in workflow may register after verifying the preview, with no extra user confirmation. ' +
+      'Use after preview_scheduled_task: user-requested schedules require user confirmation; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may register after verifying the preview, with no extra user confirmation. ' +
+      'Plugin/project/user/external skills do not qualify for this exception and must use normal user confirmation. Trusted workflow automation must provide a stable idempotencyKey so callback retries return the existing task. ' +
       'NOT for direct activation or unsupported ad-hoc task definitions. ' +
       'Output: one anchored Approval Hub proposal; the task is not persisted or run until the operator approves. ' +
       'Supports cron, interval, and once triggers. ' +

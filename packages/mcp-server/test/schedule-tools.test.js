@@ -121,6 +121,9 @@ describe('Schedule MCP Tools — module exports', () => {
     assert.match(previewTool.description, /workflow-mandated/i);
     assert.match(registerTool.description, /workflow-mandated/i);
     assert.match(registerTool.description, /no extra user confirmation/i);
+    assert.match(registerTool.description, /trusted built-in canonical merge-gate Step 7\.6/i);
+    assert.match(registerTool.description, /plugin\/project\/user\/external skills do not qualify/i);
+    assert.doesNotMatch(registerTool.description, /explicit SOP\/skill step/i);
   });
 
   test('schedule skills document the workflow-mandated registration exception', () => {
@@ -135,9 +138,59 @@ describe('Schedule MCP Tools — module exports', () => {
 
     assert.match(scheduleSkill, /workflow-mandated/i);
     assert.match(scheduleSkill, /no extra user confirmation/i);
+    assert.match(scheduleSkill, /trusted built-in canonical `merge-gate` Step 7\.6/i);
+    assert.match(scheduleSkill, /plugin\/project\/user\/external skills do not qualify/i);
+    assert.doesNotMatch(scheduleSkill, /明确 SOP\/skill 步骤要求注册定时任务/);
     assert.match(mergeGateSkill, /workflow-mandated/i);
     assert.match(mergeGateSkill, /cat_cafe_preview_scheduled_task/);
+    assert.match(mergeGateSkill, /idempotencyKey/);
     assert.match(mergeGateSkill, /no extra user confirmation/i);
+  });
+
+  test('cat_cafe_register_scheduled_task accepts an idempotency key for workflow replay safety', async () => {
+    const { registerScheduledTaskInputSchema } = await import('../dist/tools/schedule-tools.js');
+    assert.ok(registerScheduledTaskInputSchema.idempotencyKey, 'idempotencyKey schema required');
+  });
+
+  test('cat_cafe_register_scheduled_task forwards idempotencyKey to the API', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalApiUrl = process.env.CAT_CAFE_API_URL;
+    const originalInvocationId = process.env.CAT_CAFE_INVOCATION_ID;
+    const originalCallbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
+    let postedBody;
+
+    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
+    process.env.CAT_CAFE_INVOCATION_ID = 'inv-schedule-test';
+    process.env.CAT_CAFE_CALLBACK_TOKEN = 'tok-schedule-test';
+
+    globalThis.fetch = async (_url, options) => {
+      postedBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ success: true, task: { id: 'dyn-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    try {
+      const { handleRegisterScheduledTask } = await import('../dist/tools/schedule-tools.js');
+      const result = await handleRegisterScheduledTask({
+        templateId: 'reminder',
+        trigger: JSON.stringify({ type: 'once', delayMs: 1209600000 }),
+        params: JSON.stringify({ message: 'hotfix upgrade review' }),
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+      });
+
+      assert.equal(result.isError, undefined);
+      assert.equal(postedBody.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalApiUrl === undefined) delete process.env.CAT_CAFE_API_URL;
+      else process.env.CAT_CAFE_API_URL = originalApiUrl;
+      if (originalInvocationId === undefined) delete process.env.CAT_CAFE_INVOCATION_ID;
+      else process.env.CAT_CAFE_INVOCATION_ID = originalInvocationId;
+      if (originalCallbackToken === undefined) delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+      else process.env.CAT_CAFE_CALLBACK_TOKEN = originalCallbackToken;
+    }
   });
 
   test('cat_cafe_remove_scheduled_task exposes task and verified-thread selectors', async () => {

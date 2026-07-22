@@ -12,6 +12,7 @@ export interface DynamicTaskDef {
   enabled: boolean;
   createdBy: string;
   createdAt: string;
+  idempotencyKey?: string | null;
 }
 
 /** CRUD store for dynamic task definitions (Phase 3A AC-G3) */
@@ -21,8 +22,8 @@ export class DynamicTaskStore {
   insert(def: DynamicTaskDef): void {
     this.db
       .prepare(
-        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         def.id,
@@ -34,6 +35,7 @@ export class DynamicTaskStore {
         def.enabled ? 1 : 0,
         def.createdBy,
         def.createdAt,
+        def.idempotencyKey ?? null,
       );
   }
 
@@ -45,8 +47,8 @@ export class DynamicTaskStore {
   upsert(def: DynamicTaskDef): void {
     this.db
       .prepare(
-        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            template_id = excluded.template_id,
            trigger_json = excluded.trigger_json,
@@ -65,6 +67,7 @@ export class DynamicTaskStore {
         def.enabled ? 1 : 0,
         def.createdBy,
         def.createdAt,
+        def.idempotencyKey ?? null,
       );
   }
 
@@ -75,6 +78,13 @@ export class DynamicTaskStore {
 
   getById(id: string): DynamicTaskDef | null {
     const row = this.db.prepare('SELECT * FROM dynamic_task_defs WHERE id = ?').get(id) as RawRow | undefined;
+    return row ? todef(row) : null;
+  }
+
+  getByIdempotencyKey(idempotencyKey: string): DynamicTaskDef | null {
+    const row = this.db.prepare('SELECT * FROM dynamic_task_defs WHERE idempotency_key = ?').get(idempotencyKey) as
+      | RawRow
+      | undefined;
     return row ? todef(row) : null;
   }
 
@@ -128,6 +138,7 @@ interface RawRow {
   enabled: number;
   created_by: string;
   created_at: string;
+  idempotency_key: string | null;
 }
 
 function todef(row: RawRow): DynamicTaskDef {
@@ -141,5 +152,6 @@ function todef(row: RawRow): DynamicTaskDef {
     enabled: row.enabled === 1,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    idempotencyKey: row.idempotency_key,
   };
 }

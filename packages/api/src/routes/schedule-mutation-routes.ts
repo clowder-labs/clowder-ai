@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type { DynamicTaskDef } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import { f255ConfigRequired, isF255ConfigOnlyTemplate } from '../infrastructure/scheduler/f255-template-boundary.js';
 import { fingerprintDynamicTaskDef } from '../infrastructure/scheduler/ScheduleMutationProposalStore.js';
 import {
@@ -37,6 +38,19 @@ type ScheduleMutationRoutesOptions = Pick<
   | 'approvalIngress'
 >;
 
+function normalizeIdempotencyKey(value: unknown): string | null | { error: string } {
+  if (value == null) return null;
+  if (typeof value !== 'string') return { error: 'idempotencyKey must be a string' };
+  const trimmed = value.trim();
+  if (!trimmed) return { error: 'idempotencyKey must not be empty' };
+  if (trimmed.length > 200) return { error: 'idempotencyKey must be at most 200 characters' };
+  return trimmed;
+}
+
+function dynamicTaskResponse(def: Pick<DynamicTaskDef, 'id' | 'display' | 'trigger'>) {
+  return { id: def.id, ...def.display, trigger: def.trigger };
+}
+
 export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOptions> = async (app, opts) => {
   const {
     taskRunner,
@@ -73,6 +87,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       params?: Record<string, unknown>;
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
+      idempotencyKey?: unknown;
     };
     if (!body.templateId) {
       reply.status(400);
@@ -110,6 +125,11 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       reply.status(400);
       return { error: 'params must be a plain object' };
     }
+    const normalizedIdempotencyKey = normalizeIdempotencyKey(body.idempotencyKey);
+    if (normalizedIdempotencyKey && typeof normalizedIdempotencyKey !== 'string') {
+      reply.status(400);
+      return { error: normalizedIdempotencyKey.error };
+    }
     const context = deriveScheduleRequestContext(request, {}, rawParams, mutationPrincipal);
     const targetResult = normalizeScheduleTargetParam(context.params);
     if (!targetResult.ok) {
@@ -145,6 +165,27 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       return { error: agentKeyScope.error, ...(agentKeyScope.code ? { code: agentKeyScope.code } : {}) };
     }
 
+    const ensureRuntimeTaskRegistered = (existing: DynamicTaskDef): void => {
+      if (!existing.enabled || taskRunner.getRegisteredTasks().includes(existing.id)) return;
+      const existingTemplate = templateRegistry.get(existing.templateId);
+      if (!existingTemplate) return;
+      const spec = existingTemplate.createSpec(existing.id, {
+        trigger: existing.trigger,
+        params: existing.params,
+        deliveryThreadId: existing.deliveryThreadId,
+      });
+      spec.display = existing.display;
+      taskRunner.registerDynamic(spec, existing.id);
+    };
+
+    if (normalizedIdempotencyKey) {
+      const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
+      if (existing) {
+        ensureRuntimeTaskRegistered(existing);
+        return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+      }
+    }
+
     const def = {
       id,
       templateId: body.templateId,
@@ -155,6 +196,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       enabled: true,
       createdBy: actor.createdBy,
       createdAt: new Date().toISOString(),
+      idempotencyKey: normalizedIdempotencyKey,
     };
     if (mutationPrincipal.kind === 'cat') {
       const cardThreadId =
@@ -180,7 +222,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
         success: true,
         proposed: true,
         proposalId: proposal.proposalId,
-        task: { id, ...display, trigger },
+        task: dynamicTaskResponse(def),
       };
     }
 
@@ -190,10 +232,21 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       templateId: def.templateId,
       deliveryThreadId: def.deliveryThreadId,
     });
-    scheduleMutationProposalStore.insertTaskWithAudit(def, audit);
+    try {
+      scheduleMutationProposalStore.insertTaskWithAudit(def, audit);
+    } catch (err) {
+      if (normalizedIdempotencyKey) {
+        const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
+        if (existing) {
+          ensureRuntimeTaskRegistered(existing);
+          return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+        }
+      }
+      throw err;
+    }
     taskRunner.registerDynamic(spec, id);
     notifyTaskRegistered(notifyLifecycle, def);
-    return { success: true, proposed: false, task: { id, ...display, trigger } };
+    return { success: true, proposed: false, task: dynamicTaskResponse(def) };
   });
 
   app.delete('/api/schedule/tasks/:id', async (request, reply) => {

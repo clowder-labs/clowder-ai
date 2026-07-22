@@ -70,7 +70,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 39;
+export const CURRENT_SCHEMA_VERSION = 40;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -218,8 +218,12 @@ CREATE TABLE IF NOT EXISTS dynamic_task_defs (
   delivery_thread_id TEXT,
   enabled INTEGER NOT NULL DEFAULT 1,
   created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  idempotency_key TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_task_defs_idempotency
+  ON dynamic_task_defs(idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 `;
 
 /**
@@ -1196,6 +1200,21 @@ export function applyMigrations(db: Database.Database): void {
       );
     `);
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(39, new Date().toISOString());
+  }
+
+  // V40: dynamic schedule registration idempotency for workflow replay safety.
+  if (currentVersion < 40) {
+    try {
+      db.exec('ALTER TABLE dynamic_task_defs ADD COLUMN idempotency_key TEXT');
+    } catch {}
+    try {
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_task_defs_idempotency
+          ON dynamic_task_defs(idempotency_key)
+          WHERE idempotency_key IS NOT NULL
+      `);
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(40, new Date().toISOString());
   }
 }
 

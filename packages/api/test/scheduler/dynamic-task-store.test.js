@@ -48,6 +48,7 @@ test('dynamic_task_defs has correct columns', () => {
   assert.ok(names.includes('enabled'));
   assert.ok(names.includes('created_by'));
   assert.ok(names.includes('created_at'));
+  assert.ok(names.includes('idempotency_key'));
   db.close();
 });
 
@@ -130,6 +131,27 @@ describe('DynamicTaskStore', () => {
   test('insert rejects duplicate id', () => {
     store.insert(SAMPLE_DEF);
     assert.throws(() => store.insert(SAMPLE_DEF), /UNIQUE|constraint/i);
+  });
+
+  test('idempotency key round-trips and can be looked up', () => {
+    store.insert({ ...SAMPLE_DEF, idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:repo#92' });
+    const def = store.getByIdempotencyKey('workflow:merge-gate:hotfix-upgrade-review:repo#92');
+    assert.ok(def, 'def should be loaded by idempotency key');
+    assert.equal(def.id, 'dyn-001');
+    assert.equal(def.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:repo#92');
+  });
+
+  test('insert rejects duplicate idempotency key', () => {
+    store.insert({ ...SAMPLE_DEF, idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:repo#92' });
+    assert.throws(
+      () =>
+        store.insert({
+          ...SAMPLE_DEF,
+          id: 'dyn-002',
+          idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:repo#92',
+        }),
+      /UNIQUE|constraint/i,
+    );
   });
 
   test('#415: once trigger round-trips correctly', () => {

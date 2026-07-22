@@ -944,6 +944,67 @@ describe('Schedule Routes', () => {
     });
   });
 
+  describe('POST /api/schedule/tasks — idempotent workflow registration', () => {
+    let appDyn, store;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      store = new DynamicTaskStore(db);
+      appDyn = Fastify({ logger: false });
+      await registerScheduleRoutesForTest(appDyn, sr, db, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await appDyn.ready();
+    });
+
+    afterEach(async () => {
+      runner.stop();
+      await appDyn.close();
+    });
+
+    it('returns the existing task when a workflow registration is replayed with the same idempotencyKey', async () => {
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'hotfix upgrade review replay' },
+        display: {
+          label: 'Hotfix 升级 review — PR #92',
+          category: 'pr',
+          description: '2 周升级 review：PR #92 是 hotfix，需要三选一处置',
+        },
+        deliveryThreadId: 'thread-review',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+      const firstBody = first.json();
+      assert.equal(firstBody.success, true);
+
+      const replay = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(replay.statusCode, 200, replay.body);
+      const replayBody = replay.json();
+
+      assert.equal(replayBody.success, true);
+      assert.equal(replayBody.idempotent, true);
+      assert.equal(replayBody.task.id, firstBody.task.id, 'replay should return the original task id');
+      assert.equal(store.getAll().length, 1, 'replay must not persist a duplicate task');
+      assert.equal(
+        runner.getTaskSummaries().filter((task) => task.source === 'dynamic').length,
+        1,
+        'replay must not register a duplicate runtime task',
+      );
+    });
+  });
+
   describe('POST /api/schedule/tasks — callback auth infers deliveryThreadId', () => {
     let appDyn, store, registry, threadStore, proposalStore;
 

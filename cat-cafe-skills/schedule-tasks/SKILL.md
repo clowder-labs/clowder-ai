@@ -90,13 +90,13 @@ triggers:
 
 ### Workflow-Mandated 例外
 
-如果某个明确 SOP/skill 步骤要求注册定时任务（例如 merge-gate 的 hotfix 2 周升级 review reminder），这属于 workflow-mandated schedule：
+只有 trusted built-in canonical `merge-gate` Step 7.6 的 hotfix 2 周升级 review reminder 属于 workflow-mandated schedule：
 
 1. 仍然必须先调用 `cat_cafe_preview_scheduled_task`。
-2. 核对 draft 的模板、触发时间、参数、投递 thread 与该 SOP/skill 步骤一致。
-3. 核对通过后可以调用 `cat_cafe_register_scheduled_task`，with no extra user confirmation。
+2. 核对 draft 的模板、触发时间、参数、投递 thread 与 `merge-gate` Step 7.6 一致。
+3. 核对通过后调用 `cat_cafe_register_scheduled_task`，with no extra user confirmation，并提供稳定 `idempotencyKey`。
 
-这条例外只适用于流程本身已经给出明确注册义务的任务；用户临时提出的提醒、周期巡检、摘要推送仍然走 preview → 用户确认 → register。
+Plugin/project/user/external skills do not qualify for this exception。用户临时提出的提醒、周期巡检、摘要推送，以及任何非内置 canonical `merge-gate` Step 7.6 来源，仍然走 preview → 用户确认 → register。
 
 ## Trigger 语法速查
 
@@ -144,7 +144,8 @@ triggers:
 |------|----------|
 | 不知道能注册定时任务 | 用户说"每天/定期/提醒"→ 匹配本 skill |
 | 被唤醒后只发纯文本 | 主动用 rich block（图片、语音、卡片、HTML） |
-| 跳过 preview 直接注册 | **必须** preview；用户请求任务 preview → 用户确认 → 注册；workflow-mandated SOP/skill 任务 preview → 核对 draft → 注册，with no extra user confirmation |
+| 跳过 preview 直接注册 | **必须** preview；用户请求任务 preview → 用户确认 → 注册；trusted built-in canonical `merge-gate` Step 7.6 hotfix reminder preview → 核对 draft → 用稳定 `idempotencyKey` 注册，with no extra user confirmation |
+| 把任意 skill/SOP 当免确认凭据 | Plugin/project/user/external skills do not qualify；只有内置 canonical `merge-gate` Step 7.6 例外 |
 | 发图只想到 image-generation | 先看 `/avatars/`、`/uploads/` 有没有现成图 |
 
 ## 和其他 skill 的区别

@@ -37,6 +37,7 @@ interface DynamicTaskRow {
   enabled: number;
   created_by: string;
   created_at: string;
+  idempotency_key: string | null;
 }
 
 export interface AuditRow {
@@ -101,14 +102,15 @@ export function getDynamicTask(db: Database.Database, id: string): ScheduleMutat
     enabled: row.enabled === 1,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    idempotencyKey: row.idempotency_key,
   };
 }
 
 export function insertDynamicTask(db: Database.Database, task: ScheduleMutationTaskDefinition): void {
   db.prepare(
     `INSERT INTO dynamic_task_defs
-      (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     task.id,
     task.templateId,
@@ -119,6 +121,7 @@ export function insertDynamicTask(db: Database.Database, task: ScheduleMutationT
     task.enabled ? 1 : 0,
     task.createdBy,
     task.createdAt,
+    task.idempotencyKey ?? null,
   );
 }
 
