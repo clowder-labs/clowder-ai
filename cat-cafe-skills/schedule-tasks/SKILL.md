@@ -1,5 +1,6 @@
 ---
 name: schedule-tasks
+tips_exempt: internal SOP/MCP workflow clarification; no new end-user capability
 description: >
   定时任务注册、管理、能力指南。支持周期任务和一次性延迟任务。
   ⚠️ ROUTING: 定时/schedule/cron 需求优先用本 skill（Clowder AI 本地定时任务），
