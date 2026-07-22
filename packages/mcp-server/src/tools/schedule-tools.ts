@@ -101,7 +101,9 @@ export const registerScheduledTaskInputSchema = {
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
-function parseScheduleParams(raw: string | undefined): { ok: true; params: Record<string, unknown> } | { ok: false; error: string } {
+function parseScheduleParams(
+  raw: string | undefined,
+): { ok: true; params: Record<string, unknown> } | { ok: false; error: string } {
   if (!raw) return { ok: true, params: {} };
 
   try {

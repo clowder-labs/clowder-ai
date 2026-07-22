@@ -1119,7 +1119,7 @@ describe('Schedule Routes', () => {
       const payload = {
         templateId: 'reminder',
         trigger: { type: 'interval', ms: 60000 },
-        params: { z: 'ascii', 'ä': 'non-ascii', message: 'locale-stable replay' },
+        params: { z: 'ascii', ä: 'non-ascii', message: 'locale-stable replay' },
         display: {
           label: 'Locale stable replay',
           category: 'system',
