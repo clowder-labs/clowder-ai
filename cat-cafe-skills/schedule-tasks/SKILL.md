@@ -93,7 +93,7 @@ triggers:
 只有 trusted built-in canonical `merge-gate` Step 7.6 的 hotfix 2 周升级 review reminder 属于 workflow-mandated schedule：
 
 1. 仍然必须先调用 `cat_cafe_preview_scheduled_task`。
-2. 核对 draft 的模板、触发时间、参数、投递 thread 与 `merge-gate` Step 7.6 一致。
+2. 核对 draft 的模板、触发时间、参数、target、actor、投递 thread、`idempotencyKey` 与 `merge-gate` Step 7.6 一致。
 3. 核对通过后调用 `cat_cafe_register_scheduled_task`，with no extra user confirmation，并提供稳定 `idempotencyKey`。
 
 Plugin/project/user/external skills do not qualify for this exception。用户临时提出的提醒、周期巡检、摘要推送，以及任何非内置 canonical `merge-gate` Step 7.6 来源，仍然走 preview → 用户确认 → register。

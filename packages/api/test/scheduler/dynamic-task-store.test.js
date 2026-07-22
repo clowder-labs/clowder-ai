@@ -49,6 +49,7 @@ test('dynamic_task_defs has correct columns', () => {
   assert.ok(names.includes('created_by'));
   assert.ok(names.includes('created_at'));
   assert.ok(names.includes('idempotency_key'));
+  assert.ok(names.includes('idempotency_fingerprint'));
   db.close();
 });
 
@@ -134,11 +135,16 @@ describe('DynamicTaskStore', () => {
   });
 
   test('idempotency key round-trips and can be looked up', () => {
-    store.insert({ ...SAMPLE_DEF, idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:repo#92' });
+    store.insert({
+      ...SAMPLE_DEF,
+      idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:repo#92',
+      idempotencyFingerprint: '{"same":"request"}',
+    });
     const def = store.getByIdempotencyKey('workflow:merge-gate:hotfix-upgrade-review:repo#92');
     assert.ok(def, 'def should be loaded by idempotency key');
     assert.equal(def.id, 'dyn-001');
     assert.equal(def.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:repo#92');
+    assert.equal(def.idempotencyFingerprint, '{"same":"request"}');
   });
 
   test('insert rejects duplicate idempotency key', () => {

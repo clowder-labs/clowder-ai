@@ -119,10 +119,14 @@ describe('Schedule MCP Tools — module exports', () => {
     assert.ok(registerTool, 'register tool should exist');
 
     assert.match(previewTool.description, /workflow-mandated/i);
+    assert.match(previewTool.description, /target/i);
+    assert.match(previewTool.description, /actor/i);
+    assert.match(previewTool.description, /idempotency key/i);
     assert.match(registerTool.description, /workflow-mandated/i);
     assert.match(registerTool.description, /no extra user confirmation/i);
     assert.match(registerTool.description, /trusted built-in canonical merge-gate Step 7\.6/i);
     assert.match(registerTool.description, /plugin\/project\/user\/external skills do not qualify/i);
+    assert.match(registerTool.description, /different schedule semantics returns a conflict/i);
     assert.doesNotMatch(registerTool.description, /explicit SOP\/skill step/i);
   });
 
@@ -144,12 +148,20 @@ describe('Schedule MCP Tools — module exports', () => {
     assert.match(mergeGateSkill, /workflow-mandated/i);
     assert.match(mergeGateSkill, /cat_cafe_preview_scheduled_task/);
     assert.match(mergeGateSkill, /idempotencyKey/);
+    assert.match(mergeGateSkill, /targetCatId/);
+    assert.match(mergeGateSkill, /actor\.createdBy/);
+    assert.match(mergeGateSkill, /IDEMPOTENCY_CONFLICT/);
     assert.match(mergeGateSkill, /no extra user confirmation/i);
   });
 
   test('cat_cafe_register_scheduled_task accepts an idempotency key for workflow replay safety', async () => {
     const { registerScheduledTaskInputSchema } = await import('../dist/tools/schedule-tools.js');
     assert.ok(registerScheduledTaskInputSchema.idempotencyKey, 'idempotencyKey schema required');
+  });
+
+  test('cat_cafe_preview_scheduled_task accepts an idempotency key for workflow audit parity', async () => {
+    const { previewScheduledTaskInputSchema } = await import('../dist/tools/schedule-tools.js');
+    assert.ok(previewScheduledTaskInputSchema.idempotencyKey, 'idempotencyKey schema required');
   });
 
   test('cat_cafe_register_scheduled_task forwards idempotencyKey to the API', async () => {
@@ -190,6 +202,60 @@ describe('Schedule MCP Tools — module exports', () => {
       else process.env.CAT_CAFE_INVOCATION_ID = originalInvocationId;
       if (originalCallbackToken === undefined) delete process.env.CAT_CAFE_CALLBACK_TOKEN;
       else process.env.CAT_CAFE_CALLBACK_TOKEN = originalCallbackToken;
+    }
+  });
+
+  test('cat_cafe_preview_scheduled_task forwards the same workflow fields as registration', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalApiUrl = process.env.CAT_CAFE_API_URL;
+    const originalInvocationId = process.env.CAT_CAFE_INVOCATION_ID;
+    const originalCallbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
+    const originalCatId = process.env.CAT_CAFE_CAT_ID;
+    let postedBody;
+
+    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
+    process.env.CAT_CAFE_INVOCATION_ID = 'inv-schedule-preview-test';
+    process.env.CAT_CAFE_CALLBACK_TOKEN = 'tok-schedule-preview-test';
+    process.env.CAT_CAFE_CAT_ID = 'codex';
+
+    globalThis.fetch = async (_url, options) => {
+      postedBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ draft: postedBody }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    try {
+      const { handlePreviewScheduledTask } = await import('../dist/tools/schedule-tools.js');
+      const result = await handlePreviewScheduledTask({
+        templateId: 'reminder',
+        trigger: JSON.stringify({ type: 'once', delayMs: 1209600000 }),
+        params: JSON.stringify({ message: 'hotfix upgrade review' }),
+        label: 'Hotfix upgrade review',
+        category: 'pr',
+        description: 'Review hotfix after 14 days',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+      });
+
+      assert.equal(result.isError, undefined);
+      assert.equal(postedBody.params.targetCatId, 'codex');
+      assert.equal(postedBody.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92');
+      assert.deepEqual(postedBody.display, {
+        label: 'Hotfix upgrade review',
+        category: 'pr',
+        description: 'Review hotfix after 14 days',
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalApiUrl === undefined) delete process.env.CAT_CAFE_API_URL;
+      else process.env.CAT_CAFE_API_URL = originalApiUrl;
+      if (originalInvocationId === undefined) delete process.env.CAT_CAFE_INVOCATION_ID;
+      else process.env.CAT_CAFE_INVOCATION_ID = originalInvocationId;
+      if (originalCallbackToken === undefined) delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+      else process.env.CAT_CAFE_CALLBACK_TOKEN = originalCallbackToken;
+      if (originalCatId === undefined) delete process.env.CAT_CAFE_CAT_ID;
+      else process.env.CAT_CAFE_CAT_ID = originalCatId;
     }
   });
 

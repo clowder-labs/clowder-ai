@@ -9,10 +9,12 @@ Head: use PR #92 current head; the routing message supplies the exact SHA.
 
 - Updated schedule MCP descriptions to distinguish user-requested schedules from the one trusted workflow-mandated exception.
 - Updated `schedule-tasks` so ordinary user schedules still require preview and confirmation, while only trusted built-in canonical `merge-gate` Step 7.6 may register after preview verification.
-- Added schedule registration idempotency for workflow replay safety: stable `idempotencyKey` values dedupe callback retries to the existing dynamic task.
+- Added schedule registration idempotency for workflow replay safety: stable `idempotencyKey` values dedupe exact callback retries to the existing dynamic task, while same-key semantic mismatches return `409 IDEMPOTENCY_CONFLICT`.
+- Bound each idempotency key to a canonical request fingerprint covering template, trigger input, params/target, display, delivery thread, and actor.
+- Made preview drafts match final registration semantics: target canonicalization, actor, delivery thread, display, and idempotency key are visible in the draft before persistence.
 - Added a `tips_exempt` frontmatter note because this is an internal SOP/MCP workflow clarification, not a new end-user capability.
-- Updated `merge-gate` Step 7.6 so hotfix 14-day upgrade reminders must preview, verify draft fields, then register with no extra user confirmation and a repo+PR-scoped stable `idempotencyKey`.
-- Added MCP/API regression tests for tool descriptions, skill docs, idempotency-key passthrough, persistent dedupe, and replay behavior.
+- Updated `merge-gate` Step 7.6 so hotfix 14-day upgrade reminders must preview, verify draft fields, then register with no extra user confirmation and a repo+PR-scoped stable `idempotencyKey`; conflicts now fail closed.
+- Added MCP/API regression tests for tool descriptions, skill docs, preview parity, idempotency-key passthrough, persistent dedupe, same-key conflicts, and replay behavior.
 
 ## Why
 
@@ -32,13 +34,13 @@ Daily patrol found a process contradiction: hotfix merge-gate requires registeri
 
 The exception is intentionally narrow. I did not remove confirmation from normal schedule registration; user-requested reminders still require preview and explicit confirmation. Plugin/project/user/external skills do not qualify; only the built-in canonical `merge-gate` Step 7.6 hotfix reminder workflow can register after preview verification.
 
-The API change is additive: callers without `idempotencyKey` keep the existing create-new-task behavior. Callers with a stable key get replay-safe dedupe and receive the existing task id on retry.
+The API change is additive: callers without `idempotencyKey` keep the existing create-new-task behavior. Callers with a stable key get replay-safe dedupe only for the same canonical request; conflicting reuse returns 409 and does not mutate the existing task.
 
 ## Architecture Ownership
 
 Architecture cell: workflow / MCP collab schedule surface + scheduler persistence
 Map delta: none
-Why: This extends the existing schedule route and `DynamicTaskStore` with an idempotency column/index; it does not add a new Store, Queue, Router, Adapter, Dispatcher, Binding, or runtime ownership boundary.
+Why: This extends the existing schedule route and `DynamicTaskStore` with idempotency key/fingerprint columns and an index; it does not add a new Store, Queue, Router, Adapter, Dispatcher, Binding, or runtime ownership boundary.
 
 Reviewer checks:
 
@@ -46,6 +48,8 @@ Reviewer checks:
 - Verify the exception cannot be read as bypassing user confirmation for ordinary user-requested schedules.
 - Verify plugin/project/user/external skills are excluded from the no-extra-confirmation exception.
 - Verify schedule registration retry with the same `idempotencyKey` cannot create duplicate reminders.
+- Verify same-key semantic mismatch returns `409 IDEMPOTENCY_CONFLICT` without modifying the existing task.
+- Verify preview draft fields match final registration semantics, including target, actor, delivery thread, display, and idempotency key.
 - Verify `merge-gate` Step 7.6 is actionable and fail-closed.
 
 ## Open Questions
@@ -53,7 +57,7 @@ Reviewer checks:
 ### 技术 OQ
 
 - Is the trusted built-in canonical `merge-gate` Step 7.6 boundary tight enough to prevent workflow-mandated from becoming a blanket bypass?
-- Is global uniqueness on stable workflow `idempotencyKey` sufficient, given keys are explicitly namespaced by workflow + repo + PR?
+- For cross-cat takeover of the same merge-gate reminder, this implementation chooses fail-closed `409` when actor/provenance differs. Please verify that is the right contract.
 
 ### 价值 OQ
 
@@ -61,7 +65,7 @@ Reviewer checks:
 
 ## Next Action
 
-Please review PR #92 against its current head. Focus on the trusted workflow boundary, merge-gate hotfix reminder flow, idempotent registration replay, and whether the regression tests protect the right surfaces.
+Please review PR #92 against its current head. Focus on the trusted workflow boundary, merge-gate hotfix reminder flow, idempotent registration replay/conflict behavior, preview/register parity, and whether the regression tests protect the right surfaces.
 
 ## Review Sandbox
 
@@ -82,37 +86,40 @@ PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm install --frozen-lockfile
 
 - 巡检范围：hotfix merge-gate reminder tail, schedule MCP descriptions, `schedule-tasks`, and `merge-gate` Step 7.6.
 - 根因：schedule confirmation wording and merge-gate mandated registration were inconsistent.
-- 修复：preview remains mandatory; confirmation remains mandatory for user-requested schedules; only built-in canonical `merge-gate` Step 7.6 hotfix reminder can register after verified preview with no extra confirmation; register retries are deduped by stable `idempotencyKey`.
+- 修复：preview remains mandatory; confirmation remains mandatory for user-requested schedules; only built-in canonical `merge-gate` Step 7.6 hotfix reminder can register after verified preview with no extra confirmation; exact register retries are deduped by stable `idempotencyKey`, while same-key semantic mismatches return `409`.
 - Dogfood scope: exempt. This is an internal SOP/tool-description fix with no user-facing runtime path.
 - Artifact hygiene: root media/design artifact checks returned no matches.
 
 ### 测试结果
 
 ```bash
-PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm --filter @cat-cafe/mcp-server test -- --test-name-pattern "workflow-mandated|cat_cafe_register_scheduled_task"
-# passed: 385 tests, 0 failed
+git diff --check
+# passed
+
+PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm check
+# passed; existing advisory warnings only
+
+PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm --filter @cat-cafe/api build
+# passed
+
+PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm --filter @cat-cafe/mcp-server build
+# passed
+
+PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm --filter @cat-cafe/mcp-server test -- --test-name-pattern "workflow-mandated|idempotency key|workflow fields"
+# passed: 387 tests, 0 failed
 
 node --test packages/api/test/scheduler/dynamic-task-store.test.js --test-name-pattern "idempotency|columns"
 # passed: 13 tests, 0 failed
 
-node --test packages/api/test/schedule-route.test.js --test-name-pattern "idempotent workflow registration"
-# passed: 37 tests, 0 failed
+node --test packages/api/test/schedule-route.test.js --test-name-pattern "idempotencyKey|workflow audit"
+# passed: 40 tests, 0 failed
 
-PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm check:skills:manifest
-# passed: 48 skills validated; existing advisory warnings only
-
-PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm check:skills:surfaces
-# passed: 11 tests, no raw first-party Hub/API curl main paths
-
-PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm check
-# passed
-
-git diff --check
-# passed
+node --test packages/api/test/memory/schema-v17.test.js packages/api/test/memory/schema-v19-f200.test.js packages/api/test/memory/schema-v2.test.js packages/api/test/memory/schema-v26-recall-result-count.test.js packages/api/test/memory/world-scope-filter.test.js packages/api/test/pack-knowledge-scope.test.js --test-name-pattern "CURRENT_SCHEMA_VERSION|schema V6 migration|V26 migration"
+# passed: 30 tests, 0 failed
 ```
 
 ### Local Caveat
 
-`pnpm check:skills` is blocked in this local worktree by missing provider skill mounts. `pnpm sync:skills --dry-run` would touch 34 worktrees, so I did not apply that environment repair in this PR.
+Quality-gate helper caveats in this local checkout: `node scripts/check-fallback-layers.mjs` is unavailable because the script is not present, and `pnpm check:architecture-ownership` is not registered. I ran the equivalent manual diff scan for architecture-surface changes and the root artifact hygiene checks; no blocker found.
 
-`pnpm --filter @cat-cafe/api test` did not produce a usable local full-suite green: the default Node 22 run violates the package `>=24` engine and failed in unrelated `capabilities-route` tests; the Node 24 rerun still mixed the same unrelated capability assertions with a local `better-sqlite3` native ABI mismatch. Focused schedule/API tests, `pnpm check`, and `@cat-cafe/api build` are green above; GitHub CI should be treated as the full-suite truth source for this PR.
+Node 24 local API `node --test` is blocked by the local `better-sqlite3` native module being compiled for Node 22 (`NODE_MODULE_VERSION 127` vs Node 24 `137`). Focused API tests are green under default Node 22; TypeScript builds and repo `pnpm check` are green under Node 24. GitHub CI should be treated as the full-suite truth source for this PR.

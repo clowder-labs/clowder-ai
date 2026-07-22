@@ -13,6 +13,7 @@ export interface DynamicTaskDef {
   createdBy: string;
   createdAt: string;
   idempotencyKey?: string | null;
+  idempotencyFingerprint?: string | null;
 }
 
 /** CRUD store for dynamic task definitions (Phase 3A AC-G3) */
@@ -22,8 +23,8 @@ export class DynamicTaskStore {
   insert(def: DynamicTaskDef): void {
     this.db
       .prepare(
-        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key, idempotency_fingerprint)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         def.id,
@@ -36,6 +37,7 @@ export class DynamicTaskStore {
         def.createdBy,
         def.createdAt,
         def.idempotencyKey ?? null,
+        def.idempotencyFingerprint ?? null,
       );
   }
 
@@ -47,8 +49,8 @@ export class DynamicTaskStore {
   upsert(def: DynamicTaskDef): void {
     this.db
       .prepare(
-        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO dynamic_task_defs (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key, idempotency_fingerprint)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            template_id = excluded.template_id,
            trigger_json = excluded.trigger_json,
@@ -68,6 +70,7 @@ export class DynamicTaskStore {
         def.createdBy,
         def.createdAt,
         def.idempotencyKey ?? null,
+        def.idempotencyFingerprint ?? null,
       );
   }
 
@@ -139,6 +142,7 @@ interface RawRow {
   created_by: string;
   created_at: string;
   idempotency_key: string | null;
+  idempotency_fingerprint: string | null;
 }
 
 function todef(row: RawRow): DynamicTaskDef {
@@ -153,5 +157,6 @@ function todef(row: RawRow): DynamicTaskDef {
     createdBy: row.created_by,
     createdAt: row.created_at,
     idempotencyKey: row.idempotency_key,
+    idempotencyFingerprint: row.idempotency_fingerprint,
   };
 }

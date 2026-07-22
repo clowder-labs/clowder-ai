@@ -219,11 +219,19 @@ export async function handlePreviewScheduledTask(input: {
     }
   }
 
-  if (resolveScheduleMcpAuthMode(input.agentKeyCatId) === 'agent-key' && !input.deliveryThreadId) {
+  const authMode = resolveScheduleMcpAuthMode(input.agentKeyCatId);
+  if (authMode === 'agent-key' && !input.deliveryThreadId) {
     return errorResult(
       'deliveryThreadId is required when previewing scheduled tasks with agentKeyCatId. ' +
         'Persistent agent-key MCP has no invocation thread; preview should match the register call that will persist the task.',
     );
+  }
+
+  // Preview must match registration semantics so the draft audits the same
+  // target that will be persisted by register_scheduled_task.
+  const currentCatId = authMode === 'agent-key' ? input.agentKeyCatId : process.env['CAT_CAFE_CAT_ID'];
+  if (!params.targetCatId && currentCatId) {
+    params.targetCatId = currentCatId;
   }
 
   const body: Record<string, unknown> = {
@@ -298,7 +306,7 @@ export const scheduleTools = [
     name: 'cat_cafe_preview_scheduled_task',
     description:
       'Preview a scheduled task before submitting it for approval. ' +
-      'Use before register_scheduled_task to confirm the resolved template, trigger, params, delivery, and audit fields. ' +
+      'Use before register_scheduled_task to confirm the resolved template, trigger, params, target, actor, delivery, and idempotency key. ' +
       'User-requested schedules need user confirmation before registration; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may use the preview as audit evidence before registration without extra user confirmation. ' +
       'NOT for persisting or activating a task. ' +
       'Output: one non-persisted draft to show the user before calling register_scheduled_task. ' +
@@ -317,7 +325,7 @@ export const scheduleTools = [
     description:
       'Submit a new scheduled task from a template for operator approval. ' +
       'Use after preview_scheduled_task: user-requested schedules require user confirmation; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may register after verifying the preview, with no extra user confirmation. ' +
-      'Plugin/project/user/external skills do not qualify for this exception and must use normal user confirmation. Trusted workflow automation must provide a stable idempotencyKey so callback retries return the existing task. ' +
+      'Plugin/project/user/external skills do not qualify for this exception and must use normal user confirmation. Trusted workflow automation must provide a stable idempotencyKey so exact callback retries return the existing task; reusing the same key with different schedule semantics returns a conflict. ' +
       'NOT for direct activation or unsupported ad-hoc task definitions. ' +
       'Output: one anchored Approval Hub proposal; the task is not persisted or run until the operator approves. ' +
       'Supports cron, interval, and once triggers. ' +

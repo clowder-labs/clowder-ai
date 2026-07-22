@@ -8,7 +8,7 @@ import {
   notifyTaskRegistered,
   notifyTaskResumed,
 } from '../infrastructure/scheduler/schedule-notify.js';
-import type { TaskSpec_P1, TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { TaskDisplayMeta, TaskSpec_P1, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { requireScheduleMutationPrincipal } from './schedule-mutation-principal.js';
 import { createScheduleMutationAuditEntry, publishScheduleMutationProposal } from './schedule-mutation-proposal.js';
 import {
@@ -49,6 +49,29 @@ function normalizeIdempotencyKey(value: unknown): string | null | { error: strin
 
 function dynamicTaskResponse(def: Pick<DynamicTaskDef, 'id' | 'display' | 'trigger'>) {
   return { id: def.id, ...def.display, trigger: def.trigger };
+}
+
+function canonicalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalizeJson(entry)]),
+    );
+  }
+  return value;
+}
+
+function buildScheduleIdempotencyFingerprint(input: {
+  templateId: string;
+  trigger: unknown;
+  params: Record<string, unknown>;
+  display: TaskDisplayMeta;
+  deliveryThreadId: string | null;
+  actor: { triggerUserId: string; createdBy: string };
+}): string {
+  return JSON.stringify(canonicalizeJson(input));
 }
 
 export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOptions> = async (app, opts) => {
@@ -103,10 +126,11 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       return { error: `Unknown template: ${body.templateId}` };
     }
 
+    const requestTrigger = body.trigger ?? template.defaultTrigger;
     let trigger: TriggerSpec;
     const rawOnceTrigger =
-      body.trigger && (body.trigger as Record<string, unknown>).type === 'once'
-        ? (body.trigger as Record<string, unknown>)
+      (requestTrigger as Record<string, unknown>).type === 'once'
+        ? (requestTrigger as Record<string, unknown>)
         : null;
     const relativeOnceDelayMs =
       rawOnceTrigger && typeof rawOnceTrigger.delayMs === 'number' ? rawOnceTrigger.delayMs : undefined;
@@ -118,7 +142,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       }
       trigger = result;
     } else {
-      trigger = body.trigger ?? template.defaultTrigger;
+      trigger = requestTrigger;
     }
     const rawParams = toPlainScheduleParams(body.params ?? {});
     if (!rawParams) {
@@ -165,6 +189,18 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       return { error: agentKeyScope.error, ...(agentKeyScope.code ? { code: agentKeyScope.code } : {}) };
     }
 
+    const idempotencyFingerprint =
+      normalizedIdempotencyKey == null
+        ? null
+        : buildScheduleIdempotencyFingerprint({
+            templateId: body.templateId,
+            trigger: requestTrigger,
+            params,
+            display,
+            deliveryThreadId: resolution.deliveryThreadId,
+            actor,
+          });
+
     const ensureRuntimeTaskRegistered = (existing: DynamicTaskDef): void => {
       if (!existing.enabled || taskRunner.getRegisteredTasks().includes(existing.id)) return;
       const existingTemplate = templateRegistry.get(existing.templateId);
@@ -178,11 +214,23 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       taskRunner.registerDynamic(spec, existing.id);
     };
 
-    if (normalizedIdempotencyKey) {
+    const replayExistingTask = (existing: DynamicTaskDef, fingerprint: string) => {
+      if (existing.idempotencyFingerprint !== fingerprint) {
+        reply.status(409);
+        return {
+          error: 'Idempotency key already belongs to a different schedule registration request',
+          code: 'IDEMPOTENCY_CONFLICT',
+          task: dynamicTaskResponse(existing),
+        };
+      }
+      ensureRuntimeTaskRegistered(existing);
+      return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+    };
+
+    if (normalizedIdempotencyKey && idempotencyFingerprint) {
       const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
       if (existing) {
-        ensureRuntimeTaskRegistered(existing);
-        return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+        return replayExistingTask(existing, idempotencyFingerprint);
       }
     }
 
@@ -197,6 +245,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       createdBy: actor.createdBy,
       createdAt: new Date().toISOString(),
       idempotencyKey: normalizedIdempotencyKey,
+      idempotencyFingerprint,
     };
     if (mutationPrincipal.kind === 'cat') {
       const cardThreadId =
@@ -235,11 +284,10 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
     try {
       scheduleMutationProposalStore.insertTaskWithAudit(def, audit);
     } catch (err) {
-      if (normalizedIdempotencyKey) {
+      if (normalizedIdempotencyKey && idempotencyFingerprint) {
         const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
         if (existing) {
-          ensureRuntimeTaskRegistered(existing);
-          return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+          return replayExistingTask(existing, idempotencyFingerprint);
         }
       }
       throw err;

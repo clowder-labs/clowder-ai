@@ -70,7 +70,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 40;
+export const CURRENT_SCHEMA_VERSION = 41;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -219,7 +219,8 @@ CREATE TABLE IF NOT EXISTS dynamic_task_defs (
   enabled INTEGER NOT NULL DEFAULT 1,
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  idempotency_key TEXT
+  idempotency_key TEXT,
+  idempotency_fingerprint TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_task_defs_idempotency
   ON dynamic_task_defs(idempotency_key)
@@ -1215,6 +1216,16 @@ export function applyMigrations(db: Database.Database): void {
       `);
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(40, new Date().toISOString());
+  }
+
+  // V41: bind idempotency keys to a canonical request fingerprint so a reused
+  // key with different schedule semantics conflicts instead of replaying stale
+  // task data as success.
+  if (currentVersion < 41) {
+    try {
+      db.exec('ALTER TABLE dynamic_task_defs ADD COLUMN idempotency_fingerprint TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(41, new Date().toISOString());
   }
 }
 

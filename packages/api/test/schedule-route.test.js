@@ -492,6 +492,36 @@ describe('Schedule Routes', () => {
       assert.equal(body.draft.deliveryThreadId, 'thread-from-callback');
     });
 
+    it('returns final registration semantics in the draft for workflow audit', async () => {
+      const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-from-callback');
+      const res = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks/preview',
+        headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'once', delayMs: 1209600000 },
+          params: { message: 'hotfix upgrade review', targetCatId: '@codex', triggerUserId: 'evil-body-user' },
+          display: {
+            label: 'Hotfix upgrade review',
+            category: 'pr',
+            description: 'review hotfix after 14 days',
+          },
+          idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.draft.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92');
+      assert.deepEqual(body.draft.actor, { createdBy: 'opus', triggerUserId: 'user-1' });
+      assert.equal(body.draft.deliveryThreadId, 'thread-from-callback');
+      assert.equal(body.draft.targetCatId, 'codex');
+      assert.equal(body.draft.params.targetCatId, 'codex');
+      assert.equal(body.draft.params.triggerUserId, 'user-1');
+      assert.equal(body.draft.display.label, 'Hotfix upgrade review');
+    });
+
     it('returns 409 stale invocation error for stale callback auth invocation', async () => {
       const stale = await registry.create('user-1', 'opus', 'thread-from-callback');
       await registry.create('user-1', 'opus', 'thread-from-callback');
@@ -945,15 +975,24 @@ describe('Schedule Routes', () => {
   });
 
   describe('POST /api/schedule/tasks — idempotent workflow registration', () => {
-    let appDyn, store;
+    let appDyn, store, registry;
 
     beforeEach(async () => {
       const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
       const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
       const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      const { InvocationRegistry } = await import(
+        '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+      );
       store = new DynamicTaskStore(db);
+      registry = new InvocationRegistry();
       appDyn = Fastify({ logger: false });
-      await registerScheduleRoutesForTest(appDyn, sr, db, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await registerScheduleRoutesForTest(appDyn, sr, db, {
+        taskRunner: runner,
+        dynamicTaskStore: store,
+        templateRegistry,
+        registry,
+      });
       await appDyn.ready();
     });
 
@@ -1002,6 +1041,77 @@ describe('Schedule Routes', () => {
         1,
         'replay must not register a duplicate runtime task',
       );
+    });
+
+    it('rejects the same idempotencyKey when the requested task semantics differ', async () => {
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'first hotfix upgrade review', targetCatId: 'codex' },
+        display: {
+          label: 'Hotfix 升级 review — PR #92',
+          category: 'pr',
+          description: '2 周升级 review：PR #92 是 hotfix，需要三选一处置',
+        },
+        deliveryThreadId: 'thread-A',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-conflict',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+
+      const conflict = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload: {
+          ...payload,
+          params: { message: 'changed hotfix upgrade review', targetCatId: 'gemini' },
+          deliveryThreadId: 'thread-B',
+        },
+      });
+
+      assert.equal(conflict.statusCode, 409, conflict.body);
+      assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
+      assert.equal(store.getAll().length, 1, 'conflict must not persist a replacement task');
+      const stored = store.getAll()[0];
+      assert.equal(stored.deliveryThreadId, 'thread-A');
+      assert.equal(stored.params.message, 'first hotfix upgrade review');
+      assert.equal(stored.params.targetCatId, 'codex');
+    });
+
+    it('rejects the same idempotencyKey when the verified actor differs', async () => {
+      const firstAuth = await registry.create('user-1', 'opus', 'thread-actor-replay');
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'hotfix upgrade review actor replay' },
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-actor',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers: { 'x-invocation-id': firstAuth.invocationId, 'x-callback-token': firstAuth.callbackToken },
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+
+      const secondAuth = await registry.create('user-2', 'opus', 'thread-actor-replay');
+      const conflict = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers: { 'x-invocation-id': secondAuth.invocationId, 'x-callback-token': secondAuth.callbackToken },
+        payload,
+      });
+
+      assert.equal(conflict.statusCode, 409, conflict.body);
+      assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
+      assert.equal(store.getAll().length, 1, 'conflict must not persist a second task');
+      assert.equal(store.getAll()[0].params.triggerUserId, 'user-1');
     });
   });
 
