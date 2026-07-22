@@ -51,12 +51,18 @@ function dynamicTaskResponse(def: Pick<DynamicTaskDef, 'id' | 'display' | 'trigg
   return { id: def.id, ...def.display, trigger: def.trigger };
 }
 
+function compareUtf16(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 function canonicalizeJson(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalizeJson);
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
+        // Idempotency fingerprints must be byte-stable across host locales.
+        .sort(([left], [right]) => compareUtf16(left, right))
         .map(([key, entry]) => [key, canonicalizeJson(entry)]),
     );
   }

@@ -259,6 +259,50 @@ describe('Schedule MCP Tools — module exports', () => {
     }
   });
 
+  test('cat_cafe_preview_scheduled_task rejects non-object params without posting', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalApiUrl = process.env.CAT_CAFE_API_URL;
+    const originalInvocationId = process.env.CAT_CAFE_INVOCATION_ID;
+    const originalCallbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
+    const originalRetryDelays = process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS;
+    let fetchCalls = 0;
+
+    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
+    process.env.CAT_CAFE_INVOCATION_ID = 'inv-schedule-preview-invalid-params-test';
+    process.env.CAT_CAFE_CALLBACK_TOKEN = 'tok-schedule-preview-invalid-params-test';
+    process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS = '0';
+
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('preview should reject invalid params before callbackPost');
+    };
+
+    try {
+      const { handlePreviewScheduledTask } = await import('../dist/tools/schedule-tools.js');
+      for (const params of ['null', '[]', '42']) {
+        const result = await handlePreviewScheduledTask({
+          templateId: 'reminder',
+          trigger: JSON.stringify({ type: 'once', delayMs: 1209600000 }),
+          params,
+        });
+
+        assert.equal(result.isError, true);
+        assert.match(result.content[0].text, /Invalid params JSON.*JSON object/);
+      }
+      assert.equal(fetchCalls, 0, 'invalid params must fail locally without posting to the API');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalApiUrl === undefined) delete process.env.CAT_CAFE_API_URL;
+      else process.env.CAT_CAFE_API_URL = originalApiUrl;
+      if (originalInvocationId === undefined) delete process.env.CAT_CAFE_INVOCATION_ID;
+      else process.env.CAT_CAFE_INVOCATION_ID = originalInvocationId;
+      if (originalCallbackToken === undefined) delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+      else process.env.CAT_CAFE_CALLBACK_TOKEN = originalCallbackToken;
+      if (originalRetryDelays === undefined) delete process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS;
+      else process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS = originalRetryDelays;
+    }
+  });
+
   test('cat_cafe_remove_scheduled_task exposes task and verified-thread selectors', async () => {
     const { scheduleTools, removeScheduledTaskInputSchema } = await import('../dist/tools/schedule-tools.js');
     const tool = scheduleTools.find((t) => t.name === 'cat_cafe_remove_scheduled_task');

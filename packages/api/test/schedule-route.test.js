@@ -1113,6 +1113,50 @@ describe('Schedule Routes', () => {
       assert.equal(store.getAll().length, 1, 'conflict must not persist a second task');
       assert.equal(store.getAll()[0].params.triggerUserId, 'user-1');
     });
+
+    it('replays the same non-ASCII request when host locale ordering changes', async () => {
+      const originalLocaleCompare = String.prototype.localeCompare;
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'interval', ms: 60000 },
+        params: { z: 'ascii', 'ä': 'non-ascii', message: 'locale-stable replay' },
+        display: {
+          label: 'Locale stable replay',
+          category: 'system',
+          description: 'same request must not depend on runtime locale collation',
+        },
+        deliveryThreadId: 'thread-locale',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-locale',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+      const firstBody = first.json();
+
+      String.prototype.localeCompare = function reversedLocaleCompare(other) {
+        if (String(this) === String(other)) return 0;
+        return originalLocaleCompare.call(this, other) < 0 ? 1 : -1;
+      };
+
+      try {
+        const replay = await appDyn.inject({
+          method: 'POST',
+          url: '/api/schedule/tasks',
+          payload,
+        });
+
+        assert.equal(replay.statusCode, 200, replay.body);
+        assert.equal(replay.json().idempotent, true);
+        assert.equal(replay.json().task.id, firstBody.task.id);
+        assert.equal(store.getAll().length, 1, 'locale collation drift must not persist or conflict');
+      } finally {
+        String.prototype.localeCompare = originalLocaleCompare;
+      }
+    });
   });
 
   describe('POST /api/schedule/tasks — callback auth infers deliveryThreadId', () => {

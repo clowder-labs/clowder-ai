@@ -101,6 +101,20 @@ export const registerScheduledTaskInputSchema = {
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
+function parseScheduleParams(raw: string | undefined): { ok: true; params: Record<string, unknown> } | { ok: false; error: string } {
+  if (!raw) return { ok: true, params: {} };
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: 'Invalid params JSON — must be a JSON object (not null, array, or primitive)' };
+    }
+    return { ok: true, params: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: 'Invalid params JSON — must be a valid JSON object' };
+  }
+}
+
 export async function handleRegisterScheduledTask(input: {
   templateId: string;
   trigger: string;
@@ -119,18 +133,9 @@ export async function handleRegisterScheduledTask(input: {
     return errorResult('Invalid trigger JSON — must be a valid JSON object');
   }
 
-  let params: Record<string, unknown> = {};
-  if (input.params) {
-    try {
-      const parsed: unknown = JSON.parse(input.params);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        return errorResult('Invalid params JSON — must be a JSON object (not null, array, or primitive)');
-      }
-      params = parsed as Record<string, unknown>;
-    } catch {
-      return errorResult('Invalid params JSON — must be a valid JSON object');
-    }
-  }
+  const parsedParams = parseScheduleParams(input.params);
+  if (!parsedParams.ok) return errorResult(parsedParams.error);
+  const params = parsedParams.params;
 
   const authMode = resolveScheduleMcpAuthMode(input.agentKeyCatId);
   if (authMode === 'agent-key' && !input.deliveryThreadId) {
@@ -210,14 +215,9 @@ export async function handlePreviewScheduledTask(input: {
     return errorResult('Invalid trigger JSON');
   }
 
-  let params: Record<string, unknown> = {};
-  if (input.params) {
-    try {
-      params = JSON.parse(input.params);
-    } catch {
-      return errorResult('Invalid params JSON');
-    }
-  }
+  const parsedParams = parseScheduleParams(input.params);
+  if (!parsedParams.ok) return errorResult(parsedParams.error);
+  const params = parsedParams.params;
 
   const authMode = resolveScheduleMcpAuthMode(input.agentKeyCatId);
   if (authMode === 'agent-key' && !input.deliveryThreadId) {
