@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-26-eval-anchor-first-c1-higher-volume-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-07-26-eval-anchor-first-c1-higher-volume-keep-observe/raw/rollup.json",
+      "sha256": "ed0f0c5c3e261c271947a617e45f8726a253d37c245bfd7902f5a030b035e587"
+    }
+  ],
+  "generatedAt": "2026-07-26T03:01:28.857Z",
+  "generator": {
+    "name": "eval-anchor-first-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f236-anchor-telemetry-v1"
+}
