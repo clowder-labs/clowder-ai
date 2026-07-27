@@ -11,7 +11,7 @@ source_snapshot: "snapshot:bundle/2026-07-27-eval-friction-c1-third-clean-window
 # Live Verdict — 2026-07-27-eval-friction-c1-third-clean-window
 
 - Verdict: `keep_observe`
-- Phenomenon: The current every-3d friction window from 2026-07-24 03:00 UTC to 2026-07-27 03:00 UTC produced no friction signals, no actionableCandidates, and no referenceOnly clusters. The two immediately preceding 72h windows, 2026-07-18 03:00 UTC to 2026-07-21 03:00 UTC and 2026-07-21 03:00 UTC to 2026-07-24 03:00 UTC, were also empty, so this remains a three-window quiet streak.
+- Phenomenon: The current every-3d friction window from 2026-07-24 03:00 UTC to 2026-07-27 03:00 UTC produced no friction signals, no actionableCandidates, and no referenceOnly clusters. The latest archived predecessor, 2026-07-18 03:00 UTC to 2026-07-21 03:00 UTC, was also empty, while the intervening 2026-07-21 03:00 UTC to 2026-07-24 03:00 UTC window is still pending archival in evidence PR #95 and is therefore treated here as an observation gap rather than archived no-friction evidence.
 - Harness: F245/friction-rollup (friction rollup (Top-N + sensorForm))
 - Root cause: No persistent root cause is observable in the current window. The earlier singleton still looks more like a transient translation_gap or execution_gap than an active recurring harness, tool, or environment defect. (confidence low)
 - Owner ask: Keep the every-3d friction rollup running and only escalate if a future 72h window surfaces any actionableCandidate, any recurring referenceOnly eval-domain cluster, or any repeated non-eval-domain cluster.
@@ -25,6 +25,6 @@ Evidence:
 - metric:friction-rollup.tail_signal_count
 
 Counterarguments:
-- Three quiet windows still do not prove the harness is globally friction-free; a low-volume issue may simply not have recurred yet.
-- The earlier singleton came from a specific workflow, so the quiet streak may reflect topic churn rather than durable recovery.
+- The current window is quiet, but the unmerged 2026-07-21 03:00 UTC to 2026-07-24 03:00 UTC evidence leaves an archival observation gap, so the repo still does not show an uninterrupted three-window quiet streak.
+- The earlier singleton came from a specific workflow, so the archived calm may reflect topic churn rather than durable recovery.
 - If the next window reintroduces even one repeated cross-channel cluster, the current no-finding interpretation should be revised quickly.
