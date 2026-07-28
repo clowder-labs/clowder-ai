@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-28-eval-a2a-record-window-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-28-eval-F167-runtime.yaml",
+      "sha256": "ea7d6c38edc78d8a2510befb71b6fb9e98fabfa2918e34118f9dc13c61346730"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-28-eval-F167-attribution.yaml",
+      "sha256": "dda7bfdf777ceff0683fe0494f81acd47811ca8a604fff8e3a323e2161336f7f"
+    }
+  ],
+  "generatedAt": "2026-07-28T03:01:51.004Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
