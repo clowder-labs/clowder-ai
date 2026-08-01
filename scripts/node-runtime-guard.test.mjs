@@ -269,11 +269,56 @@ test('preinstall guard allows NODE_ENV=production when SKIP guard is set', () =>
   assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 });
 
+test('validation scripts can skip production-install guard while keeping Node version guard', () => {
+  const supported = spawnSync(process.execPath, ['scripts/check-validation-node-runtime.mjs'], {
+    cwd: resolve(import.meta.dirname, '..'),
+    encoding: 'utf8',
+    env: {
+      CAT_CAFE_TEST_NODE_VERSION: '24.16.0',
+      NODE_ENV: 'production',
+    },
+  });
+  assert.equal(supported.status, 0, `stdout:\n${supported.stdout}\nstderr:\n${supported.stderr}`);
+
+  const unsupported = spawnSync(process.execPath, ['scripts/check-validation-node-runtime.mjs'], {
+    cwd: resolve(import.meta.dirname, '..'),
+    encoding: 'utf8',
+    env: {
+      CAT_CAFE_TEST_NODE_VERSION: '23.11.0',
+      NODE_ENV: 'production',
+    },
+  });
+  assert.equal(unsupported.status, 1);
+  assert.match(unsupported.stderr, /Node 23\.11\.0 is not supported/);
+});
+
 test('package engines advertise the Node 24 floor required by recursive workspace tests', () => {
   const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'package.json'), 'utf8'));
 
   assert.equal(pkg.engines.node, '>=24.0.0');
   assert.doesNotMatch(pkg.engines.node, /<\s*26/);
+});
+
+test('direct validation scripts fail fast on unsupported Node before running package work', () => {
+  const packages = [
+    { path: 'package.json', guard: 'node scripts/check-validation-node-runtime.mjs' },
+    { path: 'packages/api/package.json', guard: 'node ../../scripts/check-validation-node-runtime.mjs' },
+    { path: 'packages/mcp-server/package.json', guard: 'node ../../scripts/check-validation-node-runtime.mjs' },
+    { path: 'packages/shared/package.json', guard: 'node ../../scripts/check-validation-node-runtime.mjs' },
+    { path: 'packages/web/package.json', guard: 'node ../../scripts/check-validation-node-runtime.mjs' },
+  ];
+
+  for (const { path, guard } of packages) {
+    const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', path), 'utf8'));
+    const scriptNames =
+      path === 'package.json' ? ['build', 'test', 'lint', 'check', 'gate'] : ['build', 'test', 'lint'];
+    for (const scriptName of scriptNames) {
+      if (!pkg.scripts?.[scriptName]) continue;
+      const preScript = pkg.scripts[`pre${scriptName}`];
+      assert.ok(preScript?.includes(guard), `${path} pre${scriptName} must run ${guard}`);
+      assert.doesNotMatch(preScript, /\b[A-Z_]+=1\s+node\b/, `${path} pre${scriptName} must be shell-portable`);
+    }
+  }
 });
 
 test('desktop release workflows install with Node 24 to satisfy the root preinstall guard', () => {

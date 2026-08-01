@@ -5,11 +5,14 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
+    "prebuild": "node ../../scripts/check-validation-node-runtime.mjs",
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
+    "prelint": "node ../../scripts/check-validation-node-runtime.mjs",
     "lint": "tsc --noEmit",
+    "pretest": "node ../../scripts/check-validation-node-runtime.mjs",
     "test": "tsc && node --import tsx --test test/*.test.js test/*.test.ts"
   },
   "dependencies": {

@@ -44,11 +44,14 @@
     }
   },
   "scripts": {
+    "prebuild": "node ../../scripts/check-validation-node-runtime.mjs",
     "build": "tsc",
     "prepare": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "prelint": "node ../../scripts/check-validation-node-runtime.mjs",
     "lint": "tsc --noEmit",
+    "pretest": "node ../../scripts/check-validation-node-runtime.mjs",
     "test": "vitest run"
   },
   "dependencies": {
