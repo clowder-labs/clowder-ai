@@ -80,6 +80,8 @@ function workspacePackageJsonPaths() {
 }
 
 function isValidationEntrypoint(scriptName) {
+  const validationEntrypointNames = new Set(['mcp:doctor']);
+  if (validationEntrypointNames.has(scriptName)) return true;
   if (scriptName !== 'prepare' && /^(?:pre|post)/.test(scriptName)) return false;
   const validationTokens = new Set(['audit', 'build', 'check', 'gate', 'lint', 'prepare', 'smoke', 'test', 'verify']);
   return scriptName.split(':').some((segment) => validationTokens.has(segment) || segment.endsWith('-smoke'));
@@ -388,6 +390,7 @@ test('direct validation scripts fail fast on unsupported Node before running pac
     entries.includes('packages/shared/package.json#prepare'),
     'validation entrypoint audit must discover shared prepare',
   );
+  assert.ok(entries.includes('package.json#mcp:doctor'), 'validation entrypoint audit must discover MCP doctor');
   assert.ok(
     entries.includes('packages/api/package.json#test:public'),
     'validation entrypoint audit must discover API test:public',
@@ -405,6 +408,7 @@ test('direct validation scripts fail fast on unsupported Node before running pac
 
 test('validation entrypoint discovery includes verify, audit, smoke, and suffix test scripts', () => {
   assert.equal(isValidationEntrypoint('prepare'), true);
+  assert.equal(isValidationEntrypoint('mcp:doctor'), true);
   assert.equal(isValidationEntrypoint('verify:sigusr1'), true);
   assert.equal(isValidationEntrypoint('audit:feature-docs'), true);
   assert.equal(isValidationEntrypoint('smoke:f210-agy-profiles'), true);
@@ -414,6 +418,7 @@ test('validation entrypoint discovery includes verify, audit, smoke, and suffix 
 
   assert.equal(isValidationEntrypoint('preprepare'), false);
   assert.equal(isValidationEntrypoint('prebuild'), false);
+  assert.equal(isValidationEntrypoint('process:doctor'), false);
   assert.equal(isValidationEntrypoint('start'), false);
   assert.equal(isValidationEntrypoint('start:status'), false);
   assert.equal(isValidationEntrypoint('start:direct'), false);

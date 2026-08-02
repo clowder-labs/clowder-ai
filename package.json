@@ -105,6 +105,7 @@
     "check:skills:surfaces": "node --test scripts/check-skill-first-party-surfaces.test.mjs && node scripts/check-skill-first-party-surfaces.mjs",
     "check:pre-merge-gate": "node --test scripts/pre-merge-check.test.mjs scripts/pre-merge-gate-guard.test.mjs scripts/test-bash-runtime.test.mjs",
     "check:hotfix-pattern": "node --test scripts/check-hotfix-pattern.test.mjs",
+    "premcp:doctor": "node scripts/check-validation-node-runtime.mjs",
     "mcp:doctor": "node scripts/mcp-doctor.mjs",
     "convention-graph": "pnpm --filter @cat-cafe/convention-graph convention-graph",
     "convention-graph:index": "pnpm --filter @cat-cafe/convention-graph graph:index",
