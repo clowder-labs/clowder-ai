@@ -1,8 +1,8 @@
 /**
  * check:env-registry — CI gate for env var registration completeness.
  *
- * Scans `packages/api/src` and `packages/mcp-server/src` for `process.env.XXX`
- * references and verifies each is either:
+ * Scans `packages/api/src`, `packages/mcp-server/src`, and runtime guard scripts
+ * for `process.env.XXX` references and verifies each is either:
  *   1. Registered in `env-registry.ts` ENV_VARS array, OR
  *   2. Listed in the ALLOWLIST below (with a reason).
  *
@@ -39,6 +39,8 @@ const ALLOWLIST = new Map([
   ['all_proxy', 'Standard proxy convention (lowercase variant of ALL_PROXY)'],
   ['npm_execpath', 'Package-manager metadata injected by npm/pnpm; not user-configurable'],
   ['npm_config_user_agent', 'Package-manager metadata injected by npm/pnpm; not user-configurable'],
+  ['npm_config_production', 'Package-manager production-mode flag read by install/runtime guards'],
+  ['NPM_CONFIG_PRODUCTION', 'Package-manager production-mode flag read by install/runtime guards'],
   ['INIT_CWD', 'Package-manager metadata injected by npm/pnpm; original invocation directory'],
   ['COGVIDEO_API_KEY', 'F139 MediaHub CogVideoX provider — mcp-server-local credential'],
   ['CLAUDE_BIN', 'F254 developer-only live fixture executable override; not a runtime setting'],
@@ -46,6 +48,7 @@ const ALLOWLIST = new Map([
   ['F254_CLAUDE_MODEL', 'F254 developer-only Claude capability fixture model override; not a runtime setting'],
   ['F254_CODEX_TRANSPORT', 'F254 developer-only Codex fixture transport selector; not a runtime setting'],
   ['CAT_OPUS_MODEL', 'Existing provider model env reused only as a developer fixture fallback'],
+  ['CAT_CAFE_TEST_NODE_VERSION', 'Test-only override for scripts/check-node-runtime.mjs'],
   // F240: Per-connector env vars migrated to YAML manifests (connector.yaml / plugin.yaml).
   // Runtime still reads process.env as fallback in resolveConnectorEnv() chain, but
   // documentation/display is now driven by the YAML config.fields declarations.
@@ -100,10 +103,13 @@ function collectTsFiles(dir) {
   return results;
 }
 
+const EXTRA_ENV_REF_FILES = ['scripts/check-node-runtime.mjs', 'scripts/check-validation-node-runtime.mjs'];
+
 // ── Extract process.env references from source files ──
-function extractEnvRefs(dirs) {
+function extractEnvRefs(dirs, extraFiles = []) {
   /** @type {Map<string, string[]>} varName → [file:line, ...] */
   const refs = new Map();
+  const files = [];
 
   for (const dir of dirs) {
     const absDir = join(ROOT, dir);
@@ -112,38 +118,44 @@ function extractEnvRefs(dirs) {
     } catch {
       continue;
     }
-    for (const file of collectTsFiles(absDir)) {
-      const lines = readFileSync(file, 'utf-8').split('\n');
-      let inBlockComment = false;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trimStart();
-        // Track multi-line block comments
-        if (inBlockComment) {
-          if (line.includes('*/')) {
-            inBlockComment = false;
-          }
-          continue;
+    files.push(...collectTsFiles(absDir));
+  }
+
+  for (const file of extraFiles) {
+    files.push(join(ROOT, file));
+  }
+
+  for (const file of files) {
+    const lines = readFileSync(file, 'utf-8').split('\n');
+    let inBlockComment = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trimStart();
+      // Track multi-line block comments
+      if (inBlockComment) {
+        if (line.includes('*/')) {
+          inBlockComment = false;
         }
-        // Single-line block comment: /** ... */ or /* ... */ on one line
-        if (trimmed.startsWith('/*') && line.includes('*/')) continue;
-        // Start of multi-line block comment (no closing on same line)
-        if (trimmed.startsWith('/*')) {
-          inBlockComment = true;
-          continue;
-        }
-        // Skip pure line comments
-        if (trimmed.startsWith('//')) continue;
-        // Strip inline comments before matching (trailing // and inline /* */)
-        const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
-        // Match process.env.VAR_NAME and process.env['VAR_NAME']
-        const dotMatches = code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g);
-        const bracketMatches = code.matchAll(/process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g);
-        for (const m of [...dotMatches, ...bracketMatches]) {
-          const name = m[1];
-          if (!refs.has(name)) refs.set(name, []);
-          refs.get(name).push(`${file.replace(ROOT + '/', '')}:${i + 1}`);
-        }
+        continue;
+      }
+      // Single-line block comment: /** ... */ or /* ... */ on one line
+      if (trimmed.startsWith('/*') && line.includes('*/')) continue;
+      // Start of multi-line block comment (no closing on same line)
+      if (trimmed.startsWith('/*')) {
+        inBlockComment = true;
+        continue;
+      }
+      // Skip pure line comments
+      if (trimmed.startsWith('//')) continue;
+      // Strip inline comments before matching (trailing // and inline /* */)
+      const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+      // Match process.env.VAR_NAME and process.env['VAR_NAME']
+      const dotMatches = code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g);
+      const bracketMatches = code.matchAll(/process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g);
+      for (const m of [...dotMatches, ...bracketMatches]) {
+        const name = m[1];
+        if (!refs.has(name)) refs.set(name, []);
+        refs.get(name).push(`${file.replace(ROOT + '/', '')}:${i + 1}`);
       }
     }
   }
@@ -154,7 +166,7 @@ function extractEnvRefs(dirs) {
 // ── Tests ──
 describe('env-registry completeness', () => {
   const registeredNames = loadRegisteredNames();
-  const envRefs = extractEnvRefs(['packages/api/src', 'packages/mcp-server/src']);
+  const envRefs = extractEnvRefs(['packages/api/src', 'packages/mcp-server/src'], EXTRA_ENV_REF_FILES);
   const repoInboxEnvNames = ['GITHUB_WEBHOOK_SECRET', 'GITHUB_REPO_ALLOWLIST', 'GITHUB_REPO_INBOX_CAT_ID'];
   const githubSelfFilterEnvNames = ['GITHUB_SELF_LOGIN'];
   const weixinRuntimeFlagNames = [
