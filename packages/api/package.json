@@ -38,7 +38,14 @@
     "persist-dormant-cursors": "pnpm run build && node scripts/persist-dormant-cursors.mjs",
     "prelint": "node ../../scripts/check-validation-node-runtime.mjs",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "pretest:antigravity-smoke": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:cli": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:integration": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:pty": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:public": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:redis": "node ../../scripts/check-validation-node-runtime.mjs",
+    "pretest:redis:repeat": "node ../../scripts/check-validation-node-runtime.mjs"
   },
   "dependencies": {
     "@cat-cafe/shared": "workspace:*",

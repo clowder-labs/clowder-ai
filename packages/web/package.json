@@ -14,7 +14,8 @@
     "lint": "next lint",
     "pretest": "node ../../scripts/check-validation-node-runtime.mjs",
     "test": "node scripts/run-with-node-env-test.mjs pnpm exec vitest run && node scripts/run-with-node-env-test.mjs node --test test/next-config.test.cjs && node --test test/browser/message-selection-toolbar-layout.test.mjs && node eslint-plugins/no-hardcoded-colors.test.js && node ../../scripts/check-no-new-ui-emoji.test.mjs && node ../../scripts/check-no-new-ui-emoji.mjs",
-    "test:lint-rules": "node eslint-plugins/no-hardcoded-colors.test.js"
+    "test:lint-rules": "node eslint-plugins/no-hardcoded-colors.test.js",
+    "pretest:lint-rules": "node ../../scripts/check-validation-node-runtime.mjs"
   },
   "dependencies": {
     "@cat-cafe/shared": "workspace:*",

@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { join, posix as posixPath, resolve } from 'node:path';
 import test from 'node:test';
 
 const repoRoot = resolve(import.meta.dirname, '..');
@@ -71,7 +71,7 @@ function workspacePackageJsonPaths() {
     const parent = pattern.slice(0, -2);
     for (const entry of readdirSync(resolve(repoRoot, parent), { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const relPath = join(parent, entry.name, 'package.json');
+      const relPath = posixPath.join(parent, entry.name, 'package.json');
       if (existsSync(resolve(repoRoot, relPath))) packageJsonPaths.push(relPath);
     }
   }
@@ -94,8 +94,8 @@ function isValidationEntrypoint(scriptName) {
 
 function validationGuardForPackageJson(relPath) {
   if (relPath === 'package.json') return 'node scripts/check-validation-node-runtime.mjs';
-  const fromDir = dirname(relPath);
-  const rootPrefix = relative(fromDir, '.');
+  const fromDir = posixPath.dirname(relPath);
+  const rootPrefix = posixPath.relative(fromDir, '.');
   return `node ${rootPrefix}/scripts/check-validation-node-runtime.mjs`;
 }
 
@@ -363,7 +363,6 @@ test('package engines advertise the Node 24 floor required by recursive workspac
 });
 
 test('direct validation scripts fail fast on unsupported Node before running package work', () => {
-  const centralGuard = pnpmEngineStrictEnabled();
   const entries = [];
   const missingProtection = [];
 
@@ -378,7 +377,7 @@ test('direct validation scripts fail fast on unsupported Node before running pac
       if (preScript) {
         assert.ok(preScript.includes(guard), `${path} pre${scriptName} must run ${guard}`);
         assert.doesNotMatch(preScript, /\b[A-Z_]+=1\s+node\b/, `${path} pre${scriptName} must be shell-portable`);
-      } else if (!centralGuard) {
+      } else {
         missingProtection.push(`${path}#${scriptName}`);
       }
     }
@@ -401,6 +400,18 @@ test('direct validation scripts fail fast on unsupported Node before running pac
     [],
     `validation entrypoints without node runtime guard:\n${missingProtection.join('\n')}`,
   );
+});
+
+test('pnpm engine strict remains off so startup scripts can reach the auto-reexec guard', () => {
+  const pkg = readJson('package.json');
+
+  assert.equal(pnpmEngineStrictEnabled(), false);
+  assert.equal(isValidationEntrypoint('start'), false);
+  assert.equal(isValidationEntrypoint('start:status'), false);
+  assert.equal(isValidationEntrypoint('start:direct'), false);
+  assert.equal(isValidationEntrypoint('dev:direct'), false);
+  assert.match(pkg.scripts.start, /^node \.\/scripts\/start-entry\.mjs start\b/);
+  assert.match(pkg.scripts['start:status'], /^node \.\/scripts\/start-entry\.mjs status\b/);
 });
 
 test('desktop release workflows install with Node 24 to satisfy the root preinstall guard', () => {
