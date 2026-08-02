@@ -81,15 +81,8 @@ function workspacePackageJsonPaths() {
 
 function isValidationEntrypoint(scriptName) {
   if (/^(?:pre|post)/.test(scriptName)) return false;
-  return (
-    scriptName === 'build' ||
-    scriptName === 'test' ||
-    scriptName === 'lint' ||
-    scriptName === 'check' ||
-    scriptName === 'gate' ||
-    scriptName.startsWith('test:') ||
-    scriptName.startsWith('check:')
-  );
+  const validationTokens = new Set(['audit', 'build', 'check', 'gate', 'lint', 'smoke', 'test', 'verify']);
+  return scriptName.split(':').some((segment) => validationTokens.has(segment) || segment.endsWith('-smoke'));
 }
 
 function validationGuardForPackageJson(relPath) {
@@ -400,6 +393,20 @@ test('direct validation scripts fail fast on unsupported Node before running pac
     [],
     `validation entrypoints without node runtime guard:\n${missingProtection.join('\n')}`,
   );
+});
+
+test('validation entrypoint discovery includes verify, audit, smoke, and suffix test scripts', () => {
+  assert.equal(isValidationEntrypoint('verify:sigusr1'), true);
+  assert.equal(isValidationEntrypoint('audit:feature-docs'), true);
+  assert.equal(isValidationEntrypoint('smoke:f210-agy-profiles'), true);
+  assert.equal(isValidationEntrypoint('f210:agy-profile-smoke'), true);
+  assert.equal(isValidationEntrypoint('alpha:test'), true);
+  assert.equal(isValidationEntrypoint('runtime:test'), true);
+
+  assert.equal(isValidationEntrypoint('start'), false);
+  assert.equal(isValidationEntrypoint('start:status'), false);
+  assert.equal(isValidationEntrypoint('start:direct'), false);
+  assert.equal(isValidationEntrypoint('dev:direct'), false);
 });
 
 test('pnpm engine strict remains off so startup scripts can reach the auto-reexec guard', () => {
