@@ -46,6 +46,7 @@
   "scripts": {
     "prebuild": "node ../../scripts/check-validation-node-runtime.mjs",
     "build": "tsc",
+    "preprepare": "node ../../scripts/check-validation-node-runtime.mjs",
     "prepare": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
