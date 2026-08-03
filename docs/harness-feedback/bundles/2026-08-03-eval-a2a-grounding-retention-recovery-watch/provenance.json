@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-08-03-eval-a2a-grounding-retention-recovery-watch",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-08-03-eval-F167-runtime.yaml",
+      "sha256": "0bcf89490a9a57e606ef713359669400dcb49b4aa41b4a6992b4d295a38ef70b"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-08-03-eval-F167-attribution.yaml",
+      "sha256": "01494352ed5c17add8a827e5c78187decb26c3989e7d134dd48a85a725f495f5"
+    }
+  ],
+  "generatedAt": "2026-08-03T03:12:06.032Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
