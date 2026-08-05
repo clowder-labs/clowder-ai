@@ -1,0 +1,39 @@
+{
+  "verdictId": "2026-08-05-eval-friction-c1-live-quiet-archival-gap-persists",
+  "selector": {
+    "kind": "friction-rollup-snapshot",
+    "windowStartMs": 1785639600000,
+    "windowEndMs": 1785898800000,
+    "topN": 10,
+    "tokenCap": 4000
+  },
+  "window": {
+    "sinceMs": 1785639600000,
+    "untilMs": 1785898800000
+  },
+  "signalCount": 0,
+  "clusterCount": 0,
+  "degraded": false,
+  "droppedChannels": [],
+  "report": {
+    "window": {
+      "sinceMs": 1785639600000,
+      "untilMs": 1785898800000
+    },
+    "generatedAt": "2026-08-05T03:05:57.808Z",
+    "topClusters": [],
+    "actionableCandidates": [],
+    "referenceOnly": [],
+    "tailSummary": {
+      "clusterCount": 0,
+      "signalCount": 0,
+      "byChannel": {}
+    },
+    "degraded": false,
+    "droppedChannels": [],
+    "tokenBudget": {
+      "cap": 4000,
+      "estimated": 78
+    }
+  }
+}

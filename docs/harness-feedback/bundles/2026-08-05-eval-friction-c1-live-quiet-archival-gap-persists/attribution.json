@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-08-05-eval-friction-c1-live-quiet-archival-gap-persists",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-08-05",
+  "generatedAt": "2026-08-05T03:05:57.808Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "no friction cluster surfaced in the selected window",
+    "evidence": "friction-rollup/cluster_count"
+  }
+}
