@@ -2,7 +2,7 @@
  * check:env-registry — CI gate for env var registration completeness.
  *
  * Scans `packages/api/src`, `packages/mcp-server/src`, and runtime guard scripts
- * for `process.env.XXX` references and verifies each is either:
+ * for `process.env.XXX` / shell `$ENV_VAR` references and verifies each is either:
  *   1. Registered in `env-registry.ts` ENV_VARS array, OR
  *   2. Listed in the ALLOWLIST below (with a reason).
  *
@@ -49,6 +49,7 @@ const ALLOWLIST = new Map([
   ['F254_CODEX_TRANSPORT', 'F254 developer-only Codex fixture transport selector; not a runtime setting'],
   ['CAT_OPUS_MODEL', 'Existing provider model env reused only as a developer fixture fallback'],
   ['CAT_CAFE_TEST_NODE_VERSION', 'Test-only override for scripts/check-node-runtime.mjs'],
+  ['CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC', 'Internal recursion guard exported by scripts/lib/node-runtime-guard.sh'],
   // F240: Per-connector env vars migrated to YAML manifests (connector.yaml / plugin.yaml).
   // Runtime still reads process.env as fallback in resolveConnectorEnv() chain, but
   // documentation/display is now driven by the YAML config.fields declarations.
@@ -103,7 +104,11 @@ function collectTsFiles(dir) {
   return results;
 }
 
-const EXTRA_ENV_REF_FILES = ['scripts/check-node-runtime.mjs', 'scripts/check-validation-node-runtime.mjs'];
+const EXTRA_ENV_REF_FILES = [
+  'scripts/check-node-runtime.mjs',
+  'scripts/check-validation-node-runtime.mjs',
+  'scripts/lib/node-runtime-guard.sh',
+];
 
 // ── Extract process.env references from source files ──
 function extractEnvRefs(dirs, extraFiles = []) {
@@ -152,8 +157,12 @@ function extractEnvRefs(dirs, extraFiles = []) {
       // Match process.env.VAR_NAME and process.env['VAR_NAME']
       const dotMatches = code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g);
       const bracketMatches = code.matchAll(/process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g);
-      for (const m of [...dotMatches, ...bracketMatches]) {
-        const name = m[1];
+      // Match shell ${ENV_VAR:-default} and $ENV_VAR references in guard shell scripts.
+      const shellMatches = file.endsWith('.sh')
+        ? code.matchAll(/\$\{([A-Z_][A-Z0-9_]*)[^}]*\}|\$([A-Z_][A-Z0-9_]*)\b/g)
+        : [];
+      for (const m of [...dotMatches, ...bracketMatches, ...shellMatches]) {
+        const name = m[1] ?? m[2];
         if (!refs.has(name)) refs.set(name, []);
         refs.get(name).push(`${file.replace(ROOT + '/', '')}:${i + 1}`);
       }
