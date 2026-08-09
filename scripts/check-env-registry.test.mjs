@@ -183,6 +183,17 @@ describe('env-registry completeness', () => {
     'WEIXIN_ENABLE_UNSAFE_VOICE_MODES',
     'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA',
   ];
+  const nodeRuntimeShellEnvNames = [
+    'CAT_CAFE_NODE_PINNED_MAJOR',
+    'CAT_CAFE_NODE_PREFERRED_MAJORS',
+    'CAT_CAFE_NODE_BIN',
+    'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC',
+  ];
+  const nodeRuntimeOperatorKnobNames = [
+    'CAT_CAFE_NODE_PINNED_MAJOR',
+    'CAT_CAFE_NODE_PREFERRED_MAJORS',
+    'CAT_CAFE_NODE_BIN',
+  ];
 
   it('every allowlist entry has a non-empty reason', () => {
     for (const [name, reason] of ALLOWLIST) {
@@ -211,7 +222,35 @@ describe('env-registry completeness', () => {
     }
   });
 
-  it('every process.env.XXX is registered or allowlisted', () => {
+  it('keeps Node runtime shell guard env vars covered by the env scan', () => {
+    for (const name of nodeRuntimeShellEnvNames) {
+      const locations = envRefs.get(name) ?? [];
+      assert.ok(
+        locations.some((location) => location.startsWith('scripts/lib/node-runtime-guard.sh:')),
+        `${name} should be discovered from scripts/lib/node-runtime-guard.sh`,
+      );
+    }
+  });
+
+  it('keeps operator-facing Node runtime guard knobs in env-registry', () => {
+    for (const name of nodeRuntimeOperatorKnobNames) {
+      assert.ok(registeredNames.has(name), `${name} should be registered for operator discovery`);
+      assert.ok(!ALLOWLIST.has(name), `${name} is operator-facing config and must not be allowlisted`);
+    }
+  });
+
+  it('keeps the Node runtime guard re-exec sentinel internal', () => {
+    assert.ok(
+      ALLOWLIST.has('CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC'),
+      'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC should stay allowlisted as an internal sentinel',
+    );
+    assert.ok(
+      !registeredNames.has('CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC'),
+      'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC must not be exposed as operator-facing config',
+    );
+  });
+
+  it('every env reference is registered or allowlisted', () => {
     const missing = [];
     for (const [name, locations] of envRefs) {
       if (!registeredNames.has(name) && !ALLOWLIST.has(name)) {
