@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-08-02-eval-qc-zero-baseline-w31",
+  "rawInputs": [
+    {
+      "path": "bundles/2026-08-02-eval-qc-zero-baseline-w31/snapshot.json",
+      "sha256": "48343c8964f3f0503bf66e940204dc2374593df89219dc2160fedbaab062be8b"
+    }
+  ],
+  "generatedAt": "2026-08-09T03:00:43.691Z",
+  "generator": {
+    "name": "qc-generator-adapter",
+    "version": "1.0.0"
+  },
+  "sanitizeRulesVersion": "1.0.0"
+}
