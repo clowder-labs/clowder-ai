@@ -1,0 +1,84 @@
+{
+  "verdictId": "2026-08-11-eval-a2a-low-frequency-background-keep-observe",
+  "evalSnapshotId": "eval-F167-2026-08-11",
+  "featureId": "F167",
+  "generatedAt": "2026-08-11T03:05:15.388Z",
+  "window": {
+    "startMs": 1786331142648,
+    "endMs": 1786417414542,
+    "durationHours": 23.964415
+  },
+  "counterWindow": {
+    "startMs": 1784451439567,
+    "endMs": 1786417515333,
+    "durationHours": 546.1321570959492
+  },
+  "components": [
+    {
+      "id": "L1",
+      "name": "WorklistRegistry (ping-pong breaker)",
+      "confidence": "medium",
+      "activationCounts": {
+        "l1.streak_warn_count": 0,
+        "l1.streak_break_count": 0
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 0,
+        "c1.hold_replacement_count": 0
+      },
+      "frictionCounts": {
+        "c1.hold_zombie_count": 1,
+        "c1.hold_cancel_count": 0
+      }
+    },
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": null,
+        "c2.verdict_hint_emitted": 2,
+        "c2.checked": 829,
+        "c2.void_hold_checked": 831
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 2,
+        "c2.void_hold_hint_emitted": 8
+      }
+    },
+    {
+      "id": "route-serial",
+      "name": "route-serial (A2A handoff routing)",
+      "confidence": "high",
+      "activationCounts": {
+        "line_start.detected": 295,
+        "inline_action.checked": 831
+      },
+      "frictionCounts": {
+        "inline_action.shadow_miss": 1
+      }
+    },
+    {
+      "id": "grounding-phase-o",
+      "name": "claim grounding (Phase O shadow)",
+      "confidence": "medium",
+      "activationCounts": {
+        "grounding.check_total": 39,
+        "grounding.verdict_total": 39,
+        "grounding.resolver_total": 0,
+        "grounding.cache_hit_total": 0,
+        "grounding.sample_count": 12,
+        "grounding.mismatch_sample_count": 0
+      },
+      "frictionCounts": {
+        "grounding.budget_exhausted_total": 0
+      }
+    }
+  ]
+}
