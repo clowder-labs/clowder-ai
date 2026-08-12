@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-08-12-eval-a2a-grounding-retention-floor-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-08-12-eval-F167-runtime.yaml",
+      "sha256": "29ae5f2848c2699ba3f271d2e6f5b72729454ba4de789923faac0a2085a16ab9"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-08-12-eval-F167-attribution.yaml",
+      "sha256": "63749e4985b37e45a25d5758b44af57278766d308cbe81937d19e677d45ef7d9"
+    }
+  ],
+  "generatedAt": "2026-08-12T03:02:59.812Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
