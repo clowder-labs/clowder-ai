@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-08-13-eval-a2a-low-rate-min-count-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-08-13-eval-F167-runtime.yaml",
+      "sha256": "94dfb6ff63acb93cf59ed2c6116d362ebd9dea66e5c7ec327c054397ff5e47fe"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-08-13-eval-F167-attribution.yaml",
+      "sha256": "6a69573f68a5841d41a1fd024c6889544f48ca0d831a9619684ed9478797d688"
+    }
+  ],
+  "generatedAt": "2026-08-13T03:02:45.118Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
