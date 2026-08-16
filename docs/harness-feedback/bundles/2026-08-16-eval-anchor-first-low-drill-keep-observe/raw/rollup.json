@@ -1,0 +1,67 @@
+{
+  "verdictId": "2026-08-16-eval-anchor-first-low-drill-keep-observe",
+  "selector": {
+    "kind": "anchor-telemetry-snapshot",
+    "windowStartMs": 1786762864737,
+    "windowEndMs": 1786849264737
+  },
+  "rollup": {
+    "perTool": {
+      "pending-mentions": {
+        "previewResponses": 7,
+        "previewedItems": 15,
+        "drills": 0,
+        "drilledUniqueItems": 0,
+        "openRateByItem": 0,
+        "returnedChars": 4006,
+        "originalChars": 18858,
+        "charsSaved": 14852,
+        "drillChars": 0,
+        "netBenefit": 14852
+      },
+      "thread-context": {
+        "previewResponses": 4,
+        "previewedItems": 31,
+        "drills": 2,
+        "drilledUniqueItems": 2,
+        "openRateByItem": 0.06451612903225806,
+        "returnedChars": 7182,
+        "originalChars": 39168,
+        "charsSaved": 31986,
+        "drillChars": 2614,
+        "netBenefit": 29372
+      }
+    },
+    "orphanDrills": 0,
+    "adoption": {
+      "explicitAnchorCalls": 0,
+      "explicitFullCalls": 0,
+      "defaultAnchorCalls": 11,
+      "defaultFullCalls": 0,
+      "legacyEquivalentAnchorCalls": 0,
+      "legacyEquivalentFullCalls": 2,
+      "unknownModeCalls": 0,
+      "uniqueCatsExplicitAnchor": 0
+    },
+    "track1Snapshot": {
+      "returnedByTool": {
+        "thread-context": 225,
+        "pending-mentions": 66,
+        "list-tasks": 60
+      },
+      "returnedCharsByTool": {
+        "thread-context": 2071740,
+        "pending-mentions": 168664,
+        "list-tasks": 821900
+      },
+      "drillByTool": {
+        "get-message": 125,
+        "list-tasks": 15
+      },
+      "drillCharsByTool": {
+        "get-message": 378580,
+        "list-tasks": 11493
+      }
+    }
+  }
+}
