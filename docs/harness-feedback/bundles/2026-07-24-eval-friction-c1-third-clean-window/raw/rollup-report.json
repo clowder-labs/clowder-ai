@@ -1,0 +1,39 @@
+{
+  "verdictId": "2026-07-24-eval-friction-c1-third-clean-window",
+  "selector": {
+    "kind": "friction-rollup-snapshot",
+    "windowStartMs": 1784602800000,
+    "windowEndMs": 1784862000000,
+    "topN": 10,
+    "tokenCap": 4000
+  },
+  "window": {
+    "sinceMs": 1784602800000,
+    "untilMs": 1784862000000
+  },
+  "signalCount": 0,
+  "clusterCount": 0,
+  "degraded": false,
+  "droppedChannels": [],
+  "report": {
+    "window": {
+      "sinceMs": 1784602800000,
+      "untilMs": 1784862000000
+    },
+    "generatedAt": "2026-07-24T03:06:35.690Z",
+    "topClusters": [],
+    "actionableCandidates": [],
+    "referenceOnly": [],
+    "tailSummary": {
+      "clusterCount": 0,
+      "signalCount": 0,
+      "byChannel": {}
+    },
+    "degraded": false,
+    "droppedChannels": [],
+    "tokenBudget": {
+      "cap": 4000,
+      "estimated": 78
+    }
+  }
+}
