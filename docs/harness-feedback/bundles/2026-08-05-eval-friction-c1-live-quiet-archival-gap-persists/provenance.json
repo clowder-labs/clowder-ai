@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-08-05-eval-friction-c1-live-quiet-archival-gap-persists",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-08-05-eval-friction-c1-live-quiet-archival-gap-persists/raw/rollup-report.json",
+      "sha256": "1a49c3ab366bf42c186763313ef4a0e5bcc1769e7b6d186f3c2340b28fce3362"
+    }
+  ],
+  "generatedAt": "2026-08-05T03:05:57.808Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}
