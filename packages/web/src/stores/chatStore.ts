@@ -1,9 +1,12 @@
+import type { QueueMessageReceiptProjection } from '@cat-cafe/shared';
 import { create } from 'zustand';
 import { getBubbleInvocationId } from '@/debug/bubbleIdentity';
 import { isBubbleInvariantStrictModeOn, recordBubbleInvariantViolation } from '@/debug/bubbleInvariantDiagnostics';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { getCachedCats } from '@/hooks/useCatData';
+import { formatCatDisplayName } from '@/lib/cat-display-name';
 import { inferFileKind, inferRenderMode } from '@/lib/file-kind';
+import type { WorkspaceMode } from '@/lib/workspace-modes';
 import {
   resolveNavigateTargetWorktreeId,
   scopeWorktreeAliases,
@@ -27,8 +30,12 @@ import type {
   ThreadState,
   TokenUsage,
   ToolEvent,
+  WorkspacePreviewState,
+  WorkspaceSurface,
 } from './chat-types';
 import { DEFAULT_THREAD_STATE } from './chat-types';
+import { projectTerminalActiveInvocationSlots } from './invocation-liveness';
+import { getMessageTimelineOrderTime } from './message-timeline';
 import { crossesUserTurnBoundary } from './turn-boundary';
 
 // Re-export types so existing consumers keep working with `import { ... } from '@/stores/chatStore'`
@@ -61,10 +68,96 @@ export { DEFAULT_THREAD_STATE } from './chat-types';
 
 // ── Helpers ──
 
-/** Snapshot the flat active-thread fields into a ThreadState object */
 /**
- * F173 a2a-handoff bug fix: insert message at correct chronological position
- * if it carries `extra.systemKind === 'a2a_routing'`; otherwise simple append.
+ * Merge invocation metadata without letting a new parent inherit the previous child turn.
+ *
+ * Most updates are partial telemetry patches and must preserve both identities. An explicit
+ * parent change is a rebind boundary, however: if the producer has not supplied a child for
+ * the new parent yet, the old child is no longer valid evidence and must be cleared. The
+ * same holds for `appServerLifecycle` — it describes the previous parent's app-server turn,
+ * so a rebind without fresh lifecycle evidence must invalidate it; otherwise consumers see
+ * the new identity bound to the old execution stage.
+ */
+function mergeCatInvocationInfo(
+  current: CatInvocationInfo | undefined,
+  patch: Partial<CatInvocationInfo>,
+): CatInvocationInfo {
+  const parentIsExplicit = Object.hasOwn(patch, 'invocationId');
+  const childIsExplicit = Object.hasOwn(patch, 'turnInvocationId');
+  const lifecycleIsExplicit = Object.hasOwn(patch, 'appServerLifecycle');
+  const parentChanged = parentIsExplicit && patch.invocationId !== current?.invocationId;
+  return {
+    ...current,
+    ...patch,
+    ...(parentChanged && !childIsExplicit ? { turnInvocationId: undefined } : {}),
+    ...(parentChanged && !lifecycleIsExplicit ? { appServerLifecycle: undefined } : {}),
+  };
+}
+
+function projectQueueReceiptsOntoMessages(
+  messages: ChatMessage[],
+  queue: QueueEntry[],
+  messageReceipts: readonly QueueMessageReceiptProjection[],
+): ChatMessage[] {
+  const receiptByMessageId = new Map<string, NonNullable<QueueEntry['queueReceipt']>>();
+  for (const entry of queue) {
+    if (!entry.queueReceipt) continue;
+    for (const messageId of [entry.messageId, ...entry.mergedMessageIds]) {
+      if (messageId) receiptByMessageId.set(messageId, entry.queueReceipt);
+    }
+  }
+  for (const projection of messageReceipts) {
+    receiptByMessageId.set(projection.messageId, projection.queueReceipt);
+  }
+  if (receiptByMessageId.size === 0) return messages;
+
+  let changed = false;
+  const projected = messages.map((message) => {
+    const receipt = receiptByMessageId.get(message.id);
+    if (!receipt || message.extra?.queueReceipt === receipt) return message;
+    changed = true;
+    return { ...message, extra: { ...message.extra, queueReceipt: receipt } };
+  });
+  return changed ? projected : messages;
+}
+
+function insertFreshnessClosureMessage(messages: ChatMessage[], msg: ChatMessage): ChatMessage[] {
+  const sourceMessageId = msg.extra?.freshnessClosure?.sourceMessageId;
+  const sourceIndex = sourceMessageId ? messages.findIndex((message) => message.id === sourceMessageId) : -1;
+  if (sourceIndex >= 0) {
+    let insertIndex = sourceIndex + 1;
+    while (
+      insertIndex < messages.length &&
+      messages[insertIndex]?.extra?.systemKind === 'freshness_closure' &&
+      messages[insertIndex]?.extra?.freshnessClosure?.sourceMessageId === sourceMessageId
+    ) {
+      insertIndex += 1;
+    }
+    const next = messages.slice();
+    next.splice(insertIndex, 0, msg);
+    return next;
+  }
+
+  // The paginated history may not contain the legacy source yet. Keep the
+  // projection at its own durable timestamp instead of appending it below
+  // whatever recent page happens to be loaded.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const current = messages[i];
+    if (current && current.timestamp <= msg.timestamp) {
+      const next = messages.slice();
+      next.splice(i + 1, 0, msg);
+      return next;
+    }
+  }
+  return [msg, ...messages];
+}
+
+/**
+ * Insert the two system projections whose semantic time/lineage may precede
+ * their WebSocket arrival:
+ * - F173 `a2a_routing`: timestamp ordered so the route precedes its target bubble.
+ * - F254 `freshness_closure`: exact-source anchored when possible, otherwise
+ *   timestamp ordered so an old durable liability never masquerades as current work.
  *
  * Why narrow scope: addMessage is the streaming hot path (chunks every few ms,
  * dedup logic above). A global timestamp sort would touch F173 streaming/dedup
@@ -76,6 +169,10 @@ export { DEFAULT_THREAD_STATE } from './chat-types';
  * shows up visually after the bubble it was supposed to precede.
  */
 function insertOrAppendMessage(messages: ChatMessage[], msg: ChatMessage): ChatMessage[] {
+  if (msg.extra?.systemKind === 'freshness_closure') {
+    return insertFreshnessClosureMessage(messages, msg);
+  }
+
   if (msg.extra?.systemKind !== 'a2a_routing') {
     return [...messages, msg];
   }
@@ -128,9 +225,7 @@ function snapshotActive(s: ChatState): ThreadState {
       ? Date.now()
       : Math.max(
           s.threadStates[s.currentThreadId]?.lastActivity ?? 0,
-          s.messages.length > 0
-            ? (s.messages[s.messages.length - 1].deliveredAt ?? s.messages[s.messages.length - 1].timestamp)
-            : 0,
+          s.messages.length > 0 ? getMessageTimelineOrderTime(s.messages[s.messages.length - 1]) : 0,
         ),
     queue: s.queue,
     queuePaused: s.queuePaused,
@@ -185,6 +280,48 @@ function mirrorActiveFlat(
   patch: Partial<ThreadState>,
 ): { threadStates: Record<string, ThreadState> } {
   return mirrorActiveToThreadStates(state, state.currentThreadId, patch);
+}
+
+function buildQueueStoreUpdate(
+  state: ChatState,
+  threadId: string,
+  queue: QueueEntry[],
+  messageReceipts: readonly QueueMessageReceiptProjection[],
+): Partial<ChatState> {
+  const activeThread = threadId === state.currentThreadId;
+  const existing = activeThread ? undefined : (state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE });
+  const wasFull = activeThread ? state.queueFull : existing?.queueFull;
+  const isShrinking = wasFull && queue.length < 5;
+  const messages = projectQueueReceiptsOntoMessages(
+    activeThread ? state.messages : (existing?.messages ?? []),
+    queue,
+    messageReceipts,
+  );
+
+  if (activeThread) {
+    const patch: Partial<ThreadState> = {
+      queue,
+      messages,
+      queuePaused: queue.length === 0 ? false : state.queuePaused,
+      ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
+    };
+    return { ...patch, ...mirrorActiveToThreadStates(state, threadId, patch) };
+  }
+
+  const nextThread = existing ?? { ...DEFAULT_THREAD_STATE };
+  return {
+    threadStates: {
+      ...state.threadStates,
+      [threadId]: {
+        ...nextThread,
+        queue,
+        messages,
+        queuePaused: queue.length === 0 ? false : nextThread.queuePaused,
+        ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
+        lastActivity: Date.now(),
+      },
+    },
+  };
 }
 
 /** Stamp completion time into threadStates for a given thread.
@@ -335,7 +472,7 @@ function revokeBlobUrls(messages: ChatMessage[]) {
   for (const msg of messages) {
     if (msg.contentBlocks) {
       for (const block of msg.contentBlocks) {
-        if (block.type === 'image' && block.url.startsWith('blob:')) {
+        if ((block.type === 'image' || block.type === 'file') && block.url.startsWith('blob:')) {
           URL.revokeObjectURL(block.url);
         }
       }
@@ -348,7 +485,7 @@ function collectBlobUrls(messages: ChatMessage[]): Set<string> {
   for (const msg of messages) {
     if (!msg.contentBlocks) continue;
     for (const block of msg.contentBlocks) {
-      if (block.type === 'image' && block.url.startsWith('blob:')) {
+      if ((block.type === 'image' || block.type === 'file') && block.url.startsWith('blob:')) {
         blobUrls.add(block.url);
       }
     }
@@ -384,7 +521,11 @@ function revokeRemovedBlobUrls(previousMessages: ChatMessage[], nextMessages: Ch
   for (const msg of previousMessages) {
     if (!msg.contentBlocks) continue;
     for (const block of msg.contentBlocks) {
-      if (block.type === 'image' && block.url.startsWith('blob:') && !retainedBlobUrls.has(block.url)) {
+      if (
+        (block.type === 'image' || block.type === 'file') &&
+        block.url.startsWith('blob:') &&
+        !retainedBlobUrls.has(block.url)
+      ) {
         URL.revokeObjectURL(block.url);
       }
     }
@@ -457,7 +598,7 @@ function patchMessageInList(messages: ChatMessage[], id: string, patch: ChatMess
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the co-creator */
-function fireOwnerMentionNotification(msg: ChatMessage) {
+function fireOwnerMentionNotification(msg: ChatMessage, threadId: string) {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') {
     Notification.requestPermission();
@@ -465,13 +606,20 @@ function fireOwnerMentionNotification(msg: ChatMessage) {
   }
   const cats = getCachedCats();
   const catData = cats.find((c) => c.id === msg.catId);
-  const catName = catData?.displayName ?? msg.catId ?? '猫猫';
-  const preview = typeof msg.content === 'string' ? msg.content.replace(/\n/g, ' ').slice(0, 120) : '';
-  new Notification(`${catName} @ 了你`, {
-    body: preview,
+  const catName = catData ? formatCatDisplayName(catData) : (msg.catId ?? '猫猫');
+  // Keep private message content out of lock screens and OS notification history.
+  // The click target is the canonical full-content recovery path.
+  const body = '点击打开对应对话查看完整内容';
+  const notification = new Notification(`${catName} @ 了你`, {
+    body,
     icon: catData?.avatar ?? '/favicon.ico',
     tag: `cocreator-mention-${msg.id}`,
   });
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+    window.location.assign(`/thread/${encodeURIComponent(threadId)}`);
+  };
 }
 
 /**
@@ -594,6 +742,7 @@ function mergeAssistantBubble(existing: ChatMessage, incoming: ChatMessage): Cha
     // Merge metadata (incoming takes precedence)
     ...(incoming.metadata ? { metadata: incoming.metadata } : {}),
     ...(incoming.deliveredAt ? { deliveredAt: incoming.deliveredAt } : {}),
+    ...(incoming.timelineOrderAt !== undefined ? { timelineOrderAt: incoming.timelineOrderAt } : {}),
     ...(incoming.replyTo ? { replyTo: incoming.replyTo } : {}),
     ...(incoming.replyPreview ? { replyPreview: incoming.replyPreview } : {}),
     // Preserve extra from existing (CLI Output/rich blocks) + merge callback metadata
@@ -679,6 +828,10 @@ export interface ChatState {
   _unreadSuppressedUntil: Record<string, number>;
   /** #586: Count of in-flight ack requests per thread — suppression clears only when 0 */
   _pendingAckCount: Record<string, number>;
+  /** #1304: Badge snapshot restored when the latest ack batch fails to catch up. */
+  _unreadAckRollback: Record<string, { unreadCount: number; hasUserMention: boolean }>;
+  /** #1304: Aggregate failure bit for overlapping ack requests in the current batch. */
+  _unreadAckHadFailure: Record<string, boolean>;
   threads: Thread[];
   isLoadingThreads: boolean;
   /** F164: True when messages are from offline snapshot, not fresh API data */
@@ -729,6 +882,7 @@ export interface ChatState {
   /** F108: Clear all active invocations (timeout/error/stop recovery) */
   clearAllActiveInvocations: () => void;
   setLoadingHistory: (loading: boolean) => void;
+  setThreadLoadingHistory: (threadId: string, loading: boolean) => void;
   setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
   setTargetCats: (cats: string[]) => void;
   setCatStatus: (catId: string, status: CatStatusType) => void;
@@ -916,7 +1070,9 @@ export interface ChatState {
   clearUnread: (threadId: string) => void;
   /** F072: Clear unread badges for all threads at once */
   clearAllUnread: () => void;
-  /** #586: One ack resolved — decrement pending count; clear suppression when 0 */
+  /** #1304: Settle one ack; only a fully caught-up batch confirms the optimistic badge clear. */
+  settleUnreadAck: (threadId: string, caughtUp: boolean) => void;
+  /** @deprecated Use settleUnreadAck(threadId, true). Retained for non-HTTP callers. */
   confirmUnreadAck: (threadId: string) => void;
   /** #586: Ack about to fire — increment pending count + set Infinity suppression */
   armUnreadSuppression: (threadId: string) => void;
@@ -948,10 +1104,10 @@ export interface ChatState {
   resetThreadInvocationState: (threadId: string) => void;
 
   // ── F39: Queue actions ──
-  setQueue: (threadId: string, queue: QueueEntry[]) => void;
+  setQueue: (threadId: string, queue: QueueEntry[], messageReceipts?: readonly QueueMessageReceiptProjection[]) => void;
   setQueuePaused: (threadId: string, paused: boolean, reason?: 'canceled' | 'failed') => void;
   setQueueFull: (threadId: string, source: 'user' | 'connector') => void;
-  /** F098-D + F117: Mark queued messages as delivered (set deliveredAt) + insert user bubbles for queue-sent messages */
+  /** Mark queued messages delivered, terminalize existing bubbles, and recover any missed live insert. */
   markMessagesDelivered: (
     threadId: string,
     messageIds: string[],
@@ -961,6 +1117,7 @@ export interface ChatState {
       content: string;
       catId: string | null;
       timestamp: number;
+      timelineOrderAt?: number;
       contentBlocks?: readonly unknown[];
       extra?: Record<string, unknown>;
       origin?: 'stream' | 'callback' | 'briefing';
@@ -978,6 +1135,14 @@ export interface ChatState {
   workspaceOpenTabs: string[];
   workspaceOpenFilePath: string | null;
   workspaceOpenFileLine: number | null;
+  /** F284: current Workspace object; survives panel folds and route unmounts. */
+  workspaceSurface: WorkspaceSurface;
+  /** Explicit user navigation: select the surface and reveal Workspace. */
+  setWorkspaceSurface: (surface: WorkspaceSurface) => void;
+  /** Passive thread restoration: select the surface without changing panel visibility. */
+  restoreWorkspaceSurface: (surface: WorkspaceSurface) => void;
+  workspacePreview: WorkspacePreviewState;
+  setWorkspacePreview: (preview: WorkspacePreviewState) => void;
   workspaceEditToken: string | null;
   workspaceEditTokenExpiry: number | null;
   /** @internal Last workspace-file-set event context (timestamp + threadId).
@@ -1022,10 +1187,11 @@ export interface ChatState {
 
   // Phase H + F139 + F160 + F168 + F246: Workspace mode
   // F233 Phase C C3: 'trajectory' — feat 球权轨迹时间轴
-  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory';
-  setWorkspaceMode: (
-    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory',
-  ) => void;
+  workspaceMode: WorkspaceMode;
+  /** Explicit user navigation: select the mode and reveal Workspace. */
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
+  /** Passive thread restoration: select the mode without changing panel visibility. */
+  restoreWorkspaceMode: (mode: WorkspaceMode) => void;
 
   // ── F195 Phase C: Floating transcript window ──
   floatingTranscriptVisible: boolean;
@@ -1077,6 +1243,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentProjectPath: 'default',
   _unreadSuppressedUntil: {},
   _pendingAckCount: {},
+  _unreadAckRollback: {},
+  _unreadAckHadFailure: {},
   threads: [],
   isLoadingThreads: true,
   isOfflineSnapshot: false,
@@ -1125,31 +1293,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // ── F39: Queue actions ──
 
-  setQueue: (threadId, queue) =>
-    set((state) => {
-      const wasFull = threadId === state.currentThreadId ? state.queueFull : state.threadStates[threadId]?.queueFull;
-      const isShrinking = wasFull && queue.length < 5; // MAX_QUEUE_DEPTH=5, clear full flag when below
-      if (threadId === state.currentThreadId) {
-        return {
-          queue,
-          queuePaused: queue.length === 0 ? false : state.queuePaused,
-          ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
-        };
-      }
-      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
-      return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...existing,
-            queue,
-            queuePaused: queue.length === 0 ? false : existing.queuePaused,
-            ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
-            lastActivity: Date.now(),
-          },
-        },
-      };
-    }),
+  setQueue: (threadId, queue, messageReceipts = []) =>
+    set((state) => buildQueueStoreUpdate(state, threadId, queue, messageReceipts)),
 
   setQueuePaused: (threadId, paused, reason) =>
     set((state) => {
@@ -1192,12 +1337,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
   markMessagesDelivered: (threadId, messageIds, deliveredAt, serverMessages) =>
     set((state) => {
       const idSet = new Set(messageIds);
+      const serverMessageById = new Map(serverMessages?.map((message) => [message.id, message]));
       const updateMsgs = (msgs: ChatMessage[]) => {
-        // Update deliveredAt on existing messages
-        const updated = msgs.map((m) => (idSet.has(m.id) ? { ...m, deliveredAt } : m));
+        // Terminalize existing timeline bubbles in place. The server projection
+        // carries the final per-target receipt; dropping it would leave an
+        // already-visible queued bubble permanently stuck at "queued".
+        const updated = msgs.map((message) => {
+          if (!idSet.has(message.id)) return message;
+          const serverMessage = serverMessageById.get(message.id);
+          return {
+            ...message,
+            ...(serverMessage
+              ? {
+                  content: serverMessage.content,
+                  timestamp: serverMessage.timestamp,
+                  ...(serverMessage.contentBlocks
+                    ? { contentBlocks: serverMessage.contentBlocks as ChatMessage['contentBlocks'] }
+                    : {}),
+                  ...(serverMessage.extra
+                    ? {
+                        extra: {
+                          ...message.extra,
+                          ...(serverMessage.extra as NonNullable<ChatMessage['extra']>),
+                        },
+                      }
+                    : {}),
+                  ...(serverMessage.origin ? { origin: serverMessage.origin } : {}),
+                  ...(serverMessage.replyTo ? { replyTo: serverMessage.replyTo } : {}),
+                  ...(serverMessage.replyPreview
+                    ? { replyPreview: serverMessage.replyPreview as ChatMessage['replyPreview'] }
+                    : {}),
+                  ...(serverMessage.mentionsUser ? { mentionsUser: true } : {}),
+                }
+              : {}),
+            deliveredAt,
+            ...(serverMessage?.timelineOrderAt !== undefined ? { timelineOrderAt: serverMessage.timelineOrderAt } : {}),
+          };
+        });
         const insertedIds = new Set<string>();
         const mentionMessages: ChatMessage[] = [];
-        // F117: Insert user bubbles for queue-sent messages not yet in the store
+        // Recover messages missed while this tab was disconnected or inactive.
         if (serverMessages) {
           const existingIds = new Set(updated.map((m) => m.id));
           for (const sm of serverMessages) {
@@ -1209,6 +1388,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               content: sm.content,
               timestamp: sm.timestamp,
               deliveredAt,
+              ...(sm.timelineOrderAt !== undefined ? { timelineOrderAt: sm.timelineOrderAt } : {}),
               ...(sm.catId ? { catId: sm.catId } : {}),
               contentBlocks: sm.contentBlocks as ChatMessage['contentBlocks'],
               ...(sm.extra ? { extra: sm.extra as ChatMessage['extra'] } : {}),
@@ -1238,9 +1418,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
             }
           }
-          // Re-sort: delivered messages use deliveredAt so they appear at delivery
-          // position (current tail), not their original send-time slot.
-          updated.sort((a, b) => (a.deliveredAt ?? a.timestamp) - (b.deliveredAt ?? b.timestamp));
+          // Re-sort by durable publication time. Queued user work and cat
+          // speech already visible in the timeline keep authoring-time order.
+          updated.sort((a, b) => getMessageTimelineOrderTime(a) - getMessageTimelineOrderTime(b));
         }
         return { messages: updated, insertedIds, mentionMessages };
       };
@@ -1250,7 +1430,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (typeof document !== 'undefined' && !document.hasFocus()) {
           const newMention = result.mentionMessages[0];
           if (newMention) {
-            fireOwnerMentionNotification(newMention);
+            fireOwnerMentionNotification(newMention, threadId);
           }
         }
         return { messages: result.messages };
@@ -1260,7 +1440,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const newInserts = result.insertedIds.size;
       const newMentionMsg = result.mentionMessages[0];
       if (newMentionMsg) {
-        fireOwnerMentionNotification(newMentionMsg);
+        fireOwnerMentionNotification(newMentionMsg, threadId);
       }
       return {
         threadStates: {
@@ -1288,6 +1468,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceOpenTabs: [],
   workspaceOpenFilePath: null,
   workspaceOpenFileLine: null,
+  workspaceSurface: 'home' as const,
+  setWorkspaceSurface: (surface) => set({ workspaceSurface: surface, rightPanelMode: 'workspace' }),
+  restoreWorkspaceSurface: (surface) => set({ workspaceSurface: surface }),
+  workspacePreview: { port: undefined, path: '/' },
+  setWorkspacePreview: (preview) => set({ workspacePreview: preview }),
   workspaceEditToken: null,
   workspaceEditTokenExpiry: null,
   _workspaceFileSetAt: { ts: 0, threadId: null },
@@ -1373,6 +1558,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           workspaceOpenFileLine: line ?? null,
           workspaceEditToken: null,
           workspaceEditTokenExpiry: null,
+          workspaceSurface: 'files',
           rightPanelMode: 'workspace',
           _workspaceFileSetAt: stamp,
         });
@@ -1383,6 +1569,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           workspaceOpenTabs: newTabs,
           workspaceOpenFilePath: path,
           workspaceOpenFileLine: line ?? null,
+          workspaceSurface: 'files',
           rightPanelMode: 'workspace',
           _workspaceFileSetAt: stamp,
         });
@@ -1406,10 +1593,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
       }
     } else {
-      set({
+      set(() => ({
         workspaceOpenFilePath: null,
         workspaceOpenFileLine: null,
-      });
+      }));
     }
   },
   closeWorkspaceTab: (path) => {
@@ -1455,6 +1642,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setWorkspaceRevealPath: (path, originThreadId) =>
     set((state) => ({
       workspaceRevealPath: path,
+      ...(path ? { workspaceSurface: 'files' as const } : {}),
       rightPanelMode: 'workspace' as const,
       _workspaceFileSetAt: { ts: Date.now(), threadId: originThreadId ?? state.currentThreadId },
     })),
@@ -1622,6 +1810,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Phase H: Workspace mode
   workspaceMode: 'dev' as const,
   setWorkspaceMode: (mode) => set({ workspaceMode: mode, rightPanelMode: 'workspace' }),
+  restoreWorkspaceMode: (mode) => set({ workspaceMode: mode }),
 
   // F195 Phase C: Floating transcript window
   floatingTranscriptVisible: false,
@@ -1632,7 +1821,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // ── F120: Preview auto-open ──
   pendingPreviewAutoOpen: null,
-  setPendingPreviewAutoOpen: (data) => set({ pendingPreviewAutoOpen: data, rightPanelMode: 'workspace' }),
+  setPendingPreviewAutoOpen: (data) =>
+    set((state) =>
+      state.presentationLock
+        ? {}
+        : {
+            pendingPreviewAutoOpen: data,
+            workspacePreview: data,
+            workspaceSurface: 'browser' as const,
+            rightPanelMode: 'workspace' as const,
+          },
+    ),
   consumePreviewAutoOpen: () => {
     const pending = get().pendingPreviewAutoOpen;
     if (pending) set({ pendingPreviewAutoOpen: null });
@@ -1676,7 +1875,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
         // P2 fix: propagate mention notification even on merge
         if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
-          fireOwnerMentionNotification(msg);
+          fireOwnerMentionNotification(msg, state.currentThreadId);
         }
         return { messages };
       }
@@ -1687,7 +1886,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       // F067: Notify on active thread when user is not focused
       if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
-        fireOwnerMentionNotification(msg);
+        fireOwnerMentionNotification(msg, state.currentThreadId);
       }
       return { messages };
     }),
@@ -1894,7 +2093,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }),
         };
       }
-      return { hasActiveInvocation: v, ...mirrorActiveFlat(state, { hasActiveInvocation: v }) };
+      const activeInvocations = v
+        ? projectTerminalActiveInvocationSlots(state.activeInvocations, state.catInvocations).activeInvocations
+        : state.activeInvocations;
+      const patch = { hasActiveInvocation: v, activeInvocations };
+      return { ...patch, ...mirrorActiveFlat(state, patch) };
     }),
   /** F108: Register a new active invocation slot */
   addActiveInvocation: (invocationId, catId, mode, startedAt?) =>
@@ -2060,7 +2263,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const catInvocations = {
         ...state.catInvocations,
-        [catId]: { ...state.catInvocations[catId], ...info },
+        [catId]: mergeCatInvocationInfo(state.catInvocations[catId], info),
       };
       return { catInvocations, ...mirrorActiveFlat(state, { catInvocations }) };
     }),
@@ -2322,8 +2525,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // F164: Write-through outgoing thread's messages to IndexedDB (fire-and-forget)
       // Always write — even empty arrays — so server-cleared threads don't leave stale snapshots
       void saveMessagesSnapshot(state.currentThreadId, saved.messages, saved.hasMore).catch(() => {});
-      // Load target thread state (or defaults for first visit)
-      const loaded = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      // A first visit has no in-memory projection yet. Surface that as history
+      // hydration immediately so the UI cannot mistake "not loaded" for an
+      // authoritative empty conversation while IDB/API restore is pending.
+      const loaded = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE, isLoadingHistory: true };
       const flattened = flattenThread(loaded);
 
       // F063 Presentation Lock: overlay locked workspace fields so the visible
@@ -2378,7 +2583,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           });
           // P2 fix: propagate mention notification even on merge
           if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
-            fireOwnerMentionNotification(msg);
+            fireOwnerMentionNotification(msg, threadId);
           }
           return {
             messages,
@@ -2394,7 +2599,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // document.hidden is false when switching macOS apps (only true for tab switch/minimize)
         // document.hasFocus() correctly returns false when another app is in foreground
         if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
-          fireOwnerMentionNotification(msg);
+          fireOwnerMentionNotification(msg, threadId);
         }
         return {
           messages,
@@ -2424,7 +2629,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           origin: msg.origin,
         });
         // Cloud review P1: Propagate mention state even on merge
-        if (msg.mentionsUser) fireOwnerMentionNotification(msg);
+        if (msg.mentionsUser) fireOwnerMentionNotification(msg, threadId);
         return {
           threadStates: {
             ...state.threadStates,
@@ -2438,17 +2643,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       // F067 Phase 2: Fire macOS notification for @co-creator mention
-      if (msg.mentionsUser) fireOwnerMentionNotification(msg);
+      if (msg.mentionsUser) fireOwnerMentionNotification(msg, threadId);
 
+      const isHistoricalFreshnessClosure =
+        msg.extra?.systemKind === 'freshness_closure' && msg.extra.freshnessClosure?.legacy === true;
       return {
         threadStates: {
           ...state.threadStates,
           [threadId]: {
             ...existing,
             messages: insertOrAppendMessage(existing.messages, msg),
-            unreadCount: existing.unreadCount + 1,
+            unreadCount: isHistoricalFreshnessClosure ? existing.unreadCount : existing.unreadCount + 1,
             hasUserMention: existing.hasUserMention || !!msg.mentionsUser,
-            lastActivity: Date.now(),
+            lastActivity: isHistoricalFreshnessClosure ? existing.lastActivity : Date.now(),
           },
         },
       };
@@ -2546,7 +2753,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (threadId === state.currentThreadId) {
         const catInvocations = {
           ...state.catInvocations,
-          [catId]: { ...state.catInvocations[catId], ...info },
+          [catId]: mergeCatInvocationInfo(state.catInvocations[catId], info),
         };
         return {
           catInvocations,
@@ -2561,7 +2768,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             catInvocations: {
               ...existing.catInvocations,
-              [catId]: { ...existing.catInvocations[catId], ...info },
+              [catId]: mergeCatInvocationInfo(existing.catInvocations[catId], info),
             },
             lastActivity: Date.now(),
           },
@@ -2639,13 +2846,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  /** Update hasActiveInvocation for a specific thread (active or background). */
-  setThreadHasActiveInvocation: (threadId, active) =>
+  /** Update presentation-only history hydration state for a specific thread. */
+  setThreadLoadingHistory: (threadId, loading) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
         return {
-          hasActiveInvocation: active,
-          ...mirrorActiveToThreadStates(state, threadId, { hasActiveInvocation: active }),
+          isLoadingHistory: loading,
+          ...mirrorActiveToThreadStates(state, threadId, { isLoadingHistory: loading }),
         };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
@@ -2654,7 +2861,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.threadStates,
           [threadId]: {
             ...existing,
+            isLoadingHistory: loading,
+          },
+        },
+      };
+    }),
+
+  /** Update hasActiveInvocation for a specific thread (active or background). */
+  setThreadHasActiveInvocation: (threadId, active) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        const activeInvocations = active
+          ? projectTerminalActiveInvocationSlots(state.activeInvocations, state.catInvocations).activeInvocations
+          : state.activeInvocations;
+        const patch = { hasActiveInvocation: active, activeInvocations };
+        return {
+          ...patch,
+          ...mirrorActiveToThreadStates(state, threadId, patch),
+        };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      const activeInvocations = active
+        ? projectTerminalActiveInvocationSlots(existing.activeInvocations, existing.catInvocations).activeInvocations
+        : existing.activeInvocations;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
             hasActiveInvocation: active,
+            activeInvocations,
             lastActivity: Date.now(),
           },
         },
@@ -2886,7 +3122,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const ts = state.threadStates[threadId];
       if (!ts || (ts.unreadCount === 0 && !ts.hasUserMention)) return state;
       // #586 Bug 3: Use Infinity instead of 10s timeout. Suppression persists
-      // until confirmUnreadAck() is called after POST /read/latest succeeds,
+      // until settleUnreadAck() records the terminal POST /read/latest result,
       // preventing stale server unread counts from overwriting cleared state.
       return {
         threadStates: {
@@ -2896,6 +3132,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         _unreadSuppressedUntil: {
           ...state._unreadSuppressedUntil,
           [threadId]: Infinity,
+        },
+        _unreadAckRollback: {
+          ...state._unreadAckRollback,
+          [threadId]: state._unreadAckRollback[threadId] ?? {
+            unreadCount: ts.unreadCount,
+            hasUserMention: ts.hasUserMention,
+          },
         },
       };
     }),
@@ -2922,38 +3165,76 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return changed ? { threadStates: updated, _unreadSuppressedUntil: suppressed } : state;
     }),
 
-  confirmUnreadAck: (threadId) =>
+  settleUnreadAck: (threadId, caughtUp) =>
     set((state) => {
-      // #586 final: Decrement pending ack count. Only clear suppression when
-      // ALL in-flight acks have resolved — this prevents an early-resolving ack
-      // from clearing suppression while a newer ack is still in flight.
+      // Every terminal response settles the request count. A non-2xx,
+      // network failure, or caughtUp:false is not a confirmed durable read;
+      // remember that failure until the overlapping batch fully drains.
       const count = Math.max(0, (state._pendingAckCount[threadId] ?? 1) - 1);
       const newCounts = { ...state._pendingAckCount, [threadId]: count };
+      const hadFailure = (state._unreadAckHadFailure[threadId] ?? false) || !caughtUp;
+      const newFailures = { ...state._unreadAckHadFailure, [threadId]: hadFailure };
       if (count > 0) {
-        // Still have pending acks — keep suppression, just update counter
-        return { _pendingAckCount: newCounts };
+        return { _pendingAckCount: newCounts, _unreadAckHadFailure: newFailures };
       }
-      // All acks resolved — safe to clear suppression
-      if (!state._unreadSuppressedUntil[threadId]) return { _pendingAckCount: newCounts };
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [threadId]: _removed, ...rest } = state._unreadSuppressedUntil;
-      return { _unreadSuppressedUntil: rest, _pendingAckCount: newCounts };
+      const { [threadId]: _removedSuppression, ...remainingSuppressions } = state._unreadSuppressedUntil;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [threadId]: rollback, ...remainingRollbacks } = state._unreadAckRollback;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [threadId]: _removedFailure, ...remainingFailures } = newFailures;
+
+      if (!hadFailure || !rollback) {
+        return {
+          _unreadSuppressedUntil: remainingSuppressions,
+          _pendingAckCount: newCounts,
+          _unreadAckRollback: remainingRollbacks,
+          _unreadAckHadFailure: remainingFailures,
+        };
+      }
+
+      const current = state.threadStates[threadId];
+      return {
+        _unreadSuppressedUntil: remainingSuppressions,
+        _pendingAckCount: newCounts,
+        _unreadAckRollback: remainingRollbacks,
+        _unreadAckHadFailure: remainingFailures,
+        ...(current
+          ? {
+              threadStates: {
+                ...state.threadStates,
+                [threadId]: {
+                  ...current,
+                  unreadCount: Math.max(current.unreadCount, rollback.unreadCount),
+                  hasUserMention: current.hasUserMention || rollback.hasUserMention,
+                },
+              },
+            }
+          : {}),
+      };
     }),
 
+  confirmUnreadAck: (threadId) => get().settleUnreadAck(threadId, true),
+
   armUnreadSuppression: (threadId) =>
-    set((state) => ({
-      // #586 final: Increment pending ack count + set Infinity suppression.
-      // Each ack attempt increments; confirmUnreadAck decrements. Suppression
-      // only clears when counter reaches 0 (all in-flight acks resolved).
-      _unreadSuppressedUntil: {
-        ...state._unreadSuppressedUntil,
-        [threadId]: Infinity,
-      },
-      _pendingAckCount: {
-        ...state._pendingAckCount,
-        [threadId]: (state._pendingAckCount[threadId] ?? 0) + 1,
-      },
-    })),
+    set((state) => {
+      const pending = state._pendingAckCount[threadId] ?? 0;
+      return {
+        _unreadSuppressedUntil: {
+          ...state._unreadSuppressedUntil,
+          [threadId]: Infinity,
+        },
+        _pendingAckCount: {
+          ...state._pendingAckCount,
+          [threadId]: pending + 1,
+        },
+        _unreadAckHadFailure: {
+          ...state._unreadAckHadFailure,
+          [threadId]: pending > 0 ? (state._unreadAckHadFailure[threadId] ?? false) : false,
+        },
+      };
+    }),
 
   initThreadUnread: (threadId, unreadCount, hasUserMention) =>
     set((state) => {

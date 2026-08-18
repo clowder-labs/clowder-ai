@@ -4,7 +4,7 @@
  * F229 PR-A4: Concierge settings page — AC-A5
  *
  * Surfaces ConciergeConfig fields in the Settings shell:
- *   enabled, displayName, personaTone, dutyCatProfileId, proactivePolicy, muted, ballPosition reset.
+ *   enabled, displayName, personaTone, dutyCatProfileId, proactivePolicy, visibility, behavior, position.
  *
  * Backend: GET/PUT /api/concierge/config (already implemented in PR-A1).
  * Store: conciergeStore.fetchConfig/setMuted (already wired in PR-A2).
@@ -14,7 +14,7 @@
 
 import { BALL_SIZE_DEFAULT, BALL_SIZE_MAX, BALL_SIZE_MIN } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useCatData } from '@/hooks/useCatData';
+import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { RadioOption, RangeSlider, TextInput, ToggleSwitch } from './ConciergeSettingsParts';
@@ -31,6 +31,7 @@ interface ConciergeSettingsState {
   dutyCatProfileId: string;
   proactivePolicy: 'ambient' | 'quiet-badge';
   muted: boolean;
+  behaviorEnabled: boolean;
   skin: 'yarn-ball' | 'ragdoll-v1' | 'yanyan-codex' | 'xianxian-codex';
   ballPosition: { x: number; y: number } | null;
   ballSize: number;
@@ -172,7 +173,7 @@ export function ConciergeSettingsContent() {
             <ToggleSwitch checked={state.enabled} disabled={saving} onChange={(v) => updateConfig({ enabled: v })} />
           </SettingsField>
 
-          <SettingsField label="静音模式" hint="一键隐藏悬浮球，不影响对话历史。" inline>
+          <SettingsField label="隐藏猫猫球" hint="隐藏后可从左侧猫图标重新显示，不影响对话历史。" inline>
             <ToggleSwitch checked={state.muted} disabled={saving} onChange={(v) => updateConfig({ muted: v })} />
           </SettingsField>
         </div>
@@ -245,12 +246,12 @@ export function ConciergeSettingsContent() {
             >
               {staleDutyCat && (
                 <option key={staleDutyCat.id} value={staleDutyCat.id} disabled>
-                  {staleDutyCat.displayName} ({staleDutyCat.id}) — 不可用
+                  {formatCatName(staleDutyCat)} · {staleDutyCat.id} — 不可用
                 </option>
               )}
               {availableCats.map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.displayName} ({cat.id})
+                  {formatCatName(cat)} · {cat.id}
                 </option>
               ))}
             </select>
@@ -261,6 +262,13 @@ export function ConciergeSettingsContent() {
       {/* Section 5: 主动性 (OQ-4) */}
       <SettingsSection title="主动性策略" description="控制猫猫球何时主动出现。">
         <div className="space-y-3">
+          <SettingsField label="猫猫自主活动" hint="允许猫猫在空闲时跳跃、招手和溜达。" inline>
+            <ToggleSwitch
+              checked={state.behaviorEnabled}
+              disabled={saving}
+              onChange={(v) => updateConfig({ behaviorEnabled: v })}
+            />
+          </SettingsField>
           <RadioOption
             name="proactivePolicy"
             value="ambient"

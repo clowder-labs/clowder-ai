@@ -1,6 +1,12 @@
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { buildOpenCodeMcpSync } from './opencode-mcp-injection.js';
 
+export {
+  inferOpenCodeProviderFromModelName,
+  parseOpenCodeModel,
+  resolveEffectiveOpenCodeModel,
+} from '../../../../../config/opencode-model.js';
+
 const log = createModuleLogger('opencode-config');
 
 interface OpenCodeConfigOptions {
@@ -16,7 +22,7 @@ interface OpenCodeConfigOptions {
 
 type OpenCodeProviderConfig = {
   npm?: string;
-  models?: Record<string, { name: string }>;
+  models?: Record<string, { id?: string; name: string }>;
   options: {
     apiKey?: string;
     baseURL?: string;
@@ -81,6 +87,24 @@ export const OC_API_KEY_ENV = 'CAT_CAFE_OC_API_KEY';
 export const OC_BASE_URL_ENV = 'CAT_CAFE_OC_BASE_URL';
 
 /**
+ * We deliberately emit no `limit` block at all.
+ *
+ * OpenCode requires `limit.output` whenever `limit` is present and merges
+ * `config ?? catalog ?? 0`, so pinning our context window here would also
+ * overwrite the catalog's authoritative output for any model OpenCode already
+ * knows — mistral/codestral-latest (4_096), openrouter/openai/gpt-4o (16_384),
+ * and 18 more under `openai`. #1208 emitted context without output and killed
+ * every affected cat at config-parse time; guessing an output instead would
+ * silently enlarge those caps. No authoritative per-carrier output source
+ * exists at this layer, so we supply neither field.
+ *
+ * Safe by upstream construction: `isOverflow` returns false when
+ * `limit.context` is 0, so auto-compaction simply does not engage — exactly the
+ * pre-#1208 behaviour. Re-introducing an invocation-owned window requires
+ * authoritative output provenance (carrier-aware capacity slice).
+ */
+
+/**
  * OpenCode API type determines which AI SDK npm adapter to use.
  * - 'openai'           → @ai-sdk/openai-compatible  (chat/completions, default for custom providers)
  * - 'openai-responses'  → @ai-sdk/openai             (responses API, for official OpenAI endpoints)
@@ -114,6 +138,7 @@ export function deriveOpenCodeApiType(providerName: string | undefined): OpenCod
 export interface OpenCodeRuntimeConfigOptions {
   providerName: string;
   models: readonly string[];
+  modelAliases?: Readonly<Record<string, string>>;
   defaultModel?: string;
   apiType?: OpenCodeApiType;
   hasBaseUrl?: boolean;
@@ -157,21 +182,12 @@ export interface OpenCodeRuntimeConfigDebugSummary {
     {
       npm?: string;
       modelKeys: string[];
+      modelMappings: Record<string, string>;
       hasBaseUrl: boolean;
       apiKeySource: string;
       baseUrlSource?: string;
     }
   >;
-}
-
-export function parseOpenCodeModel(model: string): { providerName: string; modelName: string } | null {
-  const trimmed = model.trim();
-  const slashIndex = trimmed.indexOf('/');
-  if (slashIndex <= 0 || slashIndex >= trimmed.length - 1) return null;
-  return {
-    providerName: trimmed.slice(0, slashIndex),
-    modelName: trimmed.slice(slashIndex + 1),
-  };
 }
 
 function stripOwnProviderPrefix(modelName: string, providerName: string): string {
@@ -209,6 +225,7 @@ export function generateOpenCodeRuntimeConfig(options: OpenCodeRuntimeConfigOpti
   const {
     providerName,
     models,
+    modelAliases,
     defaultModel,
     apiType = 'openai',
     hasBaseUrl = false,
@@ -225,11 +242,17 @@ export function generateOpenCodeRuntimeConfig(options: OpenCodeRuntimeConfigOpti
 
   const configName = safeProviderName(providerName);
 
-  const modelsMap: Record<string, { name: string }> = {};
+  const modelsMap: Record<string, { id?: string; name: string }> = {};
   const modelsToRegister = defaultModel ? [...models, defaultModel] : [...models];
   for (const rawModel of modelsToRegister) {
     const modelName = stripOwnProviderPrefix(rawModel, providerName);
-    modelsMap[modelName] = { name: modelName };
+    const configuredAlias =
+      modelAliases && Object.hasOwn(modelAliases, modelName) ? modelAliases[modelName] : undefined;
+    const upstreamId = typeof configuredAlias === 'string' ? configuredAlias.trim() : undefined;
+    modelsMap[modelName] = {
+      ...(upstreamId ? { id: upstreamId } : {}),
+      name: modelName,
+    };
   }
 
   let configDefaultModel = defaultModel;
@@ -305,6 +328,11 @@ export function summarizeOpenCodeRuntimeConfigForDebug(
         {
           npm: providerConfig.npm,
           modelKeys: Object.keys(providerConfig.models ?? {}).sort(),
+          modelMappings: Object.fromEntries(
+            Object.entries(providerConfig.models ?? {})
+              .sort(([left], [right]) => left.localeCompare(right))
+              .map(([modelKey, modelConfig]) => [modelKey, modelConfig.id ?? modelKey]),
+          ),
           hasBaseUrl: Boolean(providerConfig.options.baseURL),
           apiKeySource: summarizeEnvPlaceholder(providerConfig.options.apiKey) ?? '(unset)',
           ...(providerConfig.options.baseURL

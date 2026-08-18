@@ -11,13 +11,17 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { TokenUsage } from '../../types.js';
-import type {
-  CreateInvocationInput,
-  CreateResult,
-  IInvocationRecordStore,
-  InvocationRecord,
-  InvocationStatus,
-  UpdateInvocationInput,
+import {
+  type CreateInvocationInput,
+  type CreateResult,
+  type IInvocationRecordStore,
+  type InvocationActionLeaseRef,
+  type InvocationRecord,
+  type InvocationStatus,
+  normalizeSuccessfulCatIds,
+  requireInvocationActionLeaseCarrier,
+  requireInvocationWaitContinuationCarrier,
+  type UpdateInvocationInput,
 } from '../ports/InvocationRecordStore.js';
 import { InvocationKeys } from '../redis-keys/invocation-keys.js';
 
@@ -28,7 +32,8 @@ const IDEMPOTENCY_TTL_SECONDS = 300; // 5 minutes
  * Lua script for atomic idempotency check + record creation.
  * KEYS[1] = idempotency key (ioredis auto-prefixes)
  * KEYS[2] = invocation record key (ioredis auto-prefixes)
- * ARGV[1..7] = id, threadId, userId, targetCats(JSON), intent, idempotencyKey, now
+ * ARGV[1..9] = id, threadId, userId, targetCats(JSON), intent, idempotencyKey, now,
+ *              actionLeaseCarrier(JSON), waitContinuationCarrier(JSON or empty)
  */
 const CREATE_ATOMIC_LUA = `
 local existing = redis.call('GET', KEYS[1])
@@ -41,7 +46,11 @@ redis.call('HSET', KEYS[2],
   'targetCats', ARGV[4], 'intent', ARGV[5],
   'idempotencyKey', ARGV[6], 'status', 'queued',
   'userMessageId', '', 'error', '',
+  'actionLeaseCarrier', ARGV[8],
   'createdAt', ARGV[7], 'updatedAt', ARGV[7])
+if ARGV[9] ~= '' then
+  redis.call('HSET', KEYS[2], 'waitContinuationCarrier', ARGV[9])
+end
 ${DEFAULT_TTL_SECONDS > 0 ? `redis.call('EXPIRE', KEYS[2], ${DEFAULT_TTL_SECONDS})` : '-- persistent mode: no EXPIRE'}
 return {'created', ARGV[1]}
 `;
@@ -132,6 +141,13 @@ if #fields > 0 then
   redis.call('HSET', KEYS[1], unpack(fields))
 end
 
+-- executionStartedAt is an attempt-scoped receipt, not an invocation-lifetime
+-- fact. Any accepted transition into running begins a new attempt, so clear a
+-- previous attempt's receipt in the same atomic claim operation.
+if newStatus == 'running' and current ~= 'running' then
+  redis.call('HDEL', KEYS[1], 'executionStartedAt')
+end
+
 -- F194 Phase B: maintain running index inside the same atomic op
 if newStatus ~= '' and newStatus ~= current then
   local invocId = redis.call('HGET', KEYS[1], 'id')
@@ -213,6 +229,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     // Bare keys — ioredis keyPrefix auto-applies to eval() KEYS[] too
     const idempKey = InvocationKeys.idempotency(input.threadId, input.userId, input.idempotencyKey);
     const recordKey = InvocationKeys.detail(id);
+    const waitContinuationCarrier = requireInvocationWaitContinuationCarrier(input.waitContinuationCarrier);
 
     const result = (await this.redis.eval(
       CREATE_ATOMIC_LUA,
@@ -226,6 +243,8 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
       input.intent,
       input.idempotencyKey,
       now,
+      JSON.stringify(requireInvocationActionLeaseCarrier(input.actionLeaseCarrier)),
+      waitContinuationCarrier ? JSON.stringify(waitContinuationCarrier) : '',
     )) as [string, string];
 
     return {
@@ -255,8 +274,9 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
       const before = await this.get(id);
       if (!before) return null;
       const setKey = InvocationKeys.runningByThread(before.threadId, before.userId);
+      const successfulCatIds = normalizeSuccessfulCatIds(before.targetCats, input);
 
-      const pairs = await this.buildUpdatePairs(key, input);
+      const pairs = await this.buildUpdatePairs(key, input, successfulCatIds);
 
       const result = (await this.redis.eval(
         ATOMIC_UPDATE_LUA,
@@ -279,12 +299,25 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     return null; // exhausted retries — caller treats as transient failure
   }
 
-  private async buildUpdatePairs(key: string, input: UpdateInvocationInput): Promise<string[]> {
+  private async buildUpdatePairs(
+    key: string,
+    input: UpdateInvocationInput,
+    successfulCatIds: CatId[] | undefined,
+  ): Promise<string[]> {
     const pairs: string[] = [];
     pairs.push('updatedAt', String(Date.now()));
     if (input.status !== undefined) pairs.push('status', input.status);
+    if (successfulCatIds !== undefined) pairs.push('successfulCatIds', JSON.stringify(successfulCatIds));
     if (input.userMessageId !== undefined) pairs.push('userMessageId', input.userMessageId ?? '');
     if (input.error !== undefined) pairs.push('error', input.error);
+    if (input.executionStartedAt !== undefined) pairs.push('executionStartedAt', String(input.executionStartedAt));
+    if (input.freshnessClosureId !== undefined) pairs.push('freshnessClosureId', input.freshnessClosureId);
+    if (input.freshnessInputFrontierMessageId !== undefined) {
+      pairs.push('freshnessInputFrontierMessageId', input.freshnessInputFrontierMessageId);
+    }
+    if (input.freshnessClosureStatus !== undefined) {
+      pairs.push('freshnessClosureStatus', input.freshnessClosureStatus);
+    }
     if (input.usageByCat !== undefined) {
       pairs.push('usageByCat', JSON.stringify(input.usageByCat));
       // F128: stamp usageRecordedAt on first usageByCat write (HSETNX semantics).
@@ -511,6 +544,11 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     const errorValue = data.error;
     const hasError = errorValue !== undefined && errorValue !== '';
     const usageByCat = safeParseObject(data.usageByCat);
+    const successfulCatIds = data.successfulCatIds
+      ? Object.freeze(safeParseArray(data.successfulCatIds) as CatId[])
+      : undefined;
+    const actionLeaseCarrier = parseActionLeaseCarrier(data.actionLeaseCarrier, data.actionLeaseRef);
+    const waitContinuationCarrier = parseStoredWaitContinuationCarrier(data.waitContinuationCarrier);
     return {
       id: data.id!,
       threadId: data.threadId!,
@@ -519,14 +557,97 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
       targetCats: safeParseArray(data.targetCats) as CatId[],
       intent: (data.intent as 'execute' | 'ideate') ?? 'execute',
       status: (data.status as InvocationStatus) ?? 'queued',
+      ...(successfulCatIds !== undefined ? { successfulCatIds } : {}),
       idempotencyKey: data.idempotencyKey!,
       ...(hasError ? { error: errorValue } : {}),
+      ...(data.executionStartedAt ? { executionStartedAt: parseInt(data.executionStartedAt, 10) } : {}),
       ...(usageByCat ? { usageByCat } : {}),
       ...(data.usageRecordedAt ? { usageRecordedAt: parseInt(data.usageRecordedAt, 10) } : {}),
+      ...(data.freshnessClosureId ? { freshnessClosureId: data.freshnessClosureId } : {}),
+      ...(data.freshnessInputFrontierMessageId
+        ? { freshnessInputFrontierMessageId: data.freshnessInputFrontierMessageId }
+        : {}),
+      ...(data.freshnessClosureStatus
+        ? { freshnessClosureStatus: data.freshnessClosureStatus as InvocationRecord['freshnessClosureStatus'] }
+        : {}),
+      actionLeaseCarrier,
+      ...(waitContinuationCarrier ? { waitContinuationCarrier } : {}),
       createdAt: parseInt(data.createdAt!, 10),
       updatedAt: parseInt(data.updatedAt!, 10),
     };
   }
+}
+
+function parseStoredWaitContinuationCarrier(value: string | undefined): InvocationRecord['waitContinuationCarrier'] {
+  if (!value) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('Stored InvocationRecord has malformed wait continuation carrier JSON');
+  }
+  return requireInvocationWaitContinuationCarrier(parsed);
+}
+
+function parseActionLeaseCarrier(
+  value: string | undefined,
+  legacyActionLeaseRef: string | undefined,
+): InvocationRecord['actionLeaseCarrier'] {
+  if (!value) {
+    if (!legacyActionLeaseRef) return Object.freeze({ kind: 'none' });
+    const legacyRef = parseActionLeaseRef(legacyActionLeaseRef);
+    return Object.freeze({ kind: 'action_successor', ...legacyRef });
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('Invalid persisted InvocationRecord.actionLeaseCarrier JSON');
+  }
+  if (typeof parsed === 'object' && parsed !== null && 'kind' in parsed && parsed.kind === 'none') {
+    return Object.freeze({ kind: 'none' });
+  }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('kind' in parsed) ||
+    parsed.kind !== 'action_successor' ||
+    !('leaseId' in parsed) ||
+    typeof parsed.leaseId !== 'string' ||
+    parsed.leaseId.length === 0 ||
+    !('generation' in parsed) ||
+    !Number.isInteger(parsed.generation) ||
+    (parsed.generation as number) <= 0
+  ) {
+    throw new Error('Invalid persisted InvocationRecord.actionLeaseCarrier');
+  }
+  return Object.freeze({
+    kind: 'action_successor',
+    leaseId: parsed.leaseId,
+    generation: parsed.generation as number,
+  });
+}
+
+function parseActionLeaseRef(value: string): InvocationActionLeaseRef {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('Invalid persisted InvocationRecord.actionLeaseRef JSON');
+  }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('leaseId' in parsed) ||
+    typeof parsed.leaseId !== 'string' ||
+    parsed.leaseId.length === 0 ||
+    !('generation' in parsed) ||
+    !Number.isInteger(parsed.generation) ||
+    (parsed.generation as number) <= 0
+  ) {
+    throw new Error('Invalid persisted InvocationRecord.actionLeaseRef');
+  }
+  return Object.freeze({ leaseId: parsed.leaseId, generation: parsed.generation as number });
 }
 
 function safeParseArray(value: string | undefined): string[] {
