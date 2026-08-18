@@ -1,7 +1,8 @@
-import type { GitHubReviewThreadBaseline } from '@cat-cafe/shared';
+import type { ConnectorSource, GitHubReviewThreadBaseline } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { GitHubWaitLifecycleService } from '../../domains/github-signals/GitHubWaitLifecycleService.js';
-import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
+import { type ConnectorDeliveryDeps, deliverConnectorMessage } from './deliver-connector-message.js';
+import { getMaxSeverity } from './severity-parser.js';
 
 export interface PrFeedbackComment {
   readonly id: number;
@@ -72,22 +73,29 @@ export interface ReviewFeedbackRouterOptions {
 export class ReviewFeedbackRouter {
   constructor(private readonly opts: ReviewFeedbackRouterOptions) {}
 
-  constructor(opts: ReviewFeedbackRouterOptions) {
-    this.opts = opts;
-  }
-
   async route(
     signal: ReviewFeedbackSignal,
-    tracking: {
-      threadId: string;
-      catId: string;
-      userId: string;
-      trackingInstructions?: string;
-      trackingInstructionsHeadSha?: string;
-    },
+    /** TODO(merge-84164cd63): upstream shape was `{ taskId: string }` and used
+     *  waitLifecycle to derive addressing; develop-parent passed thread/cat/user
+     *  directly. Accepting both to compile; when only `{ taskId }` is given, we
+     *  return `skipped` since the routing plumbing to fetch task-owner data is
+     *  not wired here. Restore waitLifecycle path when resurrecting this feature. */
+    tracking:
+      | { taskId: string; threadId?: never; catId?: never; userId?: never; trackingInstructions?: never; trackingInstructionsHeadSha?: never }
+      | {
+          taskId?: string;
+          threadId: string;
+          catId: string;
+          userId: string;
+          trackingInstructions?: string;
+          trackingInstructionsHeadSha?: string;
+        },
   ): Promise<ReviewFeedbackRouteResult> {
     if (signal.newComments.length === 0 && signal.newDecisions.length === 0 && !signal.routingAudit) {
       return { kind: 'skipped', reason: 'no new feedback' };
+    }
+    if (!tracking.threadId || !tracking.catId) {
+      return { kind: 'skipped', reason: 'taskId-only tracking not wired post-merge; requires waitLifecycle path' };
     }
 
     const content = buildReviewFeedbackContent(
@@ -110,11 +118,10 @@ export class ReviewFeedbackRouter {
       content,
       source,
     });
-    if (result.kind !== 'notified') return { kind: 'skipped', reason: result.reason };
     return {
       kind: 'notified',
-      threadId: result.task.threadId,
-      catId: result.task.ownerCatId ?? '',
+      threadId: tracking.threadId,
+      catId: tracking.catId,
       messageId: result.messageId,
       content: result.content,
     };

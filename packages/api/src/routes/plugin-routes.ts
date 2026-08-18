@@ -32,6 +32,8 @@ interface PluginRoutesOpts {
   /** F241 Phase B Slice 2b — optional approval service. When undefined, the
    *  approve-routeable route is omitted (deployments without 2b stay on 2a). */
   agentProviderApprovalService?: AgentProviderApprovalService;
+  /** Optional pre-disable hook (best-effort). */
+  beforePluginDisable?: (pluginId: string) => Promise<void> | void;
 }
 
 function refreshPluginRegistry(pluginRegistry: PluginRegistry) {

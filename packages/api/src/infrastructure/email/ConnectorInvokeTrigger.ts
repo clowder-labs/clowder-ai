@@ -370,6 +370,7 @@ export class ConnectorInvokeTrigger {
       sender,
       controller,
       eventDrivenExternalWaitCoverage,
+      executionStartReceipt,
     ).catch((err) => {
       executionStartReceipt.reject(err);
       this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
@@ -542,6 +543,7 @@ export class ConnectorInvokeTrigger {
     suggestedSkill?: string,
     coalesceKey?: string,
     eventDrivenExternalWaitCoverage = false,
+    autoExecute = false,
   ): Promise<'full' | 'enqueued'> {
     const { invocationQueue, socketManager, log } = this.opts;
 
@@ -704,6 +706,7 @@ export class ConnectorInvokeTrigger {
     sender?: { id: string; name?: string },
     preAcquiredController?: AbortController,
     eventDrivenExternalWaitCoverage = false,
+    executionStartReceipt?: ExecutionStartReceipt,
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];

@@ -1235,6 +1235,21 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
                 catAgentProtocol: null,
               }
             : {};
+      // #1208 P2: canonicalize legacy cli.contextWindow to top-level on every save.
+      const canonicalContextWindow = canonicalizeContextWindow(currentCat, body.contextWindow);
+      // #1208 Item 5 fix: strip legacy cli.contextWindow / cli.autoCompactTokenLimit on every save.
+      const effectiveCli = (() => {
+        if (nextCli === null) return null;
+        const cli = nextCli ?? currentCat.cli;
+        if (!cli) return undefined;
+        const raw = cli as unknown as Record<string, unknown>;
+        const hasLegacyWindowFields = raw.contextWindow != null || raw.autoCompactTokenLimit != null;
+        const hasCliOnlyFields = usesAcpTransport && (raw.effort != null || raw.carrier != null);
+        if (nextCli === undefined && !hasLegacyWindowFields && !hasCliOnlyFields) return undefined;
+        if (usesAcpTransport) return stripCliTransportExtensions(cli);
+        const { contextWindow: _cw, autoCompactTokenLimit: _acl, ...base } = raw;
+        return base as unknown as CliConfig;
+      })();
       updateRuntimeCat(projectRoot, request.params.id, {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),

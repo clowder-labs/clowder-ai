@@ -203,7 +203,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         }
 
         const policy: ConnectorTriggerPolicy = {
-          priority: routeResult.bucket === 'fail' ? 'urgent' : 'normal',
+          priority: 'normal',
           reason: 'github_wait_satisfied',
           sourceCategory: 'ci',
           suggestedSkill: 'merge-gate',

@@ -9,6 +9,21 @@ import type { GitPublisher, PublishOnIsolatedWorktreeOpts } from './publish-verd
 
 const exec = promisify(execFile);
 
+const ALLOWED_PATH_PREFIXES = [
+  'docs/harness-feedback/verdicts/',
+  'docs/harness-feedback/bundles/',
+  'generated/capability-wakeup/',
+  'generated/memory/',
+  'generated/sop/',
+];
+const ALLOWED_EXACT_PATHS = new Set(['docs/harness-feedback/registry/measurement-bundles.yaml']);
+
+export function isAllowedVerdictStagePath(relativePath: string): boolean {
+  return (
+    ALLOWED_EXACT_PATHS.has(relativePath) || ALLOWED_PATH_PREFIXES.some((prefix) => relativePath.startsWith(prefix))
+  );
+}
+
 export function parseGitHubRepoFromRemoteUrl(remoteUrl: string): string | null {
   const trimmed = remoteUrl.trim();
   if (!trimmed) return null;

@@ -127,6 +127,27 @@ export async function resolveWorkspacePath(root: string, userPath: string): Prom
 }
 
 /**
+ * Resolve a native filesystem-relative path without interpreting literal `%`
+ * bytes as URI escapes. Absolute-path adapters must use this entry point.
+ * (Restored from upstream ed948c9b1 — merge dropped the export.)
+ */
+export async function resolveWorkspaceFilesystemPath(root: string, filesystemPath: string): Promise<string> {
+  const resolved = resolve(root, filesystemPath);
+  const relFromRoot = assertInsideRoot(root, resolved);
+  assertDenylistAllowed(relFromRoot);
+  try {
+    const [real, realRoot] = await Promise.all([realpath(resolved), realpath(root)]);
+    assertRealPathInside(realRoot, real);
+    const realRel = relative(realRoot, real);
+    assertDenylistAllowed(realRel);
+  } catch (e) {
+    if (e instanceof WorkspaceSecurityError) throw e;
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+  }
+  return resolved;
+}
+
+/**
  * Resolve a path that may be created by a write operation.
  *
  * Unlike resolveWorkspacePath(), this validates the nearest existing ancestor

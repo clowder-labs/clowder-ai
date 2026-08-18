@@ -8,6 +8,7 @@
 
 import type { FastifyBaseLogger } from 'fastify';
 import { type AcpVariantConfig, getAcpConfig } from '../../../../../../config/cat-config-loader.js';
+import { getCatModel } from '../../../../../../config/cat-models.js';
 import type { ProviderTransportFactory } from '../transport/ProviderTransportRegistry.js';
 import { type AcpPoolRegistry, createAcpServiceForConfig } from './AcpServiceFactory.js';
 import { closeStaleAcpPools } from './acp-pool-registry.js';
@@ -60,6 +61,7 @@ export function createAcpProviderTransportFactory(deps: AcpProviderTransportFact
         projectRoot: input.projectRoot,
         profileId: input.profileId,
         config: input.config,
+        effectiveModel: getCatModel(input.config.id),
         acpConfig,
         poolRegistry: deps.poolRegistry,
         log: deps.log,
