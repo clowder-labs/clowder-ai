@@ -10,7 +10,6 @@ import type {
   ClientId,
   CoCreatorConfig,
   CommandPolicyEntry,
-  ContextBudget,
   NativeToolLevel,
   VoiceConfig,
 } from '@cat-cafe/shared';
@@ -52,7 +51,8 @@ export interface RuntimeCatInput {
   commandPolicy?: CommandPolicyEntry[];
   /** F159 Phase G G2 (AC-G14): CatAgent wire protocol; only persisted when clientId === 'catagent'. */
   catAgentProtocol?: CatAgentProtocol;
-  contextBudget?: ContextBudget;
+  /** clowder-ai#1208: explicit context window cap (tokens). undefined = Auto. */
+  contextWindow?: number;
   voiceConfig?: VoiceConfig;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
   provider?: string;
@@ -86,7 +86,8 @@ export interface RuntimeCatUpdate {
   commandPolicy?: CommandPolicyEntry[] | null;
   /** F159 Phase G G2 (AC-G14): CatAgent wire protocol; null to clear, undefined to skip. */
   catAgentProtocol?: CatAgentProtocol | null;
-  contextBudget?: ContextBudget | null;
+  /** clowder-ai#1208: explicit context window cap. null to remove, undefined to skip. */
+  contextWindow?: number | null;
   voiceConfig?: VoiceConfig | null;
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
   provider?: string | null;

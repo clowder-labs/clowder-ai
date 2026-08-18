@@ -102,8 +102,8 @@ export interface CatVariant {
   readonly avatar?: string;
   /** F32-b P4c: Override breed-level color for this variant */
   readonly color?: CatColor;
-  /** Per-cat context budget (optional, falls back to defaults) */
-  readonly contextBudget?: ContextBudget;
+  /** clowder-ai#1208: explicit member-level context window cap (tokens). */
+  readonly contextWindow?: number;
   /** F159 Phase F: CatAgent native tool level. Omitted = L0. */
   readonly nativeToolLevel?: NativeToolLevel;
   /** F159 Phase F: allowlist-first command policy for L2 run_command. */

@@ -3,7 +3,7 @@
  * 三只 AI 猫猫的类型定义和配置
  */
 
-import type { CliConfig, ContextBudget } from './cat-breed.js';
+import type { CliConfig } from './cat-breed.js';
 import type { CatId, SessionId } from './ids.js';
 import type { VoiceConfig } from './tts.js';
 
@@ -102,7 +102,9 @@ export interface CatConfig {
   readonly cli?: CliConfig;
   readonly agyProfile?: AgyProfileConfig;
   readonly commandArgs?: readonly string[];
-  readonly contextBudget?: ContextBudget;
+  /** clowder-ai#1208: explicit member-level context window cap (tokens).
+   *  undefined = Auto; positive integer = Manual cap. */
+  readonly contextWindow?: number;
   /** F159 Phase F: CatAgent native tool level. Omitted = L0. */
   readonly nativeToolLevel?: NativeToolLevel;
   /** F159 Phase F: allowlist-first command policy for L2 run_command. */

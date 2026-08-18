@@ -130,7 +130,8 @@ const catVariantSchema = z
   strengths: z.array(z.string()).optional(),
   avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
   color: colorSchema.optional(), // F32-b P4c: override breed color
-  contextBudget: contextBudgetSchema.optional(),
+  /** clowder-ai#1208: explicit context window cap. undefined=Auto, positive int=Manual. */
+  contextWindow: z.number().int().positive().optional(),
   nativeToolLevel: z.enum(['L0', 'L1', 'L2']).optional(), // F159 Phase F
   commandPolicy: z.array(commandPolicyEntrySchema).optional(), // F159 Phase F
   catAgentProtocol: z.enum(['anthropic-messages', 'openai-chat']).optional(), // F159 Phase G G2 AC-G15
@@ -298,7 +299,6 @@ const ATOMIC_OBJECT_KEYS = new Set([
   'cli',
   'agyProfile',
   'color',
-  'contextBudget',
   'voiceConfig',
   'acp',
   'providerTransport',
@@ -653,7 +653,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
           : {}),
         ...(variant.cli != null ? { cli: variant.cli } : {}),
         ...(variant.provider != null ? { provider: variant.provider } : {}),
-        ...(variant.contextBudget != null ? { contextBudget: variant.contextBudget } : {}),
+        ...(variant.contextWindow != null ? { contextWindow: variant.contextWindow } : {}),
         ...(variant.nativeToolLevel != null ? { nativeToolLevel: variant.nativeToolLevel } : {}),
         ...(variant.commandPolicy != null ? { commandPolicy: variant.commandPolicy } : {}),
         ...(variant.catAgentProtocol != null ? { catAgentProtocol: variant.catAgentProtocol } : {}),

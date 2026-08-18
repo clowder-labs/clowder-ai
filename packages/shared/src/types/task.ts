@@ -143,12 +143,18 @@ export type PrTrackingIntent = 'review' | 'merge';
 export interface IssueWaitAutomationState {
   readonly issue?: IssueAutomationState;
   readonly closedAt?: number;
+  readonly await?: GitHubIssueAwaitStateV1;
+  readonly waitOutcome?: WaitOutcomeV1;
   /** F140: wake intent for this tracked PR (defaults to 'review' when absent). */
   readonly intent?: PrTrackingIntent;
   /** F202 Phase 2C: user-provided instructions appended to trigger messages. Task preference, not system override. */
   readonly trackingInstructions?: string;
   /** PR head that trackingInstructions were written for; stale-head callbacks suppress the instructions. */
   readonly trackingInstructionsHeadSha?: string;
+  /** Type-level quarantine: PR facts cannot be installed on an issue state. */
+  readonly ci?: never;
+  readonly conflict?: never;
+  readonly review?: never;
 }
 
 /** Composite automation state embedded in pr_tracking/issue_tracking tasks (#320 KD-14, F202-2D). */
