@@ -965,10 +965,9 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
               );
           } catch {
             opts.log.warn(
-              { err },
               `[review-feedback] trigger failed for ${signal.repoFullName}#${signal.prNumber} (best-effort)`,
-            ),
-          );
+            );
+          }
         }
 
         // F208 AC-E2: distillation checkpoint on review-complete (best-effort, all approvals)

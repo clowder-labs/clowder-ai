@@ -4607,7 +4607,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         ...(seededPrBoundary ?? {}),
       };
 
-      const task = await taskStore.upsertBySubject({
+      const taskInput = {
         kind: 'pr_tracking',
         subjectKey,
         threadId: record.threadId,

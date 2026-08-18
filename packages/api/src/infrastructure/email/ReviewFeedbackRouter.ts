@@ -221,11 +221,22 @@ function formatRoutingAudit(audit: ReviewFeedbackRoutingAudit): string[] {
         `检测到 PR tracking task 指向 auto-rotated thread \`${audit.previousThreadId}\`，已修回注册 thread \`${audit.repairedThreadId}\`。`,
         '后续 review feedback 会继续投回注册 thread。',
       ];
-  return [
-    `🔔 **PR wait candidate** — ${signal.repoFullName}#${signal.prNumber}`,
-    '',
-    ...deltas,
-    '',
-    'The typed wait predicate decides whether this becomes an owner wake.',
-  ].join('\n');
+    default: {
+      const _exhaustive: never = audit.kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function decisionEmoji(state: PrReviewDecision['state']): string {
+  switch (state) {
+    case 'APPROVED':
+      return '✅';
+    case 'CHANGES_REQUESTED':
+      return '🔄';
+    case 'DISMISSED':
+      return '🚫';
+    case 'COMMENTED':
+      return '💬';
+  }
 }

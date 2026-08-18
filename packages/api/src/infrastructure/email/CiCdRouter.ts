@@ -247,40 +247,16 @@ export class CiCdRouter {
 
   private observeWait(
     poll: CiPollResult,
-    task: {
-      id: string;
-      threadId: string;
-      ownerCatId: string | null;
-      userId?: string;
-      automationState?: { trackingInstructions?: string; trackingInstructionsHeadSha?: string };
-    },
+    task: TaskItem,
+    waitBucket: CiBucket,
     fingerprint: string,
-  ): Promise<CiRouteResult> {
-    const { taskStore, log } = this.opts;
-    const content = buildCiMessageContent(
-      poll,
-      task.automationState?.trackingInstructions,
-      task.automationState?.trackingInstructionsHeadSha,
-    );
-
-    const source: ConnectorSource = {
-      connector: 'github-ci',
-      label: 'GitHub CI/CD',
-      icon: 'github',
-      url: `https://github.com/${poll.repoFullName}/pull/${poll.prNumber}/checks`,
-    };
-
-    const result = await deliverConnectorMessage(this.opts.deliveryDeps, {
-      threadId: task.threadId,
-      userId: task.userId ?? '',
-      catId: task.ownerCatId ?? '',
-      content,
-      source,
-    });
-
-    // #320: Patch automationState.ci instead of patchCiState
-    await taskStore.patchAutomationState(task.id, {
-      ci: {
+    terminal: TerminalPrState | undefined,
+    deliveryDecision: DeliveryDecisionCueCarrierV1 | null,
+    rollupObservation: RollupObservation,
+  ): Promise<GitHubWaitLifecycleResult> {
+    return this.opts.waitLifecycle.observe({
+      taskId: task.id,
+      facts: {
         headSha: poll.headSha,
         ci: {
           bucket: waitBucket,
@@ -302,13 +278,11 @@ export class CiCdRouter {
     });
   }
 
-export function buildCiMessageContent(
-  poll: CiPollResult,
-  trackingInstructions?: string,
-  trackingInstructionsHeadSha?: string,
-): string {
-  const bucketEmoji = poll.aggregateBucket === 'pass' ? '✅' : '❌';
-  const bucketLabel = poll.aggregateBucket === 'pass' ? 'CI 通过' : 'CI 失败';
+  private async recoverTerminalSideEffects(poll: CiPollResult, taskId: string, sk: string): Promise<void> {
+    const terminal = terminalPrState(poll);
+    if (!terminal) return;
+    let context = await this.loadTerminalRecoveryContext(taskId, terminal);
+    if (!context || context.effects.completedAt !== undefined) return;
 
     const lifecycleRequired = terminal === 'merged' && this.opts.onPrLifecycle !== undefined;
     if (lifecycleRequired) {
@@ -358,9 +332,21 @@ export function buildCiMessageContent(
     };
   }
 
-  // F202 Phase 2C (AC-C2): append user-provided tracking instructions
-  if (shouldAppendTrackingInstructions(trackingInstructions, poll.headSha, trackingInstructionsHeadSha)) {
-    lines.push('', '📌 **Tracking Instructions**', trackingInstructions);
+  private async applyTerminalEffect(
+    context: TerminalRecoveryContext,
+    effect: TerminalEffect,
+    sk: string,
+    run: (task: TaskItem) => Promise<void>,
+  ): Promise<TerminalRecoveryContext> {
+    if (context.effects[effect] === true) return context;
+    try {
+      await run(context.task);
+      const updated = await this.markTerminalEffect(context.task.id, context.terminal, effect);
+      return (await this.loadTerminalRecoveryContext(updated?.id ?? context.task.id, context.terminal)) ?? context;
+    } catch (error) {
+      this.opts.log.warn({ error, sk, effect }, '[CiCdRouter] terminal world-truth effect failed');
+      return context;
+    }
   }
 
   private async emitPrLifecycleEffect(task: TaskItem, sk: string): Promise<void> {
@@ -449,15 +435,4 @@ export function buildCiMessageContent(
     }
     return null;
   }
-}
-
-function shouldAppendTrackingInstructions(
-  trackingInstructions: string | undefined,
-  currentHeadSha: string | undefined,
-  instructionsHeadSha: string | undefined,
-): trackingInstructions is string {
-  if (!trackingInstructions) return false;
-  if (!instructionsHeadSha) return true;
-  if (!currentHeadSha) return false;
-  return instructionsHeadSha === currentHeadSha;
 }

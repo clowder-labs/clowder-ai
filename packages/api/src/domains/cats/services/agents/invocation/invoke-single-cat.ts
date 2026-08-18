@@ -2894,48 +2894,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           timestamp: Date.now(),
         });
 
-        // F24: Compute and emit context health (only when session chain is enabled)
-        if (sessionChainActive && !suppressSessionChainForStaleContinuityDegradation) {
-          // #679: Gemini CLI token stats are cumulative across all turns — not usable
-          // for context fill. Skip entire context_health block (raw usage still in
-          // invocation_usage above). Guard auto-disables when lastTurnInputTokens exists.
-          const isCumulativeOnly =
-            msg.metadata.usage.isCumulativeUsage === true && msg.metadata.usage.lastTurnInputTokens == null;
-          // Use lastTurnInputTokens (per-API-call) for accurate context fill,
-          // then fallback to aggregated inputTokens, and finally totalTokens
-          // for providers (Gemini CLI) that only expose a total count.
-          // clowder#915 R5 cloud P2: 3-tier window resolution.
-          // 1) Explicit `usage.contextWindowSize` (CLI-reported — Claude's exact value)
-          // 2) Fallback table by bare model name (handles prefix-strip for
-          //    account-routing path's `provider/model` form per R2 P1 #2)
-          // 3) opencode-only last-resort default for unknown/custom-provider
-          //    models (GLM-5.1, openrouter customs — the breed clowder#915
-          //    actually targets). Crucially this is LAST so known opencode
-          //    models like the default claude-opus-4-6 get their precise 200k
-          //    from the table, NOT the 128k conservative default.
-          const windowSize =
-            msg.metadata.usage.contextWindowSize ??
-            getContextWindowFallback(msg.metadata.model ?? '') ??
-            (msg.metadata.provider === 'opencode' ? OPENCODE_DEFAULT_CONTEXT_WINDOW : undefined);
-          const usedFrom =
-            msg.metadata.usage.lastTurnInputTokens != null
-              ? 'last_turn'
-              : msg.metadata.usage.inputTokens != null
-                ? 'input'
-                : msg.metadata.usage.totalTokens != null
-                  ? 'total'
-                  : undefined;
-          const usedTokens =
-            usedFrom === 'last_turn'
-              ? msg.metadata.usage.lastTurnInputTokens!
-              : usedFrom === 'input'
-                ? msg.metadata.usage.inputTokens!
-                : usedFrom === 'total'
-                  ? msg.metadata.usage.totalTokens!
-                  : 0;
-          if (windowSize && usedTokens > 0 && isCumulativeOnly) {
-            log.warn(
-              {
+        // F024/#1329: Context-health observation is carrier-owned and remains
+        // available even when a test or unmanaged caller has no chain store.
+        // Persistence and lifecycle actions still require managed session state.
+        if (invocationCapacitySnapshot) {
+          try {
+            invocationCapacitySnapshot = applyUsageEvidenceToInvocationSnapshot({
+              snapshot: invocationCapacitySnapshot,
+              catId,
+              capability: service.contextCapability?.() ?? invocationCapacitySnapshot.capability,
+              reportedWindowSize: msg.metadata.usage.contextWindowSize,
+            });
+            if (deps.sessionChainStore) {
+              invocationCapacitySnapshot = await applyActiveSessionCapacityPin({
+                snapshot: invocationCapacitySnapshot,
                 catId,
                 threadId,
                 userId,
