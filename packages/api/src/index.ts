@@ -7,6 +7,7 @@
 // before any code calls fetch(). See proxy-dispatcher.ts for rationale.
 import './infrastructure/proxy-dispatcher.js';
 
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   type CatConfig,
@@ -27,6 +28,7 @@ import { regenerateStartupCliConfigs } from './config/capabilities/startup-cli-c
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import {
   bootstrapDefaultCatCatalog,
+  getCoCreatorConfig,
   getConfigSessionStrategy,
   getDefaultCatId,
   getProviderTransportConfig,
@@ -82,10 +84,21 @@ import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueP
 import { reconcileZombies } from './domains/cats/services/agents/invocation/reconcileZombies.js';
 import { SessionContinuationCoordinator } from './domains/cats/services/agents/invocation/SessionContinuationCoordinator.js';
 import { SessionMutex } from './domains/cats/services/agents/invocation/SessionMutex.js';
+import {
+  listenBeforeTurnExecutionRecovery,
+  TurnExecutionStartupReconciler,
+} from './domains/cats/services/agents/invocation/TurnExecutionStartupReconciler.js';
+import { createZombieTerminalRecovery } from './domains/cats/services/agents/invocation/ZombieTerminalRecovery.js';
 import { createAcpProviderTransportFactory } from './domains/cats/services/agents/providers/acp/AcpProviderTransportFactory.js';
 import { type AcpPoolRegistry } from './domains/cats/services/agents/providers/acp/AcpServiceFactory.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
+import { getCodexAppServerLifecycle } from './domains/cats/services/agents/providers/CodexAppServerLifecycleRegistry.js';
+import {
+  type CodexAppServerPoolRegistry,
+  closeStaleCodexAppServerPools,
+  getOrCreateCodexAppServerPool,
+} from './domains/cats/services/agents/providers/codex-app-server-pool-registry.js';
 import { createCliJsonlProviderTransportFactory } from './domains/cats/services/agents/providers/cli-jsonl/CliJsonlProviderTransportFactory.js';
 import {
   clearL0Cache,
@@ -1723,6 +1736,8 @@ async function main(): Promise<void> {
 
   // ── F149 Phase C: ACP process pool registry (variantId → AcpProcessPool) ──
   const acpPoolRegistry: AcpPoolRegistry = new Map();
+  // F254: Codex app-server warm hosts are profile-scoped and survive catalog refreshes.
+  const codexAppServerPoolRegistry: CodexAppServerPoolRegistry = new Map();
   const providerTransportRegistry = new ProviderTransportRegistry();
   providerTransportRegistry.register(
     createAcpProviderTransportFactory({ poolRegistry: acpPoolRegistry, log: app.log }),
@@ -1743,6 +1758,7 @@ async function main(): Promise<void> {
     clearL0Cache(); // Invalidate stale L0 compilations from previous sync
     const projectRoot = resolveActiveProjectRoot();
     const activeProfileIdsByTransport = new Map<string, Set<string>>();
+    const activeCodexProfileIds = new Set<string>();
 
     // F241 Phase B Slice 2b Step 5b: merge plugin-projected routeable
     // agentProvider rows into the configs map BEFORE the loop. The projection
@@ -3472,6 +3488,17 @@ async function main(): Promise<void> {
     ? await LimbPairingStore.restore(new RedisApprovedLimbPairingPersistence(redisClient))
     : new LimbPairingStore();
   registerLimbNodeRoutes(app, { limbRegistry, pairingStore: limbPairingStore });
+
+  // limbEmbodimentBindingStore + limbTranscriptDelivery: created here so that
+  // /api/limb/observation routes below and the LimbTranscriptCatDelivery wiring
+  // near bootstrap end can share the same store instance.
+  const { MemoryLimbEmbodimentBindingStore, RedisLimbEmbodimentBindingStore } = await import(
+    './domains/limb/LimbEmbodimentBindingStore.js'
+  );
+  const limbEmbodimentBindingStore = redisClient
+    ? new RedisLimbEmbodimentBindingStore(redisClient)
+    : new MemoryLimbEmbodimentBindingStore();
+  let limbTranscriptDelivery: import('./domains/limb/LimbObservationRouter.js').LimbTranscriptDelivery | undefined;
 
   // F258 Phase A: macOS CoreBluetooth Limb. Persistent bindings fail closed
   // without Redis; the helper itself stays lazy and is not spawned at startup.

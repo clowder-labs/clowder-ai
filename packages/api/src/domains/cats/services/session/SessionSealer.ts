@@ -44,7 +44,13 @@ export interface ISessionSealer {
    * Request seal of a session. Idempotent: returns accepted=false if already sealing/sealed.
    * Fast path: only changes status + clears active pointer.
    */
-  requestSeal(args: { sessionId: string; reason: SealReason; expectedCliSessionId?: string }): Promise<SealResult>;
+  requestSeal(args: {
+    sessionId: string;
+    reason: SealReason;
+    expectedCliSessionId?: string;
+    /** TODO(merge-84164cd63): upstream renamed guard to expectedPolicyRevision. Accepting both to keep callers compiling; SessionSealer impl ignores this field. */
+    expectedPolicyRevision?: string;
+  }): Promise<SealResult>;
 
   /**
    * Finalize a sealing session: write transcript, generate digest, mark sealed.
@@ -114,6 +120,8 @@ export class SessionSealer implements ISessionSealer {
     sessionId: string;
     reason: SealReason;
     expectedCliSessionId?: string;
+    /** Accepted for caller compatibility; not enforced by this implementation. */
+    expectedPolicyRevision?: string;
   }): Promise<SealResult> {
     const now = Date.now();
     const updated = await this.store.compareAndMarkSealing(args.sessionId, {

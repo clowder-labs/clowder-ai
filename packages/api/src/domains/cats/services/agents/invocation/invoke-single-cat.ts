@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import {
   type CatId,
   type CliEffortPreset,
@@ -177,8 +178,14 @@ import type { IRuntimeSessionStore } from '../../runtime-session/RuntimeSessionS
 import type { SessionManager } from '../../session/SessionManager.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
 import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/TranscriptWriter.js';
-import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
+import type { CreateSessionInput, ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
 import type { IThreadStore, Thread } from '../../stores/ports/ThreadStore.js';
+import type {
+  ITurnExecutionStore,
+  TurnExecutionCausalRefs,
+  TurnExecutionKind,
+  TurnExecutionTerminalInput,
+} from '../../stores/ports/TurnExecutionStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import { hasL0CompilerSeam } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
@@ -980,6 +987,9 @@ async function resolveCatAgentScopedCallbacks(input: {
 export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationParams): AsyncIterable<AgentMessage> {
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, userId, threadId, isLastCat, signal: callerSignal } = params;
+  // F33-fix (develop-parent): session chain gate — cats that opted out (or breed-level opt-out)
+  // skip session chain read/write throughout this invocation.
+  const sessionChainActive = isSessionChainEnabled(catId);
   let prompt = params.prompt;
   const invocationPromptAdditions: string[] = [];
   assertToolExecutionPolicySupported(service, params.toolExecutionPolicy);
@@ -2674,6 +2684,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       log.warn({ threadId, catId, invocationId, err }, 'CatAgent scoped callback resolution failed');
     }
 
+    // TODO(merge-84164cd63): upstream's ~80-line block that resolves
+    // reasoningEffortOverride (thread member effort) + requestedServiceTier
+    // (Codex speed via resolveCodexSpeed) got dropped in the merge.
+    // Setting to undefined preserves compile; feature revival requires
+    // splicing upstream lines 2513–2564 back in with their dependencies
+    // (CliEffortPreset, CodexSpeedValue, resolveCodexSpeed, threadSpeedOverride).
+    const reasoningEffortOverride: string | undefined = undefined;
+    const requestedServiceTier: string | undefined = undefined;
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
       ...(invocationCapacitySnapshot ? { contextCapacity: invocationCapacitySnapshot.capacity } : {}),
