@@ -1,6 +1,20 @@
 import { z } from 'zod';
+import { defineMcpMigrationFactory } from '../tool-governance-migration.js';
+
 import { callbackPost } from './callback-tools.js';
-import type { ToolResult } from './file-tools.js';
+import { errorResult, type ToolResult } from './file-tools.js';
+import { freshnessReplaySourceRefsShape } from './publish-verdict-freshness-source-refs.js';
+import {
+  handleRefreshVerdictAction,
+  publishVerdictRefreshActionShape,
+  validatePublishVerdictLifecycleInput,
+} from './publish-verdict-refresh-action.js';
+import { sopSourceRefsShape } from './publish-verdict-sop-source-refs.js';
+
+const defineTool = defineMcpMigrationFactory('publish-verdict-tool.ts', undefined, {
+  resourceFamily: 'eval-feedback',
+  authority: 'eval-callback',
+});
 
 const PUBLISH_VERDICT_FETCH_TIMEOUT_MS = 120_000;
 
@@ -127,7 +141,9 @@ const taskOutcomeSourceRefsShape = z
       )
       .min(1)
       .optional()
-      .describe('Optional explicit per-episode writeback list. Omit when no terminal episodes are ready.'),
+      .describe(
+        'Optional explicit per-episode writeback list. Exact same-value replays are idempotent for replacement publishes; a different value is rejected to preserve audit history.',
+      ),
   })
   .describe('eval:task-outcome sourceRefs — replay window selector with optional episode verdict writeback.');
 
@@ -164,54 +180,6 @@ const memorySourceRefsShape = z
       .describe('Optional — restrict to a specific recall tool (e.g. cat_cafe_search_evidence).'),
   })
   .describe('eval:memory sourceRefs — replayable recall metrics selector (windowDays + optional filters).');
-
-/**
- * F192 sop-wiring — replayable SOP trace selector. Eval cat builds the trace
- * from session observation; generator replays evaluation via predicate evaluator
- * and writes provenance artifacts. Trace is embedded (no persistent SOP trace
- * store yet), so the selector carries the full SopTraceInput.
- *
- * KEEP IN SYNC: packages/api/src/infrastructure/harness-eval/sop/sop-trace-adapter.ts sopTraceInputSchema.
- */
-const sopSourceRefsShape = z
-  .object({
-    kind: z.literal('sop-trace-eval'),
-    sopDefinitionId: z
-      .string()
-      .min(1)
-      .describe(
-        'SOP definition to evaluate against (e.g. "development"). Must match a known definition in the catalog.',
-      ),
-    trace: z
-      .object({
-        sessionId: z.string().min(1),
-        sopDefinitionId: z.string().min(1),
-        observedStage: z.string().min(1),
-        commands: z.array(
-          z.object({
-            command: z.string().min(1),
-            cwd: z.string().optional(),
-            exitCode: z.number().int().optional(),
-          }),
-        ),
-        envSnapshot: z.record(z.string().or(z.undefined())),
-        gitState: z.object({
-          branch: z.string().min(1),
-          ahead: z.number().int().min(0),
-          behind: z.number().int().min(0),
-          clean: z.boolean(),
-          worktreeRoot: z.string().optional(),
-        }),
-        handles: z.object({
-          author: z.string().optional(),
-          reviewer: z.string().optional(),
-          guardian: z.string().optional(),
-        }),
-        shaContext: z.record(z.string()),
-      })
-      .describe('Full SopTrace data for deterministic replay. See eval cat invocation instructions for field details.'),
-  })
-  .describe('eval:sop sourceRefs — replayable SOP trace selector (sopDefinitionId + embedded trace).');
 
 /**
  * F245 Phase C PR1b — friction-rollup-snapshot sourceRefs. Replayable rollup
@@ -301,12 +269,10 @@ const sourceRefsShape = z
   );
 
 export const publishVerdictInputSchema = {
-  domainId: z
-    .string()
-    .min(1)
-    .describe('Your assigned eval domain (eval:a2a / eval:capability-wakeup in v2). Must match packet.domainId.'),
-  packet: verdictPacketShape,
-  sourceRefs: sourceRefsShape,
+  domainId: z.string().min(1).describe('Your assigned registered eval domain. Must match packet.domainId.'),
+  packet: verdictPacketShape.optional(),
+  sourceRefs: sourceRefsShape.optional(),
+  action: publishVerdictRefreshActionShape.optional(),
   // 砚砚 R4 P1 + cloud R4 P1: catId is NOT a cat-supplied field — server
   // derives it from the trusted callback principal (invocationId → registry).
   // Removed from input schema; agentKeyCatId stays for shared-MCP routing.
@@ -379,6 +345,15 @@ type PublishVerdictToolInput = {
 };
 
 export async function handlePublishVerdict(input: PublishVerdictToolInput): Promise<ToolResult> {
+  const lifecycleError = validatePublishVerdictLifecycleInput(input);
+  if (lifecycleError) return errorResult(lifecycleError);
+  if (input.action?.kind === 'refresh_pr') {
+    return handleRefreshVerdictAction({
+      domainId: input.domainId,
+      action: input.action,
+      ...(input.agentKeyCatId ? { agentKeyCatId: input.agentKeyCatId } : {}),
+    });
+  }
   return callbackPost(
     `/api/eval-domains/${encodeURIComponent(input.domainId)}/publish-verdict`,
     {
@@ -396,7 +371,7 @@ export async function handlePublishVerdict(input: PublishVerdictToolInput): Prom
 }
 
 export const publishVerdictTools = [
-  {
+  defineTool({
     name: 'cat_cafe_publish_verdict',
     description:
       'F192 Phase H: publish your eval verdict as a structured commit + auto-PR. ' +
@@ -405,8 +380,16 @@ export const publishVerdictTools = [
       'The handler validates schema, dispatches to the per-domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
       'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector) + eval:sop (sop-trace-eval replayable SOP trace selector) + eval:task-outcome (task-outcome-snapshot replay window) + eval:friction (friction-rollup-snapshot replay window) + eval:anchor-first (anchor-telemetry-snapshot rollup window) + eval:qc (qc-metrics-rollup window). Unregistered domains return 501. ' +
       'GOTCHA: catId must match the registered eval cat for the domain (or its OQ-20 Redis override); 403 not_allowed otherwise. ' +
-      'GOTCHA: DO NOT run git push/commit/add yourself; this tool owns the publish lifecycle.',
+      'GOTCHA: every evidencePacket.metricRefs entry must resolve against the selected domain glossary; unknown refs return 400 before any evidence branch or PR is created. ' +
+      'GOTCHA: refresh_pr verifies exact HEAD, auto-verdict provenance, target-only diff scope, and only auto-resolves the derived measurement census conflict; any other conflict fails closed. ' +
+      'GOTCHA: replacement publishes may repeat an exact stored episode verdict, but refresh_pr is preferred when the existing PR only needs a current-base census refresh.',
     inputSchema: publishVerdictInputSchema,
     handler: handlePublishVerdict,
-  },
+    governance: {
+      implementationExport: 'handlePublishVerdict',
+      action: 'update',
+      risk: { level: 'write', openWorld: false },
+      runtimeProfiles: ['full', 'agent-key'],
+    },
+  }),
 ] as const;

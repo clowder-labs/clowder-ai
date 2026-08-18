@@ -4,20 +4,14 @@
  * #320: Reads from unified TaskStore (kind=pr_tracking) instead of PrTrackingStore.
  *
  * Gate: list pr_tracking tasks → filter active → one workItem per PR.
- * Execute: fetchPrCiStatus → route → conditional trigger.
- *   - CI fail → wake (urgent) — both intents.
- *   - CI pass → gated by the tracked PR's wake intent (F140):
- *       intent='review' (default) → silent (review-wait noise; CiCdRouter already posted the message).
- *       intent='merge'            → wake → merge-gate (the cat is waiting on CI-green to merge).
- *     Intent is an explicit per-task declaration (set at register_pr_tracking, updated by re-register),
- *     NOT inferred from approval state or repo type — a private PR can be 'merge', an open-source PR
- *     can be 'review'.
+ * Execute: fetch current PR/CI facts → route through F280 typed wait predicates.
+ * Collection always advances; only a matched generation creates a connector wake.
  */
 import type { CatId, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
-import type { CiCdRouter, CiPollResult } from './CiCdRouter.js';
+import type { CiCdRouter, CiPollResult, CiRouteResult } from './CiCdRouter.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
 import { fetchPrCiStatus } from './ci-status-fetcher.js';
 
@@ -39,8 +33,80 @@ export interface CiCdCheckTaskSpecOptions {
     warn: (...args: unknown[]) => void;
   };
   readonly pollIntervalMs?: number;
+  /**
+   * F168 external-case collection outlives one F280 wait generation. A done
+   * wait remains collectable only when the canonical external-review policy
+   * says this PR still has an open maintainer-review lifecycle.
+   */
+  readonly continueDoneTracking?: (repoFullName: string, prNumber: number) => Promise<boolean>;
   /** F202-2B: Override task ID for plugin-scoped schedule instances */
   readonly id?: string;
+  /**
+   * Filter self-merges: if the GitHub login that merged the PR matches our own
+   * authenticated identity, skip the lifecycle wake (the merger already knows).
+   * Reuses the same self-login resolver as review feedback echo filtering.
+   */
+  readonly isSelfMerge?: (mergedByLogin: string) => boolean;
+}
+
+/**
+ * PR terminal state (merged/closed) consumes any active wait exactly once.
+ * Fires exactly once in production: CiCdRouter persists ci.prState and the gate filters completed lifecycle tasks.
+ */
+function triggerLifecycleWake(
+  opts: CiCdCheckTaskSpecOptions,
+  invokeTrigger: ConnectorInvokeTrigger,
+  signal: CiCdCheckSignal,
+  routeResult: Extract<CiRouteResult, { kind: 'lifecycle' }>,
+): void {
+  const policy: ConnectorTriggerPolicy = {
+    priority: 'normal',
+    reason: routeResult.prState === 'merged' ? 'github_pr_merged' : 'github_pr_closed',
+    sourceCategory: 'ci',
+  };
+  void invokeTrigger
+    .trigger(
+      routeResult.threadId,
+      routeResult.catId as CatId,
+      signal.task.userId ?? '',
+      routeResult.content,
+      routeResult.messageId,
+      undefined,
+      policy,
+    )
+    .catch((err) => opts.log.warn({ err }, '[cicd-check] lifecycle trigger failed (best-effort)'));
+  opts.log.info(`[cicd-check] PR ${routeResult.prState} -> wake ${routeResult.catId} (terminal lifecycle)`);
+}
+
+function needsCiLifecycleRecovery(task: TaskItem): boolean {
+  const reviewTerminalState = task.automationState?.review?.prState;
+  const ciTerminalState = task.automationState?.ci?.prState;
+  const terminalEffects = task.automationState?.ci?.terminalEffects;
+  const worldTruthPending =
+    (ciTerminalState === 'merged' || ciTerminalState === 'closed') &&
+    (terminalEffects?.prState !== ciTerminalState || terminalEffects.completedAt === undefined);
+  return (
+    task.status === 'done' &&
+    (worldTruthPending || ((reviewTerminalState === 'merged' || reviewTerminalState === 'closed') && !ciTerminalState))
+  );
+}
+
+async function shouldCollectTask(
+  opts: CiCdCheckTaskSpecOptions,
+  task: TaskItem,
+  repoFullName: string,
+  prNumber: number,
+  subjectKey: string,
+): Promise<boolean> {
+  if (task.automationState?.ci?.enabled === false) return false;
+  if (task.status !== 'done' || needsCiLifecycleRecovery(task)) return true;
+  if (!opts.continueDoneTracking) return false;
+  try {
+    return await opts.continueDoneTracking(repoFullName, prNumber);
+  } catch (error) {
+    opts.log.warn({ error, subjectKey }, '[F168] external-review CI continuation check failed; deferring collection');
+    return false;
+  }
 }
 
 export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpec_P1<CiCdCheckSignal> {
@@ -52,21 +118,20 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
     trigger: { type: 'interval', ms: opts.pollIntervalMs ?? 60_000 },
     admission: {
       async gate() {
-        // #320: Read from unified TaskStore — exclude done tasks (PR merged/closed)
+        // #320: Read from unified TaskStore — exclude done tasks after CI lifecycle is complete.
+        // Review feedback can observe terminal PR state first; keep those done tasks
+        // reachable until CiCdRouter delivers/records the CI lifecycle marker.
         const allTasks = await opts.taskStore.listByKind('pr_tracking');
-        const active = allTasks.filter((t) => t.status !== 'done' && t.automationState?.ci?.enabled !== false);
-
-        if (active.length === 0) {
-          return { run: false, reason: 'no active tracked PRs' };
-        }
-
         const workItems: { signal: CiCdCheckSignal; subjectKey: string }[] = [];
-        for (const task of active) {
-          const parsed = task.subjectKey ? parsePrSubjectKey(task.subjectKey) : null;
+        for (const task of allTasks) {
+          const subjectKey = task.subjectKey;
+          if (!subjectKey) continue;
+          const parsed = parsePrSubjectKey(subjectKey);
           if (!parsed) continue;
+          if (!(await shouldCollectTask(opts, task, parsed.repoFullName, parsed.prNumber, subjectKey))) continue;
           workItems.push({
             signal: { task, repoFullName: parsed.repoFullName, prNumber: parsed.prNumber },
-            subjectKey: task.subjectKey!,
+            subjectKey,
           });
         }
 
@@ -85,7 +150,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         if (!pollResult) return;
 
         const routeResult = await opts.cicdRouter.route(pollResult);
-        if (routeResult.kind !== 'notified' || !opts.invokeTrigger) return;
+        if (!opts.invokeTrigger) return;
 
         const intent = signal.task.automationState?.intent ?? 'review';
 
@@ -126,8 +191,8 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
         }
 
         const policy: ConnectorTriggerPolicy = {
-          priority: 'normal',
-          reason: 'github_ci_pass',
+          priority: routeResult.bucket === 'fail' ? 'urgent' : 'normal',
+          reason: 'github_wait_satisfied',
           sourceCategory: 'ci',
           suggestedSkill: 'merge-gate',
           eventDrivenExternalWaitCoverage: true,
@@ -142,8 +207,8 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
             undefined,
             policy,
           )
-          .catch((err) => opts.log.warn({ err }, '[cicd-check] merge-gate trigger failed (best-effort)'));
-        opts.log.info(`[cicd-check] CI pass → wake ${routeResult.catId} (intent=merge → merge-gate)`);
+          .catch((err) => opts.log.warn({ err }, '[cicd-check] wait trigger failed (best-effort)'));
+        opts.log.info(`[cicd-check] Typed wait satisfied → wake ${routeResult.catId}`);
       },
     },
     state: { runLedger: 'sqlite' },

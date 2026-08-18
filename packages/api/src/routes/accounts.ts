@@ -18,7 +18,7 @@ import { deleteCredential, hasCredential, writeCredential } from '../config/cred
 
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
-import { validateProjectPath } from '../utils/project-path.js';
+import { redirectRuntimeProjectPath, resolvePersistentProjectPathDetailed } from '../utils/persistent-project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 // clowder-ai#340: Derive client identity from well-known account IDs, not stored protocol.
@@ -54,6 +54,9 @@ function accountToView(id: string, account: AccountConfig, apiKeyPresent: boolea
     ...(clientId ? { clientId } : {}),
     ...(account.baseUrl ? { baseUrl: account.baseUrl } : {}),
     models: account.models ? [...account.models] : [],
+    ...(account.modelAliases && Object.keys(account.modelAliases).length > 0
+      ? { modelAliases: { ...account.modelAliases } }
+      : {}),
     hasApiKey: apiKeyPresent,
     mode: account.authType === 'api_key' ? ('api_key' as const) : ('subscription' as const),
     ...(account.envVars && Object.keys(account.envVars).length > 0 ? { envVars: { ...account.envVars } } : {}),
@@ -122,6 +125,27 @@ const envVarsSchema = z
     }
     return Object.keys(filtered).length > 0 ? filtered : undefined;
   });
+const modelAliasKeySchema = z.string().refine((key) => key.trim().length > 0, 'model alias key cannot be blank');
+const modelAliasesSchema = z
+  .record(modelAliasKeySchema, z.string().trim().min(1))
+  .superRefine((aliases, ctx) => {
+    const normalizedKeys = new Set<string>();
+    for (const key of Object.keys(aliases)) {
+      const normalizedKey = key.trim();
+      if (normalizedKeys.has(normalizedKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: 'model alias keys must be unique after trimming',
+        });
+      }
+      normalizedKeys.add(normalizedKey);
+    }
+  })
+  .transform((aliases) =>
+    Object.fromEntries(Object.entries(aliases).map(([key, upstreamId]) => [key.trim(), upstreamId])),
+  )
+  .optional();
 
 const authTypeEnum = z.enum(['oauth', 'api_key']);
 const modeEnum = z.enum(['subscription', 'api_key']);
@@ -155,6 +179,7 @@ const createBodySchema = z
           .pipe(z.string().min(1)),
       )
       .optional(),
+    modelAliases: modelAliasesSchema,
     /** F171: User-defined env vars injected into agent subprocess. */
     envVars: envVarsSchema,
   })
@@ -189,6 +214,7 @@ const updateBodySchema = z.object({
         .pipe(z.string().min(1)),
     )
     .optional(),
+  modelAliases: modelAliasesSchema,
   /** F171: User-defined env vars injected into agent subprocess. */
   envVars: envVarsSchema,
 });
@@ -199,9 +225,12 @@ const deleteBodySchema = z.object({
 });
 
 async function resolveProjectRoot(projectPath?: string): Promise<string | null> {
-  if (!projectPath) return resolveActiveProjectRoot();
-  const validated = await validateProjectPath(projectPath);
-  if (validated) return validated;
+  if (!projectPath) return redirectRuntimeProjectPath(resolveActiveProjectRoot());
+  const persistent = await resolvePersistentProjectPathDetailed(projectPath);
+  if (persistent.ok) return persistent.path;
+  if (['runtime_root_invalid', 'runtime_workspace_missing', 'runtime_target_unmappable'].includes(persistent.reason)) {
+    return null;
+  }
 
   // Workspace project switcher can provide sibling repo paths (outside homedir/tmp allowlist).
   // Allow paths under current workspace root while keeping realpath boundary checks.
@@ -276,6 +305,7 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
         ...(body.clientId ? { clientId: body.clientId } : {}),
         ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}),
         ...(body.models ? { models: body.models } : {}),
+        ...(body.modelAliases && Object.keys(body.modelAliases).length > 0 ? { modelAliases: body.modelAliases } : {}),
         ...((body.displayName ?? body.name) ? { displayName: body.displayName ?? body.name } : {}),
         ...(body.envVars && Object.keys(body.envVars).length > 0 ? { envVars: body.envVars } : {}),
       };
@@ -345,6 +375,13 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
           ? { models: parsed.data.models }
           : existing.models
             ? { models: [...existing.models] }
+            : {}),
+        ...('modelAliases' in parsed.data
+          ? parsed.data.modelAliases && Object.keys(parsed.data.modelAliases).length > 0
+            ? { modelAliases: parsed.data.modelAliases }
+            : {}
+          : existing.modelAliases && Object.keys(existing.modelAliases).length > 0
+            ? { modelAliases: { ...existing.modelAliases } }
             : {}),
         ...('envVars' in parsed.data
           ? parsed.data.envVars && Object.keys(parsed.data.envVars).length > 0

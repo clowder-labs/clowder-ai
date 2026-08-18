@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-13-eval-a2a-subthreshold-c2-regression-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-13-eval-F167-runtime.yaml",
+      "sha256": "a5906f47c816fa30aa774c6dd3905af2b41bc5432da5b18c5d680d80eb8a2ce6"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-13-eval-F167-attribution.yaml",
+      "sha256": "5791c35270ff9e2a6dabdd7673e04837ceaba596072b85e26a8495423a1939f2"
+    }
+  ],
+  "generatedAt": "2026-07-13T03:01:44.714Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

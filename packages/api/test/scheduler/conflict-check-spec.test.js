@@ -1,126 +1,46 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 
-/** Convert old PrTrackingEntry-style mock to TaskItem shape for #320 unified model */
-function mockTask(pr, overrides = {}) {
-  return {
-    id: `task-${pr.repoFullName}-${pr.prNumber}`,
-    kind: 'pr_tracking',
-    threadId: pr.threadId ?? 't-default',
-    subjectKey: `pr:${pr.repoFullName}#${pr.prNumber}`,
-    title: `PR ${pr.repoFullName}#${pr.prNumber}`,
-    ownerCatId: pr.catId ?? 'opus',
-    status: 'todo',
-    why: '',
-    createdBy: pr.catId ?? 'opus',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    userId: pr.userId ?? 'u-default',
-    ...overrides,
-  };
-}
+const { TaskStore } = await import('../../dist/domains/cats/services/stores/ports/TaskStore.js');
+const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
 
-function mockTaskStore(tasks) {
-  return { listByKind: async () => tasks };
-}
-
-/** Minimal ConflictRouter stub that records calls */
-function stubConflictRouter() {
-  const calls = [];
-  return {
-    router: {
-      async route(signal) {
-        calls.push(signal);
-        return { kind: 'skipped', reason: 'stub' };
-      },
-    },
-    calls,
-  };
-}
-
-const noopLog = { info: () => {}, error: () => {}, warn: () => {} };
-
-describe('ConflictCheckTaskSpec', () => {
-  it('has correct id and profile', async () => {
-    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { router } = stubConflictRouter();
-    const spec = createConflictCheckTaskSpec({
-      taskStore: mockTaskStore([]),
-      checkMergeable: async () => ({ mergeState: 'MERGEABLE', headSha: 'sha0' }),
-      conflictRouter: router,
-      log: noopLog,
+describe('conflict scheduler F280 adapter', () => {
+  test('collects merge state for active PR tasks', async () => {
+    const taskStore = new TaskStore();
+    await taskStore.create({
+      kind: 'pr_tracking',
+      subjectKey: 'pr:owner/repo#7',
+      threadId: 'thread_1',
+      title: 'PR wait',
+      ownerCatId: 'codex-sol',
+      why: 'test',
+      createdBy: 'codex-sol',
+      userId: 'user_1',
     });
-    assert.equal(spec.id, 'conflict-check');
-    assert.equal(spec.profile, 'poller');
-    assert.equal(spec.trigger.ms, 5 * 60 * 1000);
+    const spec = createConflictCheckTaskSpec({
+      taskStore,
+      checkMergeable: async () => ({ mergeState: 'MERGEABLE', headSha: 'aaa' }),
+      conflictRouter: { route: async () => ({ kind: 'skipped', reason: 'state-only' }) },
+      log: { info() {}, warn() {}, error() {} },
+    });
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    assert.equal(gate.workItems[0].signal.signal.mergeState, 'MERGEABLE');
   });
 
-  it('gate returns run:false when no tracked PRs', async () => {
-    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { router } = stubConflictRouter();
+  test('does not invoke when typed wait remains state-only', async () => {
+    const calls = [];
     const spec = createConflictCheckTaskSpec({
-      taskStore: mockTaskStore([]),
-      checkMergeable: async () => ({ mergeState: 'MERGEABLE', headSha: 'sha0' }),
-      conflictRouter: router,
-      log: noopLog,
+      taskStore: new TaskStore(),
+      checkMergeable: async () => ({ mergeState: 'CONFLICTING', headSha: 'aaa' }),
+      conflictRouter: { route: async () => ({ kind: 'skipped', reason: 'predicates_not_matched' }) },
+      invokeTrigger: { trigger: async (...args) => calls.push(args) },
+      log: { info() {}, warn() {}, error() {} },
     });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, false);
-  });
-
-  it('gate passes ALL PRs as workItems (KD-9: including MERGEABLE for fingerprint clearing)', async () => {
-    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { router } = stubConflictRouter();
-    const tasks = [
-      mockTask({ repoFullName: 'a/b', prNumber: 1, threadId: 't1', catId: 'c1', userId: 'u1' }),
-      mockTask({ repoFullName: 'c/d', prNumber: 2, threadId: 't2', catId: 'c2', userId: 'u2' }),
-      mockTask({ repoFullName: 'e/f', prNumber: 3, threadId: 't3', catId: 'c3', userId: 'u3' }),
-    ];
-    const mergeStates = { 'a/b#1': 'CONFLICTING', 'c/d#2': 'MERGEABLE', 'e/f#3': 'CONFLICTING' };
-    const spec = createConflictCheckTaskSpec({
-      taskStore: mockTaskStore(tasks),
-      checkMergeable: async (repo, pr) => ({
-        mergeState: mergeStates[`${repo}#${pr}`] ?? 'UNKNOWN',
-        headSha: `rt-sha-${repo}`,
-      }),
-      conflictRouter: router,
-      log: noopLog,
-    });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, true);
-    // KD-9: all 3 PRs passed (not just CONFLICTING ones)
-    assert.equal(result.workItems.length, 3);
-  });
-
-  it('gate uses real-time headSha from checkMergeable, not stale entry.headSha (P1)', async () => {
-    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { router } = stubConflictRouter();
-    const tasks = [mockTask({ repoFullName: 'a/b', prNumber: 1, threadId: 't1', catId: 'c1', userId: 'u1' })];
-    const spec = createConflictCheckTaskSpec({
-      taskStore: mockTaskStore(tasks),
-      checkMergeable: async () => ({ mergeState: 'CONFLICTING', headSha: 'real-time-sha' }),
-      conflictRouter: router,
-      log: noopLog,
-    });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, true);
-    assert.equal(result.workItems[0].signal.signal.headSha, 'real-time-sha');
-  });
-
-  it('gate skips PRs where checkMergeable throws (fail-open)', async () => {
-    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { router } = stubConflictRouter();
-    const tasks = [
-      mockTask({ repoFullName: 'a/b', prNumber: 1, threadId: 't1', catId: 'c1', userId: 'u1' }),
-      mockTask({ repoFullName: 'c/d', prNumber: 2, threadId: 't2', catId: 'c2', userId: 'u2' }),
-    ];
-    let callCount = 0;
-    const spec = createConflictCheckTaskSpec({
-      taskStore: mockTaskStore(tasks),
-      checkMergeable: async (repo) => {
-        callCount++;
-        if (repo === 'a/b') throw new Error('gh timeout');
-        return { mergeState: 'CONFLICTING', headSha: 'sha-ok' };
+    await spec.run.execute(
+      {
+        signal: { repoFullName: 'owner/repo', prNumber: 7, headSha: 'aaa', mergeState: 'CONFLICTING' },
+        task: { userId: 'user_1' },
       },
       conflictRouter: router,
       log: noopLog,

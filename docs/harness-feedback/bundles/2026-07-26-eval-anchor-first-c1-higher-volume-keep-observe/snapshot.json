@@ -1,0 +1,39 @@
+{
+  "verdictId": "2026-07-26-eval-anchor-first-c1-higher-volume-keep-observe",
+  "evalSnapshotId": "eval-F236-2026-07-26",
+  "featureId": "F236",
+  "generatedAt": "2026-07-26T03:01:28.857Z",
+  "window": {
+    "startMs": 1784948442163,
+    "endMs": 1785034842163,
+    "durationHours": 24
+  },
+  "components": [
+    {
+      "id": "anchor-telemetry-rollup",
+      "name": "anchor-first preview/drill open-rate rollup",
+      "confidence": "medium",
+      "activationCounts": {
+        "orphan_drills": 0,
+        "adoption_explicit_anchor_calls": 0,
+        "adoption_explicit_full_calls": 1,
+        "adoption_default_anchor_calls": 0,
+        "adoption_default_full_calls": 0,
+        "adoption_legacy_equivalent_anchor_calls": 3,
+        "adoption_legacy_equivalent_full_calls": 0,
+        "adoption_unique_cats_explicit_anchor": 0,
+        "adoption_unknown_mode_calls": 0,
+        "list-tasks_preview_responses": 3,
+        "list-tasks_previewed_items": 10,
+        "list-tasks_drills": 0,
+        "list-tasks_drilled_unique_items": 0,
+        "list-tasks_returned_chars": 2461,
+        "list-tasks_original_chars": 2876,
+        "list-tasks_chars_saved": 415,
+        "list-tasks_drill_chars": 0,
+        "list-tasks_net_benefit": 415
+      },
+      "frictionCounts": {}
+    }
+  ]
+}

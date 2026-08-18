@@ -1,5 +1,6 @@
 ---
 name: rich-messaging
+tips_exempt: file kind docs sync only — existing capability-rich-messaging tip covers the skill; sourceRef stays at wakeup-index
 description: >
   富媒体消息发送：语音、图片、卡片、清单、代码 diff、交互选择。
   Use when: 发语音、发图、发卡片、展示结构化信息、长结构化汇报、想发一堆文字/日志/步骤、庆祝、给我听听、给我看看、让用户选、确认操作。
@@ -52,7 +53,7 @@ triggers:
 
 当你想发一堆文字、日志、步骤，或回复已经有 3+ 结构化信号（列表、表格、代码块、diff、状态字段、行动项）时，默认用 1-2 句自然语言摘要 + `cat_cafe_create_rich_block`。纯长 Markdown 只在 rich block 不适合或工具不可用时使用，并说明原因。
 
-## 七种 Rich Block 一览
+## 八种 Rich Block 一览
 
 | Kind | 什么时候用 | 关键字段 |
 |------|-----------|---------|
@@ -60,6 +61,7 @@ triggers:
 | **card** | 状态报告、决策摘要、review 结论 | `title` + `tone` |
 | **checklist** | 待办、验证步骤、行动项 | `items` |
 | **diff** | 代码修改建议、重构对比 | `filePath` + `diff` |
+| **file** | 发送已有文件、文档、音视频成片；`video/*` 可内联播放 | `url` + `fileName` |
 | **media_gallery** | 发送已有图片（头像、照片）、截图、设计稿、多图对比 | `items` (url) |
 | **interactive** | 让用户选方案、勾选项、确认操作 | `interactiveType` + `options` (id+label) |
 | **html_widget** | 你写的 HTML 直接挂上去：图表、计算器、CSS 动画、数据面板 | `html`（完整 HTML/JS/CSS 代码字符串） |
@@ -90,6 +92,12 @@ triggers:
 {"id": "d1", "kind": "diff", "v": 1, "filePath": "src/foo.ts", "diff": "- old line\n+ new line", "languageHint": "typescript"}
 ```
 
+### 文件（file）
+
+```json
+{"id": "f1", "kind": "file", "v": 1, "url": "/uploads/final-cut.mp4", "fileName": "final-cut.mp4", "mimeType": "video/mp4"}
+```
+
 ### 图片画廊（media_gallery）
 
 ```json
@@ -103,7 +111,7 @@ triggers:
 ```
 
 4 种 interactiveType：`select`（单选）、`multi-select`（多选）、`card-grid`（卡片网格）、`confirm`（确认/取消）。
-用户选择后 block 自动 disabled + 结果持久化。详见 `refs/rich-blocks.md`。
+用户选择后 block 自动 disabled + 结果持久化。详见 `../.cat-cafe-shared-refs/rich-blocks.md`。
 
 ### 内联 HTML Widget（html_widget）
 
@@ -115,6 +123,21 @@ operator拍板："简单的用富文本，复杂的用猫主动打开浏览器�
 - 用 sandboxed iframe `srcdoc` 渲染，**禁止** `allow-same-origin`（比 browser panel 更严格）
 - 适合：Chart.js 图表、CSS 动画、计算器等纯前端组件
 - 不适合：需要网络请求、需要访问外部资源的复杂应用（那些用 `browser-preview` skill）
+
+#### 内联 `on*` 会被剥掉
+
+DOMPurify 静默剥掉所有 `on*` 属性——widget 照常渲染，点击不生效，不报错。`<script>` 保留，从里面绑事件：
+
+```html
+<!-- 不行：onclick 被剥掉 -->
+<button onclick="show()">点我</button>
+
+<!-- 可以：从 <script> 绑 -->
+<button id="btn">点我</button>
+<script>document.getElementById('btn').addEventListener('click', e => e.target.textContent = '点了')</script>
+```
+
+轻交互用 `<details><summary>` 或 CSS `:hover`，不用 JS。
 
 ## 发送方式
 
@@ -132,6 +155,13 @@ operator拍板："简单的用富文本，复杂的用猫主动打开浏览器�
 
 **仅当共享合约不可用时**才手动复制到 runtime 的 uploadDir。
 
+如果你要发的是**已有文件或本地成片视频**：
+
+- 用 `kind:"file"`，不是 `media_gallery`
+- `url` 必须是 `/uploads/...`、`/api/...` 或 `https://...`
+- `mimeType` 以 `video/` 开头时，Web UI 会渲染内联 `<video>` 播放器
+- **当前自动发布合约只覆盖图片**；本地视频/通用文件没有 `publishGeneratedVideo()`，需要你先显式放到 `/uploads/...`
+
 ## 三条纪律
 
 1. **先文字后块** — 先用 `post_message` 写 1-2 句自然语言，再发 rich block
@@ -144,6 +174,7 @@ operator拍板："简单的用富文本，复杂的用猫主动打开浏览器�
 |------|------|----------|
 | 不知道自己能发语音 | operator说"发语音"你说"我是文字猫" | 你可以！用 audio block |
 | "发图"只想到 image-generation | 走 Chrome MCP 现场生成，慢且不稳定 | 先看家里有没有已有图片（`/avatars/`、`/uploads/`），有就 media_gallery 直接发 |
+| 本地成片视频只贴文件路径 | 前端拿不到，线程里也没有内联播放器 | 先把视频放到 `/uploads/...`，再用 `file` rich block；`mimeType:"video/mp4"` 时会内联播放 |
 | 本地生成图直接用 `file://` 或源码仓路径 | rich block 发得出去，但前端取不到 | 用 `publishGeneratedImage()` 发布到 `/uploads/...`（F172 共享合约自动解析 uploadDir） |
 | audio 写长段话 | 合成效果差 | 短句口语化，1-2 句 |
 | 只发 block 不写文字 | 猫猫朋友看不懂上下文 | 先写 1-2 句自然语言摘要，再发 block |
@@ -153,9 +184,9 @@ operator拍板："简单的用富文本，复杂的用猫主动打开浏览器�
 ## 和其他 skill 的区别
 
 - `request-review` / `quality-gate`：这些 skill 的**产出**可能包含 card/checklist block，但**何时用 block、怎么调**看这个 skill
-- `refs/rich-blocks.md`：更详细的字段规格参考，本 skill 是精简决策版
+- `../.cat-cafe-shared-refs/rich-blocks.md`：更详细的字段规格参考，本 skill 是精简决策版
 
 ## 参考
 
-- 完整字段规格：`refs/rich-blocks.md`
+- 完整字段规格：`../.cat-cafe-shared-refs/rich-blocks.md`
 - MCP 工具实时规则：`get_rich_block_rules`

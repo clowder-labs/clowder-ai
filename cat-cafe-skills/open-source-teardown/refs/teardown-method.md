@@ -1,6 +1,6 @@
 # Teardown Method Reference
 
-## 八个审计镜头
+## 十二个审计镜头
 
 | 镜头 | 目的 | 典型命令/动作 |
 |------|------|---------------|
@@ -13,6 +13,9 @@
 | 只读 telemetry 识别 | 防止 dashboard 被误解成治理 | 看 usage 是否被 ranking/stale 消费 |
 | Tradeoff 论证 | 防止把哲学选择误报为落后 | 写 Learn/Gap/Do Not Follow |
 | 社区情报 | 验证宣传 vs 用户实际痛点 vs 官方 roadmap | `gh issue list --search "..." --json number,title,labels,reactions` |
+| 决策边界账本 | 防止 true-but-incomplete 与跨量纲总分 | 固定 workload/时间窗，列 lifecycle cost + coupled outcomes + unknowns |
+| 输入谱系 | 防止论文、代码默认值与复现实验其实不是同一输入 | 对齐 paper/code/reproduction config、data、checkpoint、commit |
+| 原始输出核验 | 防止 best score、loss 和平均数藏住崩溃与尾部失败 | 抽 raw output/log、失败 run、per-task/per-seed 分布 |
 
 ## 常用命令
 
@@ -33,6 +36,15 @@ rg -n "reward|score|eval|benchmark|success_rate|stale|expire|last_used|rollback"
 
 # claim validation
 rg -n "{claim-keyword}" .
+
+# experiment inputs and released artifacts
+rg -n "dataset|split|seed|checkpoint|base_model|learning_rate|batch_size|config" .
+git diff {paper-or-release-config} {reproduction-config}
+
+# raw outputs, failures, and tails
+find . -type f \( -name "*.log" -o -name "*result*" -o -name "*output*" \) \
+  -not -path "*/node_modules/*" -not -path "*/.git/*"
+rg -n "fail|error|nan|diverge|timeout|crash|seed|per_task" {artifact-paths}
 
 # community signals
 gh issue list --limit 50 --search "{keyword} sort:reactions-+1-desc" --json number,title,labels,reactions,state
@@ -175,3 +187,21 @@ Examples:
 - `tests failed -> reward -> model weights update -> next rollout changes`: real training loop.
 - `tool calls >= 10 -> LLM review -> SKILL.md patch -> future skill_view changes`: procedural memory loop, but quality is not proven.
 - `last_used_at displayed -> no consumer`: telemetry, not lifecycle governance.
+
+## Performance / Cost Decision Ledger
+
+不要追求不存在的“完整世界账本”，而要冻结当前决定的坐标系：
+
+```text
+workload + provider/model/version + comparator + time horizon
+  -> measured construct + numerator/denominator/exclusions
+  -> ingest/extract + query/retrieval + generation + cache + maintenance/human
+  -> quality + coverage + latency + reliability + privacy/risk
+  -> unknowns + source verdict + decision fit
+```
+
+规则：
+
+- benchmark 分数只证明其测量构念内的结果；迁移到产品决策要另判 `decision fit`。
+- cache 命中/写入/失效读取 provider usage；没有 usage 就保留 `unknown`。
+- 不同量纲保留为向量或约束；没有显式权重、单位换算和决策场景，不生成总分。

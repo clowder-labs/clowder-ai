@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-15-eval-a2a-subthreshold-multi-signal-drift-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-15-eval-F167-runtime.yaml",
+      "sha256": "5d6ab74b7e5279deb8ed23ec49f9e1b43d6b413e57e1edeb3f01346e47ec8024"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-15-eval-F167-attribution.yaml",
+      "sha256": "a1838976b5fced35b5f6f1b81bfa91c06da145e254582e46a57bde089e890e97"
+    }
+  ],
+  "generatedAt": "2026-07-15T03:02:44.538Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

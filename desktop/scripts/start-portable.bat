@@ -28,9 +28,8 @@ if not exist "%APPDIR%\.env" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%APPDIR%\scripts\post-install-offline.ps1" -AppDir "%APPDIR%" -AgentHooksOnly
     echo.
 
-    rem Step 3: Generate desktop-config.json (records installed components)
-    rem Portable mode: no CLI components pre-selected (omit switch = false)
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "& '%APPDIR%\scripts\generate-desktop-config.ps1' -AppDir '%APPDIR%'"
+    rem Step 3: Generate desktop-config.json (version resolves from package.json)
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "& '%APPDIR%\scripts\generate-desktop-config.ps1' -AppDir '%APPDIR%' -InstallType 'portable'"
     echo.
 
     if errorlevel 1 (

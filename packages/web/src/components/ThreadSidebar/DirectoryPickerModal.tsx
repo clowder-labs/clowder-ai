@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CompactLabel } from '@/components/content-overflow';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 import { CatSelector } from './CatSelector';
 import { DirectoryBrowser } from './DirectoryBrowser';
-import { projectDisplayName } from './thread-utils';
+import { ProjectOption } from './ProjectOption';
 
 /** F33: Session binding passed alongside thread creation */
 export interface SessionBinding {
@@ -52,8 +53,12 @@ export function DirectoryPickerModal({
   // F068-R7: Two-step flow — select project first, then confirm
   // 'lobby' sentinel means user explicitly chose "大厅 (无项目)"
   const [selectedPath, setSelectedPath] = useState<string | 'lobby' | null>(null);
+  // Null can mean "no concrete directory is selectable right now" (virtual root),
+  // so async default initializers need a separate guard for explicit selection.
+  const selectionTouchedRef = useRef(false);
   // P2 fix: clear stale pathError whenever user selects a project
   const handleSelectPath = useCallback((path: string | 'lobby') => {
+    selectionTouchedRef.current = true;
     setPathError(null);
     setSelectedPath(path);
   }, []);
@@ -121,6 +126,12 @@ export function DirectoryPickerModal({
     [handleSelectPath],
   );
 
+  const handleBrowserVirtualLocationChange = useCallback(() => {
+    selectionTouchedRef.current = true;
+    setPathError(null);
+    setSelectedPath(null);
+  }, []);
+
   // F068: Submit path from text input — validate via browse endpoint before accepting
   const handlePathSubmit = useCallback(async () => {
     const trimmed = pathInput.trim();
@@ -151,13 +162,17 @@ export function DirectoryPickerModal({
         if (res.ok) {
           const data = await res.json();
           setCwdPath(data.path);
-          setSelectedPath((prev) => prev ?? data.path);
+          if (!selectionTouchedRef.current) {
+            setSelectedPath(data.path);
+          }
           return;
         }
       } catch {
         // cwd unavailable — fall through to existingProjects fallback
       }
-      setSelectedPath((prev) => prev ?? (existingProjects.length > 0 ? existingProjects[0] : null));
+      if (!selectionTouchedRef.current) {
+        setSelectedPath(existingProjects.length > 0 ? existingProjects[0] : null);
+      }
     })();
   }, [existingProjects]);
 
@@ -235,19 +250,12 @@ export function DirectoryPickerModal({
           <div className="text-micro text-cafe-muted font-medium mb-1">选择项目</div>
 
           {cwdPath && !existingProjects.includes(cwdPath) && (
-            <button
-              type="button"
-              onClick={() => handleSelectPath(cwdPath)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-cafe-secondary hover:bg-cafe-surface rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-cafe-accent bg-cafe-surface' : ''}`}
-              title={cwdPath}
-            >
-              <FolderIcon />
-              <div className="min-w-0 flex-1">
-                <span className="font-medium block truncate">{projectDisplayName(cwdPath)}</span>
-                <span className="text-micro text-cafe-muted block truncate">{cwdPath}</span>
-              </div>
-              <span className="text-micro text-cafe-accent flex-shrink-0">推荐</span>
-            </button>
+            <ProjectOption
+              path={cwdPath}
+              selected={selectedPath === cwdPath}
+              onSelect={() => handleSelectPath(cwdPath)}
+              badge="推荐"
+            />
           )}
 
           {/* Browsed path not in existing list — show as highlighted entry (pinned to top) */}
@@ -255,35 +263,16 @@ export function DirectoryPickerModal({
             selectedPath !== 'lobby' &&
             selectedPath !== cwdPath &&
             !existingProjects.includes(selectedPath) && (
-              <button
-                type="button"
-                onClick={() => handleSelectPath(selectedPath)}
-                className="w-full text-left px-3 py-2.5 text-sm text-cafe-secondary hover:bg-cafe-surface rounded-lg transition-colors flex items-center gap-2 ring-2 ring-cafe-accent bg-cafe-surface"
-                title={selectedPath}
-              >
-                <FolderIcon />
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium block truncate">{projectDisplayName(selectedPath)}</span>
-                  <span className="text-micro text-cafe-muted block truncate">{selectedPath}</span>
-                </div>
-                <span className="text-micro text-cafe-accent flex-shrink-0">已选</span>
-              </button>
+              <ProjectOption path={selectedPath} selected onSelect={() => handleSelectPath(selectedPath)} />
             )}
 
           {existingProjects.map((path) => (
-            <button
-              type="button"
+            <ProjectOption
               key={path}
-              onClick={() => handleSelectPath(path)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-cafe-secondary hover:bg-cafe-surface rounded-lg transition-colors flex items-center gap-2 ${selectedPath === path ? 'ring-2 ring-cafe-accent bg-cafe-surface' : ''}`}
-              title={path}
-            >
-              <FolderIcon />
-              <div className="min-w-0 flex-1">
-                <span className="font-medium block truncate">{projectDisplayName(path)}</span>
-                <span className="text-micro text-cafe-muted block truncate">{path}</span>
-              </div>
-            </button>
+              path={path}
+              selected={selectedPath === path}
+              onSelect={() => handleSelectPath(path)}
+            />
           ))}
 
           <button
@@ -381,15 +370,17 @@ export function DirectoryPickerModal({
                       const label = cat ? formatCatName(cat) : catId;
                       return (
                         <div key={catId} className="flex items-center gap-2">
-                          <span className="text-xs text-cafe-secondary w-16 truncate flex-shrink-0" title={label}>
-                            {label}
-                          </span>
+                          <CompactLabel
+                            label="猫猫名称"
+                            value={label}
+                            className="min-w-0 flex-[0_1_12rem] text-xs text-cafe-secondary"
+                          />
                           <input
                             value={sessionInputs[catId] ?? ''}
                             onChange={(e) => setSessionInputs((prev) => ({ ...prev, [catId]: e.target.value }))}
                             placeholder="CLI Session ID"
                             maxLength={500}
-                            className="flex-1 text-xs font-mono px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cafe-accent"
+                            className="min-w-0 flex-1 text-xs font-mono px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cafe-accent"
                           />
                         </div>
                       );
@@ -408,6 +399,7 @@ export function DirectoryPickerModal({
               initialPath={browserInitialPathRef.current}
               activeProjectPath={cwdPath ?? undefined}
               onCurrentPathChange={handleBrowserCurrentPathChange}
+              onVirtualLocationChange={handleBrowserVirtualLocationChange}
               onCancel={() => setBrowserOpen(false)}
             />
           </div>
@@ -460,17 +452,20 @@ export function DirectoryPickerModal({
           {pathError && <p className="text-micro text-conn-red-text">{pathError}</p>}
           {/* F068-R7: Selected path hint + confirm button */}
           <div className="flex items-center gap-2 pt-1">
-            {selectedPath && (
-              <span
-                className={`truncate flex-1 ${
+            {selectedPath === 'lobby' && (
+              <span className="flex-1 text-xs text-cafe-secondary">已选：大厅 (无项目)</span>
+            )}
+            {selectedPath && selectedPath !== 'lobby' && (
+              <div
+                className={`flex min-w-0 flex-1 items-center gap-1 ${
                   showBrowser
-                    ? 'text-xs font-medium text-cafe-accent bg-cafe-surface px-2 py-1 rounded-md'
+                    ? 'rounded-md bg-cafe-surface px-2 py-1 text-xs font-medium text-cafe-accent'
                     : 'text-xs text-cafe-secondary'
                 }`}
-                title={selectedPath === 'lobby' ? '大厅' : selectedPath}
               >
-                已选：{selectedPath === 'lobby' ? '大厅 (无项目)' : projectDisplayName(selectedPath)}
-              </span>
+                <span className="shrink-0">已选：</span>
+                <CompactLabel label="已选项目路径" value={selectedPath} className="min-w-0 flex-1" />
+              </div>
             )}
             <button
               type="button"
@@ -484,19 +479,6 @@ export function DirectoryPickerModal({
         </div>
       </div>
     </div>
-  );
-}
-
-function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
-      <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
-    </svg>
   );
 }
 

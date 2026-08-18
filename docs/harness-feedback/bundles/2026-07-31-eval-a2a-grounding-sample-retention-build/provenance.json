@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-31-eval-a2a-grounding-sample-retention-build",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-31-eval-F167-runtime.yaml",
+      "sha256": "0efb38cb0dc529bf23670b0c71bf9a375595ddca01c0f543cd0d03760cb12446"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-31-eval-F167-attribution.yaml",
+      "sha256": "5e6a798278a4a24929b06a0cbb39de9c7f3564fba6789a465ad41e485bbe351f"
+    }
+  ],
+  "generatedAt": "2026-07-31T03:13:26.879Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

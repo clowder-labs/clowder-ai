@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-07-24-eval-friction-c1-third-clean-window",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-07-24",
+  "generatedAt": "2026-07-24T03:06:35.690Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "no friction cluster surfaced in the selected window",
+    "evidence": "friction-rollup/cluster_count"
+  }
+}

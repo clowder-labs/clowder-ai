@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-22-eval-a2a-stable-post-restart-baseline-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-22-eval-F167-runtime.yaml",
+      "sha256": "d587d1d06d04ebeff68a8fa5672ee04a2d8cf91a80342ee5755c8688853b78f8"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-22-eval-F167-attribution.yaml",
+      "sha256": "e8872090df1d2c28cbf5ff61b1f5e43a1a38ae1b3ad082e6351bffe9ea9a081a"
+    }
+  ],
+  "generatedAt": "2026-07-22T03:04:12.115Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

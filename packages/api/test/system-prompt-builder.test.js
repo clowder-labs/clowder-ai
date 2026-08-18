@@ -5,6 +5,7 @@
 
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { describe, mock, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -182,6 +183,45 @@ describe('SystemPromptBuilder', () => {
     );
   });
 
+  test('F128: propose_thread guidance separates GitHub target repo from child projectPath', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    const proposeSection = prompt.match(/cat_cafe_propose_thread[\s\S]*?(?=\n- cat_cafe_|$)/);
+    assert.ok(proposeSection, 'propose_thread description must be present');
+    const desc = proposeSection[0];
+
+    assert.match(
+      desc,
+      /GitHub (target|repo|PR|issue)[\s\S]*projectPath/,
+      'propose_thread must distinguish GitHub target repo from thread projectPath',
+    );
+    assert.match(
+      desc,
+      /clowder-ai[\s\S]*cat-cafe/,
+      'clowder-ai PR review/triage guidance must point normal child threads at cat-cafe projectPath',
+    );
+    assert.match(
+      desc,
+      /(review|triage|intake)[\s\S]*(cat-cafe|家)/,
+      'normal community review/triage/intake threads must stay rooted in the home source repo',
+    );
+    assert.match(
+      desc,
+      /(review|triage|intake)[\s\S]*(绝对路径|absolute|current)/,
+      'community review/triage/intake guidance must tell cats to pass an absolute/current cat-cafe projectPath, not a repo basename',
+    );
+    assert.match(
+      desc,
+      /triage[\s\S]*none/,
+      'repo inbox / PR triage proposals must explicitly choose reportingMode none to avoid final-only triage noise',
+    );
+  });
+
   test('F128 Phase AA (AC-AA1): propose_thread reportingMode default is final-only, not none', async () => {
     // Guard test: SystemPromptBuilder's cat-facing propose_thread description must
     // align with the actual DEFAULT_REPORTING_MODE in proposal-enrich-header.ts.
@@ -199,11 +239,25 @@ describe('SystemPromptBuilder', () => {
     const desc = proposeSection[0];
     // final-only must be listed as default
     assert.ok(
-      desc.includes('final-only（默认'),
-      `propose_thread must document final-only as 默认; got: ${desc.slice(0, 200)}`,
+      desc.includes('reportingMode=final-only（默认'),
+      `propose_thread must document reportingMode=final-only as 默认; got: ${desc.slice(0, 200)}`,
+    );
+    assert.doesNotMatch(
+      desc,
+      /(^|[^A-Za-z])mode=final-only/,
+      'propose_thread must use the callback schema field reportingMode, not bare mode',
     );
     // none must NOT be labeled as default
     assert.ok(!desc.includes('none（默认'), 'propose_thread must NOT label none as 默认 (Phase AA superseded)');
+  });
+
+  test('F128: requester withdrawal is discoverable without conflating user reject', async () => {
+    const build = await getBuilder();
+    const prompt = build({ catId: 'opus', mode: 'independent', teammates: [], mcpAvailable: true });
+
+    assert.match(prompt, /cat_cafe_withdraw_thread_proposal/);
+    assert.match(prompt, /原猫撤回 pending/);
+    assert.match(prompt, /非用户 reject/);
   });
 
   test('F193 AC-B1: MCP_TOOLS_SECTION lists cat_cafe_cross_post_message with routing hint', async () => {
@@ -227,6 +281,10 @@ describe('SystemPromptBuilder', () => {
     assert.ok(
       prompt.match(/list_threads.*cross_post_message.*get_thread_context/),
       'cross_post_message description must include minimal cognitive path: list_threads → cross_post_message → get_thread_context',
+    );
+    assert.ok(
+      prompt.match(/cross_post_message[^\n]*爪感差[^\n]*sourceMessageId[^\n]*(?:F128|propose_thread)/i),
+      'cross_post_message quick index must keep paw-feel markers local and fail unresolved ownership to F128',
     );
   });
 
@@ -662,6 +720,24 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!rosterSection.includes('| 布偶猫/宪宪'), 'Opus default should not list itself');
   });
 
+  test('buildStaticIdentity roster hydrates Fable from the dossier or uses the public fallback', async () => {
+    await withFreshRuntimeRegistry(async () => {
+      const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+      const identity = buildStaticIdentity('codex');
+      const fableRow = identity
+        .split('## 队友名册')[1]
+        ?.split('\n')
+        .find((line) => line.includes('claude-fable-5'));
+
+      assert.ok(fableRow, 'codex roster should include Fable');
+      if (existsSync(CAT_DOSSIER_PATH)) {
+        assert.match(fableRow, /宪宪（他）/, 'home roster must hydrate Fable pronouns from the dossier');
+      } else {
+        assert.match(fableRow, /新猫，待校准/, 'public roster must keep the generic config fallback without a dossier');
+      }
+    });
+  });
+
   test('buildStaticIdentity roster uses teamStrengths from config', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
@@ -733,6 +809,28 @@ describe('SystemPromptBuilder', () => {
     });
   });
 
+  test('F167 Phase R: terminal cross-thread hint closes the chain instead of asking for ACK', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+      threadId: 'thread-target',
+      crossThreadReplyHint: {
+        sourceThreadId: 'thread-source',
+        senderCatId: 'codex',
+        coordination: { id: 'coord-test', phase: 'terminal', hop: 2 },
+      },
+    });
+    assert.ok(ctx.includes('coord-test'));
+    assert.ok(ctx.includes('terminal Release'));
+    assert.ok(ctx.includes('不要发送“收到/谢谢” ACK'));
+    assert.ok(ctx.includes('继续原任务'));
+    assert.ok(ctx.includes('无需 @co-creator'));
+    assert.ok(!ctx.includes('回复请用 cross_post_message'));
+  });
+
   test('buildInvocationContext returns teammates when present', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const ctx = buildInvocationContext({
@@ -755,6 +853,7 @@ describe('SystemPromptBuilder', () => {
       mode: 'independent',
       teammates: [],
       mcpAvailable: true,
+      threadId: 'thread-target',
       crossThreadReplyHint: {
         sourceThreadId: 'thread_source_full_id_12345',
         senderCatId: 'codex',

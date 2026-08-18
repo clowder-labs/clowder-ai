@@ -1,104 +1,128 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 
-/** Convert old PrTrackingEntry-style mock to TaskItem shape for #320 unified model */
-function mockTask(pr, overrides = {}) {
-  return {
-    id: `task-${pr.repoFullName}-${pr.prNumber}`,
+const { TaskStore } = await import('../../dist/domains/cats/services/stores/ports/TaskStore.js');
+const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
+
+async function trackedTask(store) {
+  return store.create({
     kind: 'pr_tracking',
-    threadId: pr.threadId ?? 't-default',
-    subjectKey: `pr:${pr.repoFullName}#${pr.prNumber}`,
-    title: `PR ${pr.repoFullName}#${pr.prNumber}`,
-    ownerCatId: pr.catId ?? 'opus',
-    status: 'todo',
-    why: '',
-    createdBy: pr.catId ?? 'opus',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    userId: pr.userId ?? 'u-default',
-    automationState: pr.ciTrackingEnabled === false ? { ci: { enabled: false } } : undefined,
-    ...overrides,
-  };
+    subjectKey: 'pr:owner/repo#7',
+    threadId: 'thread_1',
+    title: 'PR wait',
+    ownerCatId: 'codex-sol',
+    why: 'test',
+    createdBy: 'codex-sol',
+    userId: 'user_1',
+    automationState: {
+      await: {
+        v: 1,
+        generation: 1,
+        subjectRef: 'pr:owner/repo#7',
+        ownerFence: { kind: 'containing_task', generation: 1 },
+        baseline: { capturedAt: 100, headSha: 'aaa' },
+        continuation: {
+          when: [{ kind: 'pr_ci_terminal' }],
+          // biome-ignore lint/suspicious/noThenProperty: F280's frozen wait contract field.
+          then: 'continue',
+        },
+        expiresAt: 10_000,
+        createdAt: 100,
+      },
+    },
+  });
 }
 
-function mockTaskStore(tasks) {
-  return { listByKind: async () => tasks };
-}
-
-describe('CiCdCheckTaskSpec', () => {
-  it('has correct id and profile', async () => {
-    const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
+describe('CI scheduler F280 adapter', () => {
+  test('gate emits one work item per active PR wait', async () => {
+    const taskStore = new TaskStore();
+    await trackedTask(taskStore);
     const spec = createCiCdCheckTaskSpec({
-      taskStore: mockTaskStore([]),
-      cicdRouter: { route: async () => ({ kind: 'noop' }) },
-      log: { info: () => {}, error: () => {}, warn: () => {} },
+      taskStore,
+      cicdRouter: { route: async () => ({ kind: 'skipped', reason: 'state-only' }) },
+      fetchPrStatus: async () => ({
+        repoFullName: 'owner/repo',
+        prNumber: 7,
+        headSha: 'aaa',
+        prState: 'open',
+        aggregateBucket: 'pending',
+        checks: [],
+      }),
+      log: { info() {}, warn() {}, error() {} },
     });
-    assert.equal(spec.id, 'cicd-check');
-    assert.equal(spec.profile, 'poller');
-    assert.equal(spec.trigger.ms, 60_000);
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    assert.equal(gate.workItems.length, 1);
   });
 
-  it('gate returns run:false when no tracked PRs', async () => {
-    const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
+  test('gate keeps a terminal task reachable until durable world-truth effects complete', async () => {
+    const taskStore = new TaskStore();
+    const task = await trackedTask(taskStore);
+    await taskStore.update(task.id, { status: 'done' });
+    await taskStore.patchAutomationState(task.id, { ci: { prState: 'merged' } });
     const spec = createCiCdCheckTaskSpec({
-      taskStore: mockTaskStore([]),
-      cicdRouter: { route: async () => ({ kind: 'noop' }) },
-      log: { info: () => {}, error: () => {}, warn: () => {} },
+      taskStore,
+      cicdRouter: { route: async () => ({ kind: 'skipped', reason: 'state-only' }) },
+      fetchPrStatus: async () => null,
+      log: { info() {}, warn() {}, error() {} },
     });
-    const result = await spec.admission.gate({ taskId: 'cicd-check', lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, false);
+
+    assert.equal((await spec.admission.gate()).run, true);
+
+    await taskStore.patchAutomationState(task.id, {
+      ci: { terminalEffects: { prState: 'merged', completedAt: 500 } },
+    });
+    assert.equal((await spec.admission.gate()).run, false);
   });
 
-  it('gate returns run:true with per-PR workItems when PRs are tracked', async () => {
-    const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
-    const tasks = [mockTask({ repoFullName: 'a/b', prNumber: 1 }), mockTask({ repoFullName: 'c/d', prNumber: 42 })];
+  test('gate keeps a completed wait collectable while a configured external case is still open', async () => {
+    const taskStore = new TaskStore();
+    const task = await trackedTask(taskStore);
+    await taskStore.update(task.id, { status: 'done' });
+    const continuationChecks = [];
     const spec = createCiCdCheckTaskSpec({
-      taskStore: mockTaskStore(tasks),
-      cicdRouter: { route: async () => ({ kind: 'noop' }) },
-      log: { info: () => {}, error: () => {}, warn: () => {} },
+      taskStore,
+      cicdRouter: { route: async () => ({ kind: 'skipped', reason: 'state-only' }) },
+      fetchPrStatus: async () => null,
+      continueDoneTracking: async (repoFullName, prNumber) => {
+        continuationChecks.push({ repoFullName, prNumber });
+        return true;
+      },
+      log: { info() {}, warn() {}, error() {} },
     });
-    const result = await spec.admission.gate({ taskId: 'cicd-check', lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, true);
-    assert.equal(result.workItems.length, 2);
-    assert.equal(result.workItems[0].subjectKey, 'pr:a/b#1');
-    assert.equal(result.workItems[1].subjectKey, 'pr:c/d#42');
+
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    assert.equal(gate.workItems.length, 1);
+    assert.deepEqual(continuationChecks, [{ repoFullName: 'owner/repo', prNumber: 7 }]);
   });
 
-  // ── F140 Phase C 部分回退：CI pass 由 tracking 的 wake intent 分流（显式声明，不猜 approval）──
-  // intent=review（默认）→ CI pass 静默（猫等 review，pass 是噪音，只留 thread 消息）。
-  // intent=merge → CI pass 唤醒（猫等 CI 绿去 merge，pass 是动作信号 → merge-gate）。
-  // CI fail 两种 intent 都 urgent 唤醒。intent 是显式任务意图，不是 repo 类型。
-
-  /** Build a CI-pass spec over a task whose tracking intent is `intent` (undefined → field absent). */
-  function passSpec(createCiCdCheckTaskSpec, triggered, intent) {
-    const overrides = intent === undefined ? {} : { automationState: { intent } };
-    const tasks = [mockTask({ repoFullName: 'a/b', prNumber: 1, userId: 'u1' }, overrides)];
-    return createCiCdCheckTaskSpec({
-      taskStore: mockTaskStore(tasks),
+  test('only a notified typed outcome invokes the owner', async () => {
+    const taskStore = new TaskStore();
+    const task = await trackedTask(taskStore);
+    const calls = [];
+    const spec = createCiCdCheckTaskSpec({
+      taskStore,
       cicdRouter: {
         route: async () => ({
           kind: 'notified',
+          threadId: 'thread_1',
+          catId: 'codex-sol',
+          messageId: 'msg_1',
           bucket: 'pass',
-          threadId: 't1',
-          catId: 'opus',
-          messageId: 'm1',
-          content: 'CI passed',
+          content: 'compact wait',
         }),
       },
       fetchPrStatus: async () => ({
-        checks: [],
-        headSha: 'sha1',
-        prNumber: 1,
-        repoFullName: 'a/b',
+        repoFullName: 'owner/repo',
+        prNumber: 7,
+        headSha: 'aaa',
+        prState: 'open',
         aggregateBucket: 'pass',
+        checks: [],
       }),
-      invokeTrigger: {
-        trigger: (...args) => {
-          triggered.push(args);
-          return Promise.resolve();
-        },
-      },
-      log: { info: () => {}, error: () => {}, warn: () => {} },
+      invokeTrigger: { trigger: async (...args) => calls.push(args) },
+      log: { info() {}, warn() {}, error() {} },
     });
   }
 

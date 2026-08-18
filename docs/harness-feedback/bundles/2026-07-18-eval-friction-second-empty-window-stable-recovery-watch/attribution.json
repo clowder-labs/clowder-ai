@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-07-18-eval-friction-second-empty-window-stable-recovery-watch",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-07-18",
+  "generatedAt": "2026-07-18T03:01:47.175Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "no friction cluster surfaced in the selected window",
+    "evidence": "friction-rollup/cluster_count"
+  }
+}

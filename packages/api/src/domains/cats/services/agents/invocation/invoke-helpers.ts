@@ -64,6 +64,9 @@ export function classifyResumeFailure(message: string | undefined): ResumeFailur
   ) {
     return 'missing_session';
   }
+  if (/\b(session[- _]*(was[- _]*)?interrupted|already[- _]*interrupted|session[- _]*terminated)\b/i.test(message)) {
+    return 'missing_session';
+  }
   if (/CLI 异常退出 \(code:\s*(?:\d+|null)(?:,\s*signal:\s*[^)]+)?\)/i.test(message)) {
     return 'cli_exit';
   }

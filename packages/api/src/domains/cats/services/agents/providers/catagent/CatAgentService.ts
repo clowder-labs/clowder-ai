@@ -137,6 +137,20 @@ export class CatAgentService implements AgentService {
     this.adapter = createCatAgentProtocolAdapter(options.catConfig);
   }
 
+  contextCapability(): import('../../../types.js').AgentContextCapability {
+    return {
+      provider: 'catagent',
+      carrier: 'direct_api',
+      reportsRuntimeWindow: false,
+      authoritativeUsage: true,
+      usageTelemetry: 'available',
+      nativeWindowControl: false,
+      nativeCompressionControl: false,
+      observesCompression: false,
+      reason: 'Direct API loop reports per-request input usage but no runtime window',
+    };
+  }
+
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const now = Date.now();
     let model: string;
@@ -192,7 +206,7 @@ export class CatAgentService implements AgentService {
       }
 
       const result = yield* this.consumeTurn(resp, metadata, options?.signal);
-      totalUsage = mergeTokenUsage(totalUsage, result.turnUsage);
+      totalUsage = mergeObservedTurnUsage(totalUsage, result.turnUsage);
 
       if (result.hadStreamError) {
         const orphanTools = result.contentBlocks.filter((b): b is CatAgentToolCallBlock => b.type === 'tool_call');
@@ -450,6 +464,16 @@ export class CatAgentService implements AgentService {
       timestamp: now,
     };
   }
+}
+
+function mergeObservedTurnUsage(totalUsage: TokenUsage | undefined, turnUsage: TokenUsage): TokenUsage {
+  const merged = mergeTokenUsage(totalUsage, turnUsage);
+  if (turnUsage.lastTurnInputTokens == null) {
+    // A new request without input telemetry invalidates the prior contextual
+    // snapshot; aggregate inputTokens remains available for accounting.
+    delete merged.lastTurnInputTokens;
+  }
+  return merged;
 }
 
 function emitError(message: string, catId: CatId, model: string, timestamp: number): AgentMessage[] {

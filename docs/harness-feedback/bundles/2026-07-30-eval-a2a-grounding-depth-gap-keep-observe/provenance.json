@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-30-eval-a2a-grounding-depth-gap-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-30-eval-F167-runtime.yaml",
+      "sha256": "c8c6da0e3482860433dcc59ea4e76dfaed9c4a3bd5900c25bbf957add8eb179b"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-30-eval-F167-attribution.yaml",
+      "sha256": "4d19b7ddad9fdcd84160657e6a128cca711d7295bc6625478c42af40eddcb7c6"
+    }
+  ],
+  "generatedAt": "2026-07-30T03:03:53.990Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

@@ -66,7 +66,7 @@ Flow:
 
 1. read-only tool surface（前提是宿主层权限边界已复用）
 2. context compaction / microcompact 是否保留，由实测结果决定
-3. provider 内部 loop/tools/compact 只作为实现细节存在，不得反向污染 Cat Cafe 控制面
+3. provider 内部 loop/tools/compact 只作为实现细节存在，不得反向污染 Clowder AI 控制面
 
 ### Phase E: SSE Streaming + Fail-Closed Turn Handling
 

@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-21-eval-friction-third-empty-window-stable-recovery-watch",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-07-21-eval-friction-third-empty-window-stable-recovery-watch/raw/rollup-report.json",
+      "sha256": "c34df8e38ca606e7ff57bb79ee650fcff0beb6bf1b077b6a67f764374f36428e"
+    }
+  ],
+  "generatedAt": "2026-07-21T03:02:56.754Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}

@@ -1,41 +1,30 @@
-/**
- * F140: ReviewFeedbackRouter — format + deliver PR review feedback notifications.
- *
- * OQ-2: Aggregated three-section message (Review Decisions / Inline Comments / PR Conversation).
- * KD-8: PrFeedbackComment richer model (author, filePath, line, commentType).
- * KD-10: cursor commit after delivery success, trigger is best-effort.
- */
-import type { ConnectorSource } from '@cat-cafe/shared';
+import type { GitHubReviewThreadBaseline } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
+import type { GitHubWaitLifecycleService } from '../../domains/github-signals/GitHubWaitLifecycleService.js';
 import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
-import { deliverConnectorMessage } from './deliver-connector-message.js';
-import { getMaxSeverity } from './severity-parser.js';
-
-// ── Domain Types (KD-8: richer model) ──────────────────────────────
 
 export interface PrFeedbackComment {
   readonly id: number;
+  readonly reviewId?: number;
   readonly author: string;
+  readonly actorType?: string;
   readonly body: string;
   readonly createdAt: string;
   readonly commitId?: string;
   readonly commentType: 'inline' | 'conversation';
   readonly filePath?: string;
   readonly line?: number;
-  /** GitHub author_association field. Used by delivery policy to silence OWNER/MEMBER activity.
-   * Undefined when fetched via legacy paths or when association is unavailable. */
   readonly authorAssociation?: string;
 }
 
 export interface PrReviewDecision {
   readonly id: number;
   readonly author: string;
+  readonly actorType?: string;
   readonly state: 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED' | 'COMMENTED';
   readonly body: string;
   readonly submittedAt: string;
   readonly commitId?: string;
-  /** GitHub author_association field. Used by delivery policy to silence OWNER/MEMBER activity.
-   * Undefined when fetched via legacy paths or when association is unavailable. */
   readonly authorAssociation?: string;
 }
 
@@ -52,21 +41,36 @@ export interface ReviewFeedbackSignal {
   readonly routingAudit?: ReviewFeedbackRoutingAudit;
   readonly newComments: readonly PrFeedbackComment[];
   readonly newDecisions: readonly PrReviewDecision[];
+  readonly inlineCommentCursor: number;
+  readonly conversationCommentCursor: number;
+  readonly decisionCursor: number;
+  readonly reviewThreads?: readonly GitHubReviewThreadBaseline[];
+  readonly resultTriggerCommentId?: number;
+  readonly resultSourceRef?: string;
+  readonly resultConversationCommentCursor?: number;
+  readonly resultDecision?: string;
+  readonly resultReviewer?: string;
+  readonly subjectState?: 'merged' | 'closed';
 }
 
-// ── Router ─────────────────────────────────────────────────────────
-
 export type ReviewFeedbackRouteResult =
-  | { kind: 'notified'; threadId: string; catId: string; messageId: string; content: string }
-  | { kind: 'skipped'; reason: string };
+  | {
+      readonly kind: 'notified';
+      readonly threadId: string;
+      readonly catId: string;
+      readonly messageId: string;
+      readonly content: string;
+    }
+  | { readonly kind: 'skipped'; readonly reason: string };
 
 export interface ReviewFeedbackRouterOptions {
   readonly deliveryDeps: ConnectorDeliveryDeps;
+  readonly waitLifecycle: GitHubWaitLifecycleService;
   readonly log: FastifyBaseLogger;
 }
 
 export class ReviewFeedbackRouter {
-  private readonly opts: ReviewFeedbackRouterOptions;
+  constructor(private readonly opts: ReviewFeedbackRouterOptions) {}
 
   constructor(opts: ReviewFeedbackRouterOptions) {
     this.opts = opts;
@@ -106,18 +110,13 @@ export class ReviewFeedbackRouter {
       content,
       source,
     });
-
-    this.opts.log.info(
-      `[ReviewFeedbackRouter] ${signal.repoFullName}#${signal.prNumber} → ${tracking.catId} ` +
-        `(${signal.newDecisions.length} decisions, ${signal.newComments.length} comments)`,
-    );
-
+    if (result.kind !== 'notified') return { kind: 'skipped', reason: result.reason };
     return {
       kind: 'notified',
-      threadId: tracking.threadId,
-      catId: tracking.catId,
+      threadId: result.task.threadId,
+      catId: result.task.ownerCatId ?? '',
       messageId: result.messageId,
-      content,
+      content: result.content,
     };
   }
 }
@@ -222,22 +221,11 @@ function formatRoutingAudit(audit: ReviewFeedbackRoutingAudit): string[] {
         `检测到 PR tracking task 指向 auto-rotated thread \`${audit.previousThreadId}\`，已修回注册 thread \`${audit.repairedThreadId}\`。`,
         '后续 review feedback 会继续投回注册 thread。',
       ];
-    default: {
-      const _exhaustive: never = audit.kind;
-      return _exhaustive;
-    }
-  }
-}
-
-function decisionEmoji(state: PrReviewDecision['state']): string {
-  switch (state) {
-    case 'APPROVED':
-      return '✅';
-    case 'CHANGES_REQUESTED':
-      return '🔄';
-    case 'DISMISSED':
-      return '🚫';
-    case 'COMMENTED':
-      return '💬';
-  }
+  return [
+    `🔔 **PR wait candidate** — ${signal.repoFullName}#${signal.prNumber}`,
+    '',
+    ...deltas,
+    '',
+    'The typed wait predicate decides whether this becomes an owner wake.',
+  ].join('\n');
 }

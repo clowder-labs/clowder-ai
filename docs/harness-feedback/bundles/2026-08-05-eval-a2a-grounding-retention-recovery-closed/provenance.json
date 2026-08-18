@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-08-05-eval-a2a-grounding-retention-recovery-closed",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-08-05-eval-F167-runtime.yaml",
+      "sha256": "853407ca59afee6ebb59152a0e1cfb3ebb71c97d09c1fc65b01dbfcb5f131a71"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-08-05-eval-F167-attribution.yaml",
+      "sha256": "e6987dacbc3c20e9e75f7ea38dba6fa5adb314241dc7946faa10d2c36c7fc341"
+    }
+  ],
+  "generatedAt": "2026-08-05T03:01:42.682Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

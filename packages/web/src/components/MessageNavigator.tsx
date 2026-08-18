@@ -7,6 +7,7 @@ import { catColorVar } from '@/lib/cat-slug';
 import { CAT_COLORS } from '@/lib/color-defaults';
 import type { ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { scrollToMessage } from '@/utils/scrollToMessage';
+import { foldedSourceInvocationIdInTimeline } from './turn-absorption-summary';
 
 /** Maximum dots rendered on the track — prevents clutter in long conversations */
 const MAX_DOTS = 18;
@@ -14,8 +15,9 @@ const MAX_DOTS = 18;
 type CatLookup = (id: string) => CatData | undefined;
 
 // Some variants use non-hyphen catIds (e.g. gpt52/sonnet/spark/gemini25 in the runtime cat config).
-// During the brief pre-/api/cats state, the cat list may be empty,
-// so we map these variant ids to a base cat for color/name consistency.
+// During the brief pre-/api/cats state, the cat list may be empty, so we map
+// variant ids to a base color only. Identity text keeps the raw-id fallback
+// until the runtime roster can resolve the exact member.
 const VARIANT_BASE_FALLBACK: Record<string, string> = {
   gpt52: 'codex',
   spark: 'codex',
@@ -23,41 +25,29 @@ const VARIANT_BASE_FALLBACK: Record<string, string> = {
   gemini25: 'gemini',
 };
 
-const FALLBACK_CAT_META: Record<string, { label: string; color: string }> = {
-  opus: { label: '布偶猫', color: CAT_COLORS.opus.primary },
-  codex: { label: '缅因猫', color: CAT_COLORS.codex.primary },
-  gemini: { label: '暹罗猫', color: CAT_COLORS.gemini.primary },
-  kimi: { label: '梵花猫', color: CAT_COLORS.kimi.primary },
+const FALLBACK_CAT_COLORS: Record<string, string> = {
+  opus: CAT_COLORS.opus.primary,
+  codex: CAT_COLORS.codex.primary,
+  gemini: CAT_COLORS.gemini.primary,
+  kimi: CAT_COLORS.kimi.primary,
 };
 
-function resolveFallbackCatMeta(catId: string): { baseId: string; label: string; color: string } | undefined {
+function resolveFallbackCatColor(catId: string): string | undefined {
   const normalizedId = catId.toLowerCase();
-  const direct = FALLBACK_CAT_META[normalizedId];
-  if (direct) return { baseId: normalizedId, ...direct };
+  const direct = FALLBACK_CAT_COLORS[normalizedId];
+  if (direct) return direct;
 
   const base = normalizedId.split('-')[0];
-  if (base && base !== normalizedId && FALLBACK_CAT_META[base]) {
-    return { baseId: base, ...FALLBACK_CAT_META[base] };
-  }
+  if (base && base !== normalizedId && FALLBACK_CAT_COLORS[base]) return FALLBACK_CAT_COLORS[base];
 
   const mappedBase = VARIANT_BASE_FALLBACK[normalizedId];
-  if (mappedBase && FALLBACK_CAT_META[mappedBase]) {
-    return { baseId: mappedBase, ...FALLBACK_CAT_META[mappedBase] };
-  }
+  if (mappedBase && FALLBACK_CAT_COLORS[mappedBase]) return FALLBACK_CAT_COLORS[mappedBase];
 
   return undefined;
 }
 
 function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefined {
-  const normalizedId = catId.toLowerCase();
-  const direct = getCatById(normalizedId);
-  if (direct) return direct;
-  // F32-b P4: tolerate multi-variant ids (e.g. opus-45) even before /api/cats loads
-  const base = normalizedId.split('-')[0];
-  if (base && base !== normalizedId) return getCatById(base);
-  const mappedBase = VARIANT_BASE_FALLBACK[normalizedId];
-  if (mappedBase) return getCatById(mappedBase);
-  return undefined;
+  return getCatById(catId.toLowerCase());
 }
 
 function getSenderLabel(
@@ -73,13 +63,7 @@ function getSenderLabel(
   if (!isAssistant) return '系统';
   if (!catId) return '系统';
   const cat = resolveCat(catId);
-  if (!cat) {
-    const fallback = resolveFallbackCatMeta(catId);
-    if (!fallback) return catId;
-    return fallback.baseId === catId.toLowerCase() ? fallback.label : `${fallback.label}（${catId}）`;
-  }
-  const baseName = formatCatName(cat);
-  return cat.id === catId ? baseName : `${cat.displayName}（${catId}）`;
+  return cat ? formatCatName(cat) : catId;
 }
 
 function formatTime(ts: number): string {
@@ -88,6 +72,13 @@ function formatTime(ts: number): string {
 
 function truncateContent(content: string, maxLen: number): string {
   return content.length <= maxLen ? content : `${content.slice(0, maxLen)}…`;
+}
+
+export function messageNavigatorPreviewText(
+  message: ChatMessageData,
+  messages: readonly ChatMessageData[],
+): string | null {
+  return foldedSourceInvocationIdInTimeline(message, messages) ? null : truncateContent(message.content, 40);
 }
 
 interface MessageNavigatorProps {
@@ -155,14 +146,14 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
           const isOwner = msg.type === 'user' && !msg.catId;
           const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!msg.catId);
           const cat = isAssistant && msg.catId ? resolveCat(msg.catId) : undefined;
-          const fallback = isAssistant && msg.catId ? resolveFallbackCatMeta(msg.catId) : undefined;
-          const className = isOwner ? 'bg-cafe-accent' : cat || fallback ? '' : 'bg-gray-400';
+          const fallbackColor = isAssistant && msg.catId ? resolveFallbackCatColor(msg.catId) : undefined;
+          const className = isOwner ? 'bg-cafe-accent' : cat || fallbackColor ? '' : 'bg-gray-400';
           const style = isOwner
             ? undefined
             : cat
               ? { backgroundColor: catColorVar(cat.id, 'primary') }
-              : fallback
-                ? { backgroundColor: fallback.color }
+              : fallbackColor
+                ? { backgroundColor: fallbackColor }
                 : undefined;
 
           return (
@@ -182,6 +173,7 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
         {hoveredIdx !== null && sampledItems[hoveredIdx] && (
           <NavTooltip
             message={sampledItems[hoveredIdx].msg}
+            messages={messages}
             topPercent={sampledItems.length <= 1 ? 50 : (hoveredIdx / (sampledItems.length - 1)) * 100}
             ownerName={coCreator.name}
           />
@@ -193,10 +185,12 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
 
 function NavTooltip({
   message,
+  messages,
   topPercent,
   ownerName,
 }: {
   message: ChatMessageData;
+  messages: readonly ChatMessageData[];
   topPercent: number;
   ownerName: string;
 }) {
@@ -206,6 +200,7 @@ function NavTooltip({
   const senderName = useMemo(() => {
     return getSenderLabel(message, resolveCat, ownerName);
   }, [message, ownerName, resolveCat]);
+  const previewText = messageNavigatorPreviewText(message, messages);
 
   return (
     <div
@@ -215,7 +210,7 @@ function NavTooltip({
       <div className="font-medium">
         {senderName} · {formatTime(message.timestamp)}
       </div>
-      <div className="text-cafe-muted truncate mt-0.5">{truncateContent(message.content, 40)}</div>
+      {previewText ? <div className="text-cafe-muted truncate mt-0.5">{previewText}</div> : null}
     </div>
   );
 }

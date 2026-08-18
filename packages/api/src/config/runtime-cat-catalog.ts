@@ -293,7 +293,7 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
           ? { catAgentProtocol: input.catAgentProtocol }
           : {}),
         ...(input.provider ? { provider: input.provider } : {}),
-        ...(input.contextBudget ? { contextBudget: input.contextBudget } : {}),
+        ...(input.contextWindow != null ? { contextWindow: input.contextWindow } : {}),
         ...(input.voiceConfig !== undefined ? { voiceConfig: input.voiceConfig } : {}),
         ...(input.personality != null && input.personality.trim().length > 0 ? { personality: input.personality } : {}),
         ...(input.teamStrengths != null && input.teamStrengths.trim().length > 0
@@ -501,11 +501,11 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
       variant.cli = patch.cli;
     }
   }
-  if (patch.contextBudget !== undefined) {
-    if (patch.contextBudget) {
-      variant.contextBudget = patch.contextBudget;
+  if (patch.contextWindow !== undefined) {
+    if (patch.contextWindow != null) {
+      variant.contextWindow = patch.contextWindow;
     } else {
-      delete variant.contextBudget;
+      delete variant.contextWindow;
     }
   }
   if (patch.voiceConfig !== undefined) {

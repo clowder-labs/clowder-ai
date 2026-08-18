@@ -382,6 +382,7 @@ describe('SessionSealer', () => {
       assert.equal(capturedEvent.sessionId, record.id);
       assert.equal(capturedEvent.catId, 'opus');
       assert.equal(capturedEvent.threadId, 'thread-1');
+      assert.equal(capturedEvent.ownerUserId, 'user-1');
       assert.equal(capturedEvent.sealReason, 'manual');
     });
   });

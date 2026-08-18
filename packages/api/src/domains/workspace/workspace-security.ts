@@ -1,10 +1,7 @@
-import { execFile } from 'node:child_process';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
-import { promisify } from 'node:util';
 import { resolveStartupProjectRoot } from '../../utils/startup-root.js';
-
-const execFileAsync = promisify(execFile);
+import { readGitWorktreeList } from './git-worktree-probe.js';
 
 const DENYLIST_PATTERNS = [/^\.env/, /\.pem$/, /\.key$/, /^id_rsa/];
 
@@ -179,11 +176,13 @@ function worktreeIdForRoot(root: string): string {
   return basename(root).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-function isGitWorktreeUnavailableError(err: unknown): boolean {
-  const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code?: unknown }).code) : '';
-  const stderr =
-    typeof err === 'object' && err !== null && 'stderr' in err ? String((err as { stderr?: unknown }).stderr) : '';
-  return code === 'ENOENT' || (code === '128' && stderr.includes('not a git repository'));
+export async function listWorkspaceRootEntries(repoRoot?: string): Promise<WorktreeEntry[]> {
+  const [worktrees, linked] = await Promise.all([listWorktrees(repoRoot), getLinkedRootsAsync()]);
+  const entries = [...worktrees, ...linked];
+  for (const [id, root] of worktreeRegistry.entries()) {
+    entries.push({ id, root, branch: 'registered', head: 'registered' });
+  }
+  return entries;
 }
 
 function fallbackWorktreeEntry(cwd: string): WorktreeEntry {
@@ -198,13 +197,8 @@ function fallbackWorktreeEntry(cwd: string): WorktreeEntry {
 
 export async function listWorktrees(repoRoot?: string): Promise<WorktreeEntry[]> {
   const cwd = repoRoot ?? process.cwd();
-  let stdout: string;
-  try {
-    ({ stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], { cwd }));
-  } catch (err) {
-    if (isGitWorktreeUnavailableError(err)) return [fallbackWorktreeEntry(cwd)];
-    throw err;
-  }
+  const stdout = await readGitWorktreeList(cwd);
+  if (stdout === null) return [fallbackWorktreeEntry(cwd)];
   const entries: WorktreeEntry[] = [];
   let current: Partial<WorktreeEntry> = {};
 
@@ -260,17 +254,33 @@ export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Pr
  */
 export async function resolveWorktreeIdByPath(dirPath: string, repoRoot?: string): Promise<string> {
   const resolved = resolve(dirPath);
+  const canonicalResolved = await realpath(resolved).catch(() => resolved);
 
   const entries = await listWorktrees(repoRoot);
-  const entry = entries.find((e) => e.root === resolved);
+  const entry = (
+    await Promise.all(
+      entries.map(async (e) => ({
+        entry: e,
+        canonicalRoot: await realpath(e.root).catch(() => e.root),
+      })),
+    )
+  ).find(({ entry, canonicalRoot }) => entry.root === resolved || canonicalRoot === canonicalResolved)?.entry;
   if (entry) return entry.id;
 
   const linked = await getLinkedRootsAsync();
-  const linkedEntry = linked.find((r) => r.root === resolved);
+  const linkedEntry = (
+    await Promise.all(
+      linked.map(async (r) => ({
+        entry: r,
+        canonicalRoot: await realpath(r.root).catch(() => r.root),
+      })),
+    )
+  ).find(({ entry, canonicalRoot }) => entry.root === resolved || canonicalRoot === canonicalResolved)?.entry;
   if (linkedEntry) return linkedEntry.id;
 
   for (const [id, root] of worktreeRegistry.entries()) {
-    if (root === resolved) return id;
+    const canonicalRoot = await realpath(root).catch(() => root);
+    if (root === resolved || canonicalRoot === canonicalResolved) return id;
   }
 
   throw new WorkspaceSecurityError(`No worktree found for path: ${dirPath}`, 'NOT_FOUND');

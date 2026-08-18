@@ -37,20 +37,28 @@ export interface ContextBudget {
  * CLI invocation config for a variant
  */
 import type { CliEffortValue } from '../cli-effort.js';
+import type { CodexSpeedValue } from '../codex-speed.js';
 
 export interface CliConfig {
   readonly command: string; // 'claude' | 'codex' | 'agy' | ...
   readonly outputFormat: string; // 'stream-json' | 'json' | 'plainText'
   readonly defaultArgs?: readonly string[];
   /**
-   * Reasoning effort level — each CLI maps to its own flag:
-   *   claude: --effort low|medium|high|max
-   *   codex:  --config model_reasoning_effort="low|medium|high|xhigh"
-   * Default: 'max' (claude) / 'xhigh' (codex)
+   * Reasoning effort value mapped by the selected adapter to its native flag.
+   * The Hub offers maintained presets, but a non-empty provider-native value
+   * is retained exactly and validated by the provider at invocation time.
+   * Defaults: 'max' (claude) / 'xhigh' (codex).
    */
   readonly effort?: CliEffortValue;
-  readonly contextWindow?: number;
-  readonly autoCompactTokenLimit?: number;
+  /**
+   * Codex-only carrier override (F254 D2): 'exec_json' (one-shot `codex exec`)
+   * or 'app_server' (pooled app-server host). Absent = follow the process-level
+   * CAT_CAFE_CODEX_CARRIER env. Only meaningful for clientId 'openai'; the cats
+   * API rejects it for other clients.
+   */
+  readonly carrier?: 'exec_json' | 'app_server';
+  /** F291: Codex OAuth request tier. Absent inherits the Codex user config. */
+  readonly serviceTier?: CodexSpeedValue;
 }
 
 /**
@@ -106,6 +114,8 @@ export interface CatVariant {
   readonly catAgentProtocol?: CatAgentProtocol;
   /** Optional per-variant override for sessionChain; falls back to breed.features.sessionChain. */
   readonly sessionChain?: boolean;
+  /** Explicit member policy intent; takes precedence over the breed strategy. */
+  readonly sessionStrategy?: CatFeatures['sessionStrategy'];
   /** F34: Per-cat TTS voice (optional, falls back to defaults in cat-voices.ts) */
   readonly voiceConfig?: VoiceConfig;
   /** F-Ground-3: Human-readable strengths for teammate roster (overrides breed-level) */
@@ -165,6 +175,8 @@ export type MissionHubSelfClaimScope = 'disabled' | 'once' | 'thread' | 'global'
  */
 export interface CatBreed {
   readonly id: string; // 'ragdoll', 'maine-coon', 'siamese'
+  /** F231: Relationship persona projection. Defaults to this breed id when omitted. */
+  readonly relationshipKey?: string;
   readonly catId: CatId;
   readonly name: string; // '布偶猫'
   readonly displayName: string;
@@ -249,6 +261,7 @@ export interface AccountConfig {
   readonly clientFamily?: 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode';
   readonly baseUrl?: string;
   readonly models?: readonly string[];
+  readonly modelAliases?: Readonly<Record<string, string>>;
   readonly displayName?: string;
   /** F171: User-defined env vars injected into agent subprocess.
    *  Keys starting with CAT_CAFE_ are reserved and cannot be overridden. */
@@ -289,7 +302,7 @@ export interface CoCreatorConfig {
   readonly timeZone?: string;
   /** Optional co-creator avatar shown in Hub and chat surfaces. */
   readonly avatar?: string;
-  /** Optional co-creator palette for Hub/chat surfaces. */
+  /** Optional co-creator palette for Hub and chat surfaces. */
   readonly color?: CatColor;
 }
 
@@ -304,8 +317,8 @@ export interface CatCafeConfigV2 {
   readonly coCreator?: CoCreatorConfig;
   /**
    * @deprecated clowder-ai#340: Accounts moved to global ~/.cat-cafe/accounts.json.
-   * This field is only read during one-time migration (catalog → global).
-   * New code must use catalog-accounts.ts which reads the global file.
+   *  This field is only read during one-time migration (catalog → global).
+   *  New code must use catalog-accounts.ts which reads the global file.
    */
   readonly accounts?: Readonly<Record<string, AccountConfig>>;
 }

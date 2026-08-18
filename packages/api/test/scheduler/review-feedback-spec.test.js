@@ -1,230 +1,167 @@
-// @ts-check
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 
-const noopLog = { info: () => {}, error: () => {}, warn: () => {} };
+const { TaskStore } = await import('../../dist/domains/cats/services/stores/ports/TaskStore.js');
+const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
 
-/** Convert old PrTrackingEntry-style mock to TaskItem shape for #320 unified model */
-function mockTask(pr, overrides = {}) {
-  return {
-    id: `task-${pr.repoFullName}-${pr.prNumber}`,
+async function createTracked(store) {
+  return store.create({
     kind: 'pr_tracking',
-    threadId: pr.threadId ?? 't-default',
-    subjectKey: `pr:${pr.repoFullName}#${pr.prNumber}`,
-    title: `PR ${pr.repoFullName}#${pr.prNumber}`,
-    ownerCatId: pr.catId ?? 'opus',
-    status: 'todo',
-    why: '',
-    createdBy: pr.catId ?? 'opus',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    userId: pr.userId ?? 'u-default',
+    subjectKey: 'pr:owner/repo#7',
+    threadId: 'thread_1',
+    title: 'PR wait',
+    ownerCatId: 'codex-sol',
+    why: 'test',
+    createdBy: 'codex-sol',
+    userId: 'user_1',
+    automationState: {
+      review: { lastInlineCommentCursor: 10, lastConversationCommentCursor: 20, lastDecisionCursor: 30 },
+      await: {
+        v: 1,
+        generation: 1,
+        subjectRef: 'pr:owner/repo#7',
+        ownerFence: { kind: 'containing_task', generation: 1 },
+        baseline: {
+          capturedAt: 100,
+          headSha: 'aaa',
+          review: { inlineCommentCursor: 10, conversationCommentCursor: 20, decisionCursor: 30 },
+        },
+        continuation: {
+          when: [{ kind: 'pr_review_decision_changed' }],
+          // biome-ignore lint/suspicious/noThenProperty: F280's frozen wait contract field.
+          then: 'continue',
+        },
+        expiresAt: Date.now() + 60_000,
+        createdAt: 100,
+      },
+    },
+  });
+}
+
+function options(taskStore, router, overrides = {}) {
+  return {
+    taskStore,
+    fetchPrMetadata: async () => ({ headSha: 'aaa', prState: 'open' }),
+    fetchComments: async () => [],
+    fetchReviews: async () => [],
+    reviewFeedbackRouter: router,
+    log: { info() {}, warn() {}, error() {} },
     ...overrides,
   };
 }
 
-function mockTaskStore(tasks) {
-  const patchCalls = [];
-  const updateCalls = [];
-  return {
-    listByKind: async () => tasks,
-    update: async (taskId, input) => {
-      updateCalls.push({ taskId, input });
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return null;
-      return { ...task, ...input, updatedAt: Date.now() };
-    },
-    patchAutomationState: async (taskId, patch) => {
-      patchCalls.push({ taskId, patch });
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return null;
-      // Return merged copy — do NOT mutate shared mock objects
-      return {
-        ...task,
-        automationState: {
-          ...task.automationState,
-          ...patch,
-          review: patch.review ? { ...task.automationState?.review, ...patch.review } : task.automationState?.review,
-        },
-      };
-    },
-    _patchCalls: patchCalls,
-    _updateCalls: updateCalls,
-  };
-}
+describe('review scheduler F280 adapter', () => {
+  test('current facts are evaluated even when no raw source body is deliverable', async () => {
+    const taskStore = new TaskStore();
+    await createTracked(taskStore);
+    const spec = createReviewFeedbackTaskSpec(
+      options(taskStore, { route: async () => ({ kind: 'skipped', reason: 'not matched' }) }),
+    );
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    assert.equal(gate.workItems.length, 1);
+  });
 
-function stubRouter(kind = 'notified') {
-  const calls = [];
-  return {
-    router: {
-      async route(signal, tracking) {
-        calls.push({ signal, tracking });
-        if (kind === 'notified') {
-          return {
+  test('only router-confirmed typed outcome invokes with the unified reason', async () => {
+    const taskStore = new TaskStore();
+    await createTracked(taskStore);
+    const calls = [];
+    const spec = createReviewFeedbackTaskSpec(
+      options(
+        taskStore,
+        {
+          route: async () => ({
             kind: 'notified',
-            threadId: tracking.threadId,
-            catId: tracking.catId,
-            messageId: 'msg-1',
-            content: 'feedback msg',
-          };
-        }
-        return { kind: 'skipped', reason: 'stub skip' };
-      },
-    },
-    calls,
-  };
-}
-
-const mockTaskItem = mockTask({
-  repoFullName: 'owner/repo',
-  prNumber: 42,
-  catId: 'opus',
-  threadId: 'th-1',
-  userId: 'u-1',
-});
-
-describe('ReviewFeedbackTaskSpec', () => {
-  it('has correct id and profile (KD-11)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([]),
-      fetchComments: async () => [],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-    assert.equal(spec.id, 'review-feedback');
-    assert.equal(spec.profile, 'poller');
-  });
-
-  it('gate returns run:false when no tracked PRs', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([]),
-      fetchComments: async () => [],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, false);
-  });
-
-  it('gate returns workItems for PRs with new comments', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([mockTaskItem]),
-      fetchComments: async () => [
-        { id: 1, author: 'alice', body: 'hi', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, true);
-    assert.equal(result.workItems.length, 1);
-    assert.equal(result.workItems[0].signal.newComments.length, 1);
-  });
-
-  it('gate returns workItems for PRs with new review decisions', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([mockTaskItem]),
-      fetchComments: async () => [],
-      fetchReviews: async () => [{ id: 1, author: 'alice', state: 'APPROVED', body: '', submittedAt: '2026-01-01' }],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(result.run, true);
-    assert.equal(result.workItems[0].signal.newDecisions.length, 1);
-  });
-
-  it('cursor dedup: same comment ID not included twice (AC-A8)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([mockTaskItem]),
-      fetchComments: async () => [
-        { id: 1, author: 'alice', body: 'hi', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-
-    // First gate: has new comment
-    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(r1.run, true);
-    // Simulate execute → commitCursor
-    await r1.workItems[0].signal.commitCursor();
-
-    // Second gate: same comment, should be filtered out
-    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
-    assert.equal(r2.run, false);
-  });
-
-  it('cursor only advances in execute, not gate (KD-10 / LL-039)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([mockTaskItem]),
-      fetchComments: async () => [
-        { id: 1, author: 'alice', body: 'hi', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-
-    // Gate runs but we DON'T call commitCursor (simulating execute failure)
-    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(r1.run, true);
-    // Don't commit cursor
-
-    // Next gate should still see the same comment
-    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
-    assert.equal(r2.run, true);
-    assert.equal(r2.workItems[0].signal.newComments.length, 1);
-  });
-
-  it('execute delegates to router and triggers (AC-A5)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const { router, calls } = stubRouter();
-    const triggerCalls = [];
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: mockTaskStore([]),
-      fetchComments: async () => [],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      invokeTrigger: {
-        trigger(...args) {
-          triggerCalls.push(args);
+            threadId: 'thread_1',
+            catId: 'codex-sol',
+            messageId: 'msg_1',
+            content: 'compact wait',
+          }),
         },
-      },
-      log: noopLog,
-    });
-
-    let cursorCommitted = false;
-    const signal = {
-      repairedTask: mockTaskItem,
-      repoFullName: 'owner/repo',
-      prNumber: 42,
-      newComments: [{ id: 1, author: 'alice', body: 'hi', createdAt: '2026-01-01', commentType: 'conversation' }],
-      newDecisions: [],
-      commitCursor: () => {
-        cursorCommitted = true;
-      },
-    };
-    await spec.run.execute(signal, 'pr:owner/repo#42');
-
+        {
+          fetchReviews: async () => [
+            {
+              id: 31,
+              author: 'reviewer',
+              state: 'APPROVED',
+              body: 'SOURCE',
+              submittedAt: '2026-07-30T00:00:00Z',
+              commitId: 'aaa',
+            },
+          ],
+          invokeTrigger: { trigger: async (...args) => calls.push(args) },
+        },
+      ),
+    );
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    await spec.run.execute(gate.workItems[0].signal, gate.workItems[0].subjectKey, {});
     assert.equal(calls.length, 1);
-    assert.equal(cursorCommitted, true);
+    assert.equal(calls[0][6].reason, 'github_wait_satisfied');
+    assert.equal(calls[0][6].suggestedSkill, undefined);
+  });
+
+  test('plain @codex review advances the source frontier without forcing invocation', async () => {
+    const taskStore = new TaskStore();
+    const task = await createTracked(taskStore);
+    const calls = [];
+    const spec = createReviewFeedbackTaskSpec(
+      options(
+        taskStore,
+        { route: async () => ({ kind: 'skipped', reason: 'predicates_not_matched' }) },
+        {
+          fetchComments: async () => [
+            {
+              id: 21,
+              author: 'human',
+              body: '@codex review',
+              createdAt: '2026-07-30T00:00:00Z',
+              commentType: 'conversation',
+            },
+          ],
+          invokeTrigger: { trigger: async (...args) => calls.push(args) },
+        },
+      ),
+    );
+    const gate = await spec.admission.gate();
+    await spec.run.execute(gate.workItems[0].signal, gate.workItems[0].subjectKey, {});
+    assert.equal(calls.length, 0);
+    assert.equal((await taskStore.get(task.id)).automationState.review.lastConversationCommentCursor, 21);
+  });
+
+  test('PR terminal truth is routed through the wait lifecycle even when CI collection is unavailable', async () => {
+    const taskStore = new TaskStore();
+    await createTracked(taskStore);
+    const routerCalls = [];
+    const triggerCalls = [];
+    const spec = createReviewFeedbackTaskSpec(
+      options(
+        taskStore,
+        {
+          route: async (signal) => {
+            routerCalls.push(signal);
+            return {
+              kind: 'notified',
+              threadId: 'thread_1',
+              catId: 'codex-sol',
+              messageId: 'terminal_msg',
+              content: 'compact terminal wait',
+            };
+          },
+        },
+        {
+          fetchPrMetadata: async () => ({ headSha: 'aaa', prState: 'merged' }),
+          invokeTrigger: { trigger: async (...args) => triggerCalls.push(args) },
+        },
+      ),
+    );
+
+    const gate = await spec.admission.gate();
+    assert.equal(gate.run, true);
+    assert.equal(gate.workItems.length, 1);
+    assert.equal(gate.workItems[0].signal.subjectState, 'merged');
+    await spec.run.execute(gate.workItems[0].signal, gate.workItems[0].subjectKey, {});
+    assert.equal(routerCalls.length, 1);
     assert.equal(triggerCalls.length, 1);
     assert.equal(triggerCalls[0][6].priority, 'normal');
   });

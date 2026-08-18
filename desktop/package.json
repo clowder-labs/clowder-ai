@@ -61,10 +61,22 @@
       "writeUpdateInfo": false
     },
     "files": [
+      "app-identity.js",
+      "desktop-update-menu.js",
+      "desktop-update-runtime.js",
       "main.js",
+      "mac-install-location.js",
       "preload.js",
       "project-root.js",
+      "renderer-link-policy.js",
       "service-manager.js",
+      "update-checker.js",
+      "update-downloader.js",
+      "update-installer.js",
+      "update-install-flow.js",
+      "update-manager.js",
+      "update-network-diagnostics.js",
+      "update-prompt-controller.js",
       "splash.html",
       "assets/**/*"
     ],
@@ -128,7 +140,7 @@
         "to": "assets"
       },
       {
-        "from": "../plugins",
+        "from": "../packages/api/src/plugins",
         "to": "plugins"
       }
     ],

@@ -1,0 +1,88 @@
+{
+  "verdictId": "2026-07-18-eval-a2a-subthreshold-void-hold-noise-keep-observe",
+  "evalSnapshotId": "eval-F167-2026-07-18",
+  "featureId": "F167",
+  "generatedAt": "2026-07-18T03:01:12.921Z",
+  "window": {
+    "startMs": 1784257338252,
+    "endMs": 1784343658207,
+    "durationHours": 23.977765277777777
+  },
+  "counterWindow": {
+    "startMs": 1783781683789,
+    "endMs": 1784343672856,
+    "durationHours": 156.1080742258103
+  },
+  "components": [
+    {
+      "id": "L1",
+      "name": "WorklistRegistry (ping-pong breaker)",
+      "confidence": "medium",
+      "activationCounts": {
+        "l1.streak_warn_count": 0,
+        "l1.streak_break_count": 0
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 0,
+        "c1.hold_replacement_count": 0
+      },
+      "frictionCounts": {
+        "c1.hold_zombie_count": 1,
+        "c1.hold_cancel_count": 0
+      }
+    },
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": 8,
+        "c2.verdict_hint_emitted": 7,
+        "c2.checked": 655,
+        "c2.void_hold_checked": 656
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 7,
+        "c2.void_hold_hint_emitted": 11
+      }
+    },
+    {
+      "id": "route-serial",
+      "name": "route-serial (A2A handoff routing)",
+      "confidence": "high",
+      "activationCounts": {
+        "inline_action.checked": 656,
+        "line_start.detected": 242,
+        "inline_action.detected": 9
+      },
+      "frictionCounts": {
+        "inline_action.feedback_written": 9,
+        "inline_action.hint_emitted": 8,
+        "inline_action.routed_set_skip": 5,
+        "inline_action.shadow_miss": 2
+      }
+    },
+    {
+      "id": "grounding-phase-o",
+      "name": "claim grounding (Phase O shadow)",
+      "confidence": "medium",
+      "activationCounts": {
+        "grounding.check_total": 61,
+        "grounding.verdict_total": 61,
+        "grounding.resolver_total": 0,
+        "grounding.cache_hit_total": 0,
+        "grounding.sample_count": 62,
+        "grounding.mismatch_sample_count": 0
+      },
+      "frictionCounts": {
+        "grounding.budget_exhausted_total": 0
+      }
+    }
+  ]
+}

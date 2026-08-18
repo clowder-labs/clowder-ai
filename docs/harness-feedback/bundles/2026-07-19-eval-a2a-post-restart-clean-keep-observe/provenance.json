@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-07-19-eval-a2a-post-restart-clean-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-07-19-eval-F167-runtime.yaml",
+      "sha256": "f1b1cd5f60417e5b7782a50c785f89b6eda81acde290a6de318e798f34e8de72"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-07-19-eval-F167-attribution.yaml",
+      "sha256": "0022be48a05ef3da8f2bd914281a1566de8898a097751860b624115fe9117272"
+    }
+  ],
+  "generatedAt": "2026-07-19T03:01:32.459Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

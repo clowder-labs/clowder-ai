@@ -64,7 +64,51 @@ export interface SidebarThreadBucket {
   projectGroups?: ThreadGroup[];
 }
 
+export interface WorkspaceConfig {
+  activeCutoffMs: number;
+  recentLimit: number;
+}
+
+const DEFAULT_CONFIG: WorkspaceConfig = {
+  activeCutoffMs: 7 * 86400_000,
+  recentLimit: 8,
+};
+
 type ThreadActivitySource = Pick<ThreadState, 'lastActivity'> | undefined;
+type ThreadExecutionSource = Pick<ThreadState, 'hasActiveInvocation'> | undefined;
+
+export type ActiveThreadOrder = ReadonlyMap<string, number>;
+const ACTIVE_THREAD_ORDER = Symbol('activeThreadOrder');
+type SidebarThreadProjection = Thread & { [ACTIVE_THREAD_ORDER]?: number };
+
+/**
+ * Keep one stable order for the duration of each thread's active run.
+ * Threads that start later are appended after threads that were already active;
+ * live message timestamps never rewrite this order.
+ */
+export function reconcileActiveThreadOrder(
+  threads: Thread[],
+  threadStates: Record<string, ThreadExecutionSource>,
+  previousOrder: ActiveThreadOrder,
+): Map<string, number> {
+  const nextOrder = new Map<string, number>();
+  let nextOrdinal = -1;
+
+  for (const [threadId, ordinal] of previousOrder) {
+    if (!threadStates[threadId]?.hasActiveInvocation) continue;
+    nextOrder.set(threadId, ordinal);
+    nextOrdinal = Math.max(nextOrdinal, ordinal);
+  }
+
+  for (const thread of threads) {
+    if (!threadStates[thread.id]?.hasActiveInvocation) continue;
+    if (nextOrder.has(thread.id)) continue;
+    nextOrdinal += 1;
+    nextOrder.set(thread.id, nextOrdinal);
+  }
+
+  return nextOrder;
+}
 
 /**
  * Merge live sidebar activity from per-thread UI state into thread summaries.
@@ -75,16 +119,33 @@ type ThreadActivitySource = Pick<ThreadState, 'lastActivity'> | undefined;
 export function mergeLiveActivityIntoThreads(
   threads: Thread[],
   threadStates: Record<string, ThreadActivitySource>,
+  activeThreadOrder?: ActiveThreadOrder,
 ): Thread[] {
   return threads.map((thread) => {
     const liveLastActivity = threadStates[thread.id]?.lastActivity ?? 0;
-    if (liveLastActivity <= thread.lastActiveAt) return thread;
-    return { ...thread, lastActiveAt: liveLastActivity };
+    const merged = liveLastActivity <= thread.lastActiveAt ? thread : { ...thread, lastActiveAt: liveLastActivity };
+    const activeOrder = activeThreadOrder?.get(thread.id);
+    if (activeOrder === undefined) return merged;
+    return { ...merged, [ACTIVE_THREAD_ORDER]: activeOrder };
   });
 }
 
-/** Sort comparator: unread first, then by lastActiveAt descending. */
+function compareActiveThreadOrder(a: Thread, b: Thread): number | undefined {
+  const aOrder = (a as SidebarThreadProjection)[ACTIVE_THREAD_ORDER];
+  const bOrder = (b as SidebarThreadProjection)[ACTIVE_THREAD_ORDER];
+  const aIsActive = aOrder !== undefined;
+  const bIsActive = bOrder !== undefined;
+  if (aIsActive !== bIsActive) return aIsActive ? -1 : 1;
+  if (!aIsActive) return undefined;
+  if (aOrder === undefined) return undefined;
+  if (bOrder === undefined) return undefined;
+  return aOrder - bOrder;
+}
+
+/** Sort comparator: active-run order, unread, then lastActiveAt descending. */
 function sortByUnreadThenActive(a: Thread, b: Thread, unreadIds?: Set<string>): number {
+  const activeOrder = compareActiveThreadOrder(a, b);
+  if (activeOrder !== undefined) return activeOrder;
   if (unreadIds) {
     const aUnread = unreadIds.has(a.id) ? 1 : 0;
     const bUnread = unreadIds.has(b.id) ? 1 : 0;
@@ -94,7 +155,15 @@ function sortByUnreadThenActive(a: Thread, b: Thread, unreadIds?: Set<string>): 
 }
 
 function isSystemThread(thread: Thread): boolean {
-  return !!thread.systemKind || !!thread.connectorHubState;
+  return thread.id === 'default' || !!thread.systemKind || !!thread.connectorHubState;
+}
+
+export function naturalTabForThread(thread: Thread, recentThreadIds: ReadonlySet<string>): SidebarTabId {
+  if (thread.pinned) return 'pinned';
+  if (isSystemThread(thread)) return 'system';
+  if (recentThreadIds.has(thread.id)) return 'recent';
+  if (thread.favorited) return 'favorites';
+  return 'project';
 }
 
 function titleForSort(thread: Thread): string {
@@ -111,6 +180,8 @@ function sortPinnedUnreadActive(a: Thread, b: Thread, unreadIds: Set<string>): n
   const aPinned = a.pinned ? 1 : 0;
   const bPinned = b.pinned ? 1 : 0;
   if (aPinned !== bPinned) return bPinned - aPinned;
+  const activeOrder = compareActiveThreadOrder(a, b);
+  if (activeOrder !== undefined) return activeOrder;
   const aUnread = unreadIds.has(a.id) ? 1 : 0;
   const bUnread = unreadIds.has(b.id) ? 1 : 0;
   if (aUnread !== bUnread) return bUnread - aUnread;
@@ -126,6 +197,8 @@ function sortPinnedUnreadTitle(a: Thread, b: Thread, unreadIds: Set<string>): nu
   const aPinned = a.pinned ? 1 : 0;
   const bPinned = b.pinned ? 1 : 0;
   if (aPinned !== bPinned) return bPinned - aPinned;
+  const activeOrder = compareActiveThreadOrder(a, b);
+  if (activeOrder !== undefined) return activeOrder;
   const aUnread = unreadIds.has(a.id) ? 1 : 0;
   const bUnread = unreadIds.has(b.id) ? 1 : 0;
   if (aUnread !== bUnread) return bUnread - aUnread;
@@ -147,24 +220,25 @@ function tabRecentThreads(threads: Thread[], unreadIds: Set<string>): Thread[] {
   // Demo spec (sidebar-proposals.html line 200/848): 对话置顶 = 最近 Tab + 当前 Tab 双重置顶.
   // A pinned system thread must still appear in the recent tab (additive, not exclusive).
   // Unpinned system threads stay only in the system tab.
-  return nonDefaultThreads(threads)
-    .filter((thread) => thread.pinned || !isSystemThread(thread))
+  const pinned = nonDefaultThreads(threads)
+    .filter((thread) => thread.pinned)
     .sort((a, b) => sortPinnedUnreadActive(a, b, unreadIds));
+  // #1304: Recent tab no longer truncates (PR #3460 removed 8-item limit),
+  // so candidate selection by lastActiveAt is moot — all threads are candidates.
+  // Unread-first display sort within the full set is acceptable per issue.
+  const recent = nonDefaultThreads(threads)
+    .filter((thread) => !thread.pinned && !isSystemThread(thread))
+    .sort((a, b) => sortPinnedUnreadActive(a, b, unreadIds));
+  return [...pinned, ...recent];
 }
 
-function tabSystemThreads(threads: Thread[], unreadIds: Set<string>): Thread[] {
-  return nonDefaultThreads(threads)
-    .filter(isSystemThread)
-    .sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds));
-}
-
-function tabFavoriteThreads(threads: Thread[], unreadIds: Set<string>): Thread[] {
-  return nonDefaultThreads(threads)
-    .filter((thread) => thread.favorited)
-    .sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds));
-}
-
-function tabProjectGroups(threads: Thread[], pinnedProjects: Set<string>, unreadIds: Set<string>): ThreadGroup[] {
+function tabProjectGroups(
+  threads: Thread[],
+  pinnedProjects: Set<string>,
+  unreadIds: Set<string>,
+  config: WorkspaceConfig = DEFAULT_CONFIG,
+  now: number = Date.now(),
+): ThreadGroup[] {
   const grouped = new Map<string, Thread[]>();
   for (const thread of nonDefaultThreads(threads)) {
     if (isSystemThread(thread)) continue;
@@ -173,29 +247,51 @@ function tabProjectGroups(threads: Thread[], pinnedProjects: Set<string>, unread
     grouped.get(projectPath)?.push(thread);
   }
 
-  return [...grouped.entries()]
-    .map(([projectPath, projectThreads]) => ({
-      type: 'project' as const,
-      label: projectDisplayName(projectPath),
-      projectPath,
-      threads: projectThreads.sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds)),
-    }))
-    .sort((a, b) => {
-      const aPinned = pinnedProjects.has(a.projectPath ?? '') ? 1 : 0;
-      const bPinned = pinnedProjects.has(b.projectPath ?? '') ? 1 : 0;
-      if (aPinned !== bPinned) return bPinned - aPinned;
-      if (a.projectPath === 'default') return 1;
-      if (b.projectPath === 'default') return -1;
-      return (a.projectPath ?? a.label).localeCompare(b.projectPath ?? b.label, 'zh-Hans-CN');
-    });
+  const projectGroups = [...grouped.entries()].map(([projectPath, projectThreads]) => ({
+    type: 'project' as const,
+    label: projectDisplayName(projectPath),
+    projectPath,
+    threads: projectThreads.sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds)),
+  }));
+
+  const { active, archived } = splitIntoActiveAndArchived(
+    projectGroups,
+    threads,
+    pinnedProjects,
+    config.activeCutoffMs,
+    now,
+  );
+  if (archived.length === 0) return active;
+
+  return [
+    ...active,
+    {
+      type: 'archived-container' as const,
+      label: `其他项目 (${archived.length})`,
+      threads: archived.flatMap((group) => group.threads),
+      archivedGroups: archived,
+    },
+  ];
+}
+
+function tabSystemThreads(threads: Thread[], unreadIds: Set<string>): Thread[] {
+  return threads.filter(isSystemThread).sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds));
+}
+
+function tabFavoriteThreads(threads: Thread[], unreadIds: Set<string>): Thread[] {
+  return nonDefaultThreads(threads)
+    .filter((thread) => thread.favorited)
+    .sort((a, b) => sortPinnedUnreadTitle(a, b, unreadIds));
 }
 
 export function buildSidebarTabs(
   threads: Thread[],
   pinnedProjects: Set<string> = new Set(),
   unreadIds: Set<string> = new Set(),
+  config: WorkspaceConfig = DEFAULT_CONFIG,
+  now: number = Date.now(),
 ): SidebarTab[] {
-  const projectCount = tabProjectGroups(threads, pinnedProjects, unreadIds).reduce(
+  const projectCount = tabProjectGroups(threads, pinnedProjects, unreadIds, config, now).reduce(
     (sum, group) => sum + group.threads.length,
     0,
   );
@@ -213,12 +309,14 @@ export function buildSidebarTabContent(
   threads: Thread[],
   pinnedProjects: Set<string> = new Set(),
   unreadIds: Set<string> = new Set(),
+  config: WorkspaceConfig = DEFAULT_CONFIG,
+  now: number = Date.now(),
 ): SidebarThreadBucket {
   if (tabId === 'pinned') {
     return { kind: 'flat', threads: tabPinnedThreads(threads, unreadIds) };
   }
   if (tabId === 'project') {
-    const projectGroups = tabProjectGroups(threads, pinnedProjects, unreadIds);
+    const projectGroups = tabProjectGroups(threads, pinnedProjects, unreadIds, config, now);
     return { kind: 'project', threads: projectGroups.flatMap((group) => group.threads), projectGroups };
   }
   if (tabId === 'system') {
@@ -232,7 +330,7 @@ export function buildSidebarTabContent(
 
 /**
  * Sort and group threads into: pinned → project groups → favorites.
- * Excludes the "default" thread (lobby) which is rendered separately.
+ * The "default" thread (lobby) is included in the system group.
  * Within each group: unread threads first, then by lastActiveAt descending.
  */
 export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>): ThreadGroup[] {
@@ -271,16 +369,6 @@ export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>):
   return groups;
 }
 
-export interface WorkspaceConfig {
-  activeCutoffMs: number;
-  recentLimit: number;
-}
-
-const DEFAULT_CONFIG: WorkspaceConfig = {
-  activeCutoffMs: 7 * 86400_000,
-  recentLimit: 8,
-};
-
 /**
  * Sort and group threads with active workspace layout:
  * pinned → recent → active projects → archived-container → favorites
@@ -304,9 +392,7 @@ export function sortAndGroupThreadsWithWorkspace(
 
   // F095 Phase G + F192 livefix: System threads (IM Hub + eval domains) — dedicated section
   // Pinned system threads still appear here — pinned is additive, not exclusive
-  const systemThreads = threads
-    .filter((t) => (!!t.systemKind || !!t.connectorHubState) && t.id !== 'default')
-    .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
+  const systemThreads = threads.filter(isSystemThread).sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (systemThreads.length > 0) {
     groups.push({ type: 'system', label: '系统', threads: systemThreads });
   }

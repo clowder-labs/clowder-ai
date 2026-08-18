@@ -1,0 +1,25 @@
+{
+  "verdictId": "2026-07-21-eval-friction-third-empty-window-stable-recovery-watch",
+  "evalSnapshotId": "eval-F245-2026-07-21",
+  "featureId": "F245",
+  "generatedAt": "2026-07-21T03:02:56.754Z",
+  "window": {
+    "startMs": 1784343600000,
+    "endMs": 1784602800000,
+    "durationHours": 72
+  },
+  "components": [
+    {
+      "id": "friction-rollup",
+      "name": "friction rollup (Top-N + sensorForm)",
+      "confidence": "low",
+      "activationCounts": {},
+      "frictionCounts": {
+        "cluster_count": 0,
+        "top_cluster_count": 0,
+        "tail_cluster_count": 0,
+        "tail_signal_count": 0
+      }
+    }
+  ]
+}

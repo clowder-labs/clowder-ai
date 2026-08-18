@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { useLabelStore } from '@/stores/label-store';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { loadThreads as loadCachedThreads } from '@/utils/offline-store';
+import { refreshSidebarThreadSnapshot } from '@/utils/sidebar-thread-snapshot';
 import { BootcampListModal } from '../BootcampListModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { TheaterOverlay } from '../story-player/TheaterOverlay';
@@ -16,6 +18,12 @@ import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerMo
 import { LabelFilterBar } from './LabelFilterBar';
 import { SectionGroup } from './SectionGroup';
 import { SidebarTabIcon } from './SidebarTabIcon';
+import {
+  createSidebarTabState,
+  readBrowserSidebarTabPreference,
+  sidebarTabReducer,
+  writeBrowserSidebarTabPreference,
+} from './sidebar-tab-state';
 import { ThreadItem } from './ThreadItem';
 import { ThreadOrganizerModal } from './ThreadOrganizerModal';
 import { pushThreadRouteWithHistory } from './thread-navigation';
@@ -24,17 +32,23 @@ import {
   buildSidebarTabs,
   getProjectPaths,
   mergeLiveActivityIntoThreads,
+  naturalTabForThread,
   projectDisplayName,
+  reconcileActiveThreadOrder,
   type SidebarTabId,
+  type ThreadGroup,
 } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
 import { useProjectPins } from './use-project-pins';
 import { useScrollAnchor } from './use-scroll-anchor';
+import { VIRTUAL_THREAD_LIST_THRESHOLD, VirtualThreadList, type VirtualThreadListHandle } from './VirtualThreadList';
 
 interface ThreadSidebarProps {
   onClose?: () => void;
   className?: string;
+  /** URL/layout truth used to gate the one-time initial tab bootstrap. */
+  routeThreadId: string;
 }
 
 function notifyThreadCreateFailure(message: string) {
@@ -46,7 +60,28 @@ function notifyThreadCreateFailure(message: string) {
   });
 }
 
-export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
+function groupKeyForSection(group: ThreadGroup): string {
+  return group.projectPath ?? group.type;
+}
+
+function projectSectionLabel(group: ThreadGroup, projectNames: Map<string, string>): string {
+  const projectPath = group.projectPath;
+  if (!projectPath) return group.label;
+  return projectNames.get(projectPath) ?? group.label;
+}
+
+function forProjectPath<T>(projectPath: string | undefined, build: (projectPath: string) => T): T | undefined {
+  if (!projectPath) return undefined;
+  return build(projectPath);
+}
+
+function forOpenableProject<T>(projectPath: string | undefined, build: (projectPath: string) => T): T | undefined {
+  if (!projectPath) return undefined;
+  if (projectPath === 'default') return undefined;
+  return build(projectPath);
+}
+
+export function ThreadSidebar({ onClose, className, routeThreadId }: ThreadSidebarProps) {
   const [showBootcampList, setShowBootcampList] = useState(false);
   const {
     threads,
@@ -56,9 +91,19 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     isLoadingThreads,
     setLoadingThreads,
     updateThreadTitle,
-    getThreadState,
     threadStates,
-  } = useChatStore();
+  } = useChatStore(
+    useShallow((s) => ({
+      threads: s.threads,
+      currentThreadId: s.currentThreadId,
+      setThreads: s.setThreads,
+      setCurrentProject: s.setCurrentProject,
+      isLoadingThreads: s.isLoadingThreads,
+      setLoadingThreads: s.setLoadingThreads,
+      updateThreadTitle: s.updateThreadTitle,
+      threadStates: s.threadStates,
+    })),
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,10 +119,15 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
   // F252 Phase E: Meow Theater replay state
   const [replayThreadId, setReplayThreadId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SidebarTabId>('recent');
+  const [tabState, dispatchTabEvent] = useReducer(sidebarTabReducer, null, () => {
+    const preference = readBrowserSidebarTabPreference();
+    return createSidebarTabState(preference.tab, preference.persisted);
+  });
+  const activeTab = tabState.activeTab;
 
   // F095 Phase E: scroll anchor for reorder stability
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const virtualThreadListRef = useRef<VirtualThreadListHandle>(null);
   const tabRefs = useRef<Record<SidebarTabId, HTMLButtonElement | null>>({
     pinned: null,
     recent: null,
@@ -136,21 +186,10 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
       // IDB read failure — continue to API
     }
 
-    // Then fetch fresh data from API (replace snapshot if successful)
+    // Then replace it with the server's canonical projection. Mount, online,
+    // and Socket.IO reconnect callers share one in-flight full-list request.
     try {
-      const res = await apiFetch('/api/threads');
-      if (!res.ok) return;
-      const data = await res.json();
-      const threads = data.threads ?? [];
-      setThreads(threads); // Also triggers IDB write-through via chatStore
-      const { initThreadUnread } = useChatStore.getState();
-      for (const thread of threads) {
-        if (thread.unreadCount > 0 || thread.hasUserMention) {
-          initThreadUnread(thread.id, thread.unreadCount ?? 0, !!thread.hasUserMention);
-        }
-      }
-    } catch {
-      // API failed — IDB snapshot already displayed (if available)
+      await refreshSidebarThreadSnapshot();
     } finally {
       setLoadingThreads(false);
     }
@@ -243,6 +282,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         }
 
         if (opts.projectPath) setCurrentProject(opts.projectPath);
+        // Publish the POST response before changing the URL. The header resolves
+        // its title from the thread store, while the sidebar refresh below is
+        // intentionally asynchronous; navigating first creates a visible
+        // "未命名对话" gap for every newly-created thread.
+        const currentThreads = useChatStore.getState().threads;
+        setThreads([thread, ...currentThreads.filter((current) => current.id !== thread.id)]);
         navigateToThread(thread.id);
         // Auto-close sidebar on mobile after creating a new conversation
         if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -256,7 +301,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         setIsCreating(false);
       }
     },
-    [setCurrentProject, navigateToThread, loadThreads, onClose],
+    [setCurrentProject, setThreads, navigateToThread, loadThreads, onClose],
   );
 
   // F095 Phase D: Load trashed threads
@@ -346,15 +391,13 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [updateThreadTitle],
   );
 
-  const handleTogglePin = useCallback(
-    (threadId: string, pinned: boolean) => void pinToggle.current?.toggle(threadId, pinned),
-    [],
-  );
+  const handleTogglePin = useCallback((threadId: string, pinned: boolean) => {
+    void pinToggle.current?.toggle(threadId, pinned);
+  }, []);
 
-  const handleToggleFavorite = useCallback(
-    (threadId: string, favorited: boolean) => void favToggle.current?.toggle(threadId, favorited),
-    [],
-  );
+  const handleToggleFavorite = useCallback((threadId: string, favorited: boolean) => {
+    void favToggle.current?.toggle(threadId, favorited);
+  }, []);
 
   const handleUpdatePreferredCats = useCallback(async (threadId: string, cats: string[]) => {
     const res = await apiFetch(`/api/threads/${threadId}`, {
@@ -438,8 +481,20 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [createInProject],
   );
 
+  const activeThreadOrderRef = useRef<ReadonlyMap<string, number>>(new Map());
+  const activeThreadOrder = useMemo(
+    () => reconcileActiveThreadOrder(threads, threadStates, activeThreadOrderRef.current),
+    [threads, threadStates],
+  );
+  useEffect(() => {
+    activeThreadOrderRef.current = activeThreadOrder;
+  }, [activeThreadOrder]);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const liveThreads = useMemo(() => mergeLiveActivityIntoThreads(threads, threadStates), [threads, threadStates]);
+  const liveThreads = useMemo(
+    () => mergeLiveActivityIntoThreads(threads, threadStates, activeThreadOrder),
+    [activeThreadOrder, threads, threadStates],
+  );
   const filteredThreads = useMemo(() => {
     if (!normalizedQuery) return liveThreads;
     return liveThreads.filter((thread) => {
@@ -466,9 +521,11 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     return filteredThreads.filter((t) => t.labels?.includes(labelFilter));
   }, [filteredThreads, labelFilter]);
 
+  const labelAssignableThreads = useMemo(() => liveThreads.filter((t) => t.id !== 'default'), [liveThreads]);
+
   const uncategorizedCount = useMemo(
-    () => liveThreads.filter((t) => !t.labels || t.labels.length === 0).length,
-    [liveThreads],
+    () => labelAssignableThreads.filter((t) => !t.labels || t.labels.length === 0).length,
+    [labelAssignableThreads],
   );
 
   const [showOrganizer, setShowOrganizer] = useState(false);
@@ -478,8 +535,8 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const pendingNameAssignmentsRef = useRef<Map<string, string[]>>(new Map());
 
   const uncategorizedThreads = useMemo(
-    () => liveThreads.filter((t) => !t.labels || t.labels.length === 0),
-    [liveThreads],
+    () => labelAssignableThreads.filter((t) => !t.labels || t.labels.length === 0),
+    [labelAssignableThreads],
   );
 
   const ORGANIZER_TITLE = 'Thread 整理助手';
@@ -737,11 +794,82 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     () => buildSidebarTabContent(activeTab, labelFilteredThreads, pinnedProjects, unreadIds),
     [activeTab, labelFilteredThreads, pinnedProjects, unreadIds],
   );
+  const recentThreadIds = useMemo(
+    () =>
+      new Set(
+        buildSidebarTabContent('recent', labelFilteredThreads, pinnedProjects, unreadIds).threads.map(
+          (thread) => thread.id,
+        ),
+      ),
+    [labelFilteredThreads, pinnedProjects, unreadIds],
+  );
+  const currentThread = useMemo(
+    () => labelFilteredThreads.find((thread) => thread.id === currentThreadId),
+    [labelFilteredThreads, currentThreadId],
+  );
   const projectThreadGroups = useMemo(
     () => buildSidebarTabContent('project', labelFilteredThreads, pinnedProjects, unreadIds).projectGroups ?? [],
     [labelFilteredThreads, pinnedProjects, unreadIds],
   );
+  const unfilteredProjectThreadGroups = useMemo(
+    () => buildSidebarTabContent('project', liveThreads, pinnedProjects, unreadIds).projectGroups ?? [],
+    [liveThreads, pinnedProjects, unreadIds],
+  );
+  const unfilteredRecentThreadIds = useMemo(
+    () =>
+      new Set(
+        buildSidebarTabContent('recent', liveThreads, pinnedProjects, unreadIds).threads.map((thread) => thread.id),
+      ),
+    [liveThreads, pinnedProjects, unreadIds],
+  );
   const threadGroups = activeTab === 'project' ? projectThreadGroups : [];
+
+  const filterKey =
+    normalizedQuery.length === 0 && labelFilter === null ? '' : JSON.stringify([normalizedQuery, labelFilter]);
+
+  useEffect(() => {
+    const firstNonEmptyTab = tabs.find((tab) => tab.count > 0);
+    dispatchTabEvent({
+      type: 'filter-reconciled',
+      filterKey,
+      activeTabHasThreads: activeTabContent.threads.length > 0,
+      firstNonEmptyTab: firstNonEmptyTab ? firstNonEmptyTab.id : null,
+    });
+  }, [activeTabContent.threads.length, filterKey, tabs]);
+
+  useEffect(() => {
+    if (tabState.initialThreadResolved) return;
+    if (currentThreadId !== routeThreadId) return;
+    if (routeThreadId === 'default') {
+      dispatchTabEvent({
+        type: 'initial-thread-reconciled',
+        visibleInActiveTab: true,
+        destinationTab: null,
+      });
+      return;
+    }
+    if (!currentThread) return;
+    dispatchTabEvent({
+      type: 'initial-thread-reconciled',
+      visibleInActiveTab: activeTabContent.threads.some((thread) => thread.id === currentThread.id),
+      destinationTab: naturalTabForThread(currentThread, recentThreadIds),
+    });
+  }, [
+    activeTabContent.threads,
+    currentThread,
+    currentThreadId,
+    recentThreadIds,
+    routeThreadId,
+    tabState.initialThreadResolved,
+  ]);
+
+  const handleSelectTab = useCallback(
+    (tab: SidebarTabId) => {
+      writeBrowserSidebarTabPreference(tab);
+      dispatchTabEvent({ type: 'user-selected-tab', tab, filterKey });
+    },
+    [filterKey],
+  );
 
   // Tab overflow scroll: show arrow buttons when tabs overflow the row
   const updateTabScrollState = useCallback(() => {
@@ -761,11 +889,23 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
 
   useEffect(() => {
     window.addEventListener('resize', updateTabScrollState);
-    return () => window.removeEventListener('resize', updateTabScrollState);
+    const el = tabScrollRef.current;
+    let observer: ResizeObserver | undefined;
+    if (el) {
+      observer = new ResizeObserver(() => updateTabScrollState());
+      observer.observe(el);
+    }
+    return () => {
+      window.removeEventListener('resize', updateTabScrollState);
+      observer?.disconnect();
+    };
   }, [updateTabScrollState]);
 
   const existingProjects = useMemo(() => getProjectPaths(liveThreads), [liveThreads]);
-  const showDefaultThread = (normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery)) && !labelFilter;
+  const hasLabelFilters = labels.length > 0 || uncategorizedCount > 0;
+  const showTabRow = tabs.length > 0 || hasLabelFilters;
+  const activeTabIsEmpty =
+    activeTabContent.kind === 'project' ? threadGroups.length === 0 : activeTabContent.threads.length === 0;
 
   // F095 Phase E: Scroll anchor — keeps visible content in place when threads reorder
   const { onScroll: handleScrollAnchor } = useScrollAnchor(scrollContainerRef, projectThreadGroups);
@@ -777,6 +917,76 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     currentThreadId,
   });
   const sidebarWidthClass = className === undefined ? 'w-60' : className;
+
+  const scrollToActiveThread = useCallback(() => {
+    if (!currentThreadId || !scrollContainerRef.current) return;
+    const activeThread = liveThreads.find((thread) => thread.id === currentThreadId);
+    if (!activeThread) return;
+
+    const needsFilterClear = searchQuery.trim() !== '' || labelFilter !== null;
+    if (searchQuery.trim()) setSearchQuery('');
+    if (labelFilter) setLabelFilter(null);
+
+    const ownerKeys: string[] = [];
+    for (const group of unfilteredProjectThreadGroups) {
+      if (!group.threads.some((thread) => thread.id === currentThreadId)) continue;
+      ownerKeys.push(groupKeyForSection(group));
+      const archivedOwner = group.archivedGroups?.find((archivedGroup) =>
+        archivedGroup.threads.some((thread) => thread.id === currentThreadId),
+      );
+      if (archivedOwner) ownerKeys.push(groupKeyForSection(archivedOwner));
+      break;
+    }
+    const collapsedOwnerKeys = ownerKeys.filter(isCollapsed);
+    const needsGroupExpand = collapsedOwnerKeys.length > 0;
+    for (const ownerKey of collapsedOwnerKeys) toggleGroup(ownerKey);
+
+    const targetTab = naturalTabForThread(activeThread, unfilteredRecentThreadIds);
+    const targetFlatThreads =
+      targetTab === 'project'
+        ? null
+        : buildSidebarTabContent(targetTab, liveThreads, pinnedProjects, unreadIds).threads;
+    const needsTabSwitch = activeTab !== targetTab;
+    if (needsTabSwitch) handleSelectTab(targetTab);
+
+    const scrollAndHighlight = (allowVirtualScroll = true) => {
+      const element = Array.from(
+        scrollContainerRef.current?.querySelectorAll<HTMLElement>('[data-thread-id]') ?? [],
+      ).find((candidate) => candidate.dataset.threadId === currentThreadId);
+      if (!element) {
+        if (allowVirtualScroll && targetFlatThreads) {
+          const index = targetFlatThreads.findIndex((thread) => thread.id === currentThreadId);
+          if (index >= 0 && virtualThreadListRef.current) {
+            virtualThreadListRef.current.scrollToIndex(index);
+            requestAnimationFrame(() => scrollAndHighlight(false));
+          }
+        }
+        return;
+      }
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      element.classList.add('ring-2', 'ring-cafe-accent', 'ring-opacity-60');
+      setTimeout(() => element.classList.remove('ring-2', 'ring-cafe-accent', 'ring-opacity-60'), 1200);
+    };
+
+    if (needsFilterClear || needsGroupExpand || needsTabSwitch) {
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollAndHighlight()));
+    } else {
+      scrollAndHighlight();
+    }
+  }, [
+    activeTab,
+    currentThreadId,
+    handleSelectTab,
+    isCollapsed,
+    labelFilter,
+    liveThreads,
+    pinnedProjects,
+    searchQuery,
+    toggleGroup,
+    unfilteredProjectThreadGroups,
+    unfilteredRecentThreadIds,
+    unreadIds,
+  ]);
 
   const renderThreadItem = useCallback(
     (thread: Thread, indented = false) => (
@@ -797,17 +1007,16 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         onReplay={handleReplay}
         isPinned={thread.pinned}
         isFavorited={thread.favorited}
-        threadState={getThreadState(thread.id)}
         projectPath={thread.projectPath}
         indented={indented}
         preferredCats={thread.preferredCats}
         threadLabels={thread.labels}
         isHubThread={!!thread.connectorHubState}
+        systemKind={thread.systemKind}
       />
     ),
     [
       currentThreadId,
-      getThreadState,
       handleDeleteRequest,
       handleRename,
       handleReplay,
@@ -819,12 +1028,93 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     ],
   );
 
+  const renderProjectSection = useCallback(
+    (group: ThreadGroup) => {
+      const groupKey = groupKeyForSection(group);
+      const projectPath = group.projectPath;
+
+      return (
+        <SectionGroup
+          key={groupKey}
+          label={projectSectionLabel(group, projectNames)}
+          count={group.threads.length}
+          isCollapsed={isCollapsed(groupKey)}
+          onToggle={() => toggleGroup(groupKey)}
+          projectPath={projectPath}
+          governanceStatus={forProjectPath(projectPath, (path) => govHealth[path])}
+          onToggleProjectPin={forProjectPath(projectPath, (path) => () => toggleProjectPin(path))}
+          isProjectPinned={forProjectPath(projectPath, (path) => pinnedProjects.has(path))}
+          onQuickCreate={forProjectPath(projectPath, (path) => () => handleQuickCreate(path))}
+          onOpenInFinder={forOpenableProject(projectPath, (path) => () => handleOpenInFinder(path))}
+          onRenameProject={forProjectPath(projectPath, (path) => (name: string) => handleRenameProject(path, name))}
+          onArchiveThreads={forProjectPath(projectPath, (path) => () => handleArchiveThreads(path))}
+        >
+          {group.threads.map((thread) => renderThreadItem(thread, true))}
+        </SectionGroup>
+      );
+    },
+    [
+      govHealth,
+      handleArchiveThreads,
+      handleOpenInFinder,
+      handleQuickCreate,
+      handleRenameProject,
+      isCollapsed,
+      pinnedProjects,
+      projectNames,
+      renderThreadItem,
+      toggleGroup,
+      toggleProjectPin,
+    ],
+  );
+
+  const renderProjectTabGroup = useCallback(
+    (group: ThreadGroup) => {
+      const groupKey = groupKeyForSection(group);
+      if (group.type !== 'archived-container') return renderProjectSection(group);
+
+      return (
+        <SectionGroup
+          key={groupKey}
+          label={group.label}
+          icon="archive"
+          count={group.threads.length}
+          isCollapsed={isCollapsed(groupKey)}
+          onToggle={() => toggleGroup(groupKey)}
+        >
+          {group.archivedGroups?.map((archivedGroup) => renderProjectSection(archivedGroup))}
+        </SectionGroup>
+      );
+    },
+    [isCollapsed, renderProjectSection, toggleGroup],
+  );
+
   return (
     <>
       <aside className={`${sidebarWidthClass} bg-[var(--console-panel-bg)] flex flex-col h-full`}>
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <div className="flex items-center gap-1.5">
+            {uncategorizedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleOrganizeWithCat}
+                className="p-1.5 rounded-lg text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-conn-amber-text transition-colors"
+                title={`猫猫帮你分类 (${uncategorizedCount} 未分类)`}
+              >
+                <SparkleIcon />
+              </button>
+            )}
+            {uncategorizedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOrganizer(true)}
+                className="p-1.5 rounded-lg text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary transition-colors"
+                title={`手动批量分类 (${uncategorizedCount} 未分类)`}
+              >
+                <GridIcon />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowBootcampList(true)}
@@ -875,126 +1165,135 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           </div>
         </div>
 
-        <LabelFilterBar
-          labels={labels}
-          selectedFilter={labelFilter}
-          onSelect={setLabelFilter}
-          uncategorizedCount={uncategorizedCount}
-          onOrganize={handleOrganizeWithCat}
-          onManualOrganize={() => setShowOrganizer(true)}
-        />
-
         <div
           ref={scrollContainerRef}
           onScroll={handleScrollAnchor}
-          className="flex-1 overflow-y-auto [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:transparent_var(--console-panel-bg)] hover:[scrollbar-color:var(--cafe-muted)_var(--console-panel-bg)] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-[var(--console-panel-bg)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-cafe-muted [&::-webkit-scrollbar-corner]:bg-[var(--console-panel-bg)]"
+          className="flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:color-mix(in_srgb,var(--cafe-text-muted)_72%,transparent)_transparent] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[3px] [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-content [&::-webkit-scrollbar-thumb]:[background-color:color-mix(in_srgb,var(--cafe-text-muted)_72%,transparent)]"
         >
           {isLoadingThreads && threads.length === 0 && (
             <div className="text-center py-4 text-xs text-cafe-muted">加载中...</div>
           )}
 
-          {showDefaultThread && (
-            <ThreadItem
-              id="default"
-              title="大厅"
-              participants={[]}
-              lastActiveAt={Date.now()}
-              isActive={currentThreadId === 'default'}
-              onSelect={handleSelect}
-              threadState={getThreadState('default')}
-            />
-          )}
-
-          {tabs.length > 0 && (
+          {showTabRow && (
             <div
-              className="sticky top-0 z-10 flex items-stretch gap-1 border-b border-cafe-subtle bg-[var(--console-panel-bg)] pt-2 pl-1 pr-1"
+              className="sticky top-0 z-10 flex items-stretch border-b border-cafe-subtle bg-[var(--console-panel-bg)] pt-2 px-2"
               data-testid="sidebar-tabs-row"
+              data-scroll-occluder="true"
             >
-              <button
-                type="button"
-                onClick={() => scrollTabs('left')}
-                disabled={!canScrollLeft}
-                className={`flex flex-shrink-0 items-center justify-center w-5 rounded-t-md text-cafe-muted transition-all ${
-                  canScrollLeft
-                    ? 'hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent'
-                    : 'pointer-events-none opacity-0'
-                }`}
-                aria-label="向左滚动"
-                data-testid="sidebar-tab-scroll-left"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scrollTabs('left')}
+                  className="flex flex-shrink-0 items-center justify-center w-5 rounded-t-md text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent"
+                  aria-label="向左滚动"
+                  data-testid="sidebar-tab-scroll-left"
                 >
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+              )}
               <div
                 ref={tabScrollRef}
                 onScroll={updateTabScrollState}
-                className="flex min-w-0 flex-1 gap-0 overflow-x-auto overflow-y-hidden px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                role="tablist"
-                aria-label="对话分类"
+                className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 data-testid="sidebar-tabs-scroll"
               >
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    ref={(node) => {
-                      tabRefs.current[tab.id] = node;
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex flex-shrink-0 items-center gap-1 rounded-t-md border-b-2 px-1 py-1.5 text-micro font-medium transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-cafe-accent text-cafe-accent'
-                        : 'border-transparent text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary'
-                    }`}
-                    data-testid={`sidebar-tab-${tab.id}`}
-                  >
-                    <SidebarTabIcon id={tab.id} className="h-3.5 w-3.5 shrink-0" />
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
+                <div className="flex w-max mx-auto" role="tablist" aria-label="对话分类">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      ref={(node) => {
+                        tabRefs.current[tab.id] = node;
+                      }}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      onClick={() => handleSelectTab(tab.id)}
+                      className={`flex flex-shrink-0 items-center gap-1 rounded-t-md border-b-2 px-1.5 py-1.5 text-micro font-medium transition-colors ${
+                        activeTab === tab.id
+                          ? 'border-cafe-accent text-cafe-accent'
+                          : 'border-transparent text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary'
+                      }`}
+                      data-testid={`sidebar-tab-${tab.id}`}
+                    >
+                      <SidebarTabIcon id={tab.id} className="h-3.5 w-3.5 shrink-0" />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => scrollTabs('right')}
-                disabled={!canScrollRight}
-                className={`flex flex-shrink-0 items-center justify-center w-5 rounded-t-md text-cafe-muted transition-all ${
-                  canScrollRight
-                    ? 'hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent'
-                    : 'pointer-events-none opacity-0'
-                }`}
-                aria-label="向右滚动"
-                data-testid="sidebar-tab-scroll-right"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
+              <LabelFilterBar
+                labels={labels}
+                selectedFilter={labelFilter}
+                onSelect={setLabelFilter}
+                uncategorizedCount={uncategorizedCount}
+              />
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scrollTabs('right')}
+                  className="flex flex-shrink-0 items-center justify-center w-5 rounded-t-md text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent"
+                  aria-label="向右滚动"
+                  data-testid="sidebar-tab-scroll-right"
                 >
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
 
           <div className="space-y-1 pt-1.5" data-testid="sidebar-tab-content">
-            {activeTabContent.kind === 'flat' && activeTabContent.threads.map((t) => renderThreadItem(t))}
+            {activeTabContent.kind === 'flat' && (
+              <>
+                <div
+                  className="flex items-center justify-between px-3 py-1 text-micro text-cafe-muted"
+                  data-testid="flat-toolbar"
+                >
+                  <span>{activeTabContent.threads.length} 个对话</span>
+                  <button
+                    type="button"
+                    onClick={scrollToActiveThread}
+                    className="flex items-center justify-center rounded p-1 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent"
+                    data-testid="select-open-session-btn"
+                    aria-label="定位当前对话"
+                    title="定位当前对话"
+                  >
+                    <LocateThreadIcon />
+                  </button>
+                </div>
+                {activeTabContent.threads.length >= VIRTUAL_THREAD_LIST_THRESHOLD ? (
+                  <VirtualThreadList
+                    ref={virtualThreadListRef}
+                    threads={activeTabContent.threads}
+                    scrollContainerRef={scrollContainerRef}
+                    renderItem={renderThreadItem}
+                  />
+                ) : (
+                  activeTabContent.threads.map((thread) => renderThreadItem(thread))
+                )}
+              </>
+            )}
 
             {activeTabContent.kind === 'project' && threadGroups.length > 0 && (
               <div
@@ -1003,6 +1302,16 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               >
                 <span>{threadGroups.length} 个项目</span>
                 <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={scrollToActiveThread}
+                    className="flex items-center justify-center rounded p-1 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent"
+                    data-testid="project-select-open-session-btn"
+                    aria-label="定位当前对话"
+                    title="定位当前对话"
+                  >
+                    <LocateThreadIcon />
+                  </button>
                   <button
                     type="button"
                     onClick={expandAll}
@@ -1014,14 +1323,13 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                     <svg
                       aria-hidden="true"
                       className="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
+                      viewBox="0 0 16 16"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      strokeWidth={1.4}
                     >
-                      <path d="M6 9l6 6 6-6" />
+                      <path d="M5 7l3-3 3 3" />
+                      <path d="M5 9l3 3 3-3" />
                     </svg>
                   </button>
                   <button
@@ -1035,49 +1343,22 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                     <svg
                       aria-hidden="true"
                       className="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
+                      viewBox="0 0 16 16"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      strokeWidth={1.4}
                     >
-                      <path d="M18 15l-6-6-6 6" />
+                      <path d="M5 4l3 3 3-3" />
+                      <path d="M5 12l3-3 3 3" />
                     </svg>
                   </button>
                 </div>
               </div>
             )}
 
-            {activeTabContent.kind === 'project' &&
-              threadGroups.map((group) => {
-                const groupKey = group.projectPath ?? group.type;
-                const projectPath = group.projectPath;
+            {activeTabContent.kind === 'project' && threadGroups.map((group) => renderProjectTabGroup(group))}
 
-                return (
-                  <SectionGroup
-                    key={groupKey}
-                    label={projectPath ? (projectNames.get(projectPath) ?? group.label) : group.label}
-                    count={group.threads.length}
-                    isCollapsed={isCollapsed(groupKey)}
-                    onToggle={() => toggleGroup(groupKey)}
-                    projectPath={projectPath}
-                    governanceStatus={projectPath ? govHealth[projectPath] : undefined}
-                    onToggleProjectPin={projectPath ? () => toggleProjectPin(projectPath) : undefined}
-                    isProjectPinned={projectPath ? pinnedProjects.has(projectPath) : undefined}
-                    onQuickCreate={projectPath ? () => handleQuickCreate(projectPath) : undefined}
-                    onOpenInFinder={
-                      projectPath && projectPath !== 'default' ? () => handleOpenInFinder(projectPath) : undefined
-                    }
-                    onRenameProject={projectPath ? (name: string) => handleRenameProject(projectPath, name) : undefined}
-                    onArchiveThreads={projectPath ? () => handleArchiveThreads(projectPath) : undefined}
-                  >
-                    {group.threads.map((t) => renderThreadItem(t, true))}
-                  </SectionGroup>
-                );
-              })}
-
-            {normalizedQuery.length > 0 && activeTabContent.threads.length === 0 && !showDefaultThread && (
+            {(normalizedQuery.length > 0 || labelFilter) && activeTabIsEmpty && (
               <div className="px-3 py-4 text-xs text-cafe-muted">没有匹配的对话</div>
             )}
           </div>
@@ -1207,6 +1488,63 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   );
 }
 
+function LocateThreadIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3.5 w-3.5"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.4}
+    >
+      <circle cx="8" cy="8" r="5.5" />
+      <line x1="8" y1="2.5" x2="8" y2="6" />
+      <line x1="8" y1="10" x2="8" y2="13.5" />
+      <line x1="2.5" y1="8" x2="6" y2="8" />
+      <line x1="10" y1="8" x2="13.5" y2="8" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3.5 w-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z" />
+      <path d="M20 3v4M22 5h-4" />
+    </svg>
+  );
+}
+
+function GridIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3.5 w-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
 /**
  * F095 Phase G: Delete confirmation dialog.
  * System threads (IM Hub) require typed confirmation (like GitHub repo deletion).
@@ -1244,7 +1582,7 @@ function DeleteConfirmDialog({
         {isSystem ? (
           <>
             <p className="text-xs text-conn-red-text mb-2">
-              这是系统级对话。删除可能影响平台功能（连接器路由或定时评估）。
+              这是系统级对话。删除可能影响平台功能（连接器路由、定时评估或猫的私人空间）。
             </p>
             <p className="text-xs text-cafe-secondary mb-2">请输入对话名称以确认删除：</p>
             <input
