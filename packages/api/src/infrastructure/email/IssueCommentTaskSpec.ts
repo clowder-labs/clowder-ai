@@ -32,8 +32,17 @@ export interface IssueCommentSignal {
   repoFullName: string;
   issueNumber: number;
   newComments: IssueComment[];
-  eventDrivenExternalWaitCoverage?: boolean;
-  commitCursor: () => Promise<void>;
+  readonly deliveredCursor?: number;
+  readonly retryWake?: IssuePendingWake;
+  readonly commitRoutedWake?: (wake: IssuePendingWake) => Promise<void>;
+  readonly commitWakeAccepted: () => Promise<void>;
+  readonly issueState?: 'open' | 'closed';
+}
+
+export interface IssueTrackingMetadata {
+  readonly state: 'open' | 'closed';
+  readonly authorLogin?: string;
+  readonly authorType?: string;
 }
 
 export interface IssueCommentTaskSpecOptions {
@@ -370,27 +379,10 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                       repoFullName,
                       issueNumber,
                       newComments: pendingDelivery,
-                      eventDrivenExternalWaitCoverage: false,
-                      commitCursor: async () => {
-                        await advanceDeliveryCursor(task.id, issueKey, maxDeliveryId);
-                        // Cloud R15 P1: only mark done when collection is COMPLETE.
-                        // When the collection loop broke on a failed append, processedComments.length
-                        // < allPending.length — the next poll must retry the failed comments.
-                        // Marking done here would permanently prevent retry for closed issues.
-                        if (processedComments.length === allPending.length) {
-                          await opts.taskStore.update(task.id, { status: 'done' });
-                          await opts.taskStore.patchAutomationState(task.id, {
-                            issue: { issueState: 'closed' },
-                          });
-                          opts.log.info(
-                            `[issue-comment] Issue ${issueKey} closed — final comments delivered, task done`,
-                          );
-                        } else {
-                          opts.log.info(
-                            `[issue-comment] Issue ${issueKey} closed — partial delivery (${processedComments.length}/${allPending.length} collected), will retry`,
-                          );
-                        }
-                      },
+                      issueState,
+                      deliveredCursor: processedDeliveryBoundary,
+                      commitRoutedWake: (wake) => persistRoutedWake(task.id, issueKey, wake),
+                      commitWakeAccepted: () => acknowledgeWake(task.id, issueKey),
                     },
                     subjectKey: task.subjectKey!,
                   });
@@ -454,10 +446,10 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                   repoFullName,
                   issueNumber,
                   newComments: pendingDelivery,
-                  // In dual-cursor mode, commitCursor only advances the delivery cursor.
-                  // The collection cursor was already advanced above in the collection pass.
-                  eventDrivenExternalWaitCoverage: true,
-                  commitCursor: () => advanceDeliveryCursor(task.id, issueKey, maxDeliveryId),
+                  issueState,
+                  deliveredCursor: processedDeliveryBoundary,
+                  commitRoutedWake: (wake) => persistRoutedWake(task.id, issueKey, wake),
+                  commitWakeAccepted: () => acknowledgeWake(task.id, issueKey),
                 },
                 subjectKey: task.subjectKey!,
               });
@@ -495,15 +487,10 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                       repoFullName,
                       issueNumber,
                       newComments,
-                      eventDrivenExternalWaitCoverage: false,
-                      commitCursor: async () => {
-                        await advanceCursor(task.id, issueKey, maxCommentId, 'memoryFirst');
-                        await opts.taskStore.update(task.id, { status: 'done' });
-                        await opts.taskStore.patchAutomationState(task.id, {
-                          issue: { issueState: 'closed' },
-                        });
-                        opts.log.info(`[issue-comment] Issue ${issueKey} closed — final comments delivered, task done`);
-                      },
+                      issueState,
+                      deliveredCursor: maxCommentId,
+                      commitRoutedWake: (wake) => persistRoutedWake(task.id, issueKey, wake, true),
+                      commitWakeAccepted: () => acknowledgeWake(task.id, issueKey),
                     },
                     subjectKey: task.subjectKey!,
                   });
@@ -539,8 +526,10 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
                   repoFullName,
                   issueNumber,
                   newComments,
-                  eventDrivenExternalWaitCoverage: true,
-                  commitCursor: () => advanceCursor(task.id, issueKey, maxCommentId, 'memoryFirst'),
+                  issueState,
+                  deliveredCursor: maxCommentId,
+                  commitRoutedWake: (wake) => persistRoutedWake(task.id, issueKey, wake, true),
+                  commitWakeAccepted: () => acknowledgeWake(task.id, issueKey),
                 },
                 subjectKey: task.subjectKey!,
               });
@@ -656,7 +645,6 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
               priority: 'normal',
               reason: 'github_issue_comment',
               sourceCategory: 'issue',
-              eventDrivenExternalWaitCoverage: signal.eventDrivenExternalWaitCoverage === true,
               coalesceKey: `${subjectKey}:issue-comment:${coalesceTargetCatId}`,
             };
             const outcome = await opts.invokeTrigger.trigger(

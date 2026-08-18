@@ -132,6 +132,12 @@ export interface PrAutomationState {
   readonly closedAt?: number;
   readonly await?: GitHubPrAwaitStateV1;
   readonly waitOutcome?: WaitOutcomeV1;
+  /** F140: wake intent for tracked PR — 'review' (default) or 'merge'. */
+  readonly intent?: PrTrackingIntent;
+  /** F202 Phase 2C: user-provided tracking instructions. */
+  readonly trackingInstructions?: string;
+  /** PR head that trackingInstructions were written for; stale-head callbacks suppress. */
+  readonly trackingInstructionsHeadSha?: string;
   /** Type-level quarantine: issue compatibility cannot be installed on a PR state. */
   readonly issue?: never;
 }

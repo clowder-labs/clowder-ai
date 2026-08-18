@@ -42,7 +42,6 @@ export interface ReviewFeedbackSignal {
   repairedTask: TaskItem;
   repoFullName: string;
   prNumber: number;
-  headSha?: string;
   routingAudit?: ReviewFeedbackRoutingAudit;
   newComments: PrFeedbackComment[];
   newDecisions: PrReviewDecision[];
@@ -828,7 +827,6 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 repairedTask: trackingTask,
                 repoFullName,
                 prNumber,
-                headSha: prMetadata?.headSha,
                 routingAudit: repairResult.routingAudit,
                 newComments,
                 newDecisions,
@@ -920,54 +918,39 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             ...(signal.resultReviewer ? { resultReviewer: signal.resultReviewer } : {}),
             ...(signal.subjectState ? { subjectState: signal.subjectState } : {}),
           },
-          {
-            threadId: repairedTask.threadId,
-            catId: repairedTask.ownerCatId ?? '',
-            userId: repairedTask.userId ?? '',
-            trackingInstructions: repairedTask.automationState?.trackingInstructions,
-            trackingInstructionsHeadSha: repairedTask.automationState?.trackingInstructionsHeadSha,
-          },
+          { taskId: repairedTask.id },
         );
         if (routeResult.kind !== 'notified') return;
 
         if (opts.invokeTrigger) {
-          try {
-            const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
-            const hasApproved = !hasChangesRequested && signal.newDecisions.some((d) => d.state === 'APPROVED');
-            const suggestedSkill = hasChangesRequested ? 'receive-review' : hasApproved ? 'merge-gate' : undefined;
-            const coalesceTargetCatId = routeResult.catId || repairedTask.ownerCatId || 'unassigned';
-            const intent = repairedTask.automationState?.intent ?? 'review';
-            const eventDrivenExternalWaitCoverage = hasApproved ? intent === 'merge' : true;
-
-            const policy: ConnectorTriggerPolicy = {
-              priority: hasChangesRequested ? 'urgent' : 'normal',
-              reason: 'github_review_feedback',
-              sourceCategory: 'review',
-              suggestedSkill,
-              eventDrivenExternalWaitCoverage,
-              coalesceKey: `${subjectKey}:review-feedback:${coalesceTargetCatId}`,
-            };
-            void opts.invokeTrigger
-              .trigger(
-                routeResult.threadId,
-                routeResult.catId as CatId,
-                repairedTask.userId ?? '',
-                routeResult.content,
-                routeResult.messageId,
-                undefined,
-                policy,
-              )
-              .catch((err) =>
-                opts.log.warn(
-                  { err },
-                  `[review-feedback] trigger failed for ${signal.repoFullName}#${signal.prNumber} (best-effort)`,
-                ),
-              );
-          } catch {
+          const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
+          const policy: ConnectorTriggerPolicy = {
+            priority: hasChangesRequested ? 'urgent' : 'normal',
+            reason:
+              signal.subjectState === 'merged'
+                ? 'github_pr_merged'
+                : signal.subjectState === 'closed'
+                  ? 'github_pr_closed'
+                  : 'github_wait_satisfied',
+            sourceCategory: 'review',
+            coalesceKey: `${subjectKey}:wait:${routeResult.catId || 'unassigned'}`,
+          };
+          void Promise.resolve(
+            opts.invokeTrigger.trigger(
+              routeResult.threadId,
+              routeResult.catId as CatId,
+              repairedTask.userId ?? '',
+              routeResult.content,
+              routeResult.messageId,
+              undefined,
+              policy,
+            ),
+          ).catch((err) =>
             opts.log.warn(
+              { err },
               `[review-feedback] trigger failed for ${signal.repoFullName}#${signal.prNumber} (best-effort)`,
-            );
-          }
+            ),
+          );
         }
 
         // F208 AC-E2: distillation checkpoint on review-complete (best-effort, all approvals)

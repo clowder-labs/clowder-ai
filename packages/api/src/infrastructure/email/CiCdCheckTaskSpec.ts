@@ -151,6 +151,18 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
 
         const routeResult = await opts.cicdRouter.route(pollResult);
         if (!opts.invokeTrigger) return;
+        if (routeResult.kind === 'lifecycle') {
+          // Skip wake when the merge was performed by our own GitHub identity —
+          // the merger already knows the PR state; waking them wastes tokens.
+          // Message delivery already happened inside CiCdRouter.closeLifecycle.
+          if (pollResult.mergedByLogin && opts.isSelfMerge?.(pollResult.mergedByLogin)) {
+            opts.log.info(`[cicd-check] PR ${routeResult.prState} by self (${pollResult.mergedByLogin}) -> skip wake`);
+            return;
+          }
+          triggerLifecycleWake(opts, opts.invokeTrigger, signal, routeResult);
+          return;
+        }
+        if (routeResult.kind !== 'notified') return;
 
         const intent = signal.task.automationState?.intent ?? 'review';
 

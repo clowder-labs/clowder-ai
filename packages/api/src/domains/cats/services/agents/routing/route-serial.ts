@@ -2809,7 +2809,6 @@ export async function* routeSerial(
         allRichBlocks: RichBlock[];
         a2aMentions: CatId[];
         hasCoCreatorLineStartMention: boolean;
-        routingContent: string;
         hasLocalCoCreatorLineStartMention: boolean;
         streamEvents: AgentMessage[];
       }> => {
@@ -3225,8 +3224,6 @@ export async function* routeSerial(
           allRichBlocks: remedialAllRichBlocks,
           a2aMentions: remedialA2aMentions,
           hasCoCreatorLineStartMention: remedialHasCoCreatorLineStartMention,
-          routingContent: remedialRoutingContent,
-          // Exit-only remedials validate the original text instead of replacing it; surface it after validation.
           hasLocalCoCreatorLineStartMention: remedialHasLocalCoCreatorLineStartMention,
           // Exit-only remedials validate preserved content instead of replacing it; replay the visible
           // text and routing-exit evidence before the remedial boundary can replace that turn.
@@ -3234,43 +3231,19 @@ export async function* routeSerial(
         };
       };
 
-      let noTextBlocksOverride: RichBlock[] | undefined;
-
-      if (
-        !textContent &&
-        !hadError &&
-        shouldRemediateRouting({
-          needsGuard: needsServerRoutingGuard,
-          attempted: routingGuardAttempted,
-          text: '',
-          lineStartMentions: getRoutingExitLineStartMentions(),
-          toolNames: collectedToolNames,
-          structuredTargetCats: [...structuredTargetCats],
-          hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(''),
-          hasEventDrivenExternalWaitCoverage,
-        })
-      ) {
-        const result = await runRoutingGuardRemedial(
-          '',
-          [...bufferedBlocks, ...streamRichBlocks],
-          [...collectedToolEvents],
-        );
-        for (const event of result.streamEvents) yield event;
-        await flushDeferredVoice();
-        noTextBlocksOverride = result.allRichBlocks;
-        if (
-          !hasValidRoutingExit({
-            text: result.routingContent,
-            lineStartMentions: getRoutingExitLineStartMentions(result.a2aMentions),
+      const noTextLegacyObservedBlock = Boolean(
+        actionOutputCommitAllowed &&
+          !isFreshnessSupplement &&
+          !textContent &&
+          !hadError &&
+          observeLegacyRoutingBlock({
+            lineStartMentions: getRoutingExitLineStartMentions(),
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
-            hasCoCreatorLineStartMention: result.hasCoCreatorLineStartMention,
-            hasEventDrivenExternalWaitCoverage,
-          })
-        ) {
-          await appendRoutingGuardFailureNotice();
-        }
-      }
+            hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(''),
+          }),
+      );
+      if (!textContent) await scheduleTurnCustodyStopGate(noTextLegacyObservedBlock);
 
       // F254 Phase D: declared at for-loop level so both textContent branch
       // (stream store) and post-B3 forced re-invoke can access it
@@ -3403,42 +3376,17 @@ export async function* routeSerial(
         const routingExitHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(storedContent);
         const localCvoHasCoCreatorLineStartMention = hasLocalCoCreatorLineStartMention(storedContent);
 
-        if (
-          shouldRemediateRouting({
-            needsGuard: needsServerRoutingGuard,
-            attempted: routingGuardAttempted,
-            text: storedContent,
-            lineStartMentions: routingExitLineStartMentions,
-            toolNames: collectedToolNames,
-            structuredTargetCats: [...structuredTargetCats],
-            hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
-            hasEventDrivenExternalWaitCoverage,
-          })
-        ) {
-          const result = await runRoutingGuardRemedial(storedContent, allRichBlocks, [...collectedToolEvents]);
-          for (const event of result.streamEvents) yield event;
-          await flushDeferredVoice();
-          storedContent = result.storedContent;
-          routingAnalysisContent = buildRoutingAnalysisContent(storedContent, result.routingContent);
-          allRichBlocks = result.allRichBlocks;
-          a2aMentions = result.a2aMentions;
-          routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
-          routingExitHasCoCreatorLineStartMention = result.hasCoCreatorLineStartMention;
-          localCvoHasCoCreatorLineStartMention = result.hasLocalCoCreatorLineStartMention;
-
-          if (
-            !hasValidRoutingExit({
-              text: routingAnalysisContent,
+        const textLegacyObservedBlock = Boolean(
+          !isFreshnessSupplement &&
+            !hadError &&
+            observeLegacyRoutingBlock({
               lineStartMentions: routingExitLineStartMentions,
               toolNames: collectedToolNames,
               structuredTargetCats: [...structuredTargetCats],
               hasCoCreatorLineStartMention: routingExitHasCoCreatorLineStartMention,
-              hasEventDrivenExternalWaitCoverage,
-            })
-          ) {
-            await appendRoutingGuardFailureNotice();
-          }
-        }
+            }),
+        );
+        await scheduleTurnCustodyStopGate(textLegacyObservedBlock);
         a2aMentions = getLocalRoutingLineStartMentions(a2aMentions);
 
         // Preserve independent first-pass reasoning inside one serial route.

@@ -4545,16 +4545,25 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // PR-O4 R5: normalize repo to lowercase (GitHub repos are case-insensitive)
     const subjectKey = `pr:${repoFullName.toLowerCase()}#${prNumber}` as const;
     try {
-      // F140: resolve wake intent. Explicit wins; otherwise preserve an already-set intent (so an
-      // incidental re-register doesn't silently downgrade a deliberate 'merge'); default 'review'.
-      const existing = await taskStore.getBySubject(subjectKey);
-      const intent = parsed.data.intent ?? existing?.automationState?.intent ?? 'review';
-      const shouldSeedPrBoundary = !existing || existing.status === 'done';
-      const shouldBindInstructionsHead = instructions !== undefined && instructions !== '';
-      let seededPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
-      let instructionsPrBoundary: Pick<AutomationState, 'review' | 'ci'> | undefined;
-      if (shouldSeedPrBoundary) {
-        if (!fetchPrTrackingBoundary) {
+      if (!fetchPrWaitBaseline) {
+        reply.status(503);
+        return { error: 'PR wait baseline reader not configured' };
+      }
+      let snapshot: InitialPrWaitSnapshot;
+      try {
+        snapshot = await fetchPrWaitBaseline(repoFullName, prNumber, when);
+      } catch {
+        reply.status(503);
+        return { error: 'PR wait baseline unavailable — try again later' };
+      }
+
+      const triggerCommentIds = when.flatMap((predicate) =>
+        predicate.kind === 'pr_review_result_available' && predicate.triggerCommentId !== undefined
+          ? [predicate.triggerCommentId]
+          : [],
+      );
+      if (triggerCommentIds.length > 0) {
+        if (!record.invocationId || !opts.verifyPrReviewEventWaitCoverage) {
           reply.status(503);
           return { error: 'Exact review-result coverage verifier not configured' };
         }
@@ -4574,38 +4583,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           reply.status(503);
           return { error: 'Review-result coverage unavailable — try again later' };
         }
-      } else if (shouldBindInstructionsHead) {
-        if (!fetchPrTrackingBoundary) {
-          reply.status(503);
-          return { error: 'PR tracking boundary fetcher not configured' };
-        }
-        try {
-          instructionsPrBoundary = await fetchPrTrackingBoundary(repoFullName, prNumber);
-        } catch {
-          reply.status(503);
-          return { error: 'PR tracking boundary unavailable — try again later' };
-        }
-        if (!instructionsPrBoundary.ci?.headSha) {
-          reply.status(503);
-          return { error: 'PR tracking boundary unavailable — try again later' };
-        }
       }
-
-      const trackingInstructionsHeadSha =
-        instructions !== undefined && instructions !== ''
-          ? (seededPrBoundary?.ci?.headSha ?? instructionsPrBoundary?.ci?.headSha)
-          : instructions === ''
-            ? ''
-            : undefined;
-      const automationState = {
-        ...(instructions !== undefined
-          ? {
-              trackingInstructions: instructions,
-              ...(trackingInstructionsHeadSha !== undefined ? { trackingInstructionsHeadSha } : {}),
-            }
-          : {}),
-        ...(seededPrBoundary ?? {}),
-      };
 
       const taskInput = {
         kind: 'pr_tracking',
