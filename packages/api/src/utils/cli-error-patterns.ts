@@ -115,11 +115,22 @@ export const CLASSIFIER_PATTERNS: Array<{ code: CliErrorReasonCode; regex: RegEx
   // `Error: Session not found`. Distinct from missing_rollout (Codex "no rollout found")
   // — routes to the session self-heal retry path (Path A) in invoke-single-cat.
   { code: 'session_not_found', regex: /Session not found/i },
+  // F212 Phase H (AC-H3, Sol runtime forensics 2026-07-09): upstream provider (Codex 0.98+)
+  // policy engine rejects prompt as "cyber-safety risk". Emit `{type:"error",message:"This
+  // content was flagged for possible cybersecurity risk..."}` then `turn.failed` + exit 1.
+  // NOT a Clowder AI bug — upstream policy layer decision. Witnessed exact phrase from archive
+  // 97449e4b-0dec-433e-885a-0e37ab977b1e. LL-059 discipline: allowlist grows from evidence
+  // only, do NOT invent /content policy/i or /moderation/i variants until upstream witness.
+  // Highly-specific phrase so ordering-insensitive, but keep near top for provenance clarity.
+  {
+    code: 'upstream_policy_reject',
+    regex: /flagged for possible cybersecurity risk/i,
+  },
   // New 7 (AC-A4) — ordered most-specific first to avoid mis-classification
   {
     code: 'model_not_found',
     regex:
-      /(model.*not found|Unknown model|supported API model names|model.*not supported|deployment.*not found|neither PlanModel nor RequestedModel specified|Please use the \/model command|没有可用的账号侧默认模型)/i,
+      /(model.*not found|Unknown model|supported API model names|model.*not supported|No available channel for model|deployment.*not found|neither PlanModel nor RequestedModel specified|Please use the \/model command|没有可用的账号侧默认模型)/i,
   },
   {
     code: 'auth_failed',
@@ -143,7 +154,8 @@ export const CLASSIFIER_PATTERNS: Array<{ code: CliErrorReasonCode; regex: RegEx
   },
   {
     code: 'network_error',
-    regex: /(ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|socket hang up|fetch failed|connect ECONN|getaddrinfo)/i,
+    regex:
+      /(ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|socket hang up|fetch failed|connect ECONN|getaddrinfo|stream disconnected before completion|error sending request for url)/i,
   },
   {
     code: 'invalid_config',
