@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-08-18-eval-a2a-routine-grounding-stable-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-08-18-eval-F167-runtime.yaml",
+      "sha256": "b102ddf07d3c2eb424281ca9a189e78d4178c4d763171350c7679be58007518e"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-08-18-eval-F167-attribution.yaml",
+      "sha256": "7b899e4030bfc034b4854fd7e63000f04202b20fe9319ce884c55fc4ee79d225"
+    }
+  ],
+  "generatedAt": "2026-08-18T03:04:15.117Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
