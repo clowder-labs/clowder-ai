@@ -4,6 +4,7 @@ import type { CatAgentProtocol, NativeToolLevel } from '@cat-cafe/shared';
 import { useEffect, useState } from 'react';
 import { ExpandableProse } from '@/components/content-overflow';
 import { apiFetch } from '@/utils/api-client';
+import { isRowPrimaryActionTarget } from '@/utils/row-primary-action';
 import type { ClientId } from '../hub-cat-editor.model';
 
 export interface TemplateCard {
