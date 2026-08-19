@@ -283,66 +283,8 @@ export const publishVerdictInputSchema = {
     .describe('Persistent-agent identity selector. Required for shared Antigravity MCP.'),
 };
 
-/** Inferred input type (matches discriminated union). */
-type PublishVerdictToolInput = {
-  domainId: string;
-  packet: Record<string, unknown>;
-  sourceRefs:
-    | { kind?: 'a2a-snapshot-attribution'; snapshotName: string; attributionName: string }
-    | {
-        kind: 'capability-wakeup-trial-window';
-        capability: string;
-        windowStartMs: number;
-        windowEndMs: number;
-        sessionIds: string[];
-        ruleIds?: string[];
-      }
-    | {
-        kind: 'task-outcome-snapshot';
-        windowStartMs: number;
-        windowEndMs: number;
-        databasePath?: string;
-        evidenceCatId?: string;
-      }
-    | {
-        kind: 'memory-recall-snapshot';
-        windowDays: number;
-        catId?: string;
-        toolName?: string;
-      }
-    | {
-        kind: 'sop-trace-eval';
-        sopDefinitionId: string;
-        trace: {
-          sessionId: string;
-          sopDefinitionId: string;
-          observedStage: string;
-          commands: Array<{ command: string; cwd?: string; exitCode?: number }>;
-          envSnapshot: Record<string, string | undefined>;
-          gitState: { branch: string; ahead: number; behind: number; clean: boolean; worktreeRoot?: string };
-          handles: { author?: string; reviewer?: string; guardian?: string };
-          shaContext: Record<string, string>;
-        };
-      }
-    | {
-        kind: 'friction-rollup-snapshot';
-        windowStartMs: number;
-        windowEndMs: number;
-        topN?: number;
-        tokenCap?: number;
-      }
-    | {
-        kind: 'anchor-telemetry-snapshot';
-        windowStartMs: number;
-        windowEndMs: number;
-      }
-    | {
-        kind: 'qc-metrics-rollup';
-        windowStartMs: number;
-        windowEndMs: number;
-      };
-  agentKeyCatId?: string | undefined;
-};
+const publishVerdictInputObjectSchema = z.object(publishVerdictInputSchema);
+type PublishVerdictToolInput = z.input<typeof publishVerdictInputObjectSchema>;
 
 export async function handlePublishVerdict(input: PublishVerdictToolInput): Promise<ToolResult> {
   const lifecycleError = validatePublishVerdictLifecycleInput(input);
