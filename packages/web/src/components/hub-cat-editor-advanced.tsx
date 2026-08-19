@@ -14,8 +14,6 @@ import {
   getCliEffortOptionsForClient,
   type HubCatEditorFormState,
   NATIVE_TOOL_LEVEL_OPTIONS,
-  SESSION_CHAIN_OPTIONS,
-  SESSION_STRATEGY_OPTIONS,
   type StrategyFormState,
   usesCliTransport,
 } from './hub-cat-editor.model';
@@ -63,7 +61,7 @@ export function AdvancedRuntimeSection({
     authMode: 'oauth' as const,
   };
   const cliEffortOptions = getCliEffortOptionsForClient(form.clientId);
-  const sessionChainEnabled = form.sessionChain === 'true' && (strategyForm?.sessionChainEnabled ?? true);
+  const cliExtensionsAvailable = usesCliTransport(form);
   const catAgentCommandPolicyPresetOptions =
     form.commandPolicyPreset === 'custom'
       ? [...CATAGENT_COMMAND_POLICY_PRESET_OPTIONS, CATAGENT_CUSTOM_COMMAND_POLICY_PRESET_OPTION]

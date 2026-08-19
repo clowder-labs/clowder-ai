@@ -2,6 +2,7 @@ import {
   builtinAccountFamilyForClient,
   type CatAgentProtocol,
   CLI_EFFORT_VALUES,
+  type CliEffortPreset,
   type CliEffortValue,
   type CommandPolicyEntry,
   getCliEffortOptionsForProvider,
@@ -19,9 +20,6 @@ export type ClientId = 'anthropic' | 'openai' | 'google' | 'kimi' | 'opencode' |
 /** @deprecated Use ClientId instead. */
 export type ClientValue = ClientId;
 export type SessionChainValue = 'true' | 'false';
-export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
-export type CodexApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never';
-export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 export type CatAgentCommandPolicyPreset = '' | 'git-readonly' | 'custom';
 
 export interface HubCatEditorFormState {
@@ -53,6 +51,10 @@ export interface HubCatEditorFormState {
    *  preserves whatever value was loaded. Cleared when clientId !== 'catagent'. */
   catAgentProtocol: CatAgentProtocol | '';
   cliEffort: CliEffortValue | '';
+  /** F291: '' inherits Codex user config. Optional keeps legacy form fixtures source-compatible. */
+  codexSpeed?: '' | 'standard' | 'fast';
+  /** F254 D2: Codex carrier override. '' = 跟随服务端 CAT_CAFE_CODEX_CARRIER 环境变量。 */
+  codexCarrier: '' | 'exec_json' | 'app_server';
   provider: string;
   acpEnabled: boolean;
   acpTransport: 'stdio' | 'httpstream';
@@ -181,7 +183,7 @@ export const DEFAULT_ANTIGRAVITY_COMMAND_ARGS = '. --remote-debugging-port=9000'
 const GOOGLE_OWNED_DOMAINS = ['generativelanguage.googleapis.com', 'googleapis.com'];
 
 function isCliEffortValue(value: string | undefined): value is CliEffortValue {
-  return value !== undefined && CLI_EFFORT_VALUES.includes(value as CliEffortValue);
+  return value !== undefined && (CLI_EFFORT_VALUES as readonly string[]).includes(value);
 }
 
 function stringArraysEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
@@ -460,6 +462,8 @@ export function initialState(cat?: CatData | null, draft?: HubCatEditorDraft | n
     // the explicit option for visibility.
     catAgentProtocol: cat?.catAgentProtocol ?? '',
     cliEffort: isCliEffortValue(persistedCliEffort) ? persistedCliEffort : '',
+    codexSpeed: cat?.cli?.serviceTier ?? '',
+    codexCarrier: cat?.cli?.carrier ?? '',
     provider: cat?.provider ?? '',
     acpEnabled:
       Boolean(acpConfig) || (cat?.clientId as ClientId | undefined) === 'acp' || createDraft?.clientId === 'acp',

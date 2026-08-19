@@ -38,6 +38,11 @@ export interface CatData {
   };
   commandArgs?: string[];
   cliConfigArgs?: string[];
+  /** F254 D2: effective carrier truth for openai cats (per-cat > env > default), resolved server-side. */
+  codexCarrier?: {
+    effective: 'exec_json' | 'app_server';
+    source: 'per-cat' | 'env' | 'default';
+  };
   /** F159 Phase F: CatAgent native tool level (L0 read / L1 write / L2 exec). */
   nativeToolLevel?: 'L0' | 'L1' | 'L2';
   /** F159 Phase F: CatAgent L2 command allowlist. */

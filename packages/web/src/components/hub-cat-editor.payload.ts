@@ -196,12 +196,6 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
     cliFields.carrier = null as null;
   }
   const cliPatch = Object.keys(cliFields).length > 0 ? { cli: cliFields } : {};
-  const nextCliConfigArgs = (form.cliConfigArgs ?? []).filter((arg) => arg.trim().length > 0);
-  const cliConfigArgsPatch = cliTransport
-    ? { cliConfigArgs: nextCliConfigArgs }
-    : cat?.cliConfigArgs?.length
-      ? { cliConfigArgs: [] as string[] }
-      : {};
   const voiceConfig = buildVoiceConfig(form);
   const voiceConfigPatch: Record<string, unknown> =
     voiceConfig !== undefined ? { voiceConfig } : cat?.voiceConfig ? { voiceConfig: null } : {};

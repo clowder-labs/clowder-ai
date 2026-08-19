@@ -18,7 +18,6 @@ import type { ProfileItem } from '@/components/hub-accounts.types';
 import {
   buildCatPatchPayload,
   buildCatPayload,
-  buildStrategyPayload,
   builtinAccountIdForClient,
   CATAGENT_GIT_READONLY_COMMAND_POLICY,
   DEFAULT_ANTIGRAVITY_COMMAND_ARGS,
@@ -32,7 +31,6 @@ import {
   splitCommandArgs,
   validateModelFormatForClient,
 } from '@/components/hub-cat-editor.model';
-import { AccountSection } from '@/components/hub-cat-editor.sections';
 import { AdvancedRuntimeSection } from '@/components/hub-cat-editor-advanced';
 
 const mockApiFetch = vi.mocked(apiFetch);
