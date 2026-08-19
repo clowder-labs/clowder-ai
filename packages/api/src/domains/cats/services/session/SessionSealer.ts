@@ -47,8 +47,18 @@ export interface ISessionSealer {
   requestSeal(args: {
     sessionId: string;
     reason: SealReason;
+    /**
+     * Guard: only seal if the current record's cliSessionId matches. Develop-side
+     * F118 session-continuity path (invoke-single-cat degradation branch) uses this
+     * to avoid sealing a session that already flipped to a different runtime id.
+     */
     expectedCliSessionId?: string;
-    /** TODO(merge-84164cd63): upstream renamed guard to expectedPolicyRevision. Accepting both to keep callers compiling; SessionSealer impl ignores this field. */
+    /**
+     * Guard: only seal if the current record's appliedPolicy.revision matches.
+     * Upstream F280 wait-baseline path (invocation-capacity-snapshot, pending seal)
+     * uses this so a mid-flight policy change rolls back to the caller with
+     * rejectionReason='policy_revision_mismatch'.
+     */
     expectedPolicyRevision?: string;
   }): Promise<SealResult>;
 
@@ -120,22 +130,32 @@ export class SessionSealer implements ISessionSealer {
     sessionId: string;
     reason: SealReason;
     expectedCliSessionId?: string;
-    /** Accepted for caller compatibility; not enforced by this implementation. */
     expectedPolicyRevision?: string;
   }): Promise<SealResult> {
-    const now = Date.now();
-    const updated = await this.store.compareAndMarkSealing(args.sessionId, {
-      sealReason: args.reason,
-      updatedAt: now,
-      ...(args.expectedCliSessionId !== undefined ? { expectedCliSessionId: args.expectedCliSessionId } : {}),
-    });
+    // Upstream F280 path: policy-revision guard uses transitionToSealing so a
+    // stale revision surfaces as rejectionReason='policy_revision_mismatch'.
+    let updated: Awaited<ReturnType<ISessionChainStore['transitionToSealing']>> = null;
+    if (args.expectedPolicyRevision !== undefined) {
+      updated = await this.store.transitionToSealing(args.sessionId, args.reason, args.expectedPolicyRevision);
+    } else {
+      const now = Date.now();
+      updated = await this.store.compareAndMarkSealing(args.sessionId, {
+        sealReason: args.reason,
+        updatedAt: now,
+        ...(args.expectedCliSessionId !== undefined ? { expectedCliSessionId: args.expectedCliSessionId } : {}),
+      });
+    }
 
     if (!updated) {
       const current = await this.store.get(args.sessionId);
-      if (current) {
-        return { accepted: false, status: current.status };
-      }
-      return { accepted: false, status: 'sealed' };
+      if (!current) return { accepted: false, status: 'sealed', rejectionReason: 'not_found' };
+      const revisionMismatch =
+        args.expectedPolicyRevision !== undefined && current.appliedPolicy?.revision !== args.expectedPolicyRevision;
+      return {
+        accepted: false,
+        status: current.status,
+        rejectionReason: revisionMismatch ? 'policy_revision_mismatch' : 'not_active',
+      };
     }
 
     log.info(
