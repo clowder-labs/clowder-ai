@@ -1,6 +1,7 @@
 import type { ConnectorSource, GitHubReviewThreadBaseline } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { GitHubWaitLifecycleService } from '../../domains/github-signals/GitHubWaitLifecycleService.js';
+import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
 import { type ConnectorDeliveryDeps, deliverConnectorMessage } from './deliver-connector-message.js';
 import { getMaxSeverity } from './severity-parser.js';
 
@@ -67,6 +68,7 @@ export type ReviewFeedbackRouteResult =
 export interface ReviewFeedbackRouterOptions {
   readonly deliveryDeps: ConnectorDeliveryDeps;
   readonly waitLifecycle: GitHubWaitLifecycleService;
+  readonly taskStore: ITaskStore;
   readonly log: FastifyBaseLogger;
 }
 
@@ -75,11 +77,14 @@ export class ReviewFeedbackRouter {
 
   async route(
     signal: ReviewFeedbackSignal,
-    /** TODO(merge-84164cd63): upstream shape was `{ taskId: string }` and used
-     *  waitLifecycle to derive addressing; develop-parent passed thread/cat/user
-     *  directly. Accepting both to compile; when only `{ taskId }` is given, we
-     *  return `skipped` since the routing plumbing to fetch task-owner data is
-     *  not wired here. Restore waitLifecycle path when resurrecting this feature. */
+    /**
+     * Two supported shapes:
+     * - `{ taskId }` — upstream shape (F280). Router fetches the PR/issue tracking
+     *   task from taskStore to derive owner threadId/catId/userId + F202
+     *   trackingInstructions and delivers develop's rich three-section content.
+     * - explicit `{ threadId, catId, userId, ... }` — legacy develop-parent
+     *   direct-addressing shape retained for callers that pre-resolve identity.
+     */
     tracking:
       | { taskId: string; threadId?: never; catId?: never; userId?: never; trackingInstructions?: never; trackingInstructionsHeadSha?: never }
       | {
@@ -94,15 +99,38 @@ export class ReviewFeedbackRouter {
     if (signal.newComments.length === 0 && signal.newDecisions.length === 0 && !signal.routingAudit) {
       return { kind: 'skipped', reason: 'no new feedback' };
     }
-    if (!tracking.threadId || !tracking.catId) {
-      return { kind: 'skipped', reason: 'taskId-only tracking not wired post-merge; requires waitLifecycle path' };
+
+    let threadId: string | undefined = tracking.threadId;
+    let catId: string | undefined = tracking.catId;
+    let userId: string | undefined = tracking.userId;
+    let trackingInstructions: string | undefined = tracking.trackingInstructions;
+    let trackingInstructionsHeadSha: string | undefined = tracking.trackingInstructionsHeadSha;
+
+    // Upstream F280 path: resolve owner + F202 instructions from the tracked task.
+    if ((!threadId || !catId || !userId) && tracking.taskId) {
+      const task = await this.opts.taskStore.get(tracking.taskId);
+      if (!task || (task.kind !== 'pr_tracking' && task.kind !== 'issue_tracking')) {
+        return { kind: 'skipped', reason: `no PR/issue tracking task for ${tracking.taskId}` };
+      }
+      threadId = task.threadId;
+      catId = task.ownerCatId ?? '';
+      userId = task.userId ?? '';
+      const state = task.automationState as
+        | { trackingInstructions?: string; trackingInstructionsHeadSha?: string }
+        | undefined;
+      if (trackingInstructions === undefined && state?.trackingInstructions) {
+        trackingInstructions = state.trackingInstructions;
+      }
+      if (trackingInstructionsHeadSha === undefined && state?.trackingInstructionsHeadSha) {
+        trackingInstructionsHeadSha = state.trackingInstructionsHeadSha;
+      }
     }
 
-    const content = buildReviewFeedbackContent(
-      signal,
-      tracking.trackingInstructions,
-      tracking.trackingInstructionsHeadSha,
-    );
+    if (!threadId || !catId || !userId) {
+      return { kind: 'skipped', reason: 'unable to resolve owner threadId/catId/userId' };
+    }
+
+    const content = buildReviewFeedbackContent(signal, trackingInstructions, trackingInstructionsHeadSha);
 
     const source: ConnectorSource = {
       connector: 'github-review-feedback',
@@ -112,16 +140,16 @@ export class ReviewFeedbackRouter {
     };
 
     const result = await deliverConnectorMessage(this.opts.deliveryDeps, {
-      threadId: tracking.threadId,
-      userId: tracking.userId,
-      catId: tracking.catId,
+      threadId,
+      userId,
+      catId,
       content,
       source,
     });
     return {
       kind: 'notified',
-      threadId: tracking.threadId,
-      catId: tracking.catId,
+      threadId,
+      catId,
       messageId: result.messageId,
       content: result.content,
     };

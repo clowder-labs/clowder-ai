@@ -5929,6 +5929,7 @@ async function main(): Promise<void> {
     const reviewFeedbackRouter = new ReviewFeedbackRouter({
       deliveryDeps,
       waitLifecycle,
+      taskStore,
       log: app.log,
     });
 
