@@ -4440,6 +4440,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       when: githubWaitPredicatesSchema,
       nextStep: z.string().trim().min(1).max(500),
       expiresAt: z.number().int().positive(),
+      // F140: wake intent. 'review' (default) = waiting on review feedback → CI-pass stays silent.
+      // 'merge' = waiting on CI-green to merge → CI-pass wakes. Re-register (upsert) to flip it.
+      intent: z.enum(['review', 'merge']).optional(),
+      // F202 Phase 2C (AC-C1): user-provided tracking instructions appended to trigger messages.
+      instructions: z.string().max(2000).optional(),
     })
     .strict();
 
@@ -4465,7 +4470,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return deletedThreadGuard.body;
     }
 
-    const { repoFullName, prNumber, when, nextStep, expiresAt } = parsed.data;
+    const { repoFullName, prNumber, when, nextStep, expiresAt, instructions } = parsed.data;
     if (expiresAt <= Date.now()) {
       reply.status(400);
       return { error: 'expiresAt must be in the future' };
@@ -4646,10 +4651,25 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         await opts.waitLifecycleHolder?.current?.recordOutcomeEvent(installed, supersededOutcome);
       }
 
+      // F140 + F202 Phase 2C: layer wake intent + tracking instructions on top of the
+      // F280 wait-baseline state. Explicit 'intent' from this call wins; otherwise preserve
+      // an already-set intent (avoids incidentally downgrading 'merge'); default 'review'.
+      // trackingInstructionsHeadSha comes from the fresh baseline HEAD sha so review
+      // feedback with a stale head can suppress the instructions on the callback side.
+      const previousIntent = previousState?.intent;
+      const resolvedIntent = parsed.data.intent ?? previousIntent ?? 'review';
+      const headSha = snapshot.collectorState.ci?.headSha;
+      const layerPatch: Partial<PrAutomationState> = {
+        intent: resolvedIntent,
+        ...(instructions !== undefined ? { trackingInstructions: instructions } : {}),
+        ...(instructions !== undefined && headSha ? { trackingInstructionsHeadSha: headSha } : {}),
+      };
+      const withOverlay = await taskStore.patchAutomationState(task.id, layerPatch);
+
       return {
         status: 'ok',
         threadId: record.threadId,
-        task: installed,
+        task: withOverlay ?? installed,
         await: awaitState,
       };
     } catch (error) {
@@ -4676,6 +4696,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       when: githubIssueWaitPredicatesSchema,
       nextStep: z.string().min(1).max(500),
       expiresAt: z.number().int().positive(),
+      // F202 Phase 2C/2D (AC-C1/AC-D3): user-provided tracking instructions.
+      instructions: z.string().max(2000).optional(),
     })
     .strict();
 
@@ -4700,7 +4722,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return deletedThreadGuard.body;
     }
 
-    const { repoFullName, issueNumber, when, nextStep, expiresAt } = parsed.data;
+    const { repoFullName, issueNumber, when, nextStep, expiresAt, instructions: issueInstructions } = parsed.data;
     if (expiresAt <= Date.now()) {
       reply.status(400);
       return { error: 'expiresAt must be in the future' };
@@ -4855,7 +4877,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         await opts.waitLifecycleHolder?.current?.recordOutcomeEvent(installed, supersededOutcome);
       }
 
-      return { status: 'ok', threadId: record.threadId, task: installed, await: awaitState };
+      // F202 Phase 2D (AC-D3): layer tracking instructions on top of the F280 wait-baseline
+      // state so IssueCommentRouter can pick them up on the next callback.
+      let withOverlay = installed;
+      if (issueInstructions !== undefined) {
+        const patched = await taskStore.patchAutomationState(task.id, {
+          trackingInstructions: issueInstructions,
+        } as Partial<IssueWaitAutomationState>);
+        if (patched) withOverlay = patched;
+      }
+
+      return { status: 'ok', threadId: record.threadId, task: withOverlay, await: awaitState };
     } catch (error) {
       if (isSubjectOwnershipConflictError(error)) {
         reply.status(409);
