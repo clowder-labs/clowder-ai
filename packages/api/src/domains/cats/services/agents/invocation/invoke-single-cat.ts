@@ -2684,14 +2684,69 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       log.warn({ threadId, catId, invocationId, err }, 'CatAgent scoped callback resolution failed');
     }
 
-    // TODO(merge-84164cd63): upstream's ~80-line block that resolves
-    // reasoningEffortOverride (thread member effort) + requestedServiceTier
-    // (Codex speed via resolveCodexSpeed) got dropped in the merge.
-    // Setting to undefined preserves compile; feature revival requires
-    // splicing upstream lines 2513–2564 back in with their dependencies
-    // (CliEffortPreset, CodexSpeedValue, resolveCodexSpeed, threadSpeedOverride).
-    const reasoningEffortOverride: string | undefined = undefined;
-    const requestedServiceTier: string | undefined = undefined;
+    let reasoningEffortOverride: CliEffortPreset | undefined;
+    if (deps.threadStore?.getMemberEffort) {
+      try {
+        reasoningEffortOverride = await deps.threadStore.getMemberEffort(threadId, catId, userId);
+      } catch (err) {
+        log.warn(
+          { catId, threadId, userId, err },
+          'Thread effort override read failed — continuing with inherited effort',
+        );
+        yield {
+          type: 'system_info' as const,
+          catId,
+          content: JSON.stringify({
+            type: 'thread_effort_override_read_failed',
+            message: 'Thread effort override could not be loaded; using the member default for this invocation.',
+          }),
+          timestamp: Date.now(),
+        };
+      }
+    }
+
+    let threadSpeedOverride: CodexSpeedValue | undefined;
+    if (provider === 'openai' && deps.threadStore?.getMemberSpeed) {
+      try {
+        threadSpeedOverride = await deps.threadStore.getMemberSpeed(threadId, catId, userId);
+      } catch (err) {
+        log.warn(
+          { catId, threadId, userId, err },
+          'Thread speed override read failed — continuing with the member default',
+        );
+        yield {
+          type: 'system_info' as const,
+          catId,
+          content: JSON.stringify({
+            type: 'thread_speed_override_read_failed',
+            message: 'Thread speed override could not be loaded; using the member default for this invocation.',
+          }),
+          timestamp: Date.now(),
+        };
+      }
+    }
+    const requestedServiceTier =
+      provider === 'openai' && catConfig
+        ? (resolveCodexSpeed({
+            clientId: catConfig.clientId,
+            authType: resolvedAccount?.authType,
+            model: getCatModel(catId),
+            memberDefault: catConfig.cli?.serviceTier,
+            threadOverride: threadSpeedOverride,
+          }).requested ?? undefined)
+        : undefined;
+
+    const activeInvocationFreshness = deps.providerNativeFreshnessFactory
+      ? await deps.providerNativeFreshnessFactory({
+          invocationId: params.parentInvocationId ?? invocationId,
+          threadId,
+          userId,
+          catId,
+          provider: provider ?? 'unknown',
+          capability: freshnessCarrierCapability,
+        })
+      : null;
+
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
       ...(invocationCapacitySnapshot ? { contextCapacity: invocationCapacitySnapshot.capacity } : {}),
@@ -2719,6 +2774,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
+      ...(agentCarrierSessionFactory ? { agentCarrierSessionFactory } : {}),
+      ...(activeInvocationFreshness ? { activeInvocationFreshness } : {}),
       ...(catAgentScopedCallbacks ? { catAgentScopedCallbacks } : {}),
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
