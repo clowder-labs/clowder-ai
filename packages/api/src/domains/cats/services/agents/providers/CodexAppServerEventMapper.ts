@@ -18,8 +18,10 @@ export function isCodexAppServerNotificationForActiveTurn(
   const params = asCodexAppServerRecord(envelope.params);
   if (!params) return !requiresExactTurn;
 
+  const thread = asCodexAppServerRecord(params.thread);
   const turn = asCodexAppServerRecord(params.turn);
-  const notificationThreadId = typeof params.threadId === 'string' ? params.threadId : null;
+  const notificationThreadId =
+    typeof params.threadId === 'string' ? params.threadId : typeof thread?.id === 'string' ? thread.id : null;
   const notificationTurnId =
     typeof params.turnId === 'string' ? params.turnId : typeof turn?.id === 'string' ? turn.id : null;
   if (requiresExactTurn) return notificationThreadId === threadId && notificationTurnId === turnId;

@@ -273,10 +273,15 @@ test('active-turn cancel evicts the host after authoritative interrupted termina
 
 test('foreign subagent notifications cannot publish or terminate the active parent turn', async () => {
   const wire = new ProtocolWire();
-  const client = new CodexAppServerClient({ wire });
+  const lifecycle = [];
+  const client = new CodexAppServerClient({ wire, onLifecycle: (snapshot) => lifecycle.push(snapshot) });
   const run = collect(client.run({ prompt: 'review with a panel', thread: { kind: 'start' } }));
 
   await waitFor(() => wire.writes.some((message) => message.method === 'turn/start'));
+  wire.inbox.push({
+    method: 'thread/started',
+    params: { thread: { id: 'thread-subagent' } },
+  });
   wire.inbox.push({
     method: 'item/completed',
     params: {
@@ -345,6 +350,11 @@ test('foreign subagent notifications cannot publish or terminate the active pare
   assert.deepEqual(agentMessages, ['leader verdict']);
   const terminal = output.find((event) => event.type === 'turn.completed');
   assert.equal(terminal?.usage?.input_tokens, 10, 'foreign subagent usage must not contaminate the parent turn');
+  assert.equal(
+    lifecycle.filter((snapshot) => snapshot.stage === 'turn_accepted').length,
+    2,
+    'a foreign thread-start must not touch the parent lifecycle',
+  );
 });
 
 test('interrupt grace expiry escalates to the carrier terminate fallback', async () => {
