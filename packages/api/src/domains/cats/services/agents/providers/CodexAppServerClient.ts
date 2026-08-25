@@ -8,6 +8,7 @@ import {
   asCodexAppServerRecord,
   type CodexAppServerJsonObject,
   codexAppServerErrorMessage,
+  isCodexAppServerNotificationForActiveTurn,
   mapCodexAppServerNotification,
   mapCodexAppServerTokenUsage,
   respondToCodexAppServerRequest,
@@ -187,9 +188,10 @@ export class CodexAppServerClient {
         const next = await this.notifications.next();
         if (next.done) throw new Error('Codex app-server stream ended before turn completion');
         const envelope = next.value;
-        this.lifecycle.touch(timeoutMs, timeoutHandler);
         const record = asCodexAppServerRecord(envelope);
         const params = asCodexAppServerRecord(record?.params);
+        if (!isCodexAppServerNotificationForActiveTurn(envelope, threadId, activeTurnId)) continue;
+        this.lifecycle.touch(timeoutMs, timeoutHandler);
         const itemObserved = record?.method === 'item/started' || record?.method === 'item/completed';
         const exactCompletedItem =
           record?.method === 'item/completed' && params?.threadId === threadId && params?.turnId === activeTurnId;
