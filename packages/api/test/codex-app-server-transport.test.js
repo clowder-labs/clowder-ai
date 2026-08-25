@@ -66,12 +66,13 @@ class AsyncInbox {
 }
 
 class ProtocolWire {
-  constructor() {
+  constructor(turnId = 'turn-1') {
     this.inbox = new AsyncInbox();
     this.writes = [];
     this.terminateCalls = 0;
     this.closeCalls = 0;
     this.experimentalApiEnabled = false;
+    this.turnId = turnId;
   }
 
   read() {
@@ -100,7 +101,7 @@ class ProtocolWire {
           },
         });
       } else {
-        this.inbox.push({ id: message.id, result: { turn: { id: 'turn-1', status: 'inProgress' } } });
+        this.inbox.push({ id: message.id, result: { turn: { id: this.turnId, status: 'inProgress' } } });
       }
     }
     if (message.method === 'turn/interrupt') this.inbox.push({ id: message.id, result: {} });
@@ -267,6 +268,92 @@ test('active-turn cancel evicts the host after authoritative interrupted termina
   assert.equal(
     output.some((event) => event.type === 'turn.completed' && event.status === 'interrupted'),
     true,
+  );
+});
+
+test('foreign subagent notifications cannot publish or terminate the active parent turn', async () => {
+  const wire = new ProtocolWire();
+  const lifecycle = [];
+  const client = new CodexAppServerClient({ wire, onLifecycle: (snapshot) => lifecycle.push(snapshot) });
+  const run = collect(client.run({ prompt: 'review with a panel', thread: { kind: 'start' } }));
+
+  await waitFor(() => wire.writes.some((message) => message.method === 'turn/start'));
+  wire.inbox.push({
+    method: 'thread/started',
+    params: { thread: { id: 'thread-subagent' } },
+  });
+  wire.inbox.push({
+    method: 'item/completed',
+    params: {
+      threadId: 'thread-subagent',
+      turnId: 'turn-subagent',
+      item: { id: 'agent-subagent', type: 'agentMessage', text: '{"packet_type":"A_INITIAL"}' },
+    },
+  });
+  wire.inbox.push({
+    method: 'thread/tokenUsage/updated',
+    params: {
+      threadId: 'thread-subagent',
+      turnId: 'turn-subagent',
+      tokenUsage: { last: { inputTokens: 999, outputTokens: 999, cachedInputTokens: 0 } },
+    },
+  });
+  wire.inbox.push({
+    method: 'turn/completed',
+    params: { threadId: 'thread-subagent', turn: { id: 'turn-subagent', status: 'completed' } },
+  });
+  wire.inbox.push({
+    method: 'item/completed',
+    params: {
+      threadId: 'thread-1',
+      turnId: 'turn-other',
+      item: { id: 'agent-other-turn', type: 'agentMessage', text: '{"packet_type":"B_VERIFICATION"}' },
+    },
+  });
+  wire.inbox.push({
+    method: 'turn/completed',
+    params: { threadId: 'thread-1', turn: { id: 'turn-other', status: 'completed' } },
+  });
+  wire.inbox.push({
+    method: 'turn/completed',
+    params: { turn: { status: 'completed' } },
+  });
+
+  const earlyOutcome = await Promise.race([run.then(() => 'settled'), delay(25, 'pending')]);
+  assert.equal(earlyOutcome, 'pending', 'a foreign subagent terminal must not settle the parent transport');
+
+  wire.inbox.push({
+    method: 'item/completed',
+    params: {
+      threadId: 'thread-1',
+      turnId: 'turn-1',
+      item: { id: 'agent-parent', type: 'agentMessage', text: 'leader verdict' },
+    },
+  });
+  wire.inbox.push({
+    method: 'thread/tokenUsage/updated',
+    params: {
+      threadId: 'thread-1',
+      turnId: 'turn-1',
+      tokenUsage: { last: { inputTokens: 10, outputTokens: 2, cachedInputTokens: 3 } },
+    },
+  });
+  wire.inbox.push({
+    method: 'turn/completed',
+    params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } },
+  });
+
+  const output = await run;
+  const agentMessages = output
+    .filter((event) => event.type === 'item.completed' && event.item?.type === 'agent_message')
+    .map((event) => event.item.text);
+  assert.deepEqual(agentMessages, ['leader verdict']);
+  const terminal = output.find((event) => event.type === 'turn.completed');
+  assert.equal(terminal?.usage?.input_tokens, 10, 'foreign subagent usage must not contaminate the parent turn');
+  assert.equal(
+    lifecycle.filter((snapshot) => snapshot.stage === 'turn_accepted').length,
+    2,
+    'a foreign thread-start must not touch the parent lifecycle',
   );
 });
 
@@ -580,7 +667,7 @@ test('active-writer diagnostics classify a reused healthy affinity host as a loc
     }
     return firstWrite(message);
   };
-  const second = new ProtocolWire();
+  const second = new ProtocolWire('turn-new');
   const wires = [first, second];
   let factoryCalls = 0;
   const run = collect(
@@ -627,7 +714,7 @@ test('active-writer diagnostics remain external-or-unknown when thread/read has 
     }
     return firstWrite(message);
   };
-  const second = new ProtocolWire();
+  const second = new ProtocolWire('turn-new');
   const wires = [first, second];
   let factoryCalls = 0;
   const run = collect(
@@ -881,7 +968,7 @@ test('model-capacity failure without exact Clowder AI task coordinates blocks in
 
 test('model-capacity recovery after completed tools resumes the exact invocation checkpoint', async () => {
   const first = new ProtocolWire();
-  const second = new ProtocolWire();
+  const second = new ProtocolWire('turn-2');
   const wires = [first, second];
   let factoryCalls = 0;
   const run = collect(
@@ -968,8 +1055,8 @@ test('model-capacity recovery after completed tools resumes the exact invocation
 
 test('repeated model-capacity attempts reuse one hidden recovery context without adding user messages', async () => {
   const first = new ProtocolWire();
-  const second = new ProtocolWire();
-  const third = new ProtocolWire();
+  const second = new ProtocolWire('turn-2');
+  const third = new ProtocolWire('turn-3');
   const wires = [first, second, third];
   let factoryCalls = 0;
   const run = collect(

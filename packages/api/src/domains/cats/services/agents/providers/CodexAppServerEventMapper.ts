@@ -4,6 +4,33 @@ export function asCodexAppServerRecord(value: unknown): CodexAppServerJsonObject
   return typeof value === 'object' && value !== null ? (value as CodexAppServerJsonObject) : null;
 }
 
+export function isCodexAppServerNotificationForActiveTurn(
+  envelopeValue: unknown,
+  threadId: string,
+  turnId: string,
+): boolean {
+  const envelope = asCodexAppServerRecord(envelopeValue);
+  if (!envelope || typeof envelope.method !== 'string') return false;
+  const requiresExactTurn =
+    envelope.method.startsWith('turn/') ||
+    envelope.method.startsWith('item/') ||
+    envelope.method === 'thread/tokenUsage/updated';
+  const params = asCodexAppServerRecord(envelope.params);
+  if (!params) return !requiresExactTurn;
+
+  const thread = asCodexAppServerRecord(params.thread);
+  const turn = asCodexAppServerRecord(params.turn);
+  const notificationThreadId =
+    typeof params.threadId === 'string' ? params.threadId : typeof thread?.id === 'string' ? thread.id : null;
+  const notificationTurnId =
+    typeof params.turnId === 'string' ? params.turnId : typeof turn?.id === 'string' ? turn.id : null;
+  if (requiresExactTurn) return notificationThreadId === threadId && notificationTurnId === turnId;
+
+  if (notificationThreadId !== null && notificationThreadId !== threadId) return false;
+  if (notificationTurnId !== null && notificationTurnId !== turnId) return false;
+  return true;
+}
+
 export function codexAppServerErrorMessage(value: unknown): string {
   const record = asCodexAppServerRecord(value);
   return typeof record?.message === 'string' ? record.message : 'Codex app-server request failed';
