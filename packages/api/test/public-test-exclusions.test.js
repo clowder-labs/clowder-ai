@@ -102,7 +102,7 @@ test('registry preserves metadata for reconciled exclusions and drops retired on
       category: 'source_only',
       owner: '@zts212653',
       introducedBy: '069d0f0fb',
-      expiresOn: '2026-08-31',
+      expiresOn: '2026-09-30',
     },
   );
 });
