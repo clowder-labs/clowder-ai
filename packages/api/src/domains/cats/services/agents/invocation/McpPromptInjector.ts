@@ -9,7 +9,48 @@
  * HTTP endpoints preserved as fallback only.
  */
 
+import type { CatConfig } from '@cat-cafe/shared';
 import { renderSegment } from '../../context/prompt-template-loader.js';
+import type { AgentService } from '../../types.js';
+
+/**
+ * Issue #59 — centralized MCP prompt injection decision.
+ *
+ * Resolves whether to inject native MCP docs (S13 MCP_TOOLS_SECTION) or
+ * HTTP callback instructions (C1) based on the provider's capability.
+ *
+ * Priority: service.mcpPromptMode() > legacy boolean fallback.
+ */
+export interface McpPromptInjectionResult {
+  /** Inject MCP_TOOLS_SECTION into static identity (for Claude-style native MCP) */
+  injectNativeMcpDocs: boolean;
+  /** Inject C1 HTTP callback instructions per-message (for Codex/Gemini fallback) */
+  injectHttpCallbackDocs: boolean;
+}
+
+export function resolveMcpPromptInjection(
+  service: AgentService,
+  catConfig: CatConfig | null | undefined,
+  mcpServerPath: string | undefined,
+): McpPromptInjectionResult {
+  const mode = service.mcpPromptMode?.();
+  if (mode !== undefined) {
+    return {
+      injectNativeMcpDocs: mode === 'native-mcp',
+      injectHttpCallbackDocs: mode === 'http-callback',
+    };
+  }
+  // Legacy fallback: mcpSupport && mcpServerPath → native docs; else http callback.
+  // Antigravity always skips (LS persistent process can't receive callback env).
+  if (catConfig?.clientId === 'antigravity') {
+    return { injectNativeMcpDocs: false, injectHttpCallbackDocs: false };
+  }
+  const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
+  return {
+    injectNativeMcpDocs: mcpAvailable,
+    injectHttpCallbackDocs: !mcpAvailable,
+  };
+}
 
 export interface McpCallbackOptions {
   /**

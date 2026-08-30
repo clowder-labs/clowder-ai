@@ -151,6 +151,15 @@ export class CatAgentService implements AgentService {
     };
   }
 
+  /**
+   * Issue #59 — CatAgent has no MCP client and no shell access for HTTP
+   * callbacks. Pre-bridge: suppress both S13 native MCP docs and C1 HTTP
+   * callback instructions so the model doesn't see tools it cannot call.
+   */
+  mcpPromptMode(): 'native-mcp' | 'http-callback' | 'none' {
+    return 'none';
+  }
+
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const now = Date.now();
     let model: string;

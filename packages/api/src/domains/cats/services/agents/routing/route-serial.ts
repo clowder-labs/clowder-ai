@@ -180,7 +180,7 @@ import {
   sealBeforeInvocationIfNeeded,
 } from '../invocation/invocation-capacity-snapshot.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
-import { buildMcpCallbackInstructions, needsMcpInjection } from '../invocation/McpPromptInjector.js';
+import { buildMcpCallbackInstructions, resolveMcpPromptInjection } from '../invocation/McpPromptInjector.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveManagedSessionPolicySnapshot } from '../invocation/session-policy-snapshot.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
@@ -1055,16 +1055,6 @@ export async function* routeSerial(
           log.warn({ catId: catId as string, err: feedbackErr }, 'consumeMentionRoutingFeedback failed');
         }
       }
-      // mcpAvailable still gates the per-message HTTP callback fallback below
-      // (needsMcpInjection). F203 Phase C: the non-pack identity/家规/MCP docs
-      // travel via the compression-immune native system role
-      // (--system-prompt-file / -c) ONLY for providers that inject L0 natively
-      // (ClaudeAgentService -p, ClaudeBgCarrierService, CodexAgent). Other
-      // providers (Gemini, Antigravity, CatAgent, A2A, OpenCode, Kimi…)
-      // have no native L0 channel, so they MUST still receive the full static
-      // identity via the user-message systemPrompt prepend — otherwise they
-      // lose identity/家规 entirely (云端 Codex P1-cloud-1, 2026-05-16).
-      const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
       // F129: Load active pack blocks (best-effort, failure does not block invocation)
       let packBlocks: import('@cat-cafe/shared').CompiledPackBlocks | null = null;
       if (deps.packStore) {
@@ -1200,6 +1190,15 @@ export async function* routeSerial(
         }
       };
       const hasNativeL0 = service.injectsL0Natively?.() ?? false;
+      // Issue #59: MCP prompt injection resolved from service.mcpPromptMode()
+      // capability. Falls back to legacy mcpSupport && mcpServerPath for
+      // providers that haven't adopted the new capability yet.
+      // F203 Phase C: non-pack identity/家規/MCP docs travel via the
+      // compression-immune native system role (--system-prompt-file / -c)
+      // ONLY for providers that inject L0 natively. Others receive full
+      // static identity via user-message systemPrompt prepend.
+      const mcpInjection = resolveMcpPromptInjection(service, catConfig, mcpServerPath);
+      const mcpAvailable = mcpInjection.injectNativeMcpDocs;
       const staticIdentity = hasNativeL0
         ? buildStaticIdentityPackOnly(catId, { packBlocks })
         : buildStaticIdentity(catId, { mcpAvailable, packBlocks });
@@ -1212,8 +1211,8 @@ export async function* routeSerial(
       // session-chain turns, because invoke-single-cat skips systemPrompt
       // injection on those resumes. Staging is now injected in invoke-single-cat
       // independently (mirrors F225 contextHintPrefix pattern).
-      // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
-      const mcpInstructions = needsMcpInjection(mcpAvailable, catConfig?.clientId)
+      // Issue #59: HTTP callback injection from resolved mode (not boolean flip).
+      const mcpInstructions = mcpInjection.injectHttpCallbackDocs
         ? buildMcpCallbackInstructions({
             currentCatId: catId as string,
             teammates: teammates.map((id) => id as string),
