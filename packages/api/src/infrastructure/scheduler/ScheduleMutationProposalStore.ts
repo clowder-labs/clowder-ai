@@ -15,6 +15,7 @@ import {
   deleteDynamicTaskWithAudit,
   fingerprintDynamicTaskDef,
   getDynamicTask,
+  getDynamicTaskByIdempotencyKey,
   insertDynamicTask,
   insertDynamicTaskWithAudit,
   insertScheduleMutationAudit,
@@ -44,6 +45,13 @@ export class ScheduleMutationProposalStoreError extends Error {
 }
 
 type CreateScheduleMutation = Extract<ScheduleMutationProposal['mutation'], { kind: 'create' }>;
+type CreateScheduleMutationProposal = ScheduleMutationProposal & { mutation: CreateScheduleMutation };
+type CreateProposalIdempotencyLookup =
+  | { kind: 'match'; proposal: CreateScheduleMutationProposal }
+  | { kind: 'conflict'; proposal: CreateScheduleMutationProposal };
+type ApplyCreateResult =
+  | { outcome: 'ok'; applied: boolean; task: ScheduleMutationTaskDefinition }
+  | { outcome: 'conflict'; taskId: string };
 
 function materializeCreateTask(mutation: CreateScheduleMutation, appliedAt: number): ScheduleMutationTaskDefinition {
   const delayMs = mutation.relativeOnceDelayMs;
@@ -104,6 +112,27 @@ export class ScheduleMutationProposalStore implements ApprovalPublicationStore {
         )
         .all(ownerUserId) as ProposalRow[]
     ).map(toProposal);
+  }
+
+  findUnsettledCreateByIdempotencyKey(
+    ownerUserId: string,
+    requesterCatId: string,
+    idempotencyKey: string,
+    idempotencyFingerprint: string,
+  ): CreateProposalIdempotencyLookup | null {
+    let conflictingProposal: CreateScheduleMutationProposal | null = null;
+    for (const proposal of this.listPending(ownerUserId)) {
+      if (proposal.requesterCatId !== requesterCatId) continue;
+      if (proposal.mutation.kind !== 'create') continue;
+      const createProposal = proposal as CreateScheduleMutationProposal;
+      const task = proposal.mutation.task;
+      if (task.idempotencyKey !== idempotencyKey) continue;
+      if (task.idempotencyFingerprint === idempotencyFingerprint) {
+        return { kind: 'match', proposal: createProposal };
+      }
+      conflictingProposal ??= createProposal;
+    }
+    return conflictingProposal ? { kind: 'conflict', proposal: conflictingProposal } : null;
   }
 
   listSettledByUser(ownerUserId: string, limit = 50): ScheduleMutationProposal[] {
@@ -217,15 +246,17 @@ export class ScheduleMutationProposalStore implements ApprovalPublicationStore {
         return { outcome: 'ok' as const, applied: false, task: persistedTask };
       }
       const task = materializeCreateTask(mutation, appliedAt);
-
-      const existing = getDynamicTask(this.db, task.id);
-      if (existing && fingerprintDynamicTaskDef(existing) !== fingerprintDynamicTaskDef(task)) {
-        this.rollbackApproval(proposalId);
-        return { outcome: 'conflict' as const, taskId: task.id };
+      const existingResult = this.resolveExistingCreateTask(proposalId, task);
+      if (existingResult) {
+        if (existingResult.outcome === 'ok') {
+          this.writeCheckpoint(proposalId, { kind: 'create', taskId: existingResult.task.id, appliedAt });
+        }
+        return existingResult;
       }
-      if (!existing) insertDynamicTask(this.db, task);
+
+      insertDynamicTask(this.db, task);
       this.writeCheckpoint(proposalId, { kind: 'create', taskId: task.id, appliedAt });
-      return { outcome: 'ok' as const, applied: !existing, task };
+      return { outcome: 'ok' as const, applied: true, task };
     })();
     if (result.outcome === 'conflict') {
       throw new ScheduleMutationProposalStoreError(
@@ -314,6 +345,32 @@ export class ScheduleMutationProposalStore implements ApprovalPublicationStore {
       );
     }
     return proposal;
+  }
+
+  private resolveExistingCreateTask(
+    proposalId: string,
+    task: ScheduleMutationTaskDefinition,
+  ): ApplyCreateResult | null {
+    const existing = getDynamicTask(this.db, task.id);
+    if (existing) {
+      if (fingerprintDynamicTaskDef(existing) !== fingerprintDynamicTaskDef(task)) {
+        this.rollbackApproval(proposalId);
+        return { outcome: 'conflict', taskId: task.id };
+      }
+      return { outcome: 'ok', applied: false, task: existing };
+    }
+
+    if (!task.idempotencyKey) return null;
+    const existingByIdempotencyKey = getDynamicTaskByIdempotencyKey(this.db, task.idempotencyKey);
+    if (!existingByIdempotencyKey) return null;
+    if (
+      !task.idempotencyFingerprint ||
+      existingByIdempotencyKey.idempotencyFingerprint !== task.idempotencyFingerprint
+    ) {
+      this.rollbackApproval(proposalId);
+      return { outcome: 'conflict', taskId: existingByIdempotencyKey.id };
+    }
+    return { outcome: 'ok', applied: false, task: existingByIdempotencyKey };
   }
 
   private getRow(proposalId: string): ProposalRow | undefined {

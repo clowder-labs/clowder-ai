@@ -92,7 +92,20 @@ export function toAudit(row: AuditRow): ScheduleMutationAuditEntry {
 
 export function getDynamicTask(db: Database.Database, id: string): ScheduleMutationTaskDefinition | null {
   const row = db.prepare('SELECT * FROM dynamic_task_defs WHERE id = ?').get(id) as DynamicTaskRow | undefined;
-  if (!row) return null;
+  return row ? toDynamicTask(row) : null;
+}
+
+export function getDynamicTaskByIdempotencyKey(
+  db: Database.Database,
+  idempotencyKey: string,
+): ScheduleMutationTaskDefinition | null {
+  const row = db.prepare('SELECT * FROM dynamic_task_defs WHERE idempotency_key = ?').get(idempotencyKey) as
+    | DynamicTaskRow
+    | undefined;
+  return row ? toDynamicTask(row) : null;
+}
+
+function toDynamicTask(row: DynamicTaskRow): ScheduleMutationTaskDefinition {
   return {
     id: row.id,
     templateId: row.template_id,
@@ -103,8 +116,8 @@ export function getDynamicTask(db: Database.Database, id: string): ScheduleMutat
     enabled: row.enabled === 1,
     createdBy: row.created_by,
     createdAt: row.created_at,
-    idempotencyKey: row.idempotency_key,
-    idempotencyFingerprint: row.idempotency_fingerprint,
+    ...(row.idempotency_key == null ? {} : { idempotencyKey: row.idempotency_key }),
+    ...(row.idempotency_fingerprint == null ? {} : { idempotencyFingerprint: row.idempotency_fingerprint }),
   };
 }
 
@@ -201,9 +214,14 @@ function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareUtf16(left, right))
       .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
       .join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+function compareUtf16(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }

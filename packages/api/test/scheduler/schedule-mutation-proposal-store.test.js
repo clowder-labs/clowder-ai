@@ -192,6 +192,88 @@ describe('ScheduleMutationProposalStore', () => {
     });
   });
 
+  it('replays a duplicate create approval by idempotency key without leaving the proposal applying', () => {
+    const { db, store } = setup();
+    const firstTask = task({
+      id: 'dyn-idempotent-create-a',
+      idempotencyKey: 'workflow:review:duplicate-create',
+      idempotencyFingerprint: 'same-fingerprint',
+    });
+    const duplicateTask = task({
+      id: 'dyn-idempotent-create-b',
+      idempotencyKey: firstTask.idempotencyKey,
+      idempotencyFingerprint: firstTask.idempotencyFingerprint,
+    });
+    const firstProposal = createProposal({
+      proposalId: 'schedule-proposal-idempotent-create-a',
+      mutation: { kind: 'create', task: firstTask },
+    });
+    const duplicateProposal = createProposal({
+      proposalId: 'schedule-proposal-idempotent-create-b',
+      mutation: { kind: 'create', task: duplicateTask },
+    });
+    store.create(firstProposal);
+    store.create(duplicateProposal);
+
+    store.claimForApproval(firstProposal.proposalId, CREATED_AT_MS + 1);
+    const first = store.applyCreateEffect(firstProposal.proposalId, CREATED_AT_MS + 2);
+    assert.equal(store.finalizeApproved(firstProposal.proposalId, 'owner-user', CREATED_AT_MS + 3)?.status, 'approved');
+
+    store.claimForApproval(duplicateProposal.proposalId, CREATED_AT_MS + 4);
+    const duplicate = store.applyCreateEffect(duplicateProposal.proposalId, CREATED_AT_MS + 5);
+    const finalized = store.finalizeApproved(duplicateProposal.proposalId, 'owner-user', CREATED_AT_MS + 6);
+
+    assert.equal(first.applied, true);
+    assert.equal(duplicate.applied, false);
+    assert.deepEqual(duplicate.task, firstTask);
+    assert.equal(finalized?.status, 'approved');
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM dynamic_task_defs').get().count, 1);
+    assert.deepEqual(store.getById(duplicateProposal.proposalId)?.effectCheckpoint, {
+      kind: 'create',
+      taskId: firstTask.id,
+      appliedAt: CREATED_AT_MS + 5,
+    });
+  });
+
+  it('rejects a duplicate create approval with a structured conflict when the idempotency fingerprint differs', () => {
+    const { db, store } = setup();
+    const firstTask = task({
+      id: 'dyn-idempotent-conflict-a',
+      idempotencyKey: 'workflow:review:duplicate-create-conflict',
+      idempotencyFingerprint: 'first-fingerprint',
+    });
+    const conflictTask = task({
+      id: 'dyn-idempotent-conflict-b',
+      idempotencyKey: firstTask.idempotencyKey,
+      idempotencyFingerprint: 'second-fingerprint',
+    });
+    const firstProposal = createProposal({
+      proposalId: 'schedule-proposal-idempotent-conflict-a',
+      mutation: { kind: 'create', task: firstTask },
+    });
+    const conflictProposal = createProposal({
+      proposalId: 'schedule-proposal-idempotent-conflict-b',
+      mutation: { kind: 'create', task: conflictTask },
+    });
+    store.create(firstProposal);
+    store.create(conflictProposal);
+
+    store.claimForApproval(firstProposal.proposalId, CREATED_AT_MS + 1);
+    store.applyCreateEffect(firstProposal.proposalId, CREATED_AT_MS + 2);
+    store.finalizeApproved(firstProposal.proposalId, 'owner-user', CREATED_AT_MS + 3);
+    store.claimForApproval(conflictProposal.proposalId, CREATED_AT_MS + 4);
+
+    assert.throws(
+      () => store.applyCreateEffect(conflictProposal.proposalId, CREATED_AT_MS + 5),
+      (error) =>
+        error instanceof ScheduleMutationProposalStoreError &&
+        error.code === 'SCHEDULE_TASK_CONFLICT' &&
+        error.statusCode === 409,
+    );
+    assert.equal(store.getById(conflictProposal.proposalId)?.status, 'pending');
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM dynamic_task_defs').get().count, 1);
+  });
+
   it('rebases a relative once delay exactly once and preserves it across retries', () => {
     const { db, store } = setup();
     const target = task({ id: 'dyn-relative-once' });

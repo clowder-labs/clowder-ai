@@ -252,6 +252,33 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       idempotencyFingerprint,
     };
     if (mutationPrincipal.kind === 'cat') {
+      if (normalizedIdempotencyKey && idempotencyFingerprint) {
+        const existingProposal = scheduleMutationProposalStore.findUnsettledCreateByIdempotencyKey(
+          ownerUserId,
+          mutationPrincipal.catId,
+          normalizedIdempotencyKey,
+          idempotencyFingerprint,
+        );
+        if (existingProposal) {
+          if (existingProposal.kind === 'conflict') {
+            reply.status(409);
+            return {
+              error: 'Idempotency key already belongs to a different schedule registration proposal',
+              code: 'IDEMPOTENCY_CONFLICT',
+              proposalId: existingProposal.proposal.proposalId,
+              task: dynamicTaskResponse(existingProposal.proposal.mutation.task),
+            };
+          }
+          reply.status(202);
+          return {
+            success: true,
+            proposed: true,
+            idempotent: true,
+            proposalId: existingProposal.proposal.proposalId,
+            task: dynamicTaskResponse(existingProposal.proposal.mutation.task),
+          };
+        }
+      }
       const cardThreadId =
         mutationPrincipal.authKind === 'invocation' ? mutationPrincipal.threadId : resolution.deliveryThreadId;
       if (!cardThreadId) {

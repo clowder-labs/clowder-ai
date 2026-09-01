@@ -156,7 +156,7 @@ function todef(row: RawRow): DynamicTaskDef {
     enabled: row.enabled === 1,
     createdBy: row.created_by,
     createdAt: row.created_at,
-    idempotencyKey: row.idempotency_key,
-    idempotencyFingerprint: row.idempotency_fingerprint,
+    ...(row.idempotency_key == null ? {} : { idempotencyKey: row.idempotency_key }),
+    ...(row.idempotency_fingerprint == null ? {} : { idempotencyFingerprint: row.idempotency_fingerprint }),
   };
 }
