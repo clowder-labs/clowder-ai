@@ -221,11 +221,14 @@ describe('ScheduleMutationProposalStore', () => {
 
     store.claimForApproval(duplicateProposal.proposalId, CREATED_AT_MS + 4);
     const duplicate = store.applyCreateEffect(duplicateProposal.proposalId, CREATED_AT_MS + 5);
-    const finalized = store.finalizeApproved(duplicateProposal.proposalId, 'owner-user', CREATED_AT_MS + 6);
+    const duplicateRetry = store.applyCreateEffect(duplicateProposal.proposalId, CREATED_AT_MS + 6);
+    const finalized = store.finalizeApproved(duplicateProposal.proposalId, 'owner-user', CREATED_AT_MS + 7);
 
     assert.equal(first.applied, true);
     assert.equal(duplicate.applied, false);
     assert.deepEqual(duplicate.task, firstTask);
+    assert.equal(duplicateRetry.applied, false);
+    assert.deepEqual(duplicateRetry.task, firstTask);
     assert.equal(finalized?.status, 'approved');
     assert.equal(db.prepare('SELECT COUNT(*) AS count FROM dynamic_task_defs').get().count, 1);
     assert.deepEqual(store.getById(duplicateProposal.proposalId)?.effectCheckpoint, {

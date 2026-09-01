@@ -235,12 +235,19 @@ export class ScheduleMutationProposalStore implements ApprovalPublicationStore {
       const proposal = this.requireApplying(proposalId, 'create');
       const mutation = proposal.mutation.kind === 'create' ? proposal.mutation : unreachableMutation();
       if (proposal.effectCheckpoint) {
-        const persistedTask = getDynamicTask(this.db, mutation.task.id);
+        if (proposal.effectCheckpoint.kind !== 'create') {
+          throw new ScheduleMutationProposalStoreError(
+            'SCHEDULE_PROPOSAL_STATE',
+            409,
+            `Schedule mutation proposal ${proposalId} has a non-create checkpoint`,
+          );
+        }
+        const persistedTask = getDynamicTask(this.db, proposal.effectCheckpoint.taskId);
         if (!persistedTask) {
           throw new ScheduleMutationProposalStoreError(
             'SCHEDULE_PROPOSAL_STATE',
             409,
-            `Dynamic task ${mutation.task.id} is missing after its create checkpoint`,
+            `Dynamic task ${proposal.effectCheckpoint.taskId} is missing after its create checkpoint`,
           );
         }
         return { outcome: 'ok' as const, applied: false, task: persistedTask };
