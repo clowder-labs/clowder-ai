@@ -135,9 +135,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
     const requestTrigger = body.trigger ?? template.defaultTrigger;
     let trigger: TriggerSpec;
     const rawOnceTrigger =
-      (requestTrigger as Record<string, unknown>).type === 'once'
-        ? (requestTrigger as Record<string, unknown>)
-        : null;
+      (requestTrigger as Record<string, unknown>).type === 'once' ? (requestTrigger as Record<string, unknown>) : null;
     const relativeOnceDelayMs =
       rawOnceTrigger && typeof rawOnceTrigger.delayMs === 'number' ? rawOnceTrigger.delayMs : undefined;
     if (rawOnceTrigger) {

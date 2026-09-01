@@ -975,7 +975,7 @@ describe('Schedule Routes', () => {
   });
 
   describe('POST /api/schedule/tasks — idempotent workflow registration', () => {
-    let appDyn, store, registry;
+    let appDyn, store, registry, proposalStore;
 
     beforeEach(async () => {
       const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
@@ -987,7 +987,7 @@ describe('Schedule Routes', () => {
       store = new DynamicTaskStore(db);
       registry = new InvocationRegistry();
       appDyn = Fastify({ logger: false });
-      await registerScheduleRoutesForTest(appDyn, sr, db, {
+      proposalStore = await registerScheduleRoutesForTest(appDyn, sr, db, {
         taskRunner: runner,
         dynamicTaskStore: store,
         templateRegistry,
@@ -1083,7 +1083,7 @@ describe('Schedule Routes', () => {
       assert.equal(stored.params.targetCatId, 'codex');
     });
 
-    it('rejects the same idempotencyKey when the verified actor differs', async () => {
+    it('binds cat proposal idempotency fingerprints to the verified actor', async () => {
       const firstAuth = await registry.create('user-1', 'opus', 'thread-actor-replay');
       const payload = {
         templateId: 'reminder',
@@ -1098,20 +1098,31 @@ describe('Schedule Routes', () => {
         headers: { 'x-invocation-id': firstAuth.invocationId, 'x-callback-token': firstAuth.callbackToken },
         payload,
       });
-      assert.equal(first.statusCode, 200, first.body);
+      assert.equal(first.statusCode, 202, first.body);
+      const firstProposal = proposalStore.getById(first.json().proposalId);
+      assert.ok(firstProposal, 'cat request should create an approval proposal');
+      assert.equal(firstProposal.mutation.kind, 'create');
 
-      const secondAuth = await registry.create('user-2', 'opus', 'thread-actor-replay');
-      const conflict = await appDyn.inject({
+      const secondAuth = await registry.create('user-1', 'codex', 'thread-actor-replay');
+      const second = await appDyn.inject({
         method: 'POST',
         url: '/api/schedule/tasks',
         headers: { 'x-invocation-id': secondAuth.invocationId, 'x-callback-token': secondAuth.callbackToken },
         payload,
       });
 
-      assert.equal(conflict.statusCode, 409, conflict.body);
-      assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
-      assert.equal(store.getAll().length, 1, 'conflict must not persist a second task');
-      assert.equal(store.getAll()[0].params.triggerUserId, 'user-1');
+      assert.equal(second.statusCode, 202, second.body);
+      const secondProposal = proposalStore.getById(second.json().proposalId);
+      assert.ok(secondProposal, 'cat request should create an approval proposal');
+      assert.equal(secondProposal.mutation.kind, 'create');
+      assert.equal(firstProposal.mutation.task.idempotencyKey, payload.idempotencyKey);
+      assert.equal(secondProposal.mutation.task.idempotencyKey, payload.idempotencyKey);
+      assert.notEqual(
+        firstProposal.mutation.task.idempotencyFingerprint,
+        secondProposal.mutation.task.idempotencyFingerprint,
+        'verified actor must be part of the proposal replay fingerprint',
+      );
+      assert.equal(store.getAll().length, 0, 'cat requests must not persist before approval');
     });
 
     it('replays the same non-ASCII request when host locale ordering changes', async () => {
