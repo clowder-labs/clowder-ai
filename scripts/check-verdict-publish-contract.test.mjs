@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  accessSync,
+  chmodSync,
+  constants,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
@@ -15,6 +25,20 @@ const censusRef = 'docs/harness-feedback/registry/measurement-bundles.yaml';
 
 function git(cwd, args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+}
+
+function executableOnPath(name, pathValue = process.env.PATH ?? '') {
+  for (const directory of pathValue.split(delimiter)) {
+    if (!directory) continue;
+    const candidate = resolve(directory, name);
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Try the next PATH entry.
+    }
+  }
+  throw new Error(`${name} is not executable on PATH`);
 }
 
 function corpusHash(records) {
@@ -58,7 +82,7 @@ function writeVerdict(repo, id, { domainId = 'eval:test', endMs = 200, packetId 
 function installGitProxy(root, bare) {
   const binDir = join(root, 'bin');
   const proxy = join(binDir, 'git');
-  const realGit = execFileSync('command', ['-v', 'git'], { encoding: 'utf8' }).trim();
+  const realGit = executableOnPath('git');
   mkdirSync(binDir);
   writeFileSync(
     proxy,
@@ -148,6 +172,23 @@ function runChecker(candidate, extraArgs, env = process.env) {
 }
 
 describe('verdict publish contract', () => {
+  it('resolves real git when PATH does not expose a command executable', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'verdict-publish-contract-path-'));
+    const pathBin = join(root, 'path-bin');
+    const proxyRoot = join(root, 'proxy-root');
+    mkdirSync(pathBin);
+    mkdirSync(proxyRoot);
+    symlinkSync(executableOnPath('git'), join(pathBin, 'git'));
+    const originalPath = process.env.PATH;
+    process.env.PATH = pathBin;
+    t.after(() => {
+      process.env.PATH = originalPath;
+      rmSync(root, { force: true, recursive: true });
+    });
+
+    assert.doesNotThrow(() => installGitProxy(proxyRoot, join(root, 'origin.git')));
+  });
+
   it('accepts the publisher base-ref mode and the guarded-gh fresh-base mode', (t) => {
     const { candidate, env } = createFixture(t);
     const baseResult = runChecker(candidate, ['--base-ref', 'origin/main']);
