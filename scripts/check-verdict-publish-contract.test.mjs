@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -33,7 +34,7 @@ function executableOnPath(name, pathValue = process.env.PATH ?? '') {
     const candidate = resolve(directory, name);
     try {
       accessSync(candidate, constants.X_OK);
-      return candidate;
+      if (statSync(candidate).isFile()) return candidate;
     } catch {
       // Try the next PATH entry.
     }
@@ -172,6 +173,20 @@ function runChecker(candidate, extraArgs, env = process.env) {
 }
 
 describe('verdict publish contract', () => {
+  it('skips an executable directory named git before the real binary', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'verdict-publish-contract-directory-shadow-'));
+    const shadowBin = join(root, 'shadow-bin');
+    const realBin = join(root, 'real-bin');
+    mkdirSync(join(shadowBin, 'git'), { recursive: true });
+    mkdirSync(realBin);
+    const realGit = executableOnPath('git');
+    const linkedGit = join(realBin, 'git');
+    symlinkSync(realGit, linkedGit);
+    t.after(() => rmSync(root, { force: true, recursive: true }));
+
+    assert.equal(executableOnPath('git', `${shadowBin}${delimiter}${realBin}`), linkedGit);
+  });
+
   it('resolves real git when PATH does not expose a command executable', (t) => {
     const root = mkdtempSync(join(tmpdir(), 'verdict-publish-contract-path-'));
     const pathBin = join(root, 'path-bin');
