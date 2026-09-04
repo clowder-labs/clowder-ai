@@ -28,6 +28,7 @@ const MODEL_SUGGESTIONS: Partial<Record<BuiltinAccountClient, string[]>> = {
     'Gemini 3.5 Flash (High)',
     'Claude Opus 4.6 (Thinking)',
   ],
+  kimi: ['kimi-code/kimi-for-coding', 'kimi-code/k3', 'kimi-code/k3-256k', 'kimi-code/kimi-for-coding-highspeed'],
   opencode: ['claude-sonnet-4-6', 'claude-opus-4-6'],
 };
 
