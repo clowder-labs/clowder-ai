@@ -1,8 +1,8 @@
 /**
  * check:env-registry — CI gate for env var registration completeness.
  *
- * Scans `packages/api/src` and `packages/mcp-server/src` for `process.env.XXX`
- * references and verifies each is either:
+ * Scans `packages/api/src`, `packages/mcp-server/src`, and runtime guard scripts
+ * for `process.env.XXX` / shell `$ENV_VAR` references and verifies each is either:
  *   1. Registered in `env-registry.ts` ENV_VARS array, OR
  *   2. Listed in the ALLOWLIST below (with a reason).
  *
@@ -39,6 +39,8 @@ const ALLOWLIST = new Map([
   ['all_proxy', 'Standard proxy convention (lowercase variant of ALL_PROXY)'],
   ['npm_execpath', 'Package-manager metadata injected by npm/pnpm; not user-configurable'],
   ['npm_config_user_agent', 'Package-manager metadata injected by npm/pnpm; not user-configurable'],
+  ['npm_config_production', 'Package-manager production-mode flag read by install/runtime guards'],
+  ['NPM_CONFIG_PRODUCTION', 'Package-manager production-mode flag read by install/runtime guards'],
   ['INIT_CWD', 'Package-manager metadata injected by npm/pnpm; original invocation directory'],
   ['COGVIDEO_API_KEY', 'F139 MediaHub CogVideoX provider — mcp-server-local credential'],
   ['CLAUDE_BIN', 'F254 developer-only live fixture executable override; not a runtime setting'],
@@ -46,6 +48,8 @@ const ALLOWLIST = new Map([
   ['F254_CLAUDE_MODEL', 'F254 developer-only Claude capability fixture model override; not a runtime setting'],
   ['F254_CODEX_TRANSPORT', 'F254 developer-only Codex fixture transport selector; not a runtime setting'],
   ['CAT_OPUS_MODEL', 'Existing provider model env reused only as a developer fixture fallback'],
+  ['CAT_CAFE_TEST_NODE_VERSION', 'Test-only override for scripts/check-node-runtime.mjs'],
+  ['CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC', 'Internal recursion guard exported by scripts/lib/node-runtime-guard.sh'],
   // F240: Per-connector env vars migrated to YAML manifests (connector.yaml / plugin.yaml).
   // Runtime still reads process.env as fallback in resolveConnectorEnv() chain, but
   // documentation/display is now driven by the YAML config.fields declarations.
@@ -100,10 +104,17 @@ function collectTsFiles(dir) {
   return results;
 }
 
+const EXTRA_ENV_REF_FILES = [
+  'scripts/check-node-runtime.mjs',
+  'scripts/check-validation-node-runtime.mjs',
+  'scripts/lib/node-runtime-guard.sh',
+];
+
 // ── Extract process.env references from source files ──
-function extractEnvRefs(dirs) {
+function extractEnvRefs(dirs, extraFiles = []) {
   /** @type {Map<string, string[]>} varName → [file:line, ...] */
   const refs = new Map();
+  const files = [];
 
   for (const dir of dirs) {
     const absDir = join(ROOT, dir);
@@ -112,38 +123,48 @@ function extractEnvRefs(dirs) {
     } catch {
       continue;
     }
-    for (const file of collectTsFiles(absDir)) {
-      const lines = readFileSync(file, 'utf-8').split('\n');
-      let inBlockComment = false;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trimStart();
-        // Track multi-line block comments
-        if (inBlockComment) {
-          if (line.includes('*/')) {
-            inBlockComment = false;
-          }
-          continue;
+    files.push(...collectTsFiles(absDir));
+  }
+
+  for (const file of extraFiles) {
+    files.push(join(ROOT, file));
+  }
+
+  for (const file of files) {
+    const lines = readFileSync(file, 'utf-8').split('\n');
+    let inBlockComment = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trimStart();
+      // Track multi-line block comments
+      if (inBlockComment) {
+        if (line.includes('*/')) {
+          inBlockComment = false;
         }
-        // Single-line block comment: /** ... */ or /* ... */ on one line
-        if (trimmed.startsWith('/*') && line.includes('*/')) continue;
-        // Start of multi-line block comment (no closing on same line)
-        if (trimmed.startsWith('/*')) {
-          inBlockComment = true;
-          continue;
-        }
-        // Skip pure line comments
-        if (trimmed.startsWith('//')) continue;
-        // Strip inline comments before matching (trailing // and inline /* */)
-        const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
-        // Match process.env.VAR_NAME and process.env['VAR_NAME']
-        const dotMatches = code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g);
-        const bracketMatches = code.matchAll(/process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g);
-        for (const m of [...dotMatches, ...bracketMatches]) {
-          const name = m[1];
-          if (!refs.has(name)) refs.set(name, []);
-          refs.get(name).push(`${file.replace(ROOT + '/', '')}:${i + 1}`);
-        }
+        continue;
+      }
+      // Single-line block comment: /** ... */ or /* ... */ on one line
+      if (trimmed.startsWith('/*') && line.includes('*/')) continue;
+      // Start of multi-line block comment (no closing on same line)
+      if (trimmed.startsWith('/*')) {
+        inBlockComment = true;
+        continue;
+      }
+      // Skip pure line comments
+      if (trimmed.startsWith('//')) continue;
+      // Strip inline comments before matching (trailing // and inline /* */)
+      const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+      // Match process.env.VAR_NAME and process.env['VAR_NAME']
+      const dotMatches = code.matchAll(/process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g);
+      const bracketMatches = code.matchAll(/process\.env\[['"]([A-Za-z_][A-Za-z0-9_]*)['"]\]/g);
+      // Match shell ${ENV_VAR:-default} and $ENV_VAR references in guard shell scripts.
+      const shellMatches = file.endsWith('.sh')
+        ? code.matchAll(/\$\{([A-Z_][A-Z0-9_]*)[^}]*\}|\$([A-Z_][A-Z0-9_]*)\b/g)
+        : [];
+      for (const m of [...dotMatches, ...bracketMatches, ...shellMatches]) {
+        const name = m[1] ?? m[2];
+        if (!refs.has(name)) refs.set(name, []);
+        refs.get(name).push(`${file.replace(ROOT + '/', '')}:${i + 1}`);
       }
     }
   }
@@ -154,13 +175,24 @@ function extractEnvRefs(dirs) {
 // ── Tests ──
 describe('env-registry completeness', () => {
   const registeredNames = loadRegisteredNames();
-  const envRefs = extractEnvRefs(['packages/api/src', 'packages/mcp-server/src']);
+  const envRefs = extractEnvRefs(['packages/api/src', 'packages/mcp-server/src'], EXTRA_ENV_REF_FILES);
   const repoInboxEnvNames = ['GITHUB_WEBHOOK_SECRET', 'GITHUB_REPO_ALLOWLIST', 'GITHUB_REPO_INBOX_CAT_ID'];
   const githubSelfFilterEnvNames = ['GITHUB_SELF_LOGIN'];
   const weixinRuntimeFlagNames = [
     'WEIXIN_VOICE_ITEM_MODE',
     'WEIXIN_ENABLE_UNSAFE_VOICE_MODES',
     'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA',
+  ];
+  const nodeRuntimeShellEnvNames = [
+    'CAT_CAFE_NODE_PINNED_MAJOR',
+    'CAT_CAFE_NODE_PREFERRED_MAJORS',
+    'CAT_CAFE_NODE_BIN',
+    'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC',
+  ];
+  const nodeRuntimeOperatorKnobNames = [
+    'CAT_CAFE_NODE_PINNED_MAJOR',
+    'CAT_CAFE_NODE_PREFERRED_MAJORS',
+    'CAT_CAFE_NODE_BIN',
   ];
 
   it('every allowlist entry has a non-empty reason', () => {
@@ -190,7 +222,35 @@ describe('env-registry completeness', () => {
     }
   });
 
-  it('every process.env.XXX is registered or allowlisted', () => {
+  it('keeps Node runtime shell guard env vars covered by the env scan', () => {
+    for (const name of nodeRuntimeShellEnvNames) {
+      const locations = envRefs.get(name) ?? [];
+      assert.ok(
+        locations.some((location) => location.startsWith('scripts/lib/node-runtime-guard.sh:')),
+        `${name} should be discovered from scripts/lib/node-runtime-guard.sh`,
+      );
+    }
+  });
+
+  it('keeps operator-facing Node runtime guard knobs in env-registry', () => {
+    for (const name of nodeRuntimeOperatorKnobNames) {
+      assert.ok(registeredNames.has(name), `${name} should be registered for operator discovery`);
+      assert.ok(!ALLOWLIST.has(name), `${name} is operator-facing config and must not be allowlisted`);
+    }
+  });
+
+  it('keeps the Node runtime guard re-exec sentinel internal', () => {
+    assert.ok(
+      ALLOWLIST.has('CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC'),
+      'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC should stay allowlisted as an internal sentinel',
+    );
+    assert.ok(
+      !registeredNames.has('CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC'),
+      'CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC must not be exposed as operator-facing config',
+    );
+  });
+
+  it('every env reference is registered or allowlisted', () => {
     const missing = [];
     for (const [name, locations] of envRefs) {
       if (!registeredNames.has(name) && !ALLOWLIST.has(name)) {

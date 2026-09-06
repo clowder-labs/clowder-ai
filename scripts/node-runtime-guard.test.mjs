@@ -1,9 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, posix as posixPath, resolve } from 'node:path';
 import test from 'node:test';
+
+const repoRoot = resolve(import.meta.dirname, '..');
 
 function runBash(snippet, env = {}) {
   return spawnSync('/bin/bash', ['--noprofile', '--norc', '-c', snippet], {
@@ -39,6 +50,53 @@ printf 'fake node ${version}\\n'
     { mode: 0o755 },
   );
   return path;
+}
+
+function readJson(relPath) {
+  return JSON.parse(readFileSync(resolve(repoRoot, relPath), 'utf8'));
+}
+
+function workspacePackageJsonPaths() {
+  const workspace = readFileSync(resolve(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
+  const packageJsonPaths = ['package.json'];
+
+  for (const line of workspace.split(/\r?\n/)) {
+    const match = line.match(/^\s*-\s*['"]?([^'"]+)['"]?\s*$/);
+    if (!match) continue;
+    const pattern = match[1];
+    if (!pattern.endsWith('/*')) {
+      throw new Error(`Unsupported workspace package pattern in test: ${pattern}`);
+    }
+
+    const parent = pattern.slice(0, -2);
+    for (const entry of readdirSync(resolve(repoRoot, parent), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const relPath = posixPath.join(parent, entry.name, 'package.json');
+      if (existsSync(resolve(repoRoot, relPath))) packageJsonPaths.push(relPath);
+    }
+  }
+
+  return packageJsonPaths.sort();
+}
+
+function isValidationEntrypoint(scriptName) {
+  const validationEntrypointNames = new Set(['mcp:doctor']);
+  if (validationEntrypointNames.has(scriptName)) return true;
+  if (scriptName !== 'prepare' && /^(?:pre|post)/.test(scriptName)) return false;
+  const validationTokens = new Set(['audit', 'build', 'check', 'gate', 'lint', 'prepare', 'smoke', 'test', 'verify']);
+  return scriptName.split(':').some((segment) => validationTokens.has(segment) || segment.endsWith('-smoke'));
+}
+
+function validationGuardForPackageJson(relPath) {
+  if (relPath === 'package.json') return 'node scripts/check-validation-node-runtime.mjs';
+  const fromDir = posixPath.dirname(relPath);
+  const rootPrefix = posixPath.relative(fromDir, '.');
+  return `node ${rootPrefix}/scripts/check-validation-node-runtime.mjs`;
+}
+
+function pnpmEngineStrictEnabled() {
+  const npmrc = readFileSync(resolve(repoRoot, '.npmrc'), 'utf8');
+  return npmrc.split(/\r?\n/).some((line) => /^\s*engine-strict\s*=\s*true\s*(?:#.*)?$/.test(line));
 }
 
 test('node runtime guard rejects Node 26 and accepts Node 24', () => {
@@ -269,11 +327,114 @@ test('preinstall guard allows NODE_ENV=production when SKIP guard is set', () =>
   assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 });
 
+test('validation scripts can skip production-install guard while keeping Node version guard', () => {
+  const supported = spawnSync(process.execPath, ['scripts/check-validation-node-runtime.mjs'], {
+    cwd: resolve(import.meta.dirname, '..'),
+    encoding: 'utf8',
+    env: {
+      CAT_CAFE_TEST_NODE_VERSION: '24.16.0',
+      NODE_ENV: 'production',
+    },
+  });
+  assert.equal(supported.status, 0, `stdout:\n${supported.stdout}\nstderr:\n${supported.stderr}`);
+
+  const unsupported = spawnSync(process.execPath, ['scripts/check-validation-node-runtime.mjs'], {
+    cwd: resolve(import.meta.dirname, '..'),
+    encoding: 'utf8',
+    env: {
+      CAT_CAFE_TEST_NODE_VERSION: '23.11.0',
+      NODE_ENV: 'production',
+    },
+  });
+  assert.equal(unsupported.status, 1);
+  assert.match(unsupported.stderr, /Node 23\.11\.0 is not supported/);
+});
+
 test('package engines advertise the Node 24 floor required by recursive workspace tests', () => {
   const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'package.json'), 'utf8'));
 
   assert.equal(pkg.engines.node, '>=24.0.0');
   assert.doesNotMatch(pkg.engines.node, /<\s*26/);
+});
+
+test('direct validation scripts fail fast on unsupported Node before running package work', () => {
+  const entries = [];
+  const missingProtection = [];
+
+  for (const path of workspacePackageJsonPaths()) {
+    const pkg = readJson(path);
+    const guard = validationGuardForPackageJson(path);
+    for (const scriptName of Object.keys(pkg.scripts ?? {})
+      .filter(isValidationEntrypoint)
+      .sort()) {
+      entries.push(`${path}#${scriptName}`);
+      const preScript = pkg.scripts[`pre${scriptName}`];
+      if (preScript) {
+        assert.ok(preScript.includes(guard), `${path} pre${scriptName} must run ${guard}`);
+        assert.doesNotMatch(preScript, /\b[A-Z_]+=1\s+node\b/, `${path} pre${scriptName} must be shell-portable`);
+      } else {
+        missingProtection.push(`${path}#${scriptName}`);
+      }
+    }
+  }
+
+  assert.ok(
+    entries.includes('packages/finance/package.json#lint'),
+    'validation entrypoint audit must discover finance lint',
+  );
+  assert.ok(
+    entries.includes('packages/finance/package.json#prepare'),
+    'validation entrypoint audit must discover finance prepare',
+  );
+  assert.ok(
+    entries.includes('packages/shared/package.json#prepare'),
+    'validation entrypoint audit must discover shared prepare',
+  );
+  assert.ok(entries.includes('package.json#mcp:doctor'), 'validation entrypoint audit must discover MCP doctor');
+  assert.ok(
+    entries.includes('packages/api/package.json#test:public'),
+    'validation entrypoint audit must discover API test:public',
+  );
+  assert.ok(
+    entries.includes('packages/web/package.json#test:lint-rules'),
+    'validation entrypoint audit must discover web lint-rule tests',
+  );
+  assert.deepEqual(
+    missingProtection,
+    [],
+    `validation entrypoints without node runtime guard:\n${missingProtection.join('\n')}`,
+  );
+});
+
+test('validation entrypoint discovery includes verify, audit, smoke, and suffix test scripts', () => {
+  assert.equal(isValidationEntrypoint('prepare'), true);
+  assert.equal(isValidationEntrypoint('mcp:doctor'), true);
+  assert.equal(isValidationEntrypoint('verify:sigusr1'), true);
+  assert.equal(isValidationEntrypoint('audit:feature-docs'), true);
+  assert.equal(isValidationEntrypoint('smoke:f210-agy-profiles'), true);
+  assert.equal(isValidationEntrypoint('f210:agy-profile-smoke'), true);
+  assert.equal(isValidationEntrypoint('alpha:test'), true);
+  assert.equal(isValidationEntrypoint('runtime:test'), true);
+
+  assert.equal(isValidationEntrypoint('preprepare'), false);
+  assert.equal(isValidationEntrypoint('prebuild'), false);
+  assert.equal(isValidationEntrypoint('process:doctor'), false);
+  assert.equal(isValidationEntrypoint('start'), false);
+  assert.equal(isValidationEntrypoint('start:status'), false);
+  assert.equal(isValidationEntrypoint('start:direct'), false);
+  assert.equal(isValidationEntrypoint('dev:direct'), false);
+});
+
+test('pnpm engine strict remains off so startup scripts can reach the auto-reexec guard', () => {
+  const pkg = readJson('package.json');
+
+  assert.equal(pnpmEngineStrictEnabled(), false);
+  assert.equal(isValidationEntrypoint('start'), false);
+  assert.equal(isValidationEntrypoint('start:status'), false);
+  assert.equal(isValidationEntrypoint('start:direct'), false);
+  assert.equal(isValidationEntrypoint('dev:direct'), false);
+  assert.match(pkg.scripts.start, /^node \.\/scripts\/start-entry\.mjs start\b/);
+  assert.match(pkg.scripts['start:status'], /^node \.\/scripts\/start-entry\.mjs status\b/);
 });
 
 test('desktop release workflows install with Node 24 to satisfy the root preinstall guard', () => {
