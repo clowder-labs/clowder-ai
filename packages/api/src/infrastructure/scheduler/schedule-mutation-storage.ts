@@ -37,6 +37,8 @@ interface DynamicTaskRow {
   enabled: number;
   created_by: string;
   created_at: string;
+  idempotency_key: string | null;
+  idempotency_fingerprint: string | null;
 }
 
 export interface AuditRow {
@@ -90,7 +92,20 @@ export function toAudit(row: AuditRow): ScheduleMutationAuditEntry {
 
 export function getDynamicTask(db: Database.Database, id: string): ScheduleMutationTaskDefinition | null {
   const row = db.prepare('SELECT * FROM dynamic_task_defs WHERE id = ?').get(id) as DynamicTaskRow | undefined;
-  if (!row) return null;
+  return row ? toDynamicTask(row) : null;
+}
+
+export function getDynamicTaskByIdempotencyKey(
+  db: Database.Database,
+  idempotencyKey: string,
+): ScheduleMutationTaskDefinition | null {
+  const row = db.prepare('SELECT * FROM dynamic_task_defs WHERE idempotency_key = ?').get(idempotencyKey) as
+    | DynamicTaskRow
+    | undefined;
+  return row ? toDynamicTask(row) : null;
+}
+
+function toDynamicTask(row: DynamicTaskRow): ScheduleMutationTaskDefinition {
   return {
     id: row.id,
     templateId: row.template_id,
@@ -101,14 +116,16 @@ export function getDynamicTask(db: Database.Database, id: string): ScheduleMutat
     enabled: row.enabled === 1,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    ...(row.idempotency_key == null ? {} : { idempotencyKey: row.idempotency_key }),
+    ...(row.idempotency_fingerprint == null ? {} : { idempotencyFingerprint: row.idempotency_fingerprint }),
   };
 }
 
 export function insertDynamicTask(db: Database.Database, task: ScheduleMutationTaskDefinition): void {
   db.prepare(
     `INSERT INTO dynamic_task_defs
-      (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, template_id, trigger_json, params_json, display_json, delivery_thread_id, enabled, created_by, created_at, idempotency_key, idempotency_fingerprint)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     task.id,
     task.templateId,
@@ -119,6 +136,8 @@ export function insertDynamicTask(db: Database.Database, task: ScheduleMutationT
     task.enabled ? 1 : 0,
     task.createdBy,
     task.createdAt,
+    task.idempotencyKey ?? null,
+    task.idempotencyFingerprint ?? null,
   );
 }
 
@@ -195,9 +214,14 @@ function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareUtf16(left, right))
       .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
       .join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+function compareUtf16(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }

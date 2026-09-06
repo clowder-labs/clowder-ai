@@ -1,5 +1,6 @@
 ---
 name: schedule-tasks
+tips_exempt: internal SOP/MCP workflow clarification; no new end-user capability
 description: >
   定时任务注册、管理、能力指南。支持周期任务和一次性延迟任务。
   ⚠️ ROUTING: 定时/schedule/cron 需求优先用本 skill（Clowder AI 本地定时任务），
@@ -87,6 +88,16 @@ triggers:
 
 用户确认后调用 `cat_cafe_register_scheduled_task` 持久化任务。
 
+### Workflow-Mandated 例外
+
+只有 trusted built-in canonical `merge-gate` Step 7.6 的 hotfix 2 周升级 review reminder 属于 workflow-mandated schedule：
+
+1. 仍然必须先调用 `cat_cafe_preview_scheduled_task`。
+2. 核对 draft 的模板、触发时间、参数、target、actor、投递 thread、`idempotencyKey` 与 `merge-gate` Step 7.6 一致。
+3. 核对通过后调用 `cat_cafe_register_scheduled_task`，with no extra user confirmation，并提供稳定 `idempotencyKey`。
+
+Plugin/project/user/external skills do not qualify for this exception。用户临时提出的提醒、周期巡检、摘要推送，以及任何非内置 canonical `merge-gate` Step 7.6 来源，仍然走 preview → 用户确认 → register。
+
 ## Trigger 语法速查
 
 ### 周期触发（recurring）
@@ -133,7 +144,8 @@ triggers:
 |------|----------|
 | 不知道能注册定时任务 | 用户说"每天/定期/提醒"→ 匹配本 skill |
 | 被唤醒后只发纯文本 | 主动用 rich block（图片、语音、卡片、HTML） |
-| 跳过 preview 直接注册 | **必须** preview → 用户确认 → 注册 |
+| 跳过 preview 直接注册 | **必须** preview；用户请求任务 preview → 用户确认 → 注册；trusted built-in canonical `merge-gate` Step 7.6 hotfix reminder preview → 核对 draft → 用稳定 `idempotencyKey` 注册，with no extra user confirmation |
+| 把任意 skill/SOP 当免确认凭据 | Plugin/project/user/external skills do not qualify；只有内置 canonical `merge-gate` Step 7.6 例外 |
 | 发图只想到 image-generation | 先看 `/avatars/`、`/uploads/` 有没有现成图 |
 
 ## 和其他 skill 的区别

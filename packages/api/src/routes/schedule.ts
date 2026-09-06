@@ -39,6 +39,15 @@ import {
 export type { ScheduleRoutesOptions } from './schedule-route-support.js';
 export { deriveScheduleActorForTest, extractThreadId } from './schedule-route-support.js';
 
+function normalizeIdempotencyKey(value: unknown): string | null | { error: string } {
+  if (value == null) return null;
+  if (typeof value !== 'string') return { error: 'idempotencyKey must be a string' };
+  const trimmed = value.trim();
+  if (!trimmed) return { error: 'idempotencyKey must not be empty' };
+  if (trimmed.length > 200) return { error: 'idempotencyKey must be at most 200 characters' };
+  return trimmed;
+}
+
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
   const {
     taskRunner,
@@ -211,6 +220,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       params?: Record<string, unknown>;
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
+      idempotencyKey?: unknown;
     };
 
     if (!body.templateId) {
@@ -228,22 +238,28 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
+    const requestTrigger = body.trigger ?? template.defaultTrigger;
     // #415: normalize once trigger (delayMs → fireAt)
     let trigger: TriggerSpec;
-    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
-      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+    if ((requestTrigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(requestTrigger as Record<string, unknown>);
       if ('error' in result) {
         reply.status(400);
         return { error: result.error };
       }
       trigger = result;
     } else {
-      trigger = body.trigger ?? template.defaultTrigger;
+      trigger = requestTrigger;
     }
     const rawParams = toPlainScheduleParams(body.params ?? {});
     if (!rawParams) {
       reply.status(400);
       return { error: 'params must be a plain object' };
+    }
+    const normalizedIdempotencyKey = normalizeIdempotencyKey(body.idempotencyKey);
+    if (normalizedIdempotencyKey && typeof normalizedIdempotencyKey !== 'string') {
+      reply.status(400);
+      return { error: normalizedIdempotencyKey.error };
     }
     const context = deriveScheduleRequestContext(request, {}, rawParams);
     const targetResult = normalizeScheduleTargetParam(context.params);
@@ -251,6 +267,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       reply.status(400);
       return targetResult.error;
     }
+    const { actor } = context;
     const params = targetResult.params;
     const display = body.display
       ? {
@@ -285,6 +302,9 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         params,
         display,
         deliveryThreadId: resolution.deliveryThreadId,
+        targetCatId: typeof params.targetCatId === 'string' ? params.targetCatId : null,
+        actor,
+        idempotencyKey: normalizedIdempotencyKey,
         paramSchema: template.paramSchema,
       },
     };

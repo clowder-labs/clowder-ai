@@ -492,6 +492,36 @@ describe('Schedule Routes', () => {
       assert.equal(body.draft.deliveryThreadId, 'thread-from-callback');
     });
 
+    it('returns final registration semantics in the draft for workflow audit', async () => {
+      const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-from-callback');
+      const res = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks/preview',
+        headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'once', delayMs: 1209600000 },
+          params: { message: 'hotfix upgrade review', targetCatId: '@codex', triggerUserId: 'evil-body-user' },
+          display: {
+            label: 'Hotfix upgrade review',
+            category: 'pr',
+            description: 'review hotfix after 14 days',
+          },
+          idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.draft.idempotencyKey, 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92');
+      assert.deepEqual(body.draft.actor, { createdBy: 'opus', triggerUserId: 'user-1' });
+      assert.equal(body.draft.deliveryThreadId, 'thread-from-callback');
+      assert.equal(body.draft.targetCatId, 'codex');
+      assert.equal(body.draft.params.targetCatId, 'codex');
+      assert.equal(body.draft.params.triggerUserId, 'user-1');
+      assert.equal(body.draft.display.label, 'Hotfix upgrade review');
+    });
+
     it('returns 409 stale invocation error for stale callback auth invocation', async () => {
       const stale = await registry.create('user-1', 'opus', 'thread-from-callback');
       await registry.create('user-1', 'opus', 'thread-from-callback');
@@ -941,6 +971,273 @@ describe('Schedule Routes', () => {
       });
       assert.equal(res.statusCode, 400);
       assert.match(res.json().error, /plain object/);
+    });
+  });
+
+  describe('POST /api/schedule/tasks — idempotent workflow registration', () => {
+    let appDyn, store, registry, proposalStore;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      const { InvocationRegistry } = await import(
+        '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+      );
+      store = new DynamicTaskStore(db);
+      registry = new InvocationRegistry();
+      appDyn = Fastify({ logger: false });
+      proposalStore = await registerScheduleRoutesForTest(appDyn, sr, db, {
+        taskRunner: runner,
+        dynamicTaskStore: store,
+        templateRegistry,
+        registry,
+      });
+      await appDyn.ready();
+    });
+
+    afterEach(async () => {
+      runner.stop();
+      await appDyn.close();
+    });
+
+    it('returns the existing task when a workflow registration is replayed with the same idempotencyKey', async () => {
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'hotfix upgrade review replay' },
+        display: {
+          label: 'Hotfix 升级 review — PR #92',
+          category: 'pr',
+          description: '2 周升级 review：PR #92 是 hotfix，需要三选一处置',
+        },
+        deliveryThreadId: 'thread-review',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+      const firstBody = first.json();
+      assert.equal(firstBody.success, true);
+
+      const replay = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(replay.statusCode, 200, replay.body);
+      const replayBody = replay.json();
+
+      assert.equal(replayBody.success, true);
+      assert.equal(replayBody.idempotent, true);
+      assert.equal(replayBody.task.id, firstBody.task.id, 'replay should return the original task id');
+      assert.equal(store.getAll().length, 1, 'replay must not persist a duplicate task');
+      assert.equal(
+        runner.getTaskSummaries().filter((task) => task.source === 'dynamic').length,
+        1,
+        'replay must not register a duplicate runtime task',
+      );
+    });
+
+    it('rejects the same idempotencyKey when the requested task semantics differ', async () => {
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'first hotfix upgrade review', targetCatId: 'codex' },
+        display: {
+          label: 'Hotfix 升级 review — PR #92',
+          category: 'pr',
+          description: '2 周升级 review：PR #92 是 hotfix，需要三选一处置',
+        },
+        deliveryThreadId: 'thread-A',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-conflict',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+
+      const conflict = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload: {
+          ...payload,
+          params: { message: 'changed hotfix upgrade review', targetCatId: 'gemini' },
+          deliveryThreadId: 'thread-B',
+        },
+      });
+
+      assert.equal(conflict.statusCode, 409, conflict.body);
+      assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
+      assert.equal(store.getAll().length, 1, 'conflict must not persist a replacement task');
+      const stored = store.getAll()[0];
+      assert.equal(stored.deliveryThreadId, 'thread-A');
+      assert.equal(stored.params.message, 'first hotfix upgrade review');
+      assert.equal(stored.params.targetCatId, 'codex');
+    });
+
+    it('reuses a pending cat proposal when the same workflow registration is replayed before approval', async () => {
+      const auth = await registry.create('user-1', 'codex', 'thread-pending-replay');
+      const headers = { 'x-invocation-id': auth.invocationId, 'x-callback-token': auth.callbackToken };
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'pending hotfix upgrade review replay' },
+        deliveryThreadId: 'thread-pending-replay',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-pending',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers,
+        payload,
+      });
+      assert.equal(first.statusCode, 202, first.body);
+
+      const replay = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers,
+        payload,
+      });
+      assert.equal(replay.statusCode, 202, replay.body);
+      const replayBody = replay.json();
+
+      assert.equal(replayBody.success, true);
+      assert.equal(replayBody.proposed, true);
+      assert.equal(replayBody.idempotent, true);
+      assert.equal(replayBody.proposalId, first.json().proposalId);
+      assert.equal(proposalStore.listPending('user-1').length, 1, 'replay must not create a duplicate proposal');
+      assert.equal(store.getAll().length, 0, 'cat requests must not persist before approval');
+    });
+
+    it('rejects a pending cat proposal replay when the idempotencyKey has different semantics', async () => {
+      const auth = await registry.create('user-1', 'codex', 'thread-pending-conflict');
+      const headers = { 'x-invocation-id': auth.invocationId, 'x-callback-token': auth.callbackToken };
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'pending hotfix upgrade review conflict', targetCatId: 'codex' },
+        deliveryThreadId: 'thread-pending-conflict',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-pending-conflict',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers,
+        payload,
+      });
+      assert.equal(first.statusCode, 202, first.body);
+
+      const conflict = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers,
+        payload: {
+          ...payload,
+          params: { message: 'changed pending hotfix upgrade review conflict', targetCatId: 'gemini' },
+        },
+      });
+
+      assert.equal(conflict.statusCode, 409, conflict.body);
+      assert.equal(conflict.json().code, 'IDEMPOTENCY_CONFLICT');
+      assert.equal(proposalStore.listPending('user-1').length, 1, 'conflict must not create a duplicate proposal');
+      assert.equal(store.getAll().length, 0, 'conflict must not persist before approval');
+    });
+
+    it('binds cat proposal idempotency fingerprints to the verified actor', async () => {
+      const firstAuth = await registry.create('user-1', 'opus', 'thread-actor-replay');
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 1209600000 },
+        params: { message: 'hotfix upgrade review actor replay' },
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-actor',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers: { 'x-invocation-id': firstAuth.invocationId, 'x-callback-token': firstAuth.callbackToken },
+        payload,
+      });
+      assert.equal(first.statusCode, 202, first.body);
+      const firstProposal = proposalStore.getById(first.json().proposalId);
+      assert.ok(firstProposal, 'cat request should create an approval proposal');
+      assert.equal(firstProposal.mutation.kind, 'create');
+
+      const secondAuth = await registry.create('user-1', 'codex', 'thread-actor-replay');
+      const second = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers: { 'x-invocation-id': secondAuth.invocationId, 'x-callback-token': secondAuth.callbackToken },
+        payload,
+      });
+
+      assert.equal(second.statusCode, 202, second.body);
+      const secondProposal = proposalStore.getById(second.json().proposalId);
+      assert.ok(secondProposal, 'cat request should create an approval proposal');
+      assert.equal(secondProposal.mutation.kind, 'create');
+      assert.equal(firstProposal.mutation.task.idempotencyKey, payload.idempotencyKey);
+      assert.equal(secondProposal.mutation.task.idempotencyKey, payload.idempotencyKey);
+      assert.notEqual(
+        firstProposal.mutation.task.idempotencyFingerprint,
+        secondProposal.mutation.task.idempotencyFingerprint,
+        'verified actor must be part of the proposal replay fingerprint',
+      );
+      assert.equal(store.getAll().length, 0, 'cat requests must not persist before approval');
+    });
+
+    it('replays the same non-ASCII request when host locale ordering changes', async () => {
+      const originalLocaleCompare = String.prototype.localeCompare;
+      const payload = {
+        templateId: 'reminder',
+        trigger: { type: 'interval', ms: 60000 },
+        params: { z: 'ascii', ä: 'non-ascii', message: 'locale-stable replay' },
+        display: {
+          label: 'Locale stable replay',
+          category: 'system',
+          description: 'same request must not depend on runtime locale collation',
+        },
+        deliveryThreadId: 'thread-locale',
+        idempotencyKey: 'workflow:merge-gate:hotfix-upgrade-review:clowder-labs/clowder-ai#92-locale',
+      };
+
+      const first = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload,
+      });
+      assert.equal(first.statusCode, 200, first.body);
+      const firstBody = first.json();
+
+      String.prototype.localeCompare = function reversedLocaleCompare(other) {
+        if (String(this) === String(other)) return 0;
+        return originalLocaleCompare.call(this, other) < 0 ? 1 : -1;
+      };
+
+      try {
+        const replay = await appDyn.inject({
+          method: 'POST',
+          url: '/api/schedule/tasks',
+          payload,
+        });
+
+        assert.equal(replay.statusCode, 200, replay.body);
+        assert.equal(replay.json().idempotent, true);
+        assert.equal(replay.json().task.id, firstBody.task.id);
+        assert.equal(store.getAll().length, 1, 'locale collation drift must not persist or conflict');
+      } finally {
+        String.prototype.localeCompare = originalLocaleCompare;
+      }
     });
   });
 

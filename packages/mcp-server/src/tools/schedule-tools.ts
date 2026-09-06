@@ -92,8 +92,30 @@ export const registerScheduledTaskInputSchema = {
   label: z.string().optional().describe('Human-readable task label (defaults to template label)'),
   category: z.string().optional().describe('Display category: pr | repo | thread | system | external'),
   description: z.string().optional().describe('Short description of this task instance'),
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Stable replay key for trusted workflow automation; retries with the same key return the existing task'),
   agentKeyCatId: agentKeyCatIdSchema,
 };
+
+function parseScheduleParams(
+  raw: string | undefined,
+): { ok: true; params: Record<string, unknown> } | { ok: false; error: string } {
+  if (!raw) return { ok: true, params: {} };
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: 'Invalid params JSON — must be a JSON object (not null, array, or primitive)' };
+    }
+    return { ok: true, params: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: 'Invalid params JSON — must be a valid JSON object' };
+  }
+}
 
 export async function handleRegisterScheduledTask(input: {
   templateId: string;
@@ -104,6 +126,7 @@ export async function handleRegisterScheduledTask(input: {
   category?: string;
   description?: string;
   agentKeyCatId?: string | undefined;
+  idempotencyKey?: string;
 }): Promise<ToolResult> {
   let trigger: unknown;
   try {
@@ -112,18 +135,9 @@ export async function handleRegisterScheduledTask(input: {
     return errorResult('Invalid trigger JSON — must be a valid JSON object');
   }
 
-  let params: Record<string, unknown> = {};
-  if (input.params) {
-    try {
-      const parsed: unknown = JSON.parse(input.params);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        return errorResult('Invalid params JSON — must be a JSON object (not null, array, or primitive)');
-      }
-      params = parsed as Record<string, unknown>;
-    } catch {
-      return errorResult('Invalid params JSON — must be a valid JSON object');
-    }
-  }
+  const parsedParams = parseScheduleParams(input.params);
+  if (!parsedParams.ok) return errorResult(parsedParams.error);
+  const params = parsedParams.params;
 
   const authMode = resolveScheduleMcpAuthMode(input.agentKeyCatId);
   if (authMode === 'agent-key' && !input.deliveryThreadId) {
@@ -147,6 +161,7 @@ export async function handleRegisterScheduledTask(input: {
   };
 
   if (input.deliveryThreadId) body.deliveryThreadId = input.deliveryThreadId;
+  if (input.idempotencyKey) body.idempotencyKey = input.idempotencyKey;
   if (currentCatId) body.createdBy = currentCatId;
 
   if (input.label || input.category || input.description) {
@@ -172,6 +187,15 @@ export const previewScheduledTaskInputSchema = {
     .describe(
       'Thread ID to deliver results to. If omitted on invocation-token callback requests, the current invocation thread is used. Required when agentKeyCatId is used because persistent MCP has no invocation thread.',
     ),
+  label: z.string().optional().describe('Human-readable task label (defaults to template label)'),
+  category: z.string().optional().describe('Display category: pr | repo | thread | system | external'),
+  description: z.string().optional().describe('Short description of this task instance'),
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Stable replay key to include in the draft for trusted workflow audit parity'),
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
@@ -180,6 +204,10 @@ export async function handlePreviewScheduledTask(input: {
   trigger: string;
   params?: string;
   deliveryThreadId?: string;
+  label?: string;
+  category?: string;
+  description?: string;
+  idempotencyKey?: string;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   let trigger: unknown;
@@ -189,20 +217,23 @@ export async function handlePreviewScheduledTask(input: {
     return errorResult('Invalid trigger JSON');
   }
 
-  let params: Record<string, unknown> = {};
-  if (input.params) {
-    try {
-      params = JSON.parse(input.params);
-    } catch {
-      return errorResult('Invalid params JSON');
-    }
-  }
+  const parsedParams = parseScheduleParams(input.params);
+  if (!parsedParams.ok) return errorResult(parsedParams.error);
+  const params = parsedParams.params;
 
-  if (resolveScheduleMcpAuthMode(input.agentKeyCatId) === 'agent-key' && !input.deliveryThreadId) {
+  const authMode = resolveScheduleMcpAuthMode(input.agentKeyCatId);
+  if (authMode === 'agent-key' && !input.deliveryThreadId) {
     return errorResult(
       'deliveryThreadId is required when previewing scheduled tasks with agentKeyCatId. ' +
         'Persistent agent-key MCP has no invocation thread; preview should match the register call that will persist the task.',
     );
+  }
+
+  // Preview must match registration semantics so the draft audits the same
+  // target that will be persisted by register_scheduled_task.
+  const currentCatId = authMode === 'agent-key' ? input.agentKeyCatId : process.env['CAT_CAFE_CAT_ID'];
+  if (!params.targetCatId && currentCatId) {
+    params.targetCatId = currentCatId;
   }
 
   const body: Record<string, unknown> = {
@@ -211,6 +242,14 @@ export async function handlePreviewScheduledTask(input: {
     params,
   };
   if (input.deliveryThreadId) body.deliveryThreadId = input.deliveryThreadId;
+  if (input.idempotencyKey) body.idempotencyKey = input.idempotencyKey;
+  if (input.label || input.category || input.description) {
+    body.display = {
+      label: input.label ?? input.templateId,
+      category: input.category ?? 'system',
+      ...(input.description ? { description: input.description } : {}),
+    };
+  }
 
   return callbackPost('/api/schedule/tasks/preview', body, { agentKeyCatId: input.agentKeyCatId });
 }
@@ -269,7 +308,8 @@ export const scheduleTools = [
     name: 'cat_cafe_preview_scheduled_task',
     description:
       'Preview a scheduled task before submitting it for approval. ' +
-      'Use when the user asks to create a schedule and needs to confirm the resolved template, trigger, and params. ' +
+      'Use before register_scheduled_task to confirm the resolved template, trigger, params, target, actor, delivery, and idempotency key. ' +
+      'User-requested schedules need user confirmation before registration; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may use the preview as audit evidence before registration without extra user confirmation. ' +
       'NOT for persisting or activating a task. ' +
       'Output: one non-persisted draft to show the user before calling register_scheduled_task. ' +
       'GOTCHA: shared persistent MCP callers pass agentKeyCatId.',
@@ -286,7 +326,8 @@ export const scheduleTools = [
     name: 'cat_cafe_register_scheduled_task',
     description:
       'Submit a new scheduled task from a template for operator approval. ' +
-      'Use after preview_scheduled_task when the user confirms the draft. ' +
+      'Use after preview_scheduled_task: user-requested schedules require user confirmation; only workflow-mandated schedules from the trusted built-in canonical merge-gate Step 7.6 hotfix reminder workflow may register after verifying the preview, with no extra user confirmation. ' +
+      'Plugin/project/user/external skills do not qualify for this exception and must use normal user confirmation. Trusted workflow automation must provide a stable idempotencyKey so exact callback retries return the existing task; reusing the same key with different schedule semantics returns a conflict. ' +
       'NOT for direct activation or unsupported ad-hoc task definitions. ' +
       'Output: one anchored Approval Hub proposal; the task is not persisted or run until the operator approves. ' +
       'Supports cron, interval, and once triggers. ' +

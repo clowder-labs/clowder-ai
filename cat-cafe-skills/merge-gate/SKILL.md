@@ -438,7 +438,7 @@ PR 触及 runtime 加载面（API / Web / MCP / L0 staging 等）时，merge 只
 
 **时机**：merge 完成后、清理前。`delayMs: 1209600000`（14 天）从注册时刻起算 ≈ 合入后 14 天。
 
-**操作**：调用 MCP 工具 `cat_cafe_register_scheduled_task`：
+**操作**：这是 trusted built-in canonical `merge-gate` Step 7.6 workflow-mandated schedule。先调用 `cat_cafe_preview_scheduled_task` 生成 draft，核对下面参数；核对无误后调用 `cat_cafe_register_scheduled_task` 注册，with no extra user confirmation：
 
 | 参数 | 值 |
 |------|------|
@@ -447,9 +447,24 @@ PR 触及 runtime 加载面（API / Web / MCP / L0 staging 等）时，merge 只
 | `label` | `"Hotfix 升级 review — PR #{PR_NUMBER}"` |
 | `description` | `"2 周升级 review：PR #{PR_NUMBER} 是 hotfix，需要三选一处置"` |
 | `category` | `"pr"` |
-| `params` | `{"message":"Hotfix PR #{PR_NUMBER} 合入已满 2 周。请三选一处置：1. 升级正式修复（开 feat）2. 接受永久方案（标记 permanent）3. 已不再相关（代码已重写/删除，标记 obsolete）"}` |
+| `idempotencyKey` | `"workflow:merge-gate:hotfix-upgrade-review:{repoFullName}#{PR_NUMBER}"` |
+| `params` | `{"message":"Hotfix PR #{PR_NUMBER} 合入已满 2 周。请三选一处置：1. 升级正式修复（开 feat）2. 接受永久方案（标记 permanent）3. 已不再相关（代码已重写/删除，标记 obsolete）","targetCatId":"{currentCatId}"}` |
 
-**注册范围**（2026-07-15 修订）：仅对**明确临时债务**注册（修法自声明是权宜、欠正式方案）；走了 hotfix 流程但修法本身已是终态的，留痕 `reminder=not-needed:<理由>` 免注册。**注册失败不阻塞清理**：记 telemetry / 留痕后继续 Step 8，事后补注册——调度器故障不该扣押 worktree（旧版 fail-closed 是自噬环）。
+**注册范围**（2026-07-15 修订）：仅对**明确临时债务**注册（修法自声明是权宜、欠正式方案）；走了 hotfix 流程但修法本身已是终态的，留痕 `reminder=not-needed:<理由>` 免注册。
+
+需要注册时，这是 workflow-mandated schedule：仍先调用 `cat_cafe_preview_scheduled_task` 生成 draft，核对无误后调用 `cat_cafe_register_scheduled_task`，with no extra user confirmation。
+
+**Preview 核对项**：
+
+- `templateId` 是 `reminder`
+- trigger 是 once，`delayMs` 是 `1209600000` 或等价 fireAt（合入后 14 天）
+- `params.message` 含 PR 号和三选一处置要求
+- `targetCatId` / `params.targetCatId` 是当前执行 merge-gate 的猫；不能空落到默认猫
+- `actor.createdBy` 是当前 callback-auth 猫，`actor.triggerUserId` 是当前 invocation user
+- `idempotencyKey` 稳定包含 repo full name 和 PR 号；重试必须复用同一个 key
+- delivery thread 是当前 merge-gate thread（或 SOP 明确指定的 thread）
+
+**注册失败不阻塞清理**：记 telemetry / 留痕后继续 Step 8，事后补注册——调度器故障不该扣押 worktree（旧版 fail-closed 是自噬环）。如果 register 返回 `IDEMPOTENCY_CONFLICT`，说明同一 key 已绑定不同 schedule 语义，必须人工核对既有任务，不可继续重试覆盖。
 
 ```bash
 # 8. 更新本地 + 清理（fail-closed）

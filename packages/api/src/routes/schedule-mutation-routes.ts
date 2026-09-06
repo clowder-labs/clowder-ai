@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type { DynamicTaskDef } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import { f255ConfigRequired, isF255ConfigOnlyTemplate } from '../infrastructure/scheduler/f255-template-boundary.js';
 import { fingerprintDynamicTaskDef } from '../infrastructure/scheduler/ScheduleMutationProposalStore.js';
 import {
@@ -7,7 +8,7 @@ import {
   notifyTaskRegistered,
   notifyTaskResumed,
 } from '../infrastructure/scheduler/schedule-notify.js';
-import type { TaskSpec_P1, TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { TaskDisplayMeta, TaskSpec_P1, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { requireScheduleMutationPrincipal } from './schedule-mutation-principal.js';
 import { createScheduleMutationAuditEntry, publishScheduleMutationProposal } from './schedule-mutation-proposal.js';
 import {
@@ -36,6 +37,48 @@ type ScheduleMutationRoutesOptions = Pick<
   | 'scheduleMutationProposalStore'
   | 'approvalIngress'
 >;
+
+function normalizeIdempotencyKey(value: unknown): string | null | { error: string } {
+  if (value == null) return null;
+  if (typeof value !== 'string') return { error: 'idempotencyKey must be a string' };
+  const trimmed = value.trim();
+  if (!trimmed) return { error: 'idempotencyKey must not be empty' };
+  if (trimmed.length > 200) return { error: 'idempotencyKey must be at most 200 characters' };
+  return trimmed;
+}
+
+function dynamicTaskResponse(def: Pick<DynamicTaskDef, 'id' | 'display' | 'trigger'>) {
+  return { id: def.id, ...def.display, trigger: def.trigger };
+}
+
+function compareUtf16(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function canonicalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        // Idempotency fingerprints must be byte-stable across host locales.
+        .sort(([left], [right]) => compareUtf16(left, right))
+        .map(([key, entry]) => [key, canonicalizeJson(entry)]),
+    );
+  }
+  return value;
+}
+
+function buildScheduleIdempotencyFingerprint(input: {
+  templateId: string;
+  trigger: unknown;
+  params: Record<string, unknown>;
+  display: TaskDisplayMeta;
+  deliveryThreadId: string | null;
+  actor: { triggerUserId: string; createdBy: string };
+}): string {
+  return JSON.stringify(canonicalizeJson(input));
+}
 
 export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOptions> = async (app, opts) => {
   const {
@@ -73,6 +116,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       params?: Record<string, unknown>;
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
+      idempotencyKey?: unknown;
     };
     if (!body.templateId) {
       reply.status(400);
@@ -88,11 +132,10 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       return { error: `Unknown template: ${body.templateId}` };
     }
 
+    const requestTrigger = body.trigger ?? template.defaultTrigger;
     let trigger: TriggerSpec;
     const rawOnceTrigger =
-      body.trigger && (body.trigger as Record<string, unknown>).type === 'once'
-        ? (body.trigger as Record<string, unknown>)
-        : null;
+      (requestTrigger as Record<string, unknown>).type === 'once' ? (requestTrigger as Record<string, unknown>) : null;
     const relativeOnceDelayMs =
       rawOnceTrigger && typeof rawOnceTrigger.delayMs === 'number' ? rawOnceTrigger.delayMs : undefined;
     if (rawOnceTrigger) {
@@ -103,12 +146,17 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       }
       trigger = result;
     } else {
-      trigger = body.trigger ?? template.defaultTrigger;
+      trigger = requestTrigger;
     }
     const rawParams = toPlainScheduleParams(body.params ?? {});
     if (!rawParams) {
       reply.status(400);
       return { error: 'params must be a plain object' };
+    }
+    const normalizedIdempotencyKey = normalizeIdempotencyKey(body.idempotencyKey);
+    if (normalizedIdempotencyKey && typeof normalizedIdempotencyKey !== 'string') {
+      reply.status(400);
+      return { error: normalizedIdempotencyKey.error };
     }
     const context = deriveScheduleRequestContext(request, {}, rawParams, mutationPrincipal);
     const targetResult = normalizeScheduleTargetParam(context.params);
@@ -145,6 +193,51 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       return { error: agentKeyScope.error, ...(agentKeyScope.code ? { code: agentKeyScope.code } : {}) };
     }
 
+    const idempotencyFingerprint =
+      normalizedIdempotencyKey == null
+        ? null
+        : buildScheduleIdempotencyFingerprint({
+            templateId: body.templateId,
+            trigger: requestTrigger,
+            params,
+            display,
+            deliveryThreadId: resolution.deliveryThreadId,
+            actor,
+          });
+
+    const ensureRuntimeTaskRegistered = (existing: DynamicTaskDef): void => {
+      if (!existing.enabled || taskRunner.getRegisteredTasks().includes(existing.id)) return;
+      const existingTemplate = templateRegistry.get(existing.templateId);
+      if (!existingTemplate) return;
+      const spec = existingTemplate.createSpec(existing.id, {
+        trigger: existing.trigger,
+        params: existing.params,
+        deliveryThreadId: existing.deliveryThreadId,
+      });
+      spec.display = existing.display;
+      taskRunner.registerDynamic(spec, existing.id);
+    };
+
+    const replayExistingTask = (existing: DynamicTaskDef, fingerprint: string) => {
+      if (existing.idempotencyFingerprint !== fingerprint) {
+        reply.status(409);
+        return {
+          error: 'Idempotency key already belongs to a different schedule registration request',
+          code: 'IDEMPOTENCY_CONFLICT',
+          task: dynamicTaskResponse(existing),
+        };
+      }
+      ensureRuntimeTaskRegistered(existing);
+      return { success: true, idempotent: true, task: dynamicTaskResponse(existing) };
+    };
+
+    if (normalizedIdempotencyKey && idempotencyFingerprint) {
+      const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
+      if (existing) {
+        return replayExistingTask(existing, idempotencyFingerprint);
+      }
+    }
+
     const def = {
       id,
       templateId: body.templateId,
@@ -155,8 +248,37 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       enabled: true,
       createdBy: actor.createdBy,
       createdAt: new Date().toISOString(),
+      idempotencyKey: normalizedIdempotencyKey,
+      idempotencyFingerprint,
     };
     if (mutationPrincipal.kind === 'cat') {
+      if (normalizedIdempotencyKey && idempotencyFingerprint) {
+        const existingProposal = scheduleMutationProposalStore.findUnsettledCreateByIdempotencyKey(
+          ownerUserId,
+          mutationPrincipal.catId,
+          normalizedIdempotencyKey,
+          idempotencyFingerprint,
+        );
+        if (existingProposal) {
+          if (existingProposal.kind === 'conflict') {
+            reply.status(409);
+            return {
+              error: 'Idempotency key already belongs to a different schedule registration proposal',
+              code: 'IDEMPOTENCY_CONFLICT',
+              proposalId: existingProposal.proposal.proposalId,
+              task: dynamicTaskResponse(existingProposal.proposal.mutation.task),
+            };
+          }
+          reply.status(202);
+          return {
+            success: true,
+            proposed: true,
+            idempotent: true,
+            proposalId: existingProposal.proposal.proposalId,
+            task: dynamicTaskResponse(existingProposal.proposal.mutation.task),
+          };
+        }
+      }
       const cardThreadId =
         mutationPrincipal.authKind === 'invocation' ? mutationPrincipal.threadId : resolution.deliveryThreadId;
       if (!cardThreadId) {
@@ -180,7 +302,7 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
         success: true,
         proposed: true,
         proposalId: proposal.proposalId,
-        task: { id, ...display, trigger },
+        task: dynamicTaskResponse(def),
       };
     }
 
@@ -190,10 +312,20 @@ export const scheduleMutationRoutes: FastifyPluginAsync<ScheduleMutationRoutesOp
       templateId: def.templateId,
       deliveryThreadId: def.deliveryThreadId,
     });
-    scheduleMutationProposalStore.insertTaskWithAudit(def, audit);
+    try {
+      scheduleMutationProposalStore.insertTaskWithAudit(def, audit);
+    } catch (err) {
+      if (normalizedIdempotencyKey && idempotencyFingerprint) {
+        const existing = dynamicTaskStore.getByIdempotencyKey(normalizedIdempotencyKey);
+        if (existing) {
+          return replayExistingTask(existing, idempotencyFingerprint);
+        }
+      }
+      throw err;
+    }
     taskRunner.registerDynamic(spec, id);
     notifyTaskRegistered(notifyLifecycle, def);
-    return { success: true, proposed: false, task: { id, ...display, trigger } };
+    return { success: true, proposed: false, task: dynamicTaskResponse(def) };
   });
 
   app.delete('/api/schedule/tasks/:id', async (request, reply) => {

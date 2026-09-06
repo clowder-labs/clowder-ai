@@ -22,6 +22,8 @@ export interface ScheduleMutationTaskDefinition {
   enabled: boolean;
   createdBy: string;
   createdAt: string;
+  idempotencyKey?: string | null;
+  idempotencyFingerprint?: string | null;
 }
 
 export type ScheduleMutation =
