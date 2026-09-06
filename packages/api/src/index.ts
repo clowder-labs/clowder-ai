@@ -3105,7 +3105,7 @@ async function main(): Promise<void> {
     './infrastructure/harness-eval/publish-verdict/git-worktree-publisher.js'
   );
   const verdictRepoFullName =
-    process.env.CAT_CAFE_VERDICT_REPO_FULL_NAME ?? process.env.CAT_CAFE_REPO_FULL_NAME ?? 'zts212653/cat-cafe';
+    process.env.CAT_CAFE_VERDICT_REPO_FULL_NAME ?? process.env.CAT_CAFE_REPO_FULL_NAME ?? 'clowder-labs/clowder-ai';
   const { createA2aGeneratorAdapter } = await import(
     './infrastructure/harness-eval/publish-verdict/a2a-generator-adapter.js'
   );
@@ -6597,7 +6597,7 @@ async function main(): Promise<void> {
 
     const trajIntervalMs = Number.parseInt(process.env.F233_FEAT_TRAJECTORY_COLLECTOR_INTERVAL_MS ?? '', 10);
     const repoRoot = process.env.CAT_CAFE_REPO_ROOT || process.cwd();
-    const repoFullName = process.env.CAT_CAFE_REPO_FULL_NAME || 'zts212653/cat-cafe';
+    const repoFullName = process.env.CAT_CAFE_REPO_FULL_NAME || 'clowder-labs/clowder-ai';
 
     const trajProjector = new FeatTrajectoryProjectorCls(featTrajectoryStore);
     const gitRunner = new RealGitRunner(repoRoot);
