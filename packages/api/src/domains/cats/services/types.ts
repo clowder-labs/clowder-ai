@@ -527,6 +527,33 @@ export interface AgentService {
    * cliSessionId path unchanged.
    */
   usesChainKeyResume?(): boolean;
+
+  /**
+   * F177 Phase H (KD-13) — true iff this service runs in a harness that does
+   * NOT honor the Claude Code F177-G Stop hook (e.g. CodexAgentService via
+   * `codex exec --json`, which does not dispatch ~/.codex/hooks.json — H0 spike
+   * 2026-06-11). When true, the serial route layer applies a server-side
+   * routing guard: one inline remedial invoke when the turn ends with no valid
+   * routing exit. Optional — defaults to false (Claude-family is already
+   * covered by the Stop hook).
+   */
+  needsServerRoutingGuard?(): boolean;
+
+  /**
+   * Issue #59 — what kind of MCP prompt injection this provider supports.
+   *
+   * - `'native-mcp'`: Provider has a native MCP client (e.g. Claude CLI
+   *   `--mcp-config`). Inject MCP_TOOLS_SECTION into static identity.
+   * - `'http-callback'`: Provider can use HTTP callbacks via shell/curl
+   *   (e.g. Codex, Gemini). Inject C1 HTTP callback instructions.
+   * - `'none'`: Provider cannot consume MCP tools or HTTP callbacks
+   *   (e.g. CatAgent pre-bridge — no MCP client, no shell access).
+   *   Neither S13 nor C1 is injected.
+   *
+   * Optional — when absent, falls back to the legacy boolean
+   * `mcpSupport && !!mcpServerPath` logic for back-compat.
+   */
+  mcpPromptMode?(): 'native-mcp' | 'http-callback' | 'none';
 }
 
 /**

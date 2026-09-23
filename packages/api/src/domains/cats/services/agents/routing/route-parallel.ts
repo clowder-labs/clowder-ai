@@ -82,7 +82,7 @@ import {
   sealBeforeInvocationIfNeeded,
 } from '../invocation/invocation-capacity-snapshot.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
-import { buildMcpCallbackInstructions, needsMcpInjection } from '../invocation/McpPromptInjector.js';
+import { buildMcpCallbackInstructions, resolveMcpPromptInjection } from '../invocation/McpPromptInjector.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveManagedSessionPolicySnapshot } from '../invocation/session-policy-snapshot.js';
 import { mergeStreams } from '../invocation/stream-merge.js';
@@ -470,15 +470,6 @@ export async function* routeParallel(
       const catConciergeContext = conciergeContextForCat(conciergeCtx, catId as string);
       const conciergeSearchContextForCat =
         conciergeSearchContextString && 'conciergeConfig' in catConciergeContext ? conciergeSearchContextString : '';
-      // F203 Phase C: non-pack identity/家规/MCP docs travel via the
-      // compression-immune native system role (--system-prompt-file / -c)
-      // ONLY for providers with native L0 injection (ClaudeAgentService -p,
-      // ClaudeBgCarrierService, CodexAgent). Non-native providers (Gemini,
-      // Antigravity, CatAgent, A2A, OpenCode, Kimi…) still need full
-      // identity via user-message systemPrompt prepend, else they
-      // lose identity/家规 entirely (云端 Codex P1-cloud-1, 2026-05-16).
-      // mcpAvailable still gates the per-message HTTP callback fallback.
-      const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
       // F129: Load active pack blocks (best-effort)
       let packBlocks: import('@cat-cafe/shared').CompiledPackBlocks | null = null;
       if (deps.packStore) {
@@ -522,16 +513,21 @@ export async function* routeParallel(
       });
       if (sealedForCapacity) capacitySnapshot = resolvedCapacitySnapshot;
       const hasNativeL0 = service.injectsL0Natively?.() ?? false;
-      // Staging is injected in invoke-single-cat independently of staticIdentity
-      // (Cloud R2 P1 #2237 L1099). See route-serial.ts for the architecture rationale.
+      // Issue #59: MCP prompt injection resolved from service.mcpPromptMode()
+      // capability. Falls back to legacy mcpSupport && mcpServerPath for
+      // providers that haven't adopted the new capability yet.
+      // F203 Phase C: non-pack identity/家規/MCP docs travel via the
+      // compression-immune native system role only for native-L0 providers.
+      const mcpInjection = resolveMcpPromptInjection(service, catConfig, mcpServerPath);
+      const mcpAvailable = mcpInjection.injectNativeMcpDocs;
       const staticIdentity = hasNativeL0
         ? buildStaticIdentityPackOnly(catId, { packBlocks })
         : buildStaticIdentity(catId, { mcpAvailable, packBlocks });
       // F237: drain session trace IMMEDIATELY — before any await that could let
       // another parallel cat overwrite the module-global capture buffer.
       drainCapturedTraces();
-      // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
-      const mcpInstructions = needsMcpInjection(mcpAvailable, catConfig?.clientId)
+      // Issue #59: HTTP callback injection from resolved mode (not boolean flip).
+      const mcpInstructions = mcpInjection.injectHttpCallbackDocs
         ? buildMcpCallbackInstructions({
             currentCatId: catId as string,
             teammates: teammates.map((id) => id as string),
