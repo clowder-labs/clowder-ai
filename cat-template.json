@@ -91,6 +91,19 @@
       "roleDescription": "灵巧的轻装猫——短任务、快回合、不绕弯",
       "personality": "直爽好奇守边界，任务越具体越高效；不确定先查真相源不硬猜",
       "teamStrengths": "状态查询、日志定位、命令输出解读、文本提取、简短问答、简单脚本片段、lint & test smoke、多轮工具循环"
+    },
+    {
+      "id": "moonshot",
+      "name": "梵花猫",
+      "nickname": "墨墨",
+      "avatar": "/avatars/kimi.png",
+      "color": {
+        "primary": "#4B5563",
+        "secondary": "#E5E7EB"
+      },
+      "roleDescription": "中文长文本助手，擅长中文语境理解、资料整理与结构化表达",
+      "personality": "稳健细致，擅长长文阅读和中文语境下的结构化表达",
+      "teamStrengths": "中文长文、总结归纳、资料整理"
     }
   ],
   "clientDefaults": {
@@ -117,6 +130,15 @@
         "Gemini 3.6 Flash (High)",
         "Gemini 3.5 Flash (High)",
         "Claude Opus 4.6 (Thinking)"
+      ]
+    },
+    "kimi": {
+      "defaultModel": "kimi-code/kimi-for-coding",
+      "models": [
+        "kimi-code/kimi-for-coding",
+        "kimi-code/k3",
+        "kimi-code/k3-256k",
+        "kimi-code/kimi-for-coding-highspeed"
       ]
     }
   },
