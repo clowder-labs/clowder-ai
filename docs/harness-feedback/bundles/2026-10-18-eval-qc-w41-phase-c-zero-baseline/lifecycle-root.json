@@ -1,0 +1,21 @@
+{
+  "verdictId": "2026-10-18-eval-qc-w41-phase-c-zero-baseline",
+  "domainId": "eval:qc",
+  "createdAt": "2026-10-18T04:27:00.000Z",
+  "verdict": "keep_observe",
+  "harnessUnderEval": {
+    "featureId": "F253",
+    "componentId": "qc-pipeline-metrics",
+    "name": "QC Pipeline Metrics"
+  },
+  "ownerAsk": {
+    "targetFeatureId": "F253",
+    "targetOwnerCatId": "opus",
+    "requestedAction": "Continue Phase C zero-baseline observation. Phase D will wire live review telemetry sources. Note 7-week publication gap (W34-W40) now resolved."
+  },
+  "acceptanceReevalPlan": {
+    "nextEvalAt": "2026-10-25T03:00:00.000Z",
+    "closureCondition": "Phase D wires at least one live telemetry source producing nonzero QC metrics"
+  },
+  "schemaVersion": 1
+}
