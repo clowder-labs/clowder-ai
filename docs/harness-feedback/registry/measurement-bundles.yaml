@@ -1,0 +1,16 @@
+# F267 measurement-bundle census — machine-maintained by the verdict publisher.
+# Manual edits will be rejected by the pre-push contract check.
+kind: f267-measurement-bundle-census
+schemaVersion: 2
+generatedAt: "2026-10-18T03:05:00Z"
+verdictCorpusHash: 51702035505e289e71104da7b96bc16791a1db307081793910ea10158b973e80
+committedVerdictArtifactCount: 77
+domains:
+  - domainId: eval:a2a
+    committedVerdictArtifactCount: 51
+  - domainId: eval:anchor-first
+    committedVerdictArtifactCount: 6
+  - domainId: eval:friction
+    committedVerdictArtifactCount: 15
+  - domainId: eval:qc
+    committedVerdictArtifactCount: 5
