@@ -1,13 +1,13 @@
 kind: f267-measurement-bundle-census
 schemaVersion: 2
-generatedAt: 2026-09-02T03:13:15.673Z
+generatedAt: 2026-10-18T04:27:00.000Z
 sources:
   registryDir: docs/harness-feedback/eval-domains
   instructionMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#DOMAIN_INSTRUCTIONS
   publishMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN
   verdictDir: docs/harness-feedback/verdicts
-verdictCorpusHash: b960a2ffe5e7aac00752ad42f51fe3bcc9feac7956d99214324dfdf16eb6bca3
-committedVerdictArtifactCount: 67
+verdictCorpusHash: 8e98dc4d62afdba203df044c6597d404f827c3db6873b1ca3535eb6add36c3c6
+committedVerdictArtifactCount: 68
 entries:
   - domainId: eval:a2a
     classification: active_decision_bearing
@@ -255,7 +255,7 @@ entries:
     sourceSelector:
       adapter: qc-metrics-eval
       kind: qc-metrics-rollup
-    committedVerdictArtifactCount: 5
+    committedVerdictArtifactCount: 6
     functionalEquivalents:
       - qc-metrics-eval
     evidence:

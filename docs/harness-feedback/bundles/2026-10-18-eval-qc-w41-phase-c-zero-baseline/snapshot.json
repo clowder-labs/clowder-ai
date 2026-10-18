@@ -1,0 +1,27 @@
+{
+  "verdictId": "2026-10-18-eval-qc-w41-phase-c-zero-baseline",
+  "evalSnapshotId": "qc-snapshot-2026-10-18-eval-qc-w41-phase-c-zero-baseline",
+  "featureId": "F253",
+  "generatedAt": "2026-10-18T04:28:27.067Z",
+  "window": {
+    "startMs": 1728950400000,
+    "endMs": 1729555200000,
+    "durationHours": 168
+  },
+  "components": [
+    {
+      "componentId": "qc-pipeline",
+      "componentName": "QC Pipeline",
+      "activationCounts": {
+        "finding_yield": 0,
+        "reviewer_delta": 0,
+        "pr_count": 0
+      },
+      "frictionCounts": {
+        "false_positive_rate": 0,
+        "post_merge_bug_rate": 0
+      },
+      "confidence": "no-data"
+    }
+  ]
+}

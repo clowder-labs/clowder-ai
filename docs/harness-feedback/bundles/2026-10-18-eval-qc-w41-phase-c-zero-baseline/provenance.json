@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-10-18-eval-qc-w41-phase-c-zero-baseline",
+  "rawInputs": [
+    {
+      "path": "bundles/2026-10-18-eval-qc-w41-phase-c-zero-baseline/snapshot.json",
+      "sha256": "ff83dba04d51f7105cd4446df41825cbbaf80adff4b159b837695f5d79a691b7"
+    }
+  ],
+  "generatedAt": "2026-10-18T04:28:27.067Z",
+  "generator": {
+    "name": "qc-generator-adapter",
+    "version": "1.0.0"
+  },
+  "sanitizeRulesVersion": "1.0.0"
+}
