@@ -152,4 +152,37 @@ describe('useAgentMessages telemetry suppression', () => {
 
     expect(mockAddMessage).not.toHaveBeenCalled();
   });
+
+  // clowder-ai#141 session_policy_execution: F033 (#1334) added this API-side event
+  // (invoke-single-cat.ts) but no web dispatch branch ever consumed it, so it fell
+  // through to `sysContent = msg.content` and surfaced as a raw JSON bubble.
+  // It is pure telemetry (policy execution status transitions) — silently consume.
+  // Real observed bubble: {"type":"session_policy_execution","invocationId":"51e484e6-...",...}
+  it('suppresses session_policy_execution — no system bubble (#141)', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus46',
+        content: JSON.stringify({
+          type: 'session_policy_execution',
+          invocationId: '51e484e6-4cef-406d-90eb-ea56a4caf0be',
+          previousExecution: {
+            status: 'unavailable',
+            missingCapabilities: ['effective_input_ceiling', 'carrier_binding', 'authoritative_usage'],
+          },
+          effectiveStrategy: {
+            config: { strategy: 'handoff', thresholds: { warn: 0.8, action: 0.9 }, turnBudget: 12000 },
+            source: 'provider_default',
+            execution: { status: 'active', missingCapabilities: [] },
+          },
+        }),
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+  });
 });

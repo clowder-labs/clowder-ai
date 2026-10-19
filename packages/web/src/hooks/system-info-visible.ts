@@ -15,6 +15,11 @@ const INTERNAL_SYSTEM_INFO_TELEMETRY_TYPES = new Set([
   'strategy_allow_compress',
   'tool_activity',
   'turn_duration', // F230 P2: PTY carrier terminal event — silently consumed, never shown as bubble
+  // clowder-ai#141: F033 (#1334) emits session_policy_execution from the API whenever policy
+  // execution status / missingCapabilities change. No dispatch branch ever consumed it, so it
+  // fell through to `sysContent = msg.content` and surfaced as a raw JSON bubble. It is pure
+  // telemetry (the same snapshot already drives the Hub session-strategy UI) — suppress it.
+  'session_policy_execution',
 ]);
 
 export function isInternalSystemInfoTelemetry(parsed: Record<string, unknown>): boolean {
